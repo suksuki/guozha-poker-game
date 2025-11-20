@@ -1,0 +1,10 @@
+# WSL 配置文件
+# 放在 Windows 用户目录下: C:\Users\你的用户名\.wslconfig
+# 这个文件可以帮助配置 WSL 网络
+
+[wsl2]
+networkingMode=mirrored
+dnsTunneling=true
+firewall=true
+autoProxy=true
+
