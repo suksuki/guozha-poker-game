@@ -55,12 +55,32 @@ export enum PlayerType {
   AI = 'ai'
 }
 
+// 轮次出牌记录
+export interface RoundPlayRecord {
+  playerId: number;
+  playerName: string;
+  cards: Card[];
+  scoreCards: Card[]; // 这一手牌中的分牌
+  score: number; // 这一手牌的分值
+}
+
+// 轮次记录（一轮的所有出牌）
+export interface RoundRecord {
+  roundNumber: number;
+  plays: RoundPlayRecord[]; // 这一轮的所有出牌
+  totalScore: number; // 这一轮的总分数
+  winnerId: number; // 这一轮的赢家
+  winnerName: string;
+}
+
 // 玩家信息
 export interface Player {
   id: number;
   name: string;
   type: PlayerType;
   hand: Card[];
+  score?: number; // 玩家得分（捡到的分）
+  wonRounds?: RoundRecord[]; // 玩家赢得的轮次记录
   isHuman?: boolean; // 是否是人类玩家（可以手动操作）
   aiConfig?: { apiKey: string; strategy?: 'aggressive' | 'conservative' | 'balanced' };
 }

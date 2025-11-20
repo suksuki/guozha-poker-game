@@ -6,7 +6,9 @@ import {
   dealCards,
   getCardType,
   canPlayCards,
-  canBeat
+  canBeat,
+  isScoreCard,
+  getCardScore
 } from '../src/utils/cardUtils'
 
 describe('回归测试 - 确保已修复的bug不会再次出现', () => {
@@ -273,13 +275,16 @@ describe('回归测试 - 确保已修复的bug不会再次出现', () => {
       
       hands.forEach((hand, playerIndex) => {
         hand.forEach(card => {
-          // ID应该包含玩家索引
+          // ID应该包含玩家索引（新格式：...-player${playerIndex}-hand...）
           expect(card.id).toContain(`player${playerIndex}`)
           // ID应该是唯一的
           expect(allIds.has(card.id)).toBe(false)
           allIds.add(card.id)
         })
       })
+      
+      // 确保所有牌都有唯一的ID
+      expect(allIds.size).toBe(hands.reduce((sum, hand) => sum + hand.length, 0))
     })
   })
 
@@ -306,6 +311,41 @@ describe('回归测试 - 确保已修复的bug不会再次出现', () => {
       expect(three).not.toBeNull()
       expect(two).not.toBeNull()
       expect(canBeat(two!, three!)).toBe(true)
+    })
+  })
+
+  describe('轮次记录功能回归测试', () => {
+    it('玩家对象应该支持wonRounds字段', () => {
+      // 确保新的轮次记录功能不会破坏现有Player接口
+      const player = {
+        id: 0,
+        name: '测试玩家',
+        type: 'human' as const,
+        hand: [],
+        score: 0,
+        wonRounds: [] as any[]
+      }
+      
+      expect(player.wonRounds).toBeDefined()
+      expect(Array.isArray(player.wonRounds)).toBe(true)
+      expect(player.wonRounds.length).toBe(0)
+    })
+
+    it('分牌识别功能应该正常工作', () => {
+      const five: Card = { suit: Suit.SPADES, rank: Rank.FIVE, id: 's5' }
+      const ten: Card = { suit: Suit.HEARTS, rank: Rank.TEN, id: 'h10' }
+      const king: Card = { suit: Suit.DIAMONDS, rank: Rank.KING, id: 'dK' }
+      const four: Card = { suit: Suit.CLUBS, rank: Rank.FOUR, id: 'c4' }
+      
+      expect(isScoreCard(five)).toBe(true)
+      expect(isScoreCard(ten)).toBe(true)
+      expect(isScoreCard(king)).toBe(true)
+      expect(isScoreCard(four)).toBe(false)
+      
+      expect(getCardScore(five)).toBe(5)
+      expect(getCardScore(ten)).toBe(10)
+      expect(getCardScore(king)).toBe(10)
+      expect(getCardScore(four)).toBe(0)
     })
   })
 })

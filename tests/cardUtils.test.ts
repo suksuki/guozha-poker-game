@@ -7,7 +7,9 @@ import {
   getCardType,
   canPlayCards,
   canBeat,
-  sortCards
+  sortCards,
+  hasPlayableCards,
+  findPlayableCards
 } from '../src/utils/cardUtils'
 
 describe('cardUtils', () => {
@@ -308,6 +310,118 @@ describe('cardUtils', () => {
       expect(sorted[0].rank).toBe(Rank.THREE)
       expect(sorted[1].rank).toBe(Rank.FOUR)
       expect(sorted[2].rank).toBe(Rank.FIVE)
+    })
+  })
+
+  describe('hasPlayableCards - 强制出牌规则', () => {
+    it('没有上家出牌时，应该返回true（可以出任何牌）', () => {
+      const hand: Card[] = [
+        { suit: Suit.SPADES, rank: Rank.THREE, id: 'test-1' }
+      ]
+      expect(hasPlayableCards(hand, null)).toBe(true)
+    })
+
+    it('空手牌时，应该返回false', () => {
+      const lastPlay = canPlayCards([
+        { suit: Suit.SPADES, rank: Rank.THREE, id: 'test-1' }
+      ])
+      expect(hasPlayableCards([], lastPlay)).toBe(false)
+    })
+
+    it('有能打过的牌时，应该返回true', () => {
+      const lastPlay = canPlayCards([
+        { suit: Suit.SPADES, rank: Rank.THREE, id: 'test-1' }
+      ])
+      const hand: Card[] = [
+        { suit: Suit.HEARTS, rank: Rank.FOUR, id: 'test-2' }
+      ]
+      expect(hasPlayableCards(hand, lastPlay)).toBe(true)
+    })
+
+    it('没有能打过的牌时，应该返回false', () => {
+      const lastPlay = canPlayCards([
+        { suit: Suit.SPADES, rank: Rank.TWO, id: 'test-1' }
+      ])
+      const hand: Card[] = [
+        { suit: Suit.HEARTS, rank: Rank.THREE, id: 'test-2' }
+      ]
+      expect(hasPlayableCards(hand, lastPlay)).toBe(false)
+    })
+
+    it('有炸弹可以压过单张时，应该返回true', () => {
+      const lastPlay = canPlayCards([
+        { suit: Suit.SPADES, rank: Rank.THREE, id: 'test-1' }
+      ])
+      const hand: Card[] = Array.from({ length: 4 }, (_, i) => ({
+        suit: Suit.SPADES,
+        rank: Rank.FOUR,
+        id: `test-${i + 2}`
+      }))
+      expect(hasPlayableCards(hand, lastPlay)).toBe(true)
+    })
+
+    it('有对子可以压过单张时，应该返回true', () => {
+      const lastPlay = canPlayCards([
+        { suit: Suit.SPADES, rank: Rank.THREE, id: 'test-1' }
+      ])
+      const hand: Card[] = [
+        { suit: Suit.SPADES, rank: Rank.FOUR, id: 'test-2' },
+        { suit: Suit.HEARTS, rank: Rank.FOUR, id: 'test-3' }
+      ]
+      expect(hasPlayableCards(hand, lastPlay)).toBe(true)
+    })
+
+    it('只有相同rank但更小的牌时，应该返回false', () => {
+      const lastPlay = canPlayCards([
+        { suit: Suit.SPADES, rank: Rank.FOUR, id: 'test-1' }
+      ])
+      const hand: Card[] = [
+        { suit: Suit.HEARTS, rank: Rank.THREE, id: 'test-2' }
+      ]
+      expect(hasPlayableCards(hand, lastPlay)).toBe(false)
+    })
+
+    it('有墩可以压过炸弹时，应该返回true', () => {
+      const lastPlay = canPlayCards(Array.from({ length: 4 }, (_, i) => ({
+        suit: Suit.SPADES,
+        rank: Rank.THREE,
+        id: `test-${i + 1}`
+      })))
+      const hand: Card[] = Array.from({ length: 7 }, (_, i) => ({
+        suit: Suit.SPADES,
+        rank: Rank.FOUR,
+        id: `test-${i + 5}`
+      }))
+      expect(hasPlayableCards(hand, lastPlay)).toBe(true)
+    })
+  })
+
+  describe('findPlayableCards', () => {
+    it('没有上家出牌时，应该返回所有合法牌型', () => {
+      const hand: Card[] = [
+        { suit: Suit.SPADES, rank: Rank.THREE, id: 'test-1' },
+        { suit: Suit.HEARTS, rank: Rank.THREE, id: 'test-2' }
+      ]
+      const playable = findPlayableCards(hand, null)
+      expect(playable.length).toBeGreaterThan(0)
+    })
+
+    it('有上家出牌时，应该只返回能打过的牌', () => {
+      const lastPlay = canPlayCards([
+        { suit: Suit.SPADES, rank: Rank.THREE, id: 'test-1' }
+      ])
+      const hand: Card[] = [
+        { suit: Suit.HEARTS, rank: Rank.FOUR, id: 'test-2' },
+        { suit: Suit.DIAMONDS, rank: Rank.TWO, id: 'test-3' }
+      ]
+      const playable = findPlayableCards(hand, lastPlay)
+      expect(playable.length).toBeGreaterThan(0)
+      // 所有返回的牌都应该能打过上家的牌
+      playable.forEach(cards => {
+        const play = canPlayCards(cards)
+        expect(play).not.toBeNull()
+        expect(canBeat(play!, lastPlay)).toBe(true)
+      })
     })
   })
 })

@@ -64,13 +64,28 @@ git remote -v
 
 ## 步骤 7: 推送到 GitHub
 
+**重要**: GitHub 已不再支持密码认证，需要使用 Personal Access Token (PAT) 或 SSH 密钥。
+
+### 使用 Personal Access Token (推荐)
+
+1. 在 GitHub 创建 Personal Access Token：
+   - Settings → Developer settings → Personal access tokens → Tokens (classic)
+   - Generate new token → 勾选 `repo` 权限 → Generate
+   - **复制 token**（只显示一次）
+
+2. 推送代码：
 ```bash
 # 推送代码到 GitHub（main 分支）
 git branch -M main
 git push -u origin main
+# 当提示输入密码时，输入你的 Personal Access Token（不是GitHub密码）
 ```
 
-如果这是第一次推送，GitHub 可能会要求你输入用户名和密码（或使用 Personal Access Token）。
+### 使用 SSH（更安全，推荐长期使用）
+
+详见 `GITHUB_AUTH.md` 文件中的详细说明。
+
+**如果遇到认证问题，请查看 `GITHUB_AUTH.md` 文件获取详细解决方案。**
 
 ## 后续更新代码
 

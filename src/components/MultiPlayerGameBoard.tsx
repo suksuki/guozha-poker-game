@@ -1,20 +1,64 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, PlayerType, CardType, GameStatus } from '../types/card';
 import { CardComponent } from './CardComponent';
 import { useMultiPlayerGame } from '../hooks/useMultiPlayerGame';
-import { sortCards } from '../utils/cardUtils';
+import { sortCards, hasPlayableCards, isScoreCard, getCardScore, calculateCardsScore } from '../utils/cardUtils';
 import { AIConfig } from '../utils/aiPlayer';
 import './MultiPlayerGameBoard.css';
+
+// localStorage 键名
+const OPENAI_KEY_STORAGE_KEY = 'guozha_poker_openai_key';
+
+// 从 localStorage 读取 API Key
+const getStoredApiKey = (): string => {
+  try {
+    return localStorage.getItem(OPENAI_KEY_STORAGE_KEY) || '';
+  } catch (error) {
+    console.error('读取 localStorage 失败:', error);
+    return '';
+  }
+};
+
+// 保存 API Key 到 localStorage
+const saveApiKey = (key: string): void => {
+  try {
+    if (key.trim()) {
+      localStorage.setItem(OPENAI_KEY_STORAGE_KEY, key.trim());
+    } else {
+      localStorage.removeItem(OPENAI_KEY_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.error('保存 localStorage 失败:', error);
+  }
+};
 
 export const MultiPlayerGameBoard: React.FC = () => {
   const { gameState, startGame, playerPlay, playerPass, suggestPlay, resetGame } = useMultiPlayerGame();
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
-  const [openaiKey, setOpenaiKey] = useState('');
+  const [openaiKey, setOpenaiKey] = useState(() => getStoredApiKey()); // 从 localStorage 初始化
   const [playerCount, setPlayerCount] = useState(4);
   const [humanPlayerIndex, setHumanPlayerIndex] = useState(0);
   const [strategy, setStrategy] = useState<'aggressive' | 'conservative' | 'balanced'>('balanced');
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [expandedRanks, setExpandedRanks] = useState<Set<number>>(new Set());
+
+  // 当 API Key 改变时，保存到 localStorage
+  useEffect(() => {
+    saveApiKey(openaiKey);
+  }, [openaiKey]);
+
+  // 处理 API Key 输入变化
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newKey = e.target.value;
+    setOpenaiKey(newKey);
+    // saveApiKey 会在 useEffect 中自动调用
+  };
+
+  // 清除保存的 API Key
+  const handleClearApiKey = () => {
+    setOpenaiKey('');
+    localStorage.removeItem(OPENAI_KEY_STORAGE_KEY);
+  };
 
   const handleCardClick = (card: Card) => {
     if (gameState.status !== GameStatus.PLAYING) return;
@@ -118,6 +162,14 @@ export const MultiPlayerGameBoard: React.FC = () => {
   const currentPlayer = getCurrentPlayer();
   const isPlayerTurn = currentPlayer?.isHuman;
 
+  // 检查玩家是否有能打过的牌（用于强制出牌规则）
+  const canPass = useMemo(() => {
+    if (!isPlayerTurn || !gameState.lastPlay || !humanPlayer) {
+      return true; // 没有上家出牌时可以要不起
+    }
+    return !hasPlayableCards(humanPlayer.hand, gameState.lastPlay);
+  }, [isPlayerTurn, gameState.lastPlay, humanPlayer]);
+
   // 按数字分组手牌（用于叠放显示）- 必须在早期返回之前
   const groupedHand = useMemo(() => {
     if (!humanPlayer) return new Map();
@@ -166,12 +218,27 @@ export const MultiPlayerGameBoard: React.FC = () => {
             </div>
             <div className="config-item">
               <label>OpenAI API Key:</label>
-              <input
-                type="password"
-                value={openaiKey}
-                onChange={(e) => setOpenaiKey(e.target.value)}
-                placeholder="输入你的OpenAI API Key"
-              />
+              <div className="api-key-input-group">
+                <input
+                  type="password"
+                  value={openaiKey}
+                  onChange={handleApiKeyChange}
+                  placeholder={openaiKey ? "API Key 已保存" : "输入你的OpenAI API Key"}
+                />
+                {openaiKey && (
+                  <button
+                    type="button"
+                    className="btn-clear-key"
+                    onClick={handleClearApiKey}
+                    title="清除保存的 API Key"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              {openaiKey && (
+                <div className="api-key-hint">✓ API Key 已保存，下次会自动加载</div>
+              )}
             </div>
             <div className="config-item">
               <label>AI策略:</label>
@@ -244,8 +311,21 @@ export const MultiPlayerGameBoard: React.FC = () => {
                 key={player.id} 
                 className={`player-card ${isCurrent ? 'current-player' : ''} ${isLastPlay ? 'last-play-player' : ''}`}
               >
-                <div className="player-name">{player.name}</div>
-                <div className="player-card-count">剩余: {player.hand.length} 张</div>
+              <div className="player-name">{player.name}</div>
+              <div className="player-card-count">剩余: {player.hand.length} 张</div>
+              <div className="player-score">得分: {player.score || 0} 分</div>
+              {player.wonRounds && player.wonRounds.length > 0 && (
+                <div className="player-won-rounds">
+                  <div className="won-rounds-label">赢得 {player.wonRounds.length} 轮</div>
+                  <div className="won-rounds-summary">
+                    {player.wonRounds.map((round, idx) => (
+                      <div key={idx} className="won-round-badge" title={`第${round.roundNumber}轮: ${round.totalScore}分`}>
+                        轮{round.roundNumber}: {round.totalScore}分
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
                 <div className="player-cards-preview">
                   {Array.from({ length: Math.min(player.hand.length, 5) }).map((_, i) => (
                     <CardComponent key={i} card={player.hand[0]} faceDown size="small" />
@@ -257,25 +337,62 @@ export const MultiPlayerGameBoard: React.FC = () => {
           })}
       </div>
 
-      {/* 出牌区域 */}
-      <div className="play-area">
-        {gameState.lastPlay && (
-          <div className="last-play">
-            <div className="play-label">
-              {gameState.players[gameState.lastPlayPlayerIndex!]?.name} 出牌:
+        {/* 出牌区域 */}
+        <div className="play-area">
+          {gameState.lastPlay && (
+            <div className="last-play">
+              <div className="play-label">
+                {gameState.players[gameState.lastPlayPlayerIndex!]?.name} 出牌:
+              </div>
+              <div className="play-cards">
+                {gameState.lastPlay.cards.map((card) => (
+                  <CardComponent key={card.id} card={card} size="medium" />
+                ))}
+              </div>
+              <div className="play-type">{getCardTypeName(gameState.lastPlay.type)}</div>
+              {gameState.roundScore > 0 && (
+                <div className="round-score">本轮分数: {gameState.roundScore} 分</div>
+              )}
             </div>
-            <div className="play-cards">
-              {gameState.lastPlay.cards.map((card) => (
-                <CardComponent key={card.id} card={card} size="medium" />
+          )}
+          {!gameState.lastPlay && (
+            <div className="no-play">可以出任意合法牌型</div>
+          )}
+          
+          {/* 当前轮次出牌记录 */}
+          {gameState.currentRoundPlays && gameState.currentRoundPlays.length > 0 && (
+            <div className="round-plays-history">
+              <div className="round-plays-title">第 {gameState.roundNumber || 1} 轮出牌记录:</div>
+              {gameState.currentRoundPlays.map((playRecord, index) => (
+                <div key={index} className="round-play-item">
+                  <div className="round-play-player">{playRecord.playerName}:</div>
+                  <div className="round-play-cards">
+                    {playRecord.cards.map((card) => {
+                      const isScore = isScoreCard(card);
+                      const score = isScore ? getCardScore(card) : 0;
+                      return (
+                        <div key={card.id} className={isScore ? 'score-card-wrapper' : ''}>
+                          <CardComponent card={card} size="small" />
+                          {isScore && (
+                            <div className="card-score-badge-small">{score}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {playRecord.score > 0 && (
+                    <div className="round-play-score">+{playRecord.score} 分</div>
+                  )}
+                </div>
               ))}
+              {gameState.roundScore > 0 && (
+                <div className="round-total-score">
+                  本轮累计: {gameState.roundScore} 分
+                </div>
+              )}
             </div>
-            <div className="play-type">{getCardTypeName(gameState.lastPlay.type)}</div>
-          </div>
-        )}
-        {!gameState.lastPlay && (
-          <div className="no-play">可以出任意合法牌型</div>
-        )}
-      </div>
+          )}
+        </div>
 
       {/* 玩家手牌区域 */}
       <div className="player-area">
@@ -289,6 +406,19 @@ export const MultiPlayerGameBoard: React.FC = () => {
           <>
             <div className="player-info">
               <h3>你的手牌 ({humanPlayer.hand.length} 张)</h3>
+              <div className="player-score-display">得分: {humanPlayer.score || 0} 分</div>
+              {humanPlayer.wonRounds && humanPlayer.wonRounds.length > 0 && (
+                <div className="player-won-rounds">
+                  <div className="won-rounds-label">你赢得了 {humanPlayer.wonRounds.length} 轮</div>
+                  <div className="won-rounds-summary">
+                    {humanPlayer.wonRounds.map((round, idx) => (
+                      <div key={idx} className="won-round-badge" title={`第${round.roundNumber}轮: ${round.totalScore}分`}>
+                        轮{round.roundNumber}: {round.totalScore}分
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {isPlayerTurn && <div className="your-turn">轮到你出牌</div>}
             </div>
             <div className="player-hand-grouped">
@@ -329,18 +459,26 @@ export const MultiPlayerGameBoard: React.FC = () => {
                           <span className="selected-badge">已选 {selectedCount}</span>
                         )}
                       </div>
-                      {isExpanded && (
-                        <div className="card-group-content">
-                          {cards.map((card) => (
-                            <CardComponent
-                              key={card.id}
-                              card={card}
-                              selected={selectedCards.some(c => c.id === card.id)}
-                              onClick={() => handleCardClick(card)}
-                            />
-                          ))}
-                        </div>
-                      )}
+                        {isExpanded && (
+                          <div className="card-group-content">
+                            {cards.map((card) => {
+                              const isScore = isScoreCard(card);
+                              const score = isScore ? getCardScore(card) : 0;
+                              return (
+                                <div key={card.id} className={isScore ? 'score-card-wrapper' : ''}>
+                                  <CardComponent
+                                    card={card}
+                                    selected={selectedCards.some(c => c.id === card.id)}
+                                    onClick={() => handleCardClick(card)}
+                                  />
+                                  {isScore && (
+                                    <div className="card-score-badge">{score}分</div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                     </div>
                   );
                 })
@@ -364,10 +502,16 @@ export const MultiPlayerGameBoard: React.FC = () => {
               <button
                 className="btn-action btn-pass"
                 onClick={handlePass}
-                disabled={!isPlayerTurn || !gameState.lastPlay}
+                disabled={!isPlayerTurn || !gameState.lastPlay || !canPass}
+                title={!canPass && isPlayerTurn && gameState.lastPlay ? "你有能打过的牌，必须出牌！" : "要不起"}
               >
-                要不起
+                {!canPass && isPlayerTurn && gameState.lastPlay ? "必须出牌" : "要不起"}
               </button>
+              {!canPass && isPlayerTurn && gameState.lastPlay && (
+                <div className="must-play-hint">
+                  ⚠️ 你有能打过的牌，必须出牌！
+                </div>
+              )}
             </div>
           </>
         )}

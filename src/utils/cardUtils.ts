@@ -1,5 +1,25 @@
 import { Card, Suit, Rank, CardType, Play } from '../types/card';
 
+// 分牌规则：5=5分，10=10分，K=10分
+export function isScoreCard(card: Card): boolean {
+  return card.rank === Rank.FIVE || card.rank === Rank.TEN || card.rank === Rank.KING;
+}
+
+// 获取单张牌的分值
+export function getCardScore(card: Card): number {
+  if (card.rank === Rank.FIVE) {
+    return 5;
+  } else if (card.rank === Rank.TEN || card.rank === Rank.KING) {
+    return 10;
+  }
+  return 0;
+}
+
+// 计算一组牌的总分值
+export function calculateCardsScore(cards: Card[]): number {
+  return cards.reduce((total, card) => total + getCardScore(card), 0);
+}
+
 // 创建一副完整的牌（包括大小王）- 使用随机顺序创建
 export function createDeck(): Card[] {
   const deck: Card[] = [];
@@ -155,7 +175,15 @@ export function dealCards(playerCount: number): Card[][] {
   for (let i = 0; i < playerCount; i++) {
     const startIndex = i * cardsPerPlayer;
     const endIndex = (i === playerCount - 1) ? shuffled.length : (i + 1) * cardsPerPlayer;
-    hands.push(shuffled.slice(startIndex, endIndex));
+    const playerHand = shuffled.slice(startIndex, endIndex);
+    
+    // 为每张牌添加玩家信息到ID（确保唯一性和可追溯性）
+    playerHand.forEach((card, cardIndexInHand) => {
+      // 在现有ID基础上添加玩家信息
+      card.id = `${card.id}-player${i}-hand${cardIndexInHand}`;
+    });
+    
+    hands.push(playerHand);
   }
   
   return hands;
@@ -493,5 +521,19 @@ export function findPlayableCards(hand: Card[], lastPlay: Play | null): Card[][]
   }
 
   return playable;
+}
+
+// 检查玩家是否有能打过的牌（用于强制出牌规则）
+export function hasPlayableCards(hand: Card[], lastPlay: Play | null): boolean {
+  if (!lastPlay) {
+    // 没有上家出牌，可以出任何牌，所以总是有能出的牌
+    return hand.length > 0;
+  }
+  
+  // 查找所有可以出的牌
+  const playableCards = findPlayableCards(hand, lastPlay);
+  
+  // 如果有任何可以打过的牌，返回 true
+  return playableCards.length > 0;
 }
 

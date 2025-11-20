@@ -54,6 +54,63 @@
   box-sizing: border-box;
 }
 
+/* API Key 输入组 */
+.api-key-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.api-key-input-group input {
+  padding-right: 35px;
+}
+
+.btn-clear-key {
+  position: absolute;
+  right: 5px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: background 0.2s;
+}
+
+.btn-clear-key:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.api-key-hint {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #90EE90;
+  font-style: italic;
+}
+
+.must-play-hint {
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(255, 193, 7, 0.2);
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  border-radius: 5px;
+  color: #FFC107;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.btn-pass:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #666 !important;
+}
+
 .btn-primary {
   width: 100%;
   padding: 15px;
@@ -130,6 +187,43 @@
   margin-bottom: 5px;
 }
 
+.player-score {
+  color: #FFD700;
+  font-size: 0.9em;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.player-score-display {
+  color: #FFD700;
+  font-size: 1em;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.score-card-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.card-score-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #FFD700;
+  color: #000;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  border: 2px solid #000;
+  z-index: 10;
+}
+
 .player-cards-preview {
   display: flex;
   gap: 2px;
@@ -181,6 +275,116 @@
   color: white;
   font-size: 1.1em;
   font-weight: bold;
+}
+
+.round-score {
+  color: #FFD700;
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-top: 10px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 轮次出牌记录 */
+.round-plays-history {
+  margin-top: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.round-plays-title {
+  color: white;
+  font-weight: bold;
+  font-size: 1.1em;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.round-play-item {
+  margin-bottom: 10px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+}
+
+.round-play-player {
+  color: #FFD700;
+  font-weight: bold;
+  font-size: 0.9em;
+  margin-bottom: 5px;
+}
+
+.round-play-cards {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+}
+
+.round-play-score {
+  color: #90EE90;
+  font-size: 0.9em;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.round-total-score {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  color: #FFD700;
+  font-size: 1.1em;
+  font-weight: bold;
+  text-align: center;
+}
+
+.card-score-badge-small {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #FFD700;
+  color: #000;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: bold;
+  border: 1px solid #000;
+  z-index: 10;
+}
+
+/* 玩家赢得的轮次 */
+.player-won-rounds {
+  margin-top: 8px;
+  font-size: 0.85em;
+}
+
+.won-rounds-label {
+  color: #FFD700;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.won-rounds-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.won-round-badge {
+  background: rgba(255, 215, 0, 0.3);
+  color: #FFD700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  cursor: help;
 }
 
 .no-play {
