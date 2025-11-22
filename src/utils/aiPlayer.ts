@@ -1,136 +1,324 @@
-import OpenAI from 'openai';
-import { Card, Play, PlayerType } from '../types/card';
-import { canPlayCards, canBeat, findPlayableCards, sortCards } from './cardUtils';
+import { Card, Play } from '../types/card';
+import { canPlayCards, canBeat, findPlayableCards } from './cardUtils';
+import { mctsChoosePlay } from './mctsAI';
 
 // AI玩家配置
 export interface AIConfig {
-  apiKey: string;
-  model?: string;
+  apiKey?: string; // 保留但不使用（已禁用OpenAI）
+  model?: string; // 保留但不使用（已禁用OpenAI）
   strategy?: 'aggressive' | 'conservative' | 'balanced';
+  algorithm?: 'simple' | 'mcts'; // AI算法选择（OpenAI已禁用）
+  mctsIterations?: number; // MCTS迭代次数
+  perfectInformation?: boolean; // 完全信息模式（知道所有玩家手牌）
+  allPlayerHands?: Card[][]; // 所有玩家的手牌（完全信息模式使用）
+  currentRoundScore?: number; // 当前轮次累计的分数
+  playerCount?: number; // 玩家总数
 }
 
-// 将手牌转换为描述性文本
-function cardsToDescription(cards: Card[]): string {
-  const sorted = sortCards(cards);
-  const rankNames: { [key: number]: string } = {
-    3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10',
-    11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2',
-    16: '小王', 17: '大王'
-  };
-  const suitNames: { [key: string]: string } = {
-    'spades': '♠', 'hearts': '♥', 'diamonds': '♦', 'clubs': '♣',
-    'joker': '🃏'
-  };
-
-  return sorted.map(card => {
-    if (card.suit === 'joker') {
-      return rankNames[card.rank] || '王';
-    }
-    return `${rankNames[card.rank]}${suitNames[card.suit]}`;
-  }).join(' ');
-}
-
-// 将牌型转换为描述
-function playToDescription(play: Play | null): string {
-  if (!play) return '无';
-  
-  const typeNames: { [key: string]: string } = {
-    'single': '单张',
-    'pair': '对子',
-    'triple': '三张',
-    'bomb': '炸弹',
-    'dun': '墩'
-  };
-
-  return `${typeNames[play.type]} (${cardsToDescription(play.cards)})`;
-}
-
-// 使用OpenAI选择出牌
+// 使用AI策略选择出牌（本地算法：MCTS或智能策略）
 export async function aiChoosePlay(
   hand: Card[],
   lastPlay: Play | null,
   config: AIConfig
 ): Promise<Card[] | null> {
-  try {
-    const openai = new OpenAI({
-      apiKey: config.apiKey,
-      dangerouslyAllowBrowser: true // 注意：在生产环境中应该使用后端代理
-    });
-
-    const handDesc = cardsToDescription(hand);
-    const lastPlayDesc = playToDescription(lastPlay);
-    const strategy = config.strategy || 'balanced';
-
-    const strategyPrompt = {
-      aggressive: '激进策略：尽量出大牌压制对手，快速出完手牌',
-      conservative: '保守策略：尽量保留大牌，等待合适时机',
-      balanced: '平衡策略：根据情况灵活出牌'
-    }[strategy];
-
-    // 找到所有可以出的牌
-    const playableOptions = findPlayableCards(hand, lastPlay);
+  const strategy = config.strategy || 'balanced';
+  const algorithm = config.algorithm || 'mcts'; // 默认使用MCTS
+  
+  // 使用MCTS算法（推荐）
+  if (algorithm === 'mcts') {
+    // 快速模式：根据手牌数量动态调整迭代次数和深度（大幅降低以提高速度）
+    const baseIterations = config.mctsIterations || 50; // 从100降到50，快速模式
+    const baseDepth = 20; // 从30降到20，提高速度
     
-    if (playableOptions.length === 0) {
-      return null; // 要不起
-    }
-
-    const optionsDesc = playableOptions.map((cards, index) => {
-      const play = canPlayCards(cards);
-      return `${index + 1}. ${playToDescription(play)}`;
-    }).join('\n');
-
-    const prompt = `你是一个过炸扑克游戏的AI玩家。游戏规则类似争上游，需要尽快出完手牌。
-
-当前手牌：${handDesc}
-上家出牌：${lastPlayDesc}
-手牌数量：${hand.length}张
-
-可选出牌方案：
-${optionsDesc}
-
-策略：${strategyPrompt}
-
-请分析当前局势，选择一个最合适的出牌方案。只返回数字（1-${playableOptions.length}），或者返回"pass"表示要不起。`;
-
-    const response = await openai.chat.completions.create({
-      model: config.model || 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: '你是一个专业的过炸扑克游戏AI，擅长分析牌局并做出最优决策。'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 50,
-      temperature: 0.7
+    return mctsChoosePlay(hand, lastPlay, {
+      iterations: baseIterations,
+      explorationConstant: 1.414,
+      simulationDepth: baseDepth,
+      perfectInformation: config.perfectInformation || false,
+      allPlayerHands: config.allPlayerHands,
+      currentRoundScore: config.currentRoundScore || 0,
+      playerCount: config.playerCount || 2
     });
-
-    const choice = response.choices[0]?.message?.content?.trim().toLowerCase() || '';
-    
-    if (choice === 'pass' || choice.includes('要不起')) {
-      return null;
-    }
-
-    const match = choice.match(/\d+/);
-    if (match) {
-      const index = parseInt(match[0]) - 1;
-      if (index >= 0 && index < playableOptions.length) {
-        return playableOptions[index];
-      }
-    }
-
-    // 如果AI返回不明确，使用简单策略
-    return simpleAIStrategy(hand, lastPlay, strategy);
-  } catch (error) {
-    console.error('AI选择出牌失败，使用简单策略:', error);
-    return simpleAIStrategy(hand, lastPlay, config.strategy || 'balanced');
   }
+  
+  // 使用智能策略算法
+  if (algorithm === 'simple') {
+    return simpleAIStrategy(hand, lastPlay, strategy);
+  }
+  
+  // 默认使用MCTS算法
+  return mctsChoosePlay(hand, lastPlay, {
+    iterations: config.mctsIterations || 800,
+    explorationConstant: 1.414,
+    simulationDepth: 100,
+    perfectInformation: config.perfectInformation || false,
+    allPlayerHands: config.allPlayerHands,
+    currentRoundScore: config.currentRoundScore || 0,
+    playerCount: config.playerCount || 2
+  });
 }
 
-// 简单AI策略（备用方案）
+// 手牌结构分析
+interface HandStructure {
+  singles: Card[];           // 单张
+  pairs: Card[][];           // 对子
+  triples: Card[][];         // 三张
+  bombs: Card[][];           // 炸弹
+  duns: Card[][];            // 墩
+  jokers: {                  // 王牌
+    small: Card[];
+    big: Card[];
+  };
+  rankGroups: Map<number, Card[]>; // 按点数分组的牌
+}
+
+// 分析手牌结构
+function analyzeHandStructure(hand: Card[]): HandStructure {
+  const structure: HandStructure = {
+    singles: [],
+    pairs: [],
+    triples: [],
+    bombs: [],
+    duns: [],
+    jokers: { small: [], big: [] },
+    rankGroups: new Map()
+  };
+
+  // 按点数分组
+  hand.forEach(card => {
+    const rank = card.rank;
+    if (!structure.rankGroups.has(rank)) {
+      structure.rankGroups.set(rank, []);
+    }
+    structure.rankGroups.get(rank)!.push(card);
+  });
+
+  // 分类统计
+  structure.rankGroups.forEach((cards, rank) => {
+    const count = cards.length;
+    
+    // 大小王特殊处理
+    if (rank === 16 || rank === 17) {
+      if (rank === 16) {
+        structure.jokers.small = cards;
+      } else {
+        structure.jokers.big = cards;
+      }
+    } else {
+      if (count === 1) {
+        structure.singles.push(cards[0]);
+      } else if (count === 2) {
+        structure.pairs.push(cards);
+      } else if (count === 3) {
+        structure.triples.push(cards);
+      } else if (count >= 4 && count < 7) {
+        structure.bombs.push(cards);
+      } else if (count >= 7) {
+        structure.duns.push(cards);
+      }
+    }
+  });
+
+  return structure;
+}
+
+// 评估手牌价值（越少牌越好，组合越多越好）
+function evaluateHandValue(hand: Card[]): number {
+  if (hand.length === 0) return 1000; // 出完了最高分
+  if (hand.length === 1) return 500;  // 只剩一张牌很高分
+  
+  const structure = analyzeHandStructure(hand);
+  
+  let value = 0;
+  
+  // 牌数越少越好（负权重）
+  value -= hand.length * 10;
+  
+  // 有组合牌型加分
+  value += structure.pairs.length * 5;
+  value += structure.triples.length * 10;
+  value += structure.bombs.length * 20;
+  value += structure.duns.length * 30;
+  
+  // 有大牌加分（但不要太多单张）
+  const highCards = hand.filter(c => c.rank >= 14); // A, 2, 王
+  value += highCards.length * 2;
+  
+  // 单张太多扣分（说明手牌散乱）
+  if (structure.singles.length > hand.length * 0.5) {
+    value -= 20;
+  }
+  
+  return value;
+}
+
+// 评估出牌选择的价值
+interface PlayOption {
+  cards: Card[];
+  play: Play;
+  score: number;  // 综合评分
+}
+
+// 评估出牌选择
+function evaluatePlayOption(
+  cards: Card[],
+  play: Play,
+  hand: Card[],
+  lastPlay: Play | null,
+  strategy: string
+): number {
+  let score = 0;
+  
+  // 计算出牌后的剩余手牌
+  const remainingHand = hand.filter(
+    card => !cards.some(c => c.id === card.id)
+  );
+  
+  // 1. 剩余手牌价值（越高越好）
+  const remainingValue = evaluateHandValue(remainingHand);
+  score += remainingValue;
+  
+  // 2. 出牌的大小（根据策略调整）
+  if (strategy === 'aggressive') {
+    // 激进：优先出大牌
+    score += play.value * 2;
+  } else if (strategy === 'conservative') {
+    // 保守：优先出小牌，保留大牌
+    score -= play.value;
+  } else {
+    // 平衡：适中出牌
+    score += play.value * 0.5;
+  }
+  
+  // 3. 出牌张数（优先出多张牌，减少手牌数量）
+  score += cards.length * 5;
+  
+  // 4. 如果是炸弹或墩，根据情况加分或减分
+  if (play.type === 'bomb' || play.type === 'dun') {
+    const remainingCount = remainingHand.length;
+    
+    // 如果手牌还多，炸弹要谨慎使用（减分）
+    if (remainingCount > 10) {
+      score -= 30;
+    }
+    // 如果手牌少，可以用炸弹（加分）
+    else if (remainingCount <= 5) {
+      score += 50;
+    }
+    // 如果只剩炸弹/墩了，必须出（大幅加分）
+    else if (remainingCount === 0) {
+      score += 200;
+    }
+  }
+  
+  // 5. 如果不需要压牌（lastPlay为null），优先出小牌或组合牌
+  if (!lastPlay) {
+    if (play.value <= 10) {  // 小牌
+      score += 20;
+    }
+    if (play.type === 'pair' || play.type === 'triple') {
+      score += 15;  // 组合牌型优先
+    }
+  } else {
+    // 需要压牌时，最小能压过的牌加分（节省大牌）
+    const isMinimal = play.value <= lastPlay.value + 3;
+    if (isMinimal) {
+      score += 30;
+    }
+  }
+  
+  // 6. 王牌使用策略
+  const hasJoker = cards.some(c => c.rank >= 16);
+  if (hasJoker) {
+    // 王牌很珍贵，除非必要或手牌很少，否则不用
+    if (remainingHand.length <= 3) {
+      score += 40;  // 快出完了，可以用王牌
+    } else if (lastPlay && (lastPlay.type === 'bomb' || lastPlay.type === 'dun')) {
+      score += 30;  // 对手出炸弹，必须用王牌
+    } else {
+      score -= 20;  // 其他情况保留王牌
+    }
+  }
+  
+  // 7. 根据剩余手牌数量调整策略
+  const handCount = remainingHand.length;
+  if (handCount <= 3) {
+    // 快出完了，优先出牌数多的
+    score += cards.length * 10;
+  } else if (handCount <= 6) {
+    // 中后期，平衡出牌
+    score += 5;
+  }
+  
+  // 8. 避免出单张，除非手牌很少或必须出
+  if (play.type === 'single' && handCount > 8) {
+    score -= 10;
+  }
+  
+  // 9. 重要：检查是否拆散了炸弹，产生了死牌
+  // 计算手牌中每种牌的数量
+  const handRankGroups = new Map<number, number>();
+  hand.forEach(card => {
+    handRankGroups.set(card.rank, (handRankGroups.get(card.rank) || 0) + 1);
+  });
+  
+  // 计算出牌后剩余手牌中每种牌的数量
+  const remainingRankGroups = new Map<number, number>();
+  remainingHand.forEach(card => {
+    remainingRankGroups.set(card.rank, (remainingRankGroups.get(card.rank) || 0) + 1);
+  });
+  
+  // 检查出牌是否拆散了炸弹
+  const playRank = cards[0].rank;
+  const originalCount = handRankGroups.get(playRank) || 0;
+  const remainingCount = remainingRankGroups.get(playRank) || 0;
+  
+  // 如果原来有4张及以上（炸弹），但现在只剩1-2张（无法形成有效牌型），大幅扣分
+  if (originalCount >= 4 && remainingCount > 0 && remainingCount < 3) {
+    // 拆散了炸弹，产生了死牌，大幅扣分
+    score -= 150; // 大幅扣分，避免拆散炸弹
+    
+    // 如果剩余的是单张，且不是必要出牌，更严重
+    if (remainingCount === 1 && !lastPlay) {
+      score -= 100; // 额外扣分
+    }
+  }
+  
+  // 10. 如果手上有炸弹/墩，除非必要（需要压炸弹/墩），否则不要拆散
+  if (originalCount >= 4) {
+    // 拆散炸弹是很糟糕的选择，除非必要（需要压炸弹或墩）
+    const isNecessary = lastPlay && (lastPlay.type === 'bomb' || lastPlay.type === 'dun');
+    
+    if (!isNecessary) {
+      // 没有上家出牌时，拆散炸弹是很糟糕的选择
+      if (play.type === 'triple' && remainingCount === 2) {
+        score -= 150; // 5张出3张，剩2张（虽然可以是对子，但拆散了炸弹）
+      } else if (play.type === 'pair' && remainingCount === 3) {
+        score -= 140; // 5张出2张，剩3张（虽然可以是三张，但拆散了炸弹）
+      } else if (play.type === 'single' && remainingCount >= 3) {
+        score -= 160; // 出单张拆散炸弹
+      }
+    } else if (isNecessary && play.type !== 'bomb' && play.type !== 'dun') {
+      // 需要压炸弹/墩，但出的不是炸弹/墩，说明可能拆散了炸弹，也要扣分
+      if (originalCount >= 4 && remainingCount > 0 && remainingCount < originalCount) {
+        score -= 50; // 拆散炸弹压牌也要适度扣分
+      }
+    }
+  }
+  
+  // 11. 如果出牌会留下无法组合的牌（死牌），也要扣分
+  // 检查剩余手牌是否有无法组合的牌
+  remainingRankGroups.forEach((count) => {
+    // 如果某种牌只有1张，且手牌总数>3，说明是死牌
+    if (count === 1 && remainingHand.length > 3) {
+      score -= 30; // 产生死牌扣分
+    }
+  });
+  
+  return score;
+}
+
+// 智能AI策略（改进版）
 function simpleAIStrategy(
   hand: Card[],
   lastPlay: Play | null,
@@ -142,33 +330,67 @@ function simpleAIStrategy(
     return null;
   }
 
-  // 简单策略：选择最小的可以压过的牌
-  const validPlays = playableOptions
-    .map(cards => canPlayCards(cards))
-    .filter((play): play is Play => {
-      if (!play) return false;
-      if (!lastPlay) return true;
-      return canBeat(play, lastPlay);
-    });
+  // 过滤出可以出的牌
+  const validOptions: PlayOption[] = playableOptions
+    .map(cards => {
+      const play = canPlayCards(cards);
+      if (!play) return null;
+      
+      // 如果没有上家出牌，可以出任何牌
+      // 如果有上家出牌，必须能压过
+      if (lastPlay && !canBeat(play, lastPlay)) {
+        return null;
+      }
+      
+      return {
+        cards,
+        play,
+        score: 0  // 待评估
+      };
+    })
+    .filter((option): option is PlayOption => option !== null);
 
-  if (validPlays.length === 0) {
+  if (validOptions.length === 0) {
     return null;
   }
 
-  // 根据策略选择
+  // 评估每个出牌选择
+  validOptions.forEach(option => {
+    option.score = evaluatePlayOption(
+      option.cards,
+      option.play,
+      hand,
+      lastPlay,
+      strategy
+    );
+  });
+
+  // 按评分排序，选择最优的
+  validOptions.sort((a, b) => b.score - a.score);
+  
+  // 特殊策略调整
   if (strategy === 'aggressive') {
-    // 激进：选择最大的牌
-    validPlays.sort((a, b) => b.value - a.value);
+    // 激进：如果评分相近，选择更大的牌
+    const topScore = validOptions[0].score;
+    const similarOptions = validOptions.filter(
+      opt => opt.score >= topScore - 10
+    );
+    if (similarOptions.length > 1) {
+      similarOptions.sort((a, b) => b.play.value - a.play.value);
+      return similarOptions[0].cards;
+    }
   } else if (strategy === 'conservative') {
-    // 保守：选择最小的牌
-    validPlays.sort((a, b) => a.value - b.value);
-  } else {
-    // 平衡：选择中等大小的牌
-    validPlays.sort((a, b) => a.value - b.value);
-    const midIndex = Math.floor(validPlays.length / 2);
-    return validPlays[midIndex].cards;
+    // 保守：如果评分相近，选择更小的牌
+    const topScore = validOptions[0].score;
+    const similarOptions = validOptions.filter(
+      opt => opt.score >= topScore - 10
+    );
+    if (similarOptions.length > 1) {
+      similarOptions.sort((a, b) => a.play.value - b.play.value);
+      return similarOptions[0].cards;
+    }
   }
 
-  return validPlays[0].cards;
+  return validOptions[0].cards;
 }
 

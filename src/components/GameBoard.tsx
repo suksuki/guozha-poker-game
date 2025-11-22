@@ -8,8 +8,8 @@ import './GameBoard.css';
 export const GameBoard: React.FC = () => {
   const { gameState, startGame, playerPlay, playerPass, resetGame } = useGame();
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
-  const [openaiKey, setOpenaiKey] = useState('');
   const [strategy, setStrategy] = useState<'aggressive' | 'conservative' | 'balanced'>('balanced');
+  const [algorithm, setAlgorithm] = useState<'simple' | 'mcts'>('mcts');
 
   const handleCardClick = (card: Card) => {
     if (gameState.status !== 'playing' || gameState.currentPlayer !== PlayerType.HUMAN) {
@@ -41,13 +41,11 @@ export const GameBoard: React.FC = () => {
   };
 
   const handleStartGame = () => {
-    if (!openaiKey.trim()) {
-      alert('请输入OpenAI API Key');
-      return;
-    }
+    // 使用本地算法，不需要API Key
     startGame({
-      apiKey: openaiKey,
-      strategy
+      apiKey: '',  // 不需要API Key
+      strategy,
+      algorithm: algorithm || 'mcts' // 使用MCTS或智能策略
     });
   };
 
@@ -74,13 +72,14 @@ export const GameBoard: React.FC = () => {
           <h1>过炸扑克游戏</h1>
           <div className="config-panel">
             <div className="config-item">
-              <label>OpenAI API Key:</label>
-              <input
-                type="password"
-                value={openaiKey}
-                onChange={(e) => setOpenaiKey(e.target.value)}
-                placeholder="输入你的OpenAI API Key"
-              />
+              <label>AI算法:</label>
+              <select value={algorithm} onChange={(e) => setAlgorithm(e.target.value as any)}>
+                <option value="mcts">MCTS蒙特卡洛树搜索（推荐）</option>
+                <option value="simple">智能策略算法</option>
+              </select>
+              <small style={{display: 'block', color: '#666', marginTop: '5px'}}>
+                MCTS通过大量模拟找到最优出牌策略，更智能但计算稍慢
+              </small>
             </div>
             <div className="config-item">
               <label>AI策略:</label>
@@ -89,6 +88,9 @@ export const GameBoard: React.FC = () => {
                 <option value="aggressive">激进</option>
                 <option value="conservative">保守</option>
               </select>
+              <small style={{display: 'block', color: '#666', marginTop: '5px'}>
+                策略仅影响简单算法，MCTS会自动学习最优策略
+              </small>
             </div>
             <button className="btn-primary" onClick={handleStartGame}>
               开始游戏

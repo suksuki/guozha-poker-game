@@ -20,6 +20,45 @@ export function calculateCardsScore(cards: Card[]): number {
   return cards.reduce((total, card) => total + getCardScore(card), 0);
 }
 
+// 计算墩的数量
+// 规则：7张=1墩，8张=2墩，9张=4墩，10张=8墩，11张=16墩...（翻倍）
+export function calculateDunCount(cardCount: number): number {
+  if (cardCount < 7) {
+    return 0; // 少于7张不是墩
+  }
+  
+  // 7张 = 1墩 (2^0)
+  // 8张 = 2墩 (2^1)
+  // 9张 = 4墩 (2^2)
+  // 10张 = 8墩 (2^3)
+  // 11张 = 16墩 (2^4)
+  // ...
+  const exponent = cardCount - 7;
+  return Math.pow(2, exponent);
+}
+
+// 计算墩的分数
+// 规则：每个墩从每个其他玩家扣除30分，出墩的玩家增加 (其他玩家数 × 30分 × 墩数)
+export function calculateDunScore(dunCount: number, totalPlayers: number, dunPlayerIndex: number): {
+  dunPlayerScore: number;  // 出墩玩家获得的分数
+  otherPlayersScore: number; // 每个其他玩家扣除的分数
+} {
+  if (dunCount === 0) {
+    return { dunPlayerScore: 0, otherPlayersScore: 0 };
+  }
+  
+  const otherPlayersCount = totalPlayers - 1;
+  const scorePerDun = 30;
+  
+  // 出墩玩家获得的分数 = 其他玩家数 × 30分 × 墩数
+  const dunPlayerScore = otherPlayersCount * scorePerDun * dunCount;
+  
+  // 每个其他玩家扣除的分数 = 30分 × 墩数
+  const otherPlayersScore = scorePerDun * dunCount;
+  
+  return { dunPlayerScore, otherPlayersScore };
+}
+
 // 创建一副完整的牌（包括大小王）- 使用随机顺序创建
 export function createDeck(): Card[] {
   const deck: Card[] = [];
@@ -419,6 +458,7 @@ export function findPlayableCards(hand: Card[], lastPlay: Play | null): Card[][]
 
     // 尝试找到可以压过的牌
     rankGroups.forEach(cards => {
+      // 先检查同类型的牌
       if (lastPlay.type === CardType.SINGLE && cards.length >= 1) {
         const testPlay = canPlayCards([cards[0]]);
         if (testPlay && canBeat(testPlay, lastPlay)) {
@@ -457,6 +497,25 @@ export function findPlayableCards(hand: Card[], lastPlay: Play | null): Card[][]
         if (cards.length >= 7 && cards.length > lastPlay.cards.length) {
           const testPlay = canPlayCards(cards);
           if (testPlay && canBeat(testPlay, lastPlay)) {
+            playable.push(cards);
+          }
+        }
+      }
+      
+      // 重要：检查炸弹/墩是否可以压过单张、对子、三张
+      // 炸弹可以压任何非炸弹、非墩的牌型（单张、对子、三张）
+      if (lastPlay.type !== CardType.BOMB && lastPlay.type !== CardType.DUN) {
+        // 检查炸弹（4-6张）
+        if (cards.length >= 4 && cards.length < 7) {
+          const bombPlay = canPlayCards(cards);
+          if (bombPlay && canBeat(bombPlay, lastPlay)) {
+            playable.push(cards);
+          }
+        }
+        // 检查墩（7张及以上）
+        if (cards.length >= 7) {
+          const dunPlay = canPlayCards(cards);
+          if (dunPlay && canBeat(dunPlay, lastPlay)) {
             playable.push(cards);
           }
         }
@@ -514,6 +573,24 @@ export function findPlayableCards(hand: Card[], lastPlay: Play | null): Card[][]
           const testPlay = canPlayCards(jokerBig.slice(0, 3));
           if (testPlay && canBeat(testPlay, lastPlay)) {
             playable.push(jokerBig.slice(0, 3));
+          }
+        }
+      }
+    }
+    
+    // 重要：大小王炸弹/墩也可以压过单张、对子、三张
+    if (totalJokers >= 4) {
+      if (lastPlay.type !== CardType.BOMB && lastPlay.type !== CardType.DUN) {
+        const allJokers = [...jokerSmall, ...jokerBig];
+        const jokerPlay = canPlayCards(allJokers);
+        if (jokerPlay && canBeat(jokerPlay, lastPlay)) {
+          // 避免重复添加
+          const alreadyAdded = playable.some(play => 
+            play.length === allJokers.length && 
+            play.every(card => allJokers.some(j => j.id === card.id))
+          );
+          if (!alreadyAdded) {
+            playable.push(allJokers);
           }
         }
       }
