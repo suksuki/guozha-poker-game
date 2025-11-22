@@ -684,10 +684,39 @@ function mcts(
         allHands.push([...hand]); // 复制对手手牌
       });
     } else {
-      // 估计模式：需要估计对手手牌
+      // 估计模式：需要估计对手手牌（支持多人游戏）
       allHands.push([...node.hand]); // AI手牌
-      // 简化：暂时只支持2人游戏，需要时可以扩展
-      // TODO: 支持多人游戏的对手手牌估计
+      
+      // 获取所有牌（用于估计对手手牌）
+      const allCards: Card[] = [];
+      const suits = ['spades', 'hearts', 'diamonds', 'clubs', 'joker'];
+      const ranks = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+      
+      suits.forEach(suit => {
+        ranks.forEach(rank => {
+          if ((suit === 'joker' && (rank === 16 || rank === 17)) ||
+              (suit !== 'joker' && rank !== 16 && rank !== 17)) {
+            allCards.push({ suit: suit as any, rank: rank as Rank, id: `${suit}-${rank}-mcts` });
+          }
+        });
+      });
+      
+      // 为每个对手估计手牌
+      const aiHandSize = node.hand.length; // 假设所有玩家手牌数量相同
+      
+      for (let i = 1; i < playerCount; i++) {
+        // 计算已使用的牌（AI的手牌 + 已估计的对手手牌）
+        const allUsedCards = [...node.hand, ...allHands.slice(1).flat()];
+        
+        // 估计对手的手牌
+        const opponentHand = estimateOpponentHand(
+          allUsedCards,
+          allCards,
+          aiHandSize // 假设对手手牌数量与AI相同
+        );
+        
+        allHands.push(opponentHand);
+      }
     }
     
     const gameState: SimulatedGameState = {

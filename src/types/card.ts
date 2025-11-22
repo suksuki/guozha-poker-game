@@ -73,6 +73,16 @@ export interface RoundRecord {
   winnerName: string;
 }
 
+// 语音配置
+export interface VoiceConfig {
+  gender: 'male' | 'female'; // 性别
+  dialect: 'mandarin' | 'cantonese' | 'shanghai' | 'sichuan' | 'dongbei' | 'taiwan' | 'nanchang'; // 方言
+  rate?: number; // 语速 (0.1 - 10)
+  pitch?: number; // 音调 (0 - 2)
+  volume?: number; // 音量 (0 - 1)
+  voiceIndex?: number; // 语音索引（用于区分不同玩家）
+}
+
 // 玩家信息
 export interface Player {
   id: number;
@@ -83,6 +93,7 @@ export interface Player {
   wonRounds?: RoundRecord[]; // 玩家赢得的轮次记录
   isHuman?: boolean; // 是否是人类玩家（可以手动操作）
   aiConfig?: { apiKey: string; strategy?: 'aggressive' | 'conservative' | 'balanced' };
+  voiceConfig?: VoiceConfig; // 语音配置（用于语音提示和将来的聊天功能）
 }
 
 // 游戏状态

@@ -1,0 +1,77 @@
+/**
+ * 分组手牌显示组件
+ * 按点数分组显示玩家手牌，支持展开/收起
+ */
+
+import React from 'react';
+import { Card } from '../../types/card';
+import { CardComponent } from '../CardComponent';
+import { isScoreCard, getCardScore } from '../../utils/cardUtils';
+import { getRankDisplay } from '../../utils/gameUtils';
+
+interface PlayerHandGroupedProps {
+  groupedHand: Map<number, Card[]>;
+  selectedCards: Card[];
+  expandedRanks: Set<number>;
+  onCardClick: (card: Card) => void;
+  onToggleExpand: (rank: number) => void;
+}
+
+export const PlayerHandGrouped: React.FC<PlayerHandGroupedProps> = ({
+  groupedHand,
+  selectedCards,
+  expandedRanks,
+  onCardClick,
+  onToggleExpand
+}) => {
+  if (groupedHand.size === 0) {
+    return <div className="no-cards">手牌数据加载中...</div>;
+  }
+
+  return (
+    <div className="player-hand-grouped">
+      {Array.from(groupedHand.entries())
+        .sort(([rankA], [rankB]) => rankA - rankB)
+        .map(([rank, cards]) => {
+          const isExpanded = expandedRanks.has(rank);
+          const selectedCount = cards.filter((c: Card) => selectedCards.some(sc => sc.id === c.id)).length;
+
+          return (
+            <div key={rank} className="card-group">
+              <div 
+                className={`card-group-header ${isExpanded ? 'expanded' : ''} ${selectedCount > 0 ? 'has-selected' : ''}`}
+                onClick={() => onToggleExpand(rank)}
+              >
+                <span className="rank-label">{getRankDisplay(rank)}</span>
+                <span className="count-badge">{cards.length}</span>
+                {selectedCount > 0 && (
+                  <span className="selected-badge">已选 {selectedCount}</span>
+                )}
+              </div>
+              {isExpanded && (
+                <div className="card-group-content">
+                  {cards.map((card: Card) => {
+                    const isScore = isScoreCard(card);
+                    const score = isScore ? getCardScore(card) : 0;
+                    return (
+                      <div key={card.id} className={isScore ? 'score-card-wrapper' : ''}>
+                        <CardComponent
+                          card={card}
+                          selected={selectedCards.some(c => c.id === card.id)}
+                          onClick={() => onCardClick(card)}
+                        />
+                        {isScore && (
+                          <div className="card-score-badge">{score}分</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+    </div>
+  );
+};
+

@@ -1,0 +1,103 @@
+.chat-bubble {
+  position: absolute;
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+  pointer-events: none;
+}
+
+.chat-bubble.fade-out {
+  animation: fadeOut 1s ease-out forwards;
+}
+
+.chat-bubble-content {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 24px;
+  padding: 16px 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  max-width: 400px;
+  min-width: 200px;
+  position: relative;
+}
+
+.chat-bubble.event .chat-bubble-content {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.chat-bubble.taunt .chat-bubble-content {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.chat-bubble-name {
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.chat-bubble-text {
+  font-size: 26px;
+  color: #ffffff;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.chat-bubble-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+/* 根据位置调整箭头 */
+.chat-bubble[style*="bottom"] .chat-bubble-arrow {
+  bottom: -16px;
+  left: 40px;
+  border-width: 16px 16px 0 16px;
+  border-color: #667eea transparent transparent transparent;
+}
+
+.chat-bubble[style*="bottom"].event .chat-bubble-arrow {
+  border-color: #f5576c transparent transparent transparent;
+}
+
+.chat-bubble[style*="bottom"].taunt .chat-bubble-arrow {
+  border-color: #fee140 transparent transparent transparent;
+}
+
+.chat-bubble[style*="top"] .chat-bubble-arrow {
+  top: -16px;
+  left: 40px;
+  border-width: 0 16px 16px 16px;
+  border-color: transparent transparent #667eea transparent;
+}
+
+.chat-bubble[style*="top"].event .chat-bubble-arrow {
+  border-color: transparent transparent #f5576c transparent;
+}
+
+.chat-bubble[style*="top"].taunt .chat-bubble-arrow {
+  border-color: transparent transparent #fee140 transparent;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+

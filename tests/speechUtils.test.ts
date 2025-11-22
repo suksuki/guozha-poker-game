@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Card, Suit, Rank, CardType, Play } from '../src/types/card';
-import { playToSpeechText, isSpeechSupported, speakText, speakPlay } from '../src/utils/speechUtils';
+import { playToSpeechText, isSpeechSupported, speakText, speakPlay, generateRandomVoiceConfig } from '../src/utils/speechUtils';
 
 // Mock speechSynthesis
 const mockSpeak = vi.fn();
@@ -168,11 +168,11 @@ describe('语音工具测试', () => {
         { rank: Rank.EIGHT, expected: '八' },
         { rank: Rank.NINE, expected: '九' },
         { rank: Rank.TEN, expected: '十' },
-        { rank: Rank.JACK, expected: 'J' },
-        { rank: Rank.QUEEN, expected: 'Q' },
+        { rank: Rank.JACK, expected: '钩' }, // J改为钩
+        { rank: Rank.QUEEN, expected: '圈圈' }, // Q改为圈圈
         { rank: Rank.KING, expected: 'K' },
-        { rank: Rank.ACE, expected: 'A' },
-        { rank: Rank.TWO, expected: '二' },
+        { rank: Rank.ACE, expected: '桌桌' }, // A改为桌桌
+        { rank: Rank.TWO, expected: '喔喔' }, // 2改为喔喔
         { rank: Rank.JOKER_SMALL, expected: '小王' },
         { rank: Rank.JOKER_BIG, expected: '大王' }
       ];
@@ -247,6 +247,55 @@ describe('语音工具测试', () => {
       }
       
       await promise;
+    });
+  });
+
+  describe('语音配置', () => {
+    it('应该生成随机语音配置', () => {
+      const config = generateRandomVoiceConfig(0);
+      expect(config).toBeDefined();
+      expect(config.gender).toBe('female');
+      expect(['mandarin', 'cantonese']).toContain(config.dialect);
+      expect(config.rate).toBeGreaterThanOrEqual(0.9);
+      expect(config.rate).toBeLessThanOrEqual(1.1);
+      expect(config.pitch).toBeGreaterThanOrEqual(1.0);
+      expect(config.pitch).toBeLessThanOrEqual(1.3);
+      expect(config.voiceIndex).toBe(0);
+    });
+
+    it('应该为不同玩家生成不同的语音配置', () => {
+      const config1 = generateRandomVoiceConfig(0);
+      const config2 = generateRandomVoiceConfig(1);
+      const config3 = generateRandomVoiceConfig(2);
+
+      // 至少应该有不同的voiceIndex
+      expect(config1.voiceIndex).toBe(0);
+      expect(config2.voiceIndex).toBe(1);
+      expect(config3.voiceIndex).toBe(2);
+    });
+
+    it('应该为同一玩家生成相同的语音配置', () => {
+      const config1 = generateRandomVoiceConfig(5);
+      const config2 = generateRandomVoiceConfig(5);
+
+      expect(config1.dialect).toBe(config2.dialect);
+      expect(config1.rate).toBe(config2.rate);
+      expect(config1.pitch).toBe(config2.pitch);
+      expect(config1.voiceIndex).toBe(config2.voiceIndex);
+    });
+
+    it('应该只使用普通话或粤语', () => {
+      for (let i = 0; i < 10; i++) {
+        const config = generateRandomVoiceConfig(i);
+        expect(['mandarin', 'cantonese']).toContain(config.dialect);
+      }
+    });
+
+    it('应该全用女声', () => {
+      for (let i = 0; i < 10; i++) {
+        const config = generateRandomVoiceConfig(i);
+        expect(config.gender).toBe('female');
+      }
     });
   });
 });

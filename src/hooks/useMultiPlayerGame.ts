@@ -2,8 +2,11 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, Play, GameStatus, Player, PlayerType, Rank, RoundPlayRecord, RoundRecord } from '../types/card';
 import { dealCards, canPlayCards, canBeat, hasPlayableCards, findPlayableCards, calculateCardsScore, isScoreCard, calculateDunCount, calculateDunScore } from '../utils/cardUtils';
 import { aiChoosePlay, AIConfig } from '../utils/aiPlayer';
-import { applyFinalGameRules, calculateFinalRankings } from '../utils/gameRules';
 import { speakPlay, speakPass } from '../utils/speechUtils';
+import { generateRandomVoiceConfig } from '../services/voiceConfigService';
+import { triggerScoreStolenReaction, triggerScoreEatenCurseReaction, triggerFinishFirstReaction, triggerFinishMiddleReaction, clearChatMessages } from '../services/chatService';
+import { findNextActivePlayer, checkGameFinished, MultiPlayerGameState } from '../utils/gameStateUtils';
+import { handleDunScoring, createPlayRecord, updatePlayerAfterPlay, triggerGoodPlayReactions } from '../utils/playManager';
 
 // 游戏完整记录（用于保存）
 export interface GameRecord {
@@ -18,24 +21,7 @@ export interface GameRecord {
   winner: number; // 获胜者ID
 }
 
-export interface MultiPlayerGameState {
-  status: GameStatus;
-  players: Player[];
-  currentPlayerIndex: number;
-  lastPlay: Play | null;
-  lastPlayPlayerIndex: number | null;
-  winner: number | null;
-  playerCount: number;
-  totalScore: number; // 总分数（用于验证）
-  roundScore: number; // 当前轮次累计的分数
-  currentRoundPlays: RoundPlayRecord[]; // 当前轮次的所有出牌记录
-  roundNumber: number; // 当前轮次编号
-  finishOrder: number[]; // 玩家出完牌的顺序（用于计算排名）
-  finalRankings?: any[]; // 最终排名（游戏结束时计算）
-  gameRecord?: GameRecord; // 游戏完整记录（游戏结束时保存）
-  initialHands?: Card[][]; // 初始手牌（用于保存）
-  allRounds?: RoundRecord[]; // 所有轮次的记录（用于保存）
-}
+// MultiPlayerGameState 已移动到 gameStateUtils.ts
 
 export interface GameConfig {
   playerCount: number; // 4-8人
@@ -69,47 +55,7 @@ export function useMultiPlayerGame() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // 辅助函数：找到下一个还在游戏中的玩家（跳过已出完牌的玩家）
-  const findNextActivePlayer = useCallback((startIndex: number, players: Player[], playerCount: number): number => {
-    let nextPlayerIndex = (startIndex + 1) % playerCount;
-    let attempts = 0;
-    // 跳过所有已出完的玩家
-    while (players[nextPlayerIndex].hand.length === 0 && attempts < playerCount) {
-      nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
-      attempts++;
-    }
-    // 如果所有玩家都出完了，返回startIndex（不应该发生，但作为保护）
-    if (attempts >= playerCount) {
-      return startIndex;
-    }
-    return nextPlayerIndex;
-  }, []);
-
-  // 检查游戏是否真正结束（所有玩家都出完牌）并应用最终规则
-  const checkGameFinished = useCallback((prevState: MultiPlayerGameState, newPlayers: Player[], finishOrder: number[]) => {
-    // 检查是否所有玩家都出完牌了
-    const allFinished = newPlayers.every(player => player.hand.length === 0);
-    
-    if (allFinished) {
-      // 所有玩家都出完了，应用最终规则
-      const finalPlayers = applyFinalGameRules(newPlayers, finishOrder);
-      const finalRankings = calculateFinalRankings(finalPlayers, finishOrder);
-      
-      // 找到第一名（分数最高的）
-      const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
-      
-      return {
-        ...prevState,
-        status: GameStatus.FINISHED,
-        players: finalPlayers,
-        winner: winner.player.id,
-        finishOrder,
-        finalRankings
-      };
-    }
-    
-    return null; // 游戏还没结束
-  }, []);
+  // 辅助函数已移动到 gameStateUtils.ts
 
   // AI自动出牌（下一个回合）
   const playNextTurn = useCallback(async () => {
@@ -182,41 +128,24 @@ export function useMultiPlayerGame() {
                 // 计算这手牌的分值
                 const fallbackScore = calculateCardsScore(fallbackCards);
                 
-                // 检查是否是墩，如果是，应用墩的计分规则
-                const isDun = fallbackPlay.type === 'dun';
-                let dunScore = 0;
-                if (isDun) {
-                  const dunCount = calculateDunCount(fallbackCards.length);
-                  const dunScoreResult = calculateDunScore(dunCount, prev.playerCount, currentState.currentPlayerIndex);
-                  dunScore = dunScoreResult.dunPlayerScore;
-                  
-                  // 从每个其他玩家扣除分数
-                  prev.players.forEach((p, idx) => {
-                    if (idx !== currentState.currentPlayerIndex) {
-                      const otherPlayer = newPlayers[idx] || p;
-                      newPlayers[idx] = {
-                        ...otherPlayer,
-                        score: (otherPlayer.score || 0) - dunScoreResult.otherPlayersScore
-                      };
-                    }
-                  });
-                }
-
-                const newHand = player.hand.filter(
-                  card => !fallbackCards.some(c => c.id === card.id)
+                // 处理墩的计分
+                const { updatedPlayers: playersAfterDun, dunScore } = handleDunScoring(
+                  prev.players,
+                  currentState.currentPlayerIndex,
+                  fallbackCards,
+                  prev.playerCount,
+                  fallbackPlay
                 );
-
-                const newPlayers = [...prev.players];
-                newPlayers[currentState.currentPlayerIndex] = { 
-                  ...player, 
-                  hand: newHand,
-                  score: (player.score || 0) + dunScore // 如果是墩，立即加上墩的分数
-                };
+                
+                // 更新玩家手牌和分数
+                const updatedPlayer = updatePlayerAfterPlay(player, fallbackCards, dunScore);
+                const newPlayers = [...playersAfterDun];
+                newPlayers[currentState.currentPlayerIndex] = updatedPlayer;
 
         // 播放出牌语音提示（异步，不阻塞状态更新）
         // 注意：这里不等待，因为会在状态更新后统一处理
 
-                if (newHand.length === 0) {
+                if (updatedPlayer.hand.length === 0) {
           // 玩家出完牌，记录到完成顺序
           const newFinishOrder = [...(prev.finishOrder || []), currentState.currentPlayerIndex];
           
@@ -310,8 +239,9 @@ export function useMultiPlayerGame() {
                   };
           
           // 如果下一个玩家是AI，等待语音播放完成后再继续
+          const currentPlayerVoice = newPlayers[currentState.currentPlayerIndex]?.voiceConfig;
           if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-            speakPlay(fallbackPlay).then(() => {
+            speakPlay(fallbackPlay, currentPlayerVoice).then(() => {
               setTimeout(() => {
                 playNextTurn();
               }, 300);
@@ -321,7 +251,7 @@ export function useMultiPlayerGame() {
               }, 1000);
             });
           } else {
-            speakPlay(fallbackPlay).catch(console.error);
+            speakPlay(fallbackPlay, currentPlayerVoice).catch(console.error);
           }
           
           return newState;
@@ -338,18 +268,19 @@ export function useMultiPlayerGame() {
                 };
 
                 // 如果下一个玩家是AI，等待语音播放完成后再继续
+                const currentPlayerVoice = newPlayers[currentState.currentPlayerIndex]?.voiceConfig;
                 if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-                  speakPlay(fallbackPlay).then(() => {
+                  speakPlay(fallbackPlay, currentPlayerVoice).then(() => {
                     setTimeout(() => {
                       playNextTurn();
                     }, 300);
                   }).catch(() => {
-                  setTimeout(() => {
-                    playNextTurn();
-                  }, 1000);
+                    setTimeout(() => {
+                      playNextTurn();
+                    }, 1000);
                   });
                 } else {
-                  speakPlay(fallbackPlay).catch(console.error);
+                  speakPlay(fallbackPlay, currentPlayerVoice).catch(console.error);
                 }
 
                 return newState;
@@ -416,8 +347,9 @@ export function useMultiPlayerGame() {
                 };
                 
                 // 如果赢家是AI，自动出牌开始下一轮
+                const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
                 if (newPlayers[winnerIndex].type === PlayerType.AI) {
-                  speakPass().then(() => {
+                  speakPass(winnerVoice).then(() => {
                     setTimeout(() => {
                       playNextTurn();
                     }, 500); // 给一点时间让用户看到轮次切换
@@ -427,13 +359,13 @@ export function useMultiPlayerGame() {
                     }, 1000);
                   });
                 } else {
-                  speakPass().catch(console.error);
+                  speakPass(winnerVoice).catch(console.error);
                 }
                 
                 return newState;
               }
             }
-            newLastPlay = null;
+            newLastPlay = null as Play | null;
             newLastPlayPlayerIndex = null;
             newRoundScore = 0; // 重置轮次分数
           }
@@ -450,8 +382,9 @@ export function useMultiPlayerGame() {
           };
 
           // 如果下一个玩家是AI，等待"要不起"语音播放完成后再继续
+          const currentPlayerVoice = prev.players[prev.currentPlayerIndex]?.voiceConfig;
           if (prev.players[nextPlayerIndex].type === PlayerType.AI) {
-            speakPass().then(() => {
+            speakPass(currentPlayerVoice).then(() => {
               setTimeout(() => {
                 playNextTurn();
               }, 300);
@@ -461,7 +394,7 @@ export function useMultiPlayerGame() {
             }, 1000);
             });
           } else {
-            speakPass().catch(console.error);
+            speakPass(currentPlayerVoice).catch(console.error);
           }
 
           return newState;
@@ -525,8 +458,9 @@ export function useMultiPlayerGame() {
                 };
                 
                 // 如果赢家是AI，自动出牌开始下一轮
+                const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
                 if (newPlayers[winnerIndex].type === PlayerType.AI) {
-                  speakPass().then(() => {
+                  speakPass(winnerVoice).then(() => {
                     setTimeout(() => {
                       playNextTurn();
                     }, 500); // 给一点时间让用户看到轮次切换
@@ -536,13 +470,13 @@ export function useMultiPlayerGame() {
                     }, 1000);
                   });
                 } else {
-                  speakPass().catch(console.error);
+                  speakPass(winnerVoice).catch(console.error);
                 }
                 
                 return newState;
               }
             }
-            newLastPlay = null;
+            newLastPlay = null as Play | null;
             newLastPlayPlayerIndex = null;
             newRoundScore = 0; // 重置轮次分数
           }
@@ -580,48 +514,80 @@ export function useMultiPlayerGame() {
           return prev;
         }
 
-        const newHand = player.hand.filter(
-          card => !aiCards.some(c => c.id === card.id)
+        // 处理墩的计分
+        const { updatedPlayers: playersAfterDun, dunScore } = handleDunScoring(
+          prev.players,
+          currentState.currentPlayerIndex,
+          aiCards,
+          prev.playerCount,
+          play
         );
-
-        const newPlayers = [...prev.players];
         
-        const isDun = play.type === 'dun';
-        let dunScore = 0;
-        if (isDun) {
-          const dunCount = calculateDunCount(aiCards.length);
-          const dunScoreResult = calculateDunScore(dunCount, prev.playerCount, currentState.currentPlayerIndex);
-          dunScore = dunScoreResult.dunPlayerScore;
+        // 更新玩家手牌和分数
+        const updatedPlayer = updatePlayerAfterPlay(player, aiCards, dunScore);
+        const newPlayers = [...playersAfterDun];
+        newPlayers[currentState.currentPlayerIndex] = updatedPlayer;
+        
+        // 触发好牌反应
+        triggerGoodPlayReactions(player, play, scoreCards);
+
+        // 如果捡到了分，可能触发其他玩家的反应
+        if (playScore > 0) {
+          // 检查是否有其他玩家失去了分
+          const lostScore = playScore;
+          // 计算总轮次分数（包括当前这一手）
+          const totalRoundScore = prev.roundScore + playScore;
           
-          // 从每个其他玩家扣除分数
           newPlayers.forEach((p, idx) => {
-            if (idx !== currentState.currentPlayerIndex) {
-              p.score = (p.score || 0) - dunScoreResult.otherPlayersScore;
+            if (idx !== currentState.currentPlayerIndex && p.hand.length > 0) {
+              // 根据分数大小决定反应强度
+              // 如果分数较大（>=5分）或总轮次分数较大（>=10分），优先触发脏话反应
+              const shouldCurse = lostScore >= 5 || totalRoundScore >= 10;
+              
+              if (shouldCurse) {
+                // 大分被吃，触发脏话（更激烈）- 80%概率
+                if (Math.random() < 0.8) {
+                  triggerScoreEatenCurseReaction(p, lostScore).catch(console.error);
+                } else if (Math.random() < 0.3) {
+                  // 20%概率普通抱怨
+                  triggerScoreStolenReaction(p, lostScore).catch(console.error);
+                }
+              } else {
+                // 小分被吃，也有一定概率触发脏话（30%），或者普通抱怨（40%）
+                if (Math.random() < 0.3) {
+                  triggerScoreEatenCurseReaction(p, lostScore).catch(console.error);
+                } else if (Math.random() < 0.4) {
+                  triggerScoreStolenReaction(p, lostScore).catch(console.error);
+                }
+              }
             }
           });
         }
 
         // 记录这一手出牌
-        const playRecord: RoundPlayRecord = {
-          playerId: currentState.currentPlayerIndex,
-          playerName: player.name,
-          cards: aiCards,
-          scoreCards: scoreCards,
-          score: playScore
-        };
-
-        newPlayers[currentState.currentPlayerIndex] = { 
-          ...player, 
-          hand: newHand,
-          score: (player.score || 0) + dunScore // 如果是墩，立即加上墩的分数
-        };
+        const playRecord: RoundPlayRecord = createPlayRecord(
+          currentState.currentPlayerIndex,
+          player.name,
+          aiCards,
+          playScore
+        );
 
         // 播放出牌语音提示（异步，不阻塞状态更新）
         // 注意：这里不等待，因为会在状态更新后统一处理
 
-        if (newHand.length === 0) {
+        if (updatedPlayer.hand.length === 0) {
           // 玩家出完牌，记录到完成顺序
           const newFinishOrder = [...(prev.finishOrder || []), currentState.currentPlayerIndex];
+          
+          // 触发出完牌时的聊天反应
+          const finishPosition = newFinishOrder.length;
+          if (finishPosition === 1) {
+            // 头名出完，兴奋
+            triggerFinishFirstReaction(updatedPlayer).catch(console.error);
+          } else {
+            // 中间名次出完，感慨
+            triggerFinishMiddleReaction(updatedPlayer).catch(console.error);
+          }
           
           // 把轮次分数给获胜者
           const finalScore = (player.score || 0) + prev.roundScore + playScore;
@@ -684,39 +650,27 @@ export function useMultiPlayerGame() {
           }
           
           // 还没全部出完，找到下一个还在游戏中的玩家（接风）
+          // 重要：使用findNextActivePlayer确保跳过已出完牌的玩家
           const nextPlayerIndex = findNextActivePlayer(currentState.currentPlayerIndex, newPlayers, prev.playerCount);
           
-          // AI出完牌后，如果最后一手牌没人能打过，应该由下家接风出牌（清空lastPlay）
-          // 检查是否所有剩余玩家都要不起这一手牌
-          let allCannotBeat = true;
-          for (let i = 0; i < newPlayers.length; i++) {
-            if (newPlayers[i].hand.length > 0 && i !== currentState.currentPlayerIndex) {
-              // 检查这个玩家是否有能打过当前牌的牌
-              const hasPlayable = hasPlayableCards(newPlayers[i].hand, play);
-              if (hasPlayable) {
-                allCannotBeat = false;
-                break;
-              }
-            }
-          }
-          
-          // 如果所有人都要不起，或者当前玩家已经出完牌，由下家接风出牌
-          // 接风：清空lastPlay，让下家自由出牌
+          // AI出完牌后，应该由下家接风出牌（清空lastPlay，让下家自由出牌）
+          // 因为当前玩家已经出完牌，所以应该清空lastPlay，让下一个玩家自由出牌
           const newState = {
             ...prev,
             players: newPlayers,
             currentPlayerIndex: nextPlayerIndex,
-            lastPlay: allCannotBeat ? null : play, // 如果所有人都要不起，清空lastPlay（接风）
-            lastPlayPlayerIndex: allCannotBeat ? null : currentState.currentPlayerIndex, // 接风时清空lastPlayPlayerIndex
-            roundScore: allCannotBeat ? 0 : (prev.roundScore + playScore), // 如果接风，分数已经给玩家了，重置轮次分数
-            currentRoundPlays: allCannotBeat ? [] : [...prev.currentRoundPlays, playRecord], // 如果接风，清空当前轮次记录
+            lastPlay: null, // AI出完牌后，清空lastPlay，让下家接风出牌
+            lastPlayPlayerIndex: null, // 清空lastPlayPlayerIndex
+            roundScore: 0, // 分数已经给玩家了，重置轮次分数
+            currentRoundPlays: [], // 清空当前轮次记录
             finishOrder: newFinishOrder
           };
           
           // 如果下一个玩家是AI，等待语音播放完成后再继续
+          const currentPlayerVoice = newPlayers[currentState.currentPlayerIndex]?.voiceConfig;
           if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
             // 等待语音播放完成后再继续
-            speakPlay(play).then(() => {
+            speakPlay(play, currentPlayerVoice).then(() => {
               setTimeout(() => {
                 playNextTurn();
               }, 300); // 语音播放完成后再等300ms
@@ -728,7 +682,7 @@ export function useMultiPlayerGame() {
             });
           } else {
             // 人类玩家，也播放语音但不等待
-            speakPlay(play).catch(console.error);
+            speakPlay(play, currentPlayerVoice).catch(console.error);
           }
           
           return newState;
@@ -748,21 +702,22 @@ export function useMultiPlayerGame() {
         };
 
         // 如果下一个玩家是AI，等待语音播放完成后再继续
+        const currentPlayerVoice = newPlayers[currentState.currentPlayerIndex]?.voiceConfig;
         if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
           // 等待语音播放完成后再继续
-          speakPlay(play).then(() => {
+          speakPlay(play, currentPlayerVoice).then(() => {
             setTimeout(() => {
               playNextTurn();
             }, 300); // 语音播放完成后再等300ms
           }).catch(() => {
             // 如果语音播放失败，直接继续
-          setTimeout(() => {
-            playNextTurn();
-          }, 1000);
+            setTimeout(() => {
+              playNextTurn();
+            }, 1000);
           });
         } else {
           // 人类玩家，也播放语音但不等待
-          speakPlay(play).catch(console.error);
+          speakPlay(play, currentPlayerVoice).catch(console.error);
         }
 
         return newState;
@@ -772,8 +727,8 @@ export function useMultiPlayerGame() {
       setGameState(prev => {
         if (prev.status !== GameStatus.PLAYING) return prev;
         const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.playerCount;
-        let newLastPlay = prev.lastPlay;
-        let newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
+        let newLastPlay: Play | null = prev.lastPlay;
+        let newLastPlayPlayerIndex: number | null = prev.lastPlayPlayerIndex;
         let newRoundScore = prev.roundScore;
         const newPlayers = [...prev.players];
         
@@ -788,7 +743,7 @@ export function useMultiPlayerGame() {
               };
             }
           }
-          newLastPlay = null;
+          newLastPlay = null as Play | null;
           newLastPlayPlayerIndex = null;
           newRoundScore = 0; // 重置轮次分数
         }
@@ -807,6 +762,9 @@ export function useMultiPlayerGame() {
 
   // 开始新游戏
   const startGame = useCallback((config: GameConfig) => {
+    // 清空聊天记录
+    clearChatMessages();
+    
     const hands = dealCards(config.playerCount);
 
     const players: Player[] = hands.map((hand, index) => ({
@@ -821,7 +779,8 @@ export function useMultiPlayerGame() {
         strategy: config.aiConfigs[index]?.strategy || 'balanced',
         algorithm: config.aiConfigs[index]?.algorithm || 'mcts', // 默认使用MCTS
         mctsIterations: config.aiConfigs[index]?.mctsIterations || 100 // 大幅降低默认值以提高速度（快速模式）
-      }
+      },
+      voiceConfig: generateRandomVoiceConfig(index) // 为每个玩家分配独特的语音配置（使用index确保每个玩家不同）
     }));
 
     // 计算总分数（所有牌中的分牌总和，用于验证）
@@ -872,10 +831,7 @@ export function useMultiPlayerGame() {
 
   // 玩家出牌
   const playerPlay = useCallback((playerIndex: number, selectedCards: Card[]): boolean => {
-    let shouldSpeak = false;
-    let playToSpeak: Play | null = null;
-    
-    const result = setGameState(prev => {
+    setGameState(prev => {
       if (prev.status !== GameStatus.PLAYING) return prev;
       if (prev.currentPlayerIndex !== playerIndex) return prev;
 
@@ -885,13 +841,17 @@ export function useMultiPlayerGame() {
       const play = canPlayCards(selectedCards);
       if (!play) return prev;
 
+      // 如果当前玩家是最后出牌的人（接风），可以自由出牌，不需要检查canBeat
+      const isTakingOver = prev.currentPlayerIndex === prev.lastPlayPlayerIndex;
+      
       // 如果不能压过上家的牌，立即要不起（不管手中有没有其他能打过的牌）
-      if (prev.lastPlay && !canBeat(play, prev.lastPlay)) {
+      // 但是，如果是接风（当前玩家是最后出牌的人），可以自由出牌
+      if (!isTakingOver && prev.lastPlay && !canBeat(play, prev.lastPlay)) {
         // 执行要不起逻辑
         const nextPlayerIndex = findNextActivePlayer(playerIndex, prev.players, prev.playerCount);
 
-        let newLastPlay = prev.lastPlay;
-        let newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
+        let newLastPlay: Play | null = prev.lastPlay;
+        let newLastPlayPlayerIndex: number | null = prev.lastPlayPlayerIndex;
         let newRoundScore = prev.roundScore;
         const newPlayers = [...prev.players];
         
@@ -939,8 +899,9 @@ export function useMultiPlayerGame() {
               };
               
               // 如果赢家是AI，自动出牌开始下一轮
+              const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
               if (newPlayers[winnerIndex].type === PlayerType.AI) {
-                speakPass().then(() => {
+                speakPass(winnerVoice).then(() => {
                   setTimeout(() => {
                     playNextTurn();
                   }, 500); // 给一点时间让用户看到轮次切换
@@ -950,14 +911,14 @@ export function useMultiPlayerGame() {
                   }, 1000);
                 });
               } else {
-                speakPass().catch(console.error);
+                speakPass(winnerVoice).catch(console.error);
               }
               
               return newState;
             }
           }
           
-          newLastPlay = null;
+          newLastPlay = null as Play | null;
           newLastPlayPlayerIndex = null;
           newRoundScore = 0;
         }
@@ -973,8 +934,9 @@ export function useMultiPlayerGame() {
         };
 
         // 等待"要不起"语音播放完成后再继续
+        const currentPlayerVoice = newPlayers[prev.currentPlayerIndex]?.voiceConfig;
         if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-          speakPass().then(() => {
+          speakPass(currentPlayerVoice).then(() => {
             setTimeout(() => {
               playNextTurn();
             }, 300);
@@ -984,7 +946,7 @@ export function useMultiPlayerGame() {
             }, 1000);
           });
         } else {
-          speakPass().catch(console.error);
+          speakPass(currentPlayerVoice).catch(console.error);
         }
 
         return newState;
@@ -994,25 +956,52 @@ export function useMultiPlayerGame() {
       const playScore = calculateCardsScore(selectedCards);
       const scoreCards = selectedCards.filter(card => isScoreCard(card));
 
-      // 更新玩家手牌
-      const newHand = player.hand.filter(
-        card => !selectedCards.some(c => c.id === card.id)
+      // 处理墩的计分
+      const { updatedPlayers: playersAfterDun, dunScore } = handleDunScoring(
+        prev.players,
+        playerIndex,
+        selectedCards,
+        prev.playerCount,
+        play
       );
-
-      const newPlayers = [...prev.players];
       
-      // 检查是否是墩，如果是，应用墩的计分规则
-      const isDun = play.type === 'dun';
-      let dunScore = 0;
-      if (isDun) {
-        const dunCount = calculateDunCount(selectedCards.length);
-        const dunScoreResult = calculateDunScore(dunCount, prev.playerCount, playerIndex);
-        dunScore = dunScoreResult.dunPlayerScore;
+      // 更新玩家手牌和分数
+      const updatedPlayer = updatePlayerAfterPlay(player, selectedCards, dunScore);
+      const newPlayers = [...playersAfterDun];
+      newPlayers[playerIndex] = updatedPlayer;
+      
+      // 触发好牌反应
+      triggerGoodPlayReactions(player, play, scoreCards);
+      
+      // 如果捡到了分，可能触发其他玩家的反应
+      if (playScore > 0) {
+        // 检查是否有其他玩家失去了分
+        const lostScore = playScore;
+        // 计算总轮次分数（包括当前这一手）
+        const totalRoundScore = prev.roundScore + playScore;
         
-        // 从每个其他玩家扣除分数
         newPlayers.forEach((p, idx) => {
-          if (idx !== playerIndex) {
-            p.score = (p.score || 0) - dunScoreResult.otherPlayersScore;
+          if (idx !== playerIndex && p.hand.length > 0) {
+            // 根据分数大小决定反应强度
+            // 如果分数较大（>=5分）或总轮次分数较大（>=10分），优先触发脏话反应
+            const shouldCurse = lostScore >= 5 || totalRoundScore >= 10;
+            
+            if (shouldCurse) {
+              // 大分被吃，触发脏话（更激烈）- 80%概率
+              if (Math.random() < 0.8) {
+                triggerScoreEatenCurseReaction(p, lostScore).catch(console.error);
+              } else if (Math.random() < 0.3) {
+                // 20%概率普通抱怨
+                triggerScoreStolenReaction(p, lostScore).catch(console.error);
+              }
+            } else {
+              // 小分被吃，也有一定概率触发脏话（30%），或者普通抱怨（40%）
+              if (Math.random() < 0.3) {
+                triggerScoreEatenCurseReaction(p, lostScore).catch(console.error);
+              } else if (Math.random() < 0.4) {
+                triggerScoreStolenReaction(p, lostScore).catch(console.error);
+              }
+            }
           }
         });
       }
@@ -1026,20 +1015,25 @@ export function useMultiPlayerGame() {
         score: playScore
       };
 
-      newPlayers[playerIndex] = { 
-        ...player, 
-        hand: newHand,
-        score: (player.score || 0) + dunScore // 如果是墩，立即加上墩的分数
-      };
+      // updatedPlayer已经在第937行设置到newPlayers[playerIndex]了
+      // 这里不需要重复设置
 
-      // 标记需要播放语音
-      shouldSpeak = true;
-      playToSpeak = play;
+      // 语音会在状态更新后统一处理
 
       // 检查是否获胜
-      if (newHand.length === 0) {
+      if (updatedPlayer.hand.length === 0) {
         // 玩家出完牌，记录到完成顺序
         const newFinishOrder = [...(prev.finishOrder || []), playerIndex];
+        
+        // 触发出完牌时的聊天反应
+        const finishPosition = newFinishOrder.length;
+        if (finishPosition === 1) {
+          // 头名出完，兴奋
+          triggerFinishFirstReaction(updatedPlayer).catch(console.error);
+        } else {
+          // 中间名次出完，感慨
+          triggerFinishMiddleReaction(updatedPlayer).catch(console.error);
+        }
         
         // 先把轮次分数加上（包括当前这一手的分牌）
         newPlayers[playerIndex] = {
@@ -1094,37 +1088,25 @@ export function useMultiPlayerGame() {
         }
         
         // 还没全部出完，找到下一个还在游戏中的玩家（接风）
+        // 重要：使用findNextActivePlayer确保跳过已出完牌的玩家
         const nextPlayerIndex = findNextActivePlayer(playerIndex, newPlayers, prev.playerCount);
         
-        // 玩家出完牌后，如果最后一手牌没人能打过，应该由下家接风出牌（清空lastPlay）
-        // 检查是否所有剩余玩家都要不起这一手牌
-        let allCannotBeat = true;
-        for (let i = 0; i < newPlayers.length; i++) {
-          if (newPlayers[i].hand.length > 0 && i !== playerIndex) {
-            // 检查这个玩家是否有能打过当前牌的牌
-            const hasPlayable = hasPlayableCards(newPlayers[i].hand, play);
-            if (hasPlayable) {
-              allCannotBeat = false;
-              break;
-            }
-          }
-        }
-        
-        // 如果所有人都要不起，或者当前玩家已经出完牌，由下家接风出牌
-        // 接风：清空lastPlay，让下家自由出牌
+        // 玩家出完牌后，应该由下家接风出牌（清空lastPlay，让下家自由出牌）
+        // 因为当前玩家已经出完牌，所以应该清空lastPlay，让下一个玩家自由出牌
         const newState = {
           ...prev,
           players: newPlayers,
           currentPlayerIndex: nextPlayerIndex,
-          lastPlay: allCannotBeat ? null : play, // 如果所有人都要不起，清空lastPlay（接风）
-          lastPlayPlayerIndex: allCannotBeat ? null : playerIndex, // 接风时清空lastPlayPlayerIndex
-          roundScore: allCannotBeat ? 0 : (prev.roundScore + playScore), // 如果接风，分数已经给玩家了，重置轮次分数
-          currentRoundPlays: allCannotBeat ? [] : [...(prev.currentRoundPlays || []), playRecord], // 如果接风，清空当前轮次记录
+          lastPlay: null, // 玩家出完牌后，清空lastPlay，让下家接风出牌
+          lastPlayPlayerIndex: null, // 清空lastPlayPlayerIndex
+          roundScore: 0, // 分数已经给玩家了，重置轮次分数
+          currentRoundPlays: [], // 清空当前轮次记录
           finishOrder: newFinishOrder
         };
         
         // 播放语音，然后自动继续（无论下一个是AI还是人类，都自动继续）
-        speakPlay(play).then(() => {
+        const currentPlayerVoice = newPlayers[playerIndex]?.voiceConfig;
+        speakPlay(play, currentPlayerVoice).then(() => {
           // 如果下一个玩家是AI，自动出牌
           if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
             setTimeout(() => {
@@ -1191,8 +1173,9 @@ export function useMultiPlayerGame() {
             };
             
             // 如果赢家是AI，自动出牌开始下一轮
+            const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
             if (newPlayers[winnerIndex].type === PlayerType.AI) {
-              speakPlay(play).then(() => {
+              speakPlay(play, winnerVoice).then(() => {
                 setTimeout(() => {
                   playNextTurn();
                 }, 500); // 给一点时间让用户看到轮次切换
@@ -1202,7 +1185,7 @@ export function useMultiPlayerGame() {
                 }, 1000);
               });
             } else {
-              speakPlay(play).catch(console.error);
+              speakPlay(play, winnerVoice).catch(console.error);
             }
             
             return newState;
@@ -1227,8 +1210,9 @@ export function useMultiPlayerGame() {
         };
         
         // 如果赢家是AI，自动出牌开始下一轮
+        const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
         if (newPlayers[winnerIndex].type === PlayerType.AI) {
-          speakPlay(play).then(() => {
+          speakPlay(play, winnerVoice).then(() => {
             setTimeout(() => {
               playNextTurn();
             }, 500);
@@ -1238,7 +1222,7 @@ export function useMultiPlayerGame() {
             }, 1000);
           });
         } else {
-          speakPlay(play).catch(console.error);
+          speakPlay(play, winnerVoice).catch(console.error);
         }
         
         return newState;
@@ -1255,18 +1239,19 @@ export function useMultiPlayerGame() {
       };
 
       // 如果下一个玩家是AI，等待语音播放完成后再继续
+      const currentPlayerVoice = newPlayers[playerIndex]?.voiceConfig;
       if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-        speakPlay(play).then(() => {
+        speakPlay(play, currentPlayerVoice).then(() => {
           setTimeout(() => {
             playNextTurn();
           }, 300);
         }).catch(() => {
-        setTimeout(() => {
-          playNextTurn();
-        }, 1000);
+          setTimeout(() => {
+            playNextTurn();
+          }, 1000);
         });
       } else {
-        speakPlay(play).catch(console.error);
+        speakPlay(play, currentPlayerVoice).catch(console.error);
       }
 
       return newState;
@@ -1367,8 +1352,9 @@ export function useMultiPlayerGame() {
             };
             
             // 如果赢家是AI，自动出牌开始下一轮
+            const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
             if (newPlayers[winnerIndex].type === PlayerType.AI) {
-              speakPass().then(() => {
+              speakPass(winnerVoice).then(() => {
                 setTimeout(() => {
                   playNextTurn();
                 }, 500); // 给一点时间让用户看到轮次切换
@@ -1378,7 +1364,7 @@ export function useMultiPlayerGame() {
                 }, 1000);
               });
             } else {
-              speakPass().catch(console.error);
+              speakPass(winnerVoice).catch(console.error);
             }
             
             return newState;
@@ -1399,8 +1385,9 @@ export function useMultiPlayerGame() {
       };
 
       // 如果下一个玩家是AI，等待"要不起"语音播放完成后再继续
+      const currentPlayerVoice = prev.players[playerIndex]?.voiceConfig;
       if (prev.players[nextPlayerIndex].type === PlayerType.AI) {
-        speakPass().then(() => {
+        speakPass(currentPlayerVoice).then(() => {
           setTimeout(() => {
             playNextTurn();
           }, 300);
@@ -1410,7 +1397,7 @@ export function useMultiPlayerGame() {
         }, 1000);
         });
       } else {
-        speakPass().catch(console.error);
+        speakPass(currentPlayerVoice).catch(console.error);
       }
 
       return newState;

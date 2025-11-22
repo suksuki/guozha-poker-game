@@ -64,7 +64,7 @@ interface TestGameState {
 }
 
 // 运行单局游戏测试
-function runSingleGame(
+export function runSingleGame(
   config: MCTSConfig,
   playerCount: number,
   perfectInformation: boolean
