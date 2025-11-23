@@ -25,6 +25,7 @@ import { RoundPlaysPanel } from './game/RoundPlaysPanel';
 import { PlayerInfo } from './game/PlayerInfo';
 import { PlayerHandGrouped } from './game/PlayerHandGrouped';
 import './MultiPlayerGameBoard.css';
+import './game/DealingAnimation.css'; // 导入AI玩家头像样式
 
 export const MultiPlayerGameBoard: React.FC = () => {
   const { 

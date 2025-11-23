@@ -13,8 +13,10 @@ export default class SimpleProgressReporter implements Reporter {
   private failedTests = 0;
   private skippedTests = 0;
   private currentTest = '';
+  private currentTestFile = '';
   private testFiles: string[] = [];
   private currentFileIndex = 0;
+  private fileProgress: Map<string, { total: number; completed: number }> = new Map();
 
   onInit() {
     console.log('\n🚀 开始运行测试...\n');
@@ -22,14 +24,25 @@ export default class SimpleProgressReporter implements Reporter {
   }
 
   onCollected(files?: any[]) {
-    if (files) {
-      this.totalTests = files.reduce((sum, file) => {
+    if (files && files.length > 0) {
+      // 处理文件数组
+      const processFile = (file: any) => {
         const count = this.countTests(file);
-        this.testFiles.push(file.name);
-        return sum + count;
+        const fileName = file.name || file.filepath || file.file?.name || 'unknown';
+        if (!this.testFiles.includes(fileName)) {
+          this.testFiles.push(fileName);
+          this.fileProgress.set(fileName, { total: count, completed: 0 });
+        }
+        return count;
+      };
+      
+      this.totalTests = files.reduce((sum, file) => {
+        return sum + processFile(file);
       }, 0);
       
-      // 初始信息会在第一次 renderProgress 时显示
+      // 收集完成后立即显示进度
+      console.log(`\n📋 测试任务序列: ${this.testFiles.length} 个测试文件，共 ${this.totalTests} 个测试用例\n`);
+      this.renderProgress();
     }
   }
 
@@ -44,29 +57,61 @@ export default class SimpleProgressReporter implements Reporter {
   }
 
   onTaskUpdate(packs: any[]) {
+    let hasUpdate = false;
+    
     for (const [id, result] of packs) {
       if (result.type === 'test') {
+        // 获取文件信息
+        const filePath = result.file?.name || result.filepath || result.file || '';
+        const fileName = filePath.split('/').pop() || filePath || '';
+        
         if (result.state === 'pass') {
           this.passedTests++;
           this.completedTests++;
+          hasUpdate = true;
+          // 更新文件进度
+          if (filePath && this.fileProgress.has(filePath)) {
+            const progress = this.fileProgress.get(filePath)!;
+            progress.completed++;
+          }
         } else if (result.state === 'fail') {
           this.failedTests++;
           this.completedTests++;
+          hasUpdate = true;
+          // 更新文件进度
+          if (filePath && this.fileProgress.has(filePath)) {
+            const progress = this.fileProgress.get(filePath)!;
+            progress.completed++;
+          }
         } else if (result.state === 'skip') {
           this.skippedTests++;
           this.completedTests++;
+          hasUpdate = true;
+          // 更新文件进度
+          if (filePath && this.fileProgress.has(filePath)) {
+            const progress = this.fileProgress.get(filePath)!;
+            progress.completed++;
+          }
         } else if (result.state === 'run') {
           this.currentTest = result.name || '';
+          this.currentTestFile = filePath;
+          hasUpdate = true;
         }
       }
     }
     
-    this.renderProgress();
+    // 每次有更新时都显示进度
+    if (hasUpdate || this.totalTests > 0) {
+      this.renderProgress();
+    }
   }
 
   private lastOutputLines = 0;
 
   private renderProgress() {
+    // 只在有测试数据时显示
+    if (this.totalTests === 0) return;
+    
     const elapsed = (Date.now() - this.startTime) / 1000;
     const progress = this.totalTests > 0 ? this.completedTests / this.totalTests : 0;
     const estimatedTotal = progress > 0 ? elapsed / progress : 0;
@@ -74,57 +119,17 @@ export default class SimpleProgressReporter implements Reporter {
     const running = Math.max(0, this.totalTests - this.completedTests);
 
     // 进度条
-    const barLength = 50;
+    const barLength = 40;
     const filled = Math.floor(progress * barLength);
     const bar = '█'.repeat(filled) + '░'.repeat(barLength - filled);
     const percentage = (progress * 100).toFixed(1);
 
-    // 构建输出内容
-    const lines: string[] = [];
-    lines.push('\n' + '='.repeat(100));
-    lines.push('📊 测试进度总览');
-    lines.push('='.repeat(100));
-    lines.push('');
+    // 使用console.log确保输出可见，每次输出新行
+    const currentTestInfo = this.currentTest 
+      ? (this.currentTest.length > 60 ? this.currentTest.substring(0, 57) + '...' : this.currentTest)
+      : '等待测试...';
     
-    // 显示测试文件信息（如果有）
-    if (this.testFiles.length > 0) {
-      lines.push(`📋 测试文件: ${this.testFiles.length} 个文件，共 ${this.totalTests} 个测试用例`);
-      lines.push('');
-    }
-    
-    // 总体进度
-    lines.push(`总体进度: [${bar}] ${percentage}%`);
-    lines.push(`步骤进度: ${this.completedTests} / ${this.totalTests} 已完成 (剩余 ${running} 个)`);
-    lines.push(`测试统计: ✅ ${this.passedTests} 通过 | ❌ ${this.failedTests} 失败 | ⏭️  ${this.skippedTests} 跳过`);
-    lines.push(`时间信息: ⏱️  已用 ${this.formatTime(elapsed)} | 剩余约 ${this.formatTime(remaining)}`);
-    lines.push('');
-    
-    // 显示当前测试
-    if (this.currentTest) {
-      const testName = this.currentTest.length > 80 
-        ? this.currentTest.substring(0, 77) + '...' 
-        : this.currentTest;
-      lines.push(`⏳ 当前运行: ${testName}`);
-      lines.push('');
-    } else if (this.completedTests === 0) {
-      lines.push('⏳ 等待测试开始...');
-      lines.push('');
-    } else {
-      lines.push('⏳ 等待下一个测试...');
-      lines.push('');
-    }
-    
-    lines.push('='.repeat(100));
-
-    // 清除之前的输出行
-    for (let i = 0; i < this.lastOutputLines; i++) {
-      process.stdout.write('\x1B[1A\x1B[2K'); // 上移一行并清除
-    }
-    
-    // 输出新内容
-    const output = lines.join('\n');
-    process.stdout.write(output);
-    this.lastOutputLines = lines.length;
+    console.log(`📊 进度: ${this.completedTests}/${this.totalTests} (${percentage}%) [${bar}] ✅${this.passedTests} ❌${this.failedTests} ⏭️${this.skippedTests} ⏱️${this.formatTime(elapsed)} | ${currentTestInfo}`);
   }
 
   private formatTime(seconds: number): string {
@@ -137,10 +142,8 @@ export default class SimpleProgressReporter implements Reporter {
   }
 
   onFinished(files?: any[], errors?: any[]) {
-    // 清除进度显示
-    for (let i = 0; i < this.lastOutputLines; i++) {
-      process.stdout.write('\x1B[1A\x1B[2K');
-    }
+    // 输出最终结果（不清除，确保信息可见）
+    console.log('\n' + '='.repeat(80));
     
     const totalTime = (Date.now() - this.startTime) / 1000;
     
@@ -149,24 +152,66 @@ export default class SimpleProgressReporter implements Reporter {
     console.log('='.repeat(100));
     console.log('');
     console.log(`📝 总测试数: ${this.totalTests} 个测试用例`);
-    console.log(`✅ 通过: ${this.passedTests} (${((this.passedTests / this.totalTests) * 100).toFixed(1)}%)`);
-    console.log(`❌ 失败: ${this.failedTests} (${((this.failedTests / this.totalTests) * 100).toFixed(1)}%)`);
-    console.log(`⏭️  跳过: ${this.skippedTests} (${((this.skippedTests / this.totalTests) * 100).toFixed(1)}%)`);
+    console.log(`✅ 通过: ${this.passedTests} (${this.totalTests > 0 ? ((this.passedTests / this.totalTests) * 100).toFixed(1) : 0}%)`);
+    console.log(`❌ 失败: ${this.failedTests} (${this.totalTests > 0 ? ((this.failedTests / this.totalTests) * 100).toFixed(1) : 0}%)`);
+    console.log(`⏭️  跳过: ${this.skippedTests} (${this.totalTests > 0 ? ((this.skippedTests / this.totalTests) * 100).toFixed(1) : 0}%)`);
     console.log(`⏱️  总耗时: ${this.formatTime(totalTime)}`);
-    console.log(`📈 平均速度: ${(this.totalTests / totalTime).toFixed(2)} 测试/秒`);
+    if (totalTime > 0) {
+      console.log(`📈 平均速度: ${(this.totalTests / totalTime).toFixed(2)} 测试/秒`);
+    }
     console.log('');
     console.log('='.repeat(100));
     
-    if (this.failedTests > 0 && errors && errors.length > 0) {
-      console.log('\n❌ 失败详情:\n');
-      errors.forEach((error, index) => {
-        console.log(`${index + 1}. ${error.message || error}`);
-        if (error.stack) {
-          const stackLines = error.stack.split('\n').slice(0, 5);
-          console.log(stackLines.join('\n'));
+    // 收集所有失败的测试信息
+    const failedTests: any[] = [];
+    if (files) {
+      const collectFailed = (task: any) => {
+        if (task.type === 'test' && task.result?.state === 'fail') {
+          failedTests.push({
+            name: task.name || '未知测试',
+            file: task.file?.name || task.filepath || '未知文件',
+            error: task.result?.error || task.result?.errors?.[0] || '未知错误',
+            duration: task.result?.duration || 0
+          });
         }
-        console.log('');
-      });
+        if (task.tasks) {
+          task.tasks.forEach((t: any) => collectFailed(t));
+        }
+      };
+      files.forEach(file => collectFailed(file));
+    }
+    
+    if (this.failedTests > 0) {
+      console.log('\n❌ 失败测试详情:\n');
+      if (failedTests.length > 0) {
+        failedTests.forEach((test, index) => {
+          console.log(`${index + 1}. ${test.name}`);
+          console.log(`   文件: ${test.file}`);
+          if (test.error) {
+            if (typeof test.error === 'string') {
+              console.log(`   错误: ${test.error}`);
+            } else if (test.error.message) {
+              console.log(`   错误: ${test.error.message}`);
+              if (test.error.stack) {
+                const stackLines = test.error.stack.split('\n').slice(0, 10);
+                console.log(`   堆栈:\n${stackLines.map((line: string) => `      ${line}`).join('\n')}`);
+              }
+            } else {
+              console.log(`   错误: ${JSON.stringify(test.error, null, 2)}`);
+            }
+          }
+          console.log('');
+        });
+      } else if (errors && errors.length > 0) {
+        errors.forEach((error, index) => {
+          console.log(`${index + 1}. ${error.message || error}`);
+          if (error.stack) {
+            const stackLines = error.stack.split('\n').slice(0, 10);
+            console.log(`   堆栈:\n${stackLines.map((line: string) => `      ${line}`).join('\n')}`);
+          }
+          console.log('');
+        });
+      }
     }
     
     if (this.failedTests === 0) {

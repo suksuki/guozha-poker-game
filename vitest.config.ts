@@ -1,16 +1,33 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import path from 'path'
-import SimpleProgressReporter from './tests/simpleProgressReporter'
+import SimpleProgressReporter from './tests/simpleProgressReporter.js'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react({
+    jsxRuntime: 'automatic',
+    jsxImportSource: 'react',
+    babel: {
+      parserOpts: {
+        plugins: ['jsx']
+      }
+    }
+  })],
+  esbuild: {
+    jsx: 'automatic',
+    jsxDev: false,
+    target: 'es2020',
+    loader: 'tsx'
+  },
   test: {
     environment: 'jsdom',
     globals: true,
     setupFiles: './tests/setup.ts',
-    // 使用简单进度报告器（显示实时进度条和步骤）
-    reporters: process.env.CI ? ['default'] : [SimpleProgressReporter],
+    transformMode: {
+      web: [/\.[jt]sx?$/]
+    },
+    // 使用默认报告器（显示详细信息）+ 简单进度报告器（显示进度）
+    reporters: process.env.CI ? ['default'] : ['verbose', SimpleProgressReporter],
     // 测试超时设置
     testTimeout: 30000,
     hookTimeout: 30000,

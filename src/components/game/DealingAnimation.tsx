@@ -7,9 +7,12 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Card, Player, Suit, Rank } from '../../types/card';
 import { CardComponent } from '../CardComponent';
 import { dealCardsWithAlgorithm, DealingConfig, DealingAlgorithm } from '../../utils/dealingAlgorithms';
-import { triggerDealingReaction, chatService } from '../../services/chatService';
+import { triggerDealingReaction, chatService, getChatMessages } from '../../services/chatService';
 import { sortCards, SortOrder, groupCardsByRank } from '../../utils/cardSorting';
 import { PlayerHandGrouped } from './PlayerHandGrouped';
+import { ChatBubble } from '../ChatBubble';
+import { ChatMessage } from '../../types/chat';
+import { AIPlayerAvatar } from './AIPlayerAvatar';
 import './DealingAnimation.css';
 
 export interface DealingAnimationProps {
@@ -56,8 +59,11 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
   const [sortedHands, setSortedHands] = useState<Card[][]>(Array(playerCount).fill(null).map(() => [])); // 排序后的手牌
   const [expandedRanks, setExpandedRanks] = useState<Set<number>>(new Set()); // 展开的rank组
   const [isManualMode, setIsManualMode] = useState(false); // 手动/自动模式
+  const [activeChatBubbles, setActiveChatBubbles] = useState<Map<number, ChatMessage>>(new Map()); // 聊天气泡
+  const [isDealingToAI, setIsDealingToAI] = useState(false); // 是否正在自动发给AI玩家（手动模式下）
   
   const dealingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const aiDealTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerAreaRefs = useRef<(HTMLDivElement | null)[]>(Array(playerCount).fill(null));
   const centerRef = useRef<HTMLDivElement>(null);
@@ -152,11 +158,43 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
         return newSorted;
       });
       
-      // 触发发牌聊天反应（每发几张牌或特殊牌时）
-      if (prev.currentCardIndex % (playerCount * 5) === 0 || 
-          card.suit === Suit.JOKER || 
-          (card.rank === Rank.TWO && prev.currentCardIndex < playerCount * 10)) {
-        triggerDealingReaction(players[playerIndex], card, prev.currentCardIndex, prev.allCards.length).catch(console.error);
+      // 触发发牌聊天反应（所有玩家都可以参与）
+      // AI玩家：每发几张牌或特殊牌时触发
+      // 人类玩家：只在特殊牌时触发（理牌时会单独触发）
+      const isAIPlayer = playerIndex !== humanPlayerIndex;
+      const shouldTriggerDealingChat = isAIPlayer && (
+        prev.currentCardIndex % (playerCount * 3) === 0 || // AI玩家每发3轮牌触发一次
+        card.suit === Suit.JOKER || // 大小王
+        card.rank === Rank.TWO || // 2
+        card.rank === Rank.ACE || // A
+        (prev.currentCardIndex < playerCount * 5 && Math.random() < 0.3) // 前5轮有30%概率随机触发
+      );
+      
+      if (shouldTriggerDealingChat) {
+        // 为当前玩家触发发牌聊天反应
+        const currentPlayer = { ...players[playerIndex], hand: newDealtCards[playerIndex] } as Player;
+        triggerDealingReaction(currentPlayer, card, prev.currentCardIndex, prev.allCards.length)
+          .then(() => {
+            // 获取最新的聊天消息并显示气泡
+            const messages = getChatMessages();
+            const latestMessage = messages[messages.length - 1];
+            if (latestMessage && latestMessage.playerId === currentPlayer.id) {
+              setActiveChatBubbles(prev => {
+                const newMap = new Map(prev);
+                newMap.set(latestMessage.playerId, latestMessage);
+                return newMap;
+              });
+              // 3秒后移除气泡
+              setTimeout(() => {
+                setActiveChatBubbles(prev => {
+                  const newMap = new Map(prev);
+                  newMap.delete(latestMessage.playerId);
+                  return newMap;
+                });
+              }, 3000);
+            }
+          })
+          .catch(console.error);
       }
       
       // 触发理牌聊天反应（仅对人类玩家，且是刚发的牌）
@@ -168,7 +206,26 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
             humanPlayer,
             sortedHand,
             card
-          ).catch(console.error);
+          ).then(() => {
+            // 获取最新的聊天消息并显示气泡
+            const messages = getChatMessages();
+            const latestMessage = messages[messages.length - 1];
+            if (latestMessage && latestMessage.playerId === humanPlayer.id) {
+              setActiveChatBubbles(prev => {
+                const newMap = new Map(prev);
+                newMap.set(latestMessage.playerId, latestMessage);
+                return newMap;
+              });
+              // 3秒后移除气泡
+              setTimeout(() => {
+                setActiveChatBubbles(prev => {
+                  const newMap = new Map(prev);
+                  newMap.delete(latestMessage.playerId);
+                  return newMap;
+                });
+              }, 3000);
+            }
+          }).catch(console.error);
         }, 200);
       }
       
@@ -225,12 +282,70 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
   }, [dealingState.allCards.length, dealingState.isDealing, dealingState.isComplete, isManualMode, startDealing]);
 
   // 手动抓牌：点击牌堆
+  // 逻辑：点击后，如果还没轮到人类玩家，先自动发给前面的玩家直到轮到人类玩家
+  // 然后发一张给人类玩家，再自动发给所有AI玩家（每人一张），然后停住
   const handleManualDeal = useCallback(() => {
     if (!isManualMode || dealingState.isComplete) return;
     if (dealingState.currentCardIndex >= dealingState.allCards.length) return;
     
+    // 如果正在发给AI玩家，不应该再次触发
+    if (isDealingToAI) {
+      return;
+    }
+    
+    // 如果还没轮到人类玩家，先自动发给前面的玩家，直到轮到人类玩家
+    const currentPlayerIndex = dealingState.currentPlayerIndex;
+    if (currentPlayerIndex !== humanPlayerIndex) {
+      // 自动发给前面的玩家，直到轮到人类玩家
+      setIsDealingToAI(true);
+      return;
+    }
+    
+    // 轮到人类玩家了，发一张给人类玩家
     dealNextCard();
-  }, [isManualMode, dealingState, dealNextCard]);
+    
+    // 设置标志，开始自动发给AI玩家
+    // 延迟一下，让人类玩家的牌先发完
+    setTimeout(() => {
+      setIsDealingToAI(true);
+    }, dealingSpeed);
+    
+  }, [isManualMode, dealingState, dealNextCard, humanPlayerIndex, isDealingToAI, dealingSpeed]);
+  
+  // 在手动模式下，当轮到AI玩家时，自动发牌
+  useEffect(() => {
+    if (!isManualMode || !isDealingToAI) return;
+    if (dealingState.isComplete) {
+      setIsDealingToAI(false);
+      return;
+    }
+    if (dealingState.currentCardIndex >= dealingState.allCards.length) {
+      setIsDealingToAI(false);
+      return;
+    }
+    
+    // 检查当前是否轮到人类玩家（说明已经发完一轮）
+    if (dealingState.currentPlayerIndex === humanPlayerIndex) {
+      // 又轮到人类玩家，停止自动发牌
+      setIsDealingToAI(false);
+      return;
+    }
+    
+    // 当前轮到AI玩家，自动发牌
+    if (aiDealTimeoutRef.current) {
+      clearTimeout(aiDealTimeoutRef.current);
+    }
+    
+    aiDealTimeoutRef.current = setTimeout(() => {
+      dealNextCard();
+    }, dealingSpeed);
+    
+    return () => {
+      if (aiDealTimeoutRef.current) {
+        clearTimeout(aiDealTimeoutRef.current);
+      }
+    };
+  }, [isManualMode, isDealingToAI, dealingState.currentPlayerIndex, dealingState.currentCardIndex, dealingState.isComplete, humanPlayerIndex, dealNextCard, dealingSpeed]);
 
   // 清理定时器
   useEffect(() => {
@@ -238,20 +353,33 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
       if (dealingIntervalRef.current) {
         clearInterval(dealingIntervalRef.current);
       }
+      if (aiDealTimeoutRef.current) {
+        clearTimeout(aiDealTimeoutRef.current);
+      }
     };
   }, []);
 
   // 计算玩家位置（圆形布局）
   const getPlayerPosition = (index: number): { x: number; y: number; angle: number } => {
-    const angle = (index * 2 * Math.PI) / playerCount - Math.PI / 2; // 从顶部开始
-    const radius = 200; // 半径（像素）
-    const centerX = 50; // 百分比
-    const centerY = 50;
+    // AI玩家显示在顶部，水平排列
+    // 计算当前index是第几个AI玩家（跳过人类玩家）
+    let aiIndex = 0;
+    for (let i = 0; i < index; i++) {
+      if (i !== humanPlayerIndex) {
+        aiIndex++;
+      }
+    }
+    
+    // 计算总AI玩家数
+    const totalAIPlayers = playerCount - 1; // 减去人类玩家
+    const spacing = 100 / (totalAIPlayers + 1); // 平均分布
+    const x = spacing * (aiIndex + 1); // 水平位置（从左边开始）
+    const y = 0; // 从顶部开始（实际位置会加上10px padding）
     
     return {
-      x: centerX + (radius / 10) * Math.cos(angle),
-      y: centerY + (radius / 10) * Math.sin(angle),
-      angle: angle * (180 / Math.PI)
+      x,
+      y,
+      angle: 0 // 不需要角度
     };
   };
 
@@ -296,7 +424,7 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
         </div>
       </div>
 
-      {/* AI玩家区域（小预览） */}
+      {/* AI玩家区域（卡通头像 + 状态面板） */}
       {players.map((player, index) => {
         if (index === humanPlayerIndex) return null; // 人类玩家单独显示
         
@@ -304,29 +432,14 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
         const dealtCount = dealingState.dealtCards[index]?.length || 0;
         
         return (
-          <div
+          <AIPlayerAvatar
             key={index}
-            className="player-dealing-area ai-player"
-            ref={el => playerAreaRefs.current[index] = el}
-            style={{
-              left: `${position.x}%`,
-              top: `${position.y}%`,
-              transform: `translate(-50%, -50%)`
-            }}
-          >
-            <div className="player-name">{player.name}</div>
-            <div className="player-card-count">{dealtCount} 张</div>
-            <div className="player-cards-preview">
-              {dealingState.dealtCards[index]?.slice(-5).map((card) => (
-                <CardComponent
-                  key={card.id}
-                  card={card}
-                  size="small"
-                  faceDown={true}
-                />
-              ))}
-            </div>
-          </div>
+            player={player}
+            handCount={dealtCount}
+            position={position}
+            showPosition={true}
+            ref={el => { playerAreaRefs.current[index] = el; }}
+          />
         );
       })}
 
@@ -406,21 +519,96 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
         <button 
           className="dealing-mode-btn" 
           onClick={() => {
-            setIsManualMode(!isManualMode);
-            // 如果切换到自动模式且还没开始，自动开始
-            if (!isManualMode && !dealingState.isDealing && !dealingState.isComplete) {
-              setTimeout(() => startDealing(), 100);
-            }
-            // 如果切换到手动模式，清除自动定时器
-            if (isManualMode && dealingIntervalRef.current) {
-              clearInterval(dealingIntervalRef.current);
-              dealingIntervalRef.current = null;
+            const newMode = !isManualMode;
+            setIsManualMode(newMode);
+            
+            // 如果切换到自动模式，清除手动模式的标志，并开始自动发牌
+            if (!newMode) {
+              setIsDealingToAI(false);
+              // 清除手动模式的定时器
+              if (aiDealTimeoutRef.current) {
+                clearTimeout(aiDealTimeoutRef.current);
+                aiDealTimeoutRef.current = null;
+              }
+              // 如果还没开始发牌，自动开始
+              if (!dealingState.isDealing && !dealingState.isComplete) {
+                setTimeout(() => startDealing(), 100);
+              } else if (dealingState.isDealing && !dealingState.isComplete) {
+                // 如果正在发牌，继续自动发牌
+                if (!dealingIntervalRef.current) {
+                  dealingIntervalRef.current = setInterval(() => {
+                    dealNextCard();
+                  }, dealingSpeed);
+                }
+              }
+            } else {
+              // 如果切换到手动模式，清除自动定时器
+              if (dealingIntervalRef.current) {
+                clearInterval(dealingIntervalRef.current);
+                dealingIntervalRef.current = null;
+              }
             }
           }}
         >
           {isManualMode ? '🔄 切换到自动' : '👆 切换到手动'}
         </button>
+        {/* 手动模式下的抓牌按钮 */}
+        {isManualMode && !dealingState.isComplete && (
+          <button 
+            className="dealing-draw-btn" 
+            onClick={handleManualDeal}
+            disabled={
+              dealingState.currentCardIndex >= dealingState.allCards.length || 
+              isDealingToAI
+            }
+          >
+            🎴 抓牌
+          </button>
+        )}
       </div>
+
+      {/* 聊天气泡显示 - 所有玩家都可以显示 */}
+      {Array.from(activeChatBubbles.entries()).map(([playerId, message]) => {
+        const player = players.find(p => p.id === playerId);
+        if (!player) return null;
+        
+        const playerIndex = players.findIndex(p => p.id === playerId);
+        const position = getPlayerPosition(playerIndex);
+        
+        // 如果是人类玩家，气泡显示在底部手牌区域上方
+        // 如果是AI玩家，气泡显示在玩家位置附近
+        const bubbleStyle: React.CSSProperties = playerIndex === humanPlayerIndex
+          ? {
+              position: 'absolute',
+              bottom: '350px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1500
+            }
+          : {
+              position: 'absolute',
+              left: `${position.x}%`,
+              top: `${position.y}%`,
+              transform: 'translate(-50%, -100%)',
+              marginTop: '-20px',
+              zIndex: 1500
+            };
+        
+        return (
+          <ChatBubble
+            key={`${playerId}-${message.timestamp}`}
+            message={message}
+            playerPosition={bubbleStyle}
+            onComplete={() => {
+              setActiveChatBubbles(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(playerId);
+                return newMap;
+              });
+            }}
+          />
+        );
+      })}
     </div>
   );
 };

@@ -23,11 +23,15 @@ export function handlePlayerFinished(
   // 玩家出完牌，记录到完成顺序
   const newFinishOrder = [...(prevState.finishOrder || []), playerIndex];
   
+  // 计算当前玩家的名次（根据出完牌的顺序，第一个出完的是第1名）
+  const currentRank = newFinishOrder.length;
+  
   // 把轮次分数给获胜者（包括当前这一手的分牌）
   const finalScore = (newPlayers[playerIndex].score || 0) + prevState.roundScore + playScore;
   newPlayers[playerIndex] = {
     ...newPlayers[playerIndex],
-    score: finalScore
+    score: finalScore,
+    finishedRank: currentRank // 设置名次（第一个出完的是第1名）
   };
   
   // 检查是否只剩下一个玩家还没出完（即最后一个玩家）

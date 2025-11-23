@@ -221,11 +221,15 @@ export function useMultiPlayerGame() {
           // 玩家出完牌，记录到完成顺序
           const newFinishOrder = [...(prev.finishOrder || []), currentState.currentPlayerIndex];
           
+          // 计算当前玩家的名次（根据出完牌的顺序，第一个出完的是第1名）
+          const currentRank = newFinishOrder.length;
+          
           // 把轮次分数给获胜者（包括当前这一手的分牌）
                   const finalScore = (player.score || 0) + prev.roundScore + fallbackScore;
                   newPlayers[currentState.currentPlayerIndex] = {
                     ...newPlayers[currentState.currentPlayerIndex],
-                    score: finalScore
+                    score: finalScore,
+                    finishedRank: currentRank // 设置名次（第一个出完的是第1名）
                   };
           
           // 检查是否只剩下一个玩家还没出完（即最后一个玩家）
@@ -380,80 +384,81 @@ export function useMultiPlayerGame() {
           if (prev.status !== GameStatus.PLAYING) return prev;
           if (prev.currentPlayerIndex !== currentState.currentPlayerIndex) return prev;
 
-          const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.playerCount;
-          let newLastPlay = prev.lastPlay;
-          let newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
-          let newRoundScore = prev.roundScore;
+          const nextPlayerIndex = findNextActivePlayer(prev.currentPlayerIndex, prev.players, prev.playerCount);
           const newPlayers = [...prev.players];
           
-          // 如果一轮结束（回到最后出牌的人），把分数给最后出牌的人
-          if (nextPlayerIndex === prev.lastPlayPlayerIndex) {
-            if (prev.lastPlayPlayerIndex !== null && prev.roundScore > 0) {
-              const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
-              if (lastPlayer) {
-                // 创建轮次记录
-                const roundRecord: RoundRecord = {
-                  roundNumber: prev.roundNumber,
-                  plays: [...prev.currentRoundPlays],
-                  totalScore: prev.roundScore,
-                  winnerId: prev.lastPlayPlayerIndex,
-                  winnerName: lastPlayer.name
-                };
-                
+          // 只要有人"要不起"，且本轮有出牌记录（lastPlayPlayerIndex不为null），则强制结束本轮
+          if (prev.lastPlayPlayerIndex !== null) {
+            // 强制结束本轮，把分数给最后出牌的人
+            const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
+            if (lastPlayer) {
+              // 创建轮次记录
+              const roundRecord: RoundRecord = {
+                roundNumber: prev.roundNumber,
+                plays: [...prev.currentRoundPlays],
+                totalScore: prev.roundScore,
+                winnerId: prev.lastPlayPlayerIndex,
+                winnerName: lastPlayer.name
+              };
+              
+              // 如果有分数，给最后出牌的人
+              if (prev.roundScore > 0) {
                 newPlayers[prev.lastPlayPlayerIndex] = {
                   ...lastPlayer,
                   score: (lastPlayer.score || 0) + prev.roundScore,
                   wonRounds: [...(lastPlayer.wonRounds || []), roundRecord]
                 };
-                
-                // 保存轮次记录到allRounds
-                const updatedAllRounds = [...(prev.allRounds || []), roundRecord];
-                
-                // 一轮结束，由赢家开始下一轮
-                const winnerIndex = prev.lastPlayPlayerIndex; // 赢家索引
-                // 确保赢家还没有出完牌，如果出完了，找下一个还在游戏中的玩家
-                const nextPlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
-                  ? winnerIndex 
-                  : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
-                const newState = {
-                  ...prev,
-                  players: newPlayers,
-                  currentPlayerIndex: nextPlayerIndex, // 由赢家（或下一个还在游戏中的玩家）开始下一轮
-                  lastPlay: null, // 新轮次，清空lastPlay
-                  lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
-                  roundScore: 0, // 新轮次，重置分数
-                  currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
-                  roundNumber: prev.roundNumber + 1, // 新轮次
-                  allRounds: updatedAllRounds,
-                  gameRecord: prev.gameRecord ? {
-                    ...prev.gameRecord,
-                    allRounds: updatedAllRounds
-                  } : prev.gameRecord
-                };
-                
-                // 如果赢家是AI，自动出牌开始下一轮
-                const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
-                if (newPlayers[winnerIndex].type === PlayerType.AI) {
-                  speakPass(winnerVoice).then(() => {
-                    setTimeout(() => {
-                      playNextTurn();
-                    }, 500); // 给一点时间让用户看到轮次切换
-                  }).catch(() => {
-                    setTimeout(() => {
-                      playNextTurn();
-                    }, 1000);
-                  });
-                } else {
-                  speakPass(winnerVoice).catch(console.error);
-                }
-                
-                return newState;
               }
+              
+              // 保存轮次记录到allRounds
+              const updatedAllRounds = [...(prev.allRounds || []), roundRecord];
+              
+              // 一轮结束，由赢家开始下一轮（如果赢家已出完，找下一个还在游戏中的玩家）
+              const winnerIndex = prev.lastPlayPlayerIndex;
+              const nextActivePlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
+                ? winnerIndex 
+                : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+              
+              const newState = {
+                ...prev,
+                players: newPlayers,
+                currentPlayerIndex: nextActivePlayerIndex, // 由赢家（或下一个还在游戏中的玩家）开始下一轮
+                lastPlay: null, // 新轮次，清空lastPlay
+                lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
+                roundScore: 0, // 新轮次，重置分数
+                currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
+                roundNumber: prev.roundNumber + 1, // 新轮次
+                allRounds: updatedAllRounds,
+                gameRecord: prev.gameRecord ? {
+                  ...prev.gameRecord,
+                  allRounds: updatedAllRounds
+                } : prev.gameRecord
+              };
+              
+              // 如果下一个玩家是AI，自动出牌开始下一轮
+              const nextPlayerVoice = newPlayers[nextActivePlayerIndex]?.voiceConfig;
+              if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
+                speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).then(() => {
+                  setTimeout(() => {
+                    playNextTurn();
+                  }, 500); // 给一点时间让用户看到轮次切换
+                }).catch(() => {
+                  setTimeout(() => {
+                    playNextTurn();
+                  }, 1000);
+                });
+              } else {
+                speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).catch(console.error);
+              }
+              
+              return newState;
             }
-            newLastPlay = null as Play | null;
-            newLastPlayPlayerIndex = null;
-            newRoundScore = 0; // 重置轮次分数
           }
+          
+          // 如果没有lastPlayPlayerIndex（接风状态），继续游戏
+          let newLastPlay = prev.lastPlay;
+          let newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
+          let newRoundScore = prev.roundScore;
 
           const newState = {
             ...prev,
@@ -491,90 +496,87 @@ export function useMultiPlayerGame() {
       if (!play) {
         setGameState(prev => {
           if (prev.status !== GameStatus.PLAYING) return prev;
-          const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.playerCount;
-          let newLastPlay = prev.lastPlay;
-          let newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
-          let newRoundScore = prev.roundScore;
+          const nextPlayerIndex = findNextActivePlayer(prev.currentPlayerIndex, prev.players, prev.playerCount);
           const newPlayers = [...prev.players];
           
-          // 如果一轮结束（回到最后出牌的人），把分数给最后出牌的人
-          if (nextPlayerIndex === prev.lastPlayPlayerIndex) {
-            if (prev.lastPlayPlayerIndex !== null && prev.roundScore > 0) {
-              const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
-              if (lastPlayer) {
-                // 创建轮次记录
-                const roundRecord: RoundRecord = {
-                  roundNumber: prev.roundNumber,
-                  plays: [...prev.currentRoundPlays],
-                  totalScore: prev.roundScore,
-                  winnerId: prev.lastPlayPlayerIndex,
-                  winnerName: lastPlayer.name
-                };
-                
+          // 只要有人"要不起"，且本轮有出牌记录（lastPlayPlayerIndex不为null），则强制结束本轮
+          if (prev.lastPlayPlayerIndex !== null) {
+            // 强制结束本轮，把分数给最后出牌的人
+            const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
+            if (lastPlayer) {
+              // 创建轮次记录
+              const roundRecord: RoundRecord = {
+                roundNumber: prev.roundNumber,
+                plays: [...prev.currentRoundPlays],
+                totalScore: prev.roundScore,
+                winnerId: prev.lastPlayPlayerIndex,
+                winnerName: lastPlayer.name
+              };
+              
+              // 如果有分数，给最后出牌的人
+              if (prev.roundScore > 0) {
                 newPlayers[prev.lastPlayPlayerIndex] = {
                   ...lastPlayer,
                   score: (lastPlayer.score || 0) + prev.roundScore,
                   wonRounds: [...(lastPlayer.wonRounds || []), roundRecord]
                 };
-                
-                // 保存轮次记录到allRounds
-                const updatedAllRounds = [...(prev.allRounds || []), roundRecord];
-                
-                // 一轮结束，由赢家开始下一轮
-                const winnerIndex = prev.lastPlayPlayerIndex;
-                // 确保赢家还没有出完牌，如果出完了，找下一个还在游戏中的玩家
-                const nextPlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
-                  ? winnerIndex 
-                  : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
-                const newState = {
-                  ...prev,
-                  players: newPlayers,
-                  currentPlayerIndex: nextPlayerIndex, // 由赢家（或下一个还在游戏中的玩家）开始下一轮
-                  lastPlay: null, // 新轮次，清空lastPlay
-                  lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
-                  roundScore: 0, // 新轮次，重置分数
-                  currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
-                  roundNumber: prev.roundNumber + 1, // 新轮次
-                  allRounds: updatedAllRounds,
-                  gameRecord: prev.gameRecord ? {
-                    ...prev.gameRecord,
-                    allRounds: updatedAllRounds
-                  } : prev.gameRecord
-                };
-                
-                // 如果赢家是AI，自动出牌开始下一轮
-                const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
-                if (newPlayers[winnerIndex].type === PlayerType.AI) {
-                  speakPass(winnerVoice).then(() => {
-                    setTimeout(() => {
-                      playNextTurn();
-                    }, 500); // 给一点时间让用户看到轮次切换
-                  }).catch(() => {
-                    setTimeout(() => {
-                      playNextTurn();
-                    }, 1000);
-                  });
-                } else {
-                  speakPass(winnerVoice).catch(console.error);
-                }
-                
-                return newState;
               }
+              
+              // 保存轮次记录到allRounds
+              const updatedAllRounds = [...(prev.allRounds || []), roundRecord];
+              
+              // 一轮结束，由赢家开始下一轮（如果赢家已出完，找下一个还在游戏中的玩家）
+              const winnerIndex = prev.lastPlayPlayerIndex;
+              const nextActivePlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
+                ? winnerIndex 
+                : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+              
+              const newState = {
+                ...prev,
+                players: newPlayers,
+                currentPlayerIndex: nextActivePlayerIndex, // 由赢家（或下一个还在游戏中的玩家）开始下一轮
+                lastPlay: null, // 新轮次，清空lastPlay
+                lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
+                roundScore: 0, // 新轮次，重置分数
+                currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
+                roundNumber: prev.roundNumber + 1, // 新轮次
+                allRounds: updatedAllRounds,
+                gameRecord: prev.gameRecord ? {
+                  ...prev.gameRecord,
+                  allRounds: updatedAllRounds
+                } : prev.gameRecord
+              };
+              
+              // 如果下一个玩家是AI，自动出牌开始下一轮
+              const nextPlayerVoice = newPlayers[nextActivePlayerIndex]?.voiceConfig;
+              if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
+                speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).then(() => {
+                  setTimeout(() => {
+                    playNextTurn();
+                  }, 500); // 给一点时间让用户看到轮次切换
+                }).catch(() => {
+                  setTimeout(() => {
+                    playNextTurn();
+                  }, 1000);
+                });
+              } else {
+                speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).catch(console.error);
+              }
+              
+              return newState;
             }
-            newLastPlay = null as Play | null;
-            newLastPlayPlayerIndex = null;
-            newRoundScore = 0; // 重置轮次分数
           }
           
+          // 如果没有lastPlayPlayerIndex（接风状态），继续游戏
           return {
             ...prev,
             players: newPlayers,
             currentPlayerIndex: nextPlayerIndex,
-            lastPlay: newLastPlay,
-            lastPlayPlayerIndex: newLastPlayPlayerIndex,
-            roundScore: newRoundScore,
-            currentRoundPlays: nextPlayerIndex === prev.lastPlayPlayerIndex ? [] : prev.currentRoundPlays, // 重置或保持
-            roundNumber: nextPlayerIndex === prev.lastPlayPlayerIndex ? prev.roundNumber + 1 : prev.roundNumber // 新轮次
+            lastPlay: prev.lastPlay,
+            lastPlayPlayerIndex: prev.lastPlayPlayerIndex,
+            roundScore: prev.roundScore,
+            currentRoundPlays: prev.currentRoundPlays,
+            roundNumber: prev.roundNumber
           };
         });
         return;
@@ -664,6 +666,9 @@ export function useMultiPlayerGame() {
           // 玩家出完牌，记录到完成顺序
           const newFinishOrder = [...(prev.finishOrder || []), currentState.currentPlayerIndex];
           
+          // 计算当前玩家的名次（根据出完牌的顺序，第一个出完的是第1名）
+          const currentRank = newFinishOrder.length;
+          
           // 触发出完牌时的聊天反应
           const finishPosition = newFinishOrder.length;
           if (finishPosition === 1) {
@@ -687,7 +692,8 @@ export function useMultiPlayerGame() {
           newPlayers[currentState.currentPlayerIndex] = {
             ...newPlayers[currentState.currentPlayerIndex],
             score: finalScore,
-            wonRounds: [...(player.wonRounds || []), finalRoundRecord]
+            wonRounds: [...(player.wonRounds || []), finalRoundRecord],
+            finishedRank: currentRank // 设置名次（第一个出完的是第1名）
           };
           
           // 检查是否只剩下一个玩家还没出完（即最后一个玩家）
@@ -844,21 +850,78 @@ export function useMultiPlayerGame() {
         let newRoundScore = prev.roundScore;
         const newPlayers = [...prev.players];
         
-        // 如果一轮结束（回到最后出牌的人），把分数给最后出牌的人
-        if (nextPlayerIndex === prev.lastPlayPlayerIndex) {
-          if (prev.lastPlayPlayerIndex !== null && prev.roundScore > 0) {
-            const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
-            if (lastPlayer) {
+        // 只要有人"要不起"，且本轮有出牌记录（lastPlayPlayerIndex不为null），则强制结束本轮
+        if (prev.lastPlayPlayerIndex !== null) {
+          // 强制结束本轮，把分数给最后出牌的人
+          const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
+          if (lastPlayer) {
+            // 创建轮次记录
+            const roundRecord: RoundRecord = {
+              roundNumber: prev.roundNumber,
+              plays: [...prev.currentRoundPlays],
+              totalScore: prev.roundScore,
+              winnerId: prev.lastPlayPlayerIndex,
+              winnerName: lastPlayer.name
+            };
+            
+            // 如果有分数，给最后出牌的人
+            if (prev.roundScore > 0) {
               newPlayers[prev.lastPlayPlayerIndex] = {
                 ...lastPlayer,
-                score: (lastPlayer.score || 0) + prev.roundScore
+                score: (lastPlayer.score || 0) + prev.roundScore,
+                wonRounds: [...(lastPlayer.wonRounds || []), roundRecord]
               };
             }
+            
+            // 保存轮次记录到allRounds
+            const updatedAllRounds = [...(prev.allRounds || []), roundRecord];
+            
+            // 一轮结束，由赢家开始下一轮（如果赢家已出完，找下一个还在游戏中的玩家）
+            const winnerIndex = prev.lastPlayPlayerIndex;
+            const nextActivePlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
+              ? winnerIndex 
+              : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+            
+            const newState = {
+              ...prev,
+              players: newPlayers,
+              currentPlayerIndex: nextActivePlayerIndex, // 由赢家（或下一个还在游戏中的玩家）开始下一轮
+              lastPlay: null, // 新轮次，清空lastPlay
+              lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
+              roundScore: 0, // 新轮次，重置分数
+              currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
+              roundNumber: prev.roundNumber + 1, // 新轮次
+              allRounds: updatedAllRounds,
+              gameRecord: prev.gameRecord ? {
+                ...prev.gameRecord,
+                allRounds: updatedAllRounds
+              } : prev.gameRecord
+            };
+            
+            // 如果下一个玩家是AI，自动出牌开始下一轮
+            const nextPlayerVoice = newPlayers[nextActivePlayerIndex]?.voiceConfig;
+            if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
+              speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).then(() => {
+                setTimeout(() => {
+                  playNextTurn();
+                }, 500);
+              }).catch(() => {
+                setTimeout(() => {
+                  playNextTurn();
+                }, 1000);
+              });
+            } else {
+              speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).catch(console.error);
+            }
+            
+            return newState;
           }
-          newLastPlay = null as Play | null;
-          newLastPlayPlayerIndex = null;
-          newRoundScore = 0; // 重置轮次分数
         }
+        
+        // 如果没有lastPlayPlayerIndex（接风状态），继续游戏
+        newLastPlay = prev.lastPlay;
+        newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
+        newRoundScore = prev.roundScore;
         
         return {
           ...prev,
@@ -1011,73 +1074,78 @@ export function useMultiPlayerGame() {
         let newRoundScore = prev.roundScore;
         const newPlayers = [...prev.players];
         
-        if (nextPlayerIndex === prev.lastPlayPlayerIndex) {
-          if (prev.lastPlayPlayerIndex !== null && prev.roundScore > 0) {
-            const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
-            if (lastPlayer) {
-              const roundRecord: RoundRecord = {
-                roundNumber: prev.roundNumber,
-                plays: [...prev.currentRoundPlays],
-                totalScore: prev.roundScore,
-                winnerId: prev.lastPlayPlayerIndex,
-                winnerName: lastPlayer.name
-              };
-              
+        // 只要有人"要不起"，且本轮有出牌记录（lastPlayPlayerIndex不为null），则强制结束本轮
+        if (prev.lastPlayPlayerIndex !== null) {
+          // 强制结束本轮，把分数给最后出牌的人
+          const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
+          if (lastPlayer) {
+            // 创建轮次记录
+            const roundRecord: RoundRecord = {
+              roundNumber: prev.roundNumber,
+              plays: [...prev.currentRoundPlays],
+              totalScore: prev.roundScore,
+              winnerId: prev.lastPlayPlayerIndex,
+              winnerName: lastPlayer.name
+            };
+            
+            // 如果有分数，给最后出牌的人
+            if (prev.roundScore > 0) {
               newPlayers[prev.lastPlayPlayerIndex] = {
                 ...lastPlayer,
                 score: (lastPlayer.score || 0) + prev.roundScore,
                 wonRounds: [...(lastPlayer.wonRounds || []), roundRecord]
               };
-              
-              // 保存轮次记录到allRounds
-              const updatedAllRounds = [...(prev.allRounds || []), roundRecord];
-              
-              // 一轮结束，由赢家开始下一轮
-              const winnerIndex = prev.lastPlayPlayerIndex;
-              // 确保赢家还没有出完牌，如果出完了，找下一个还在游戏中的玩家
-              const nextPlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
-                ? winnerIndex 
-                : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
-              const newState = {
-                ...prev,
-                players: newPlayers,
-                currentPlayerIndex: nextPlayerIndex, // 由赢家（或下一个还在游戏中的玩家）开始下一轮
-                lastPlay: null, // 新轮次，清空lastPlay
-                lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
-                roundScore: 0, // 新轮次，重置分数
-                currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
-                roundNumber: prev.roundNumber + 1, // 新轮次
-                allRounds: updatedAllRounds,
-                gameRecord: prev.gameRecord ? {
-                  ...prev.gameRecord,
-                  allRounds: updatedAllRounds
-                } : prev.gameRecord
-              };
-              
-              // 如果赢家是AI，自动出牌开始下一轮
-              const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
-              if (newPlayers[winnerIndex].type === PlayerType.AI) {
-                speakPass(winnerVoice).then(() => {
-                  setTimeout(() => {
-                    playNextTurn();
-                  }, 500); // 给一点时间让用户看到轮次切换
-                }).catch(() => {
-                  setTimeout(() => {
-                    playNextTurn();
-                  }, 1000);
-                });
-              } else {
-                speakPass(winnerVoice).catch(console.error);
-              }
-              
-              return newState;
             }
+            
+            // 保存轮次记录到allRounds
+            const updatedAllRounds = [...(prev.allRounds || []), roundRecord];
+            
+            // 一轮结束，由赢家开始下一轮（如果赢家已出完，找下一个还在游戏中的玩家）
+            const winnerIndex = prev.lastPlayPlayerIndex;
+            const nextActivePlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
+              ? winnerIndex 
+              : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+            
+            const newState = {
+              ...prev,
+              players: newPlayers,
+              currentPlayerIndex: nextActivePlayerIndex, // 由赢家（或下一个还在游戏中的玩家）开始下一轮
+              lastPlay: null, // 新轮次，清空lastPlay
+              lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
+              roundScore: 0, // 新轮次，重置分数
+              currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
+              roundNumber: prev.roundNumber + 1, // 新轮次
+              allRounds: updatedAllRounds,
+              gameRecord: prev.gameRecord ? {
+                ...prev.gameRecord,
+                allRounds: updatedAllRounds
+              } : prev.gameRecord
+            };
+            
+            // 如果下一个玩家是AI，自动出牌开始下一轮
+            const nextPlayerVoice = newPlayers[nextActivePlayerIndex]?.voiceConfig;
+            if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
+              speakPass(prev.players[playerIndex]?.voiceConfig).then(() => {
+                setTimeout(() => {
+                  playNextTurn();
+                }, 500); // 给一点时间让用户看到轮次切换
+              }).catch(() => {
+                setTimeout(() => {
+                  playNextTurn();
+                }, 1000);
+              });
+            } else {
+              speakPass(prev.players[playerIndex]?.voiceConfig).catch(console.error);
+            }
+            
+            return newState;
           }
-          
-          newLastPlay = null as Play | null;
-          newLastPlayPlayerIndex = null;
-          newRoundScore = 0;
         }
+        
+        // 如果没有lastPlayPlayerIndex（接风状态），继续游戏
+        newLastPlay = prev.lastPlay;
+        newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
+        newRoundScore = prev.roundScore;
 
         const newState = {
           ...prev,
@@ -1181,6 +1249,9 @@ export function useMultiPlayerGame() {
         // 玩家出完牌，记录到完成顺序
         const newFinishOrder = [...(prev.finishOrder || []), playerIndex];
         
+        // 计算当前玩家的名次（根据出完牌的顺序，第一个出完的是第1名）
+        const currentRank = newFinishOrder.length;
+        
         // 触发出完牌时的聊天反应
         const finishPosition = newFinishOrder.length;
         if (finishPosition === 1) {
@@ -1194,7 +1265,8 @@ export function useMultiPlayerGame() {
         // 先把轮次分数加上（包括当前这一手的分牌）
         newPlayers[playerIndex] = {
           ...newPlayers[playerIndex],
-          score: (newPlayers[playerIndex].score || 0) + prev.roundScore + playScore
+          score: (newPlayers[playerIndex].score || 0) + prev.roundScore + playScore,
+          finishedRank: currentRank // 设置名次（第一个出完的是第1名）
         };
         
         // 检查是否所有玩家都出完了（包括当前玩家）
@@ -1311,107 +1383,6 @@ export function useMultiPlayerGame() {
       // 计算下一个玩家，跳过已出完的玩家
       const nextPlayerIndex = findNextActivePlayer(playerIndex, newPlayers, prev.playerCount);
 
-      // 检查是否一轮结束（回到最后出牌的人）
-      // 注意：只有当lastPlayPlayerIndex对应的玩家还没有出完牌时，才可能一轮结束
-      if (nextPlayerIndex === prev.lastPlayPlayerIndex && 
-          prev.lastPlayPlayerIndex !== null && 
-          newPlayers[prev.lastPlayPlayerIndex]?.hand.length > 0) {
-        // 一轮结束，把分数给最后出牌的人
-        if (prev.roundScore + playScore > 0) {
-          const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
-          if (lastPlayer) {
-            // 创建轮次记录（包含当前这一手出牌）
-            const roundRecord: RoundRecord = {
-              roundNumber: prev.roundNumber,
-              plays: [...(prev.currentRoundPlays || []), playRecord],
-              totalScore: prev.roundScore + playScore,
-              winnerId: prev.lastPlayPlayerIndex,
-              winnerName: lastPlayer.name
-            };
-            
-            newPlayers[prev.lastPlayPlayerIndex] = {
-              ...lastPlayer,
-              score: (lastPlayer.score || 0) + prev.roundScore + playScore,
-              wonRounds: [...(lastPlayer.wonRounds || []), roundRecord]
-            };
-            
-            // 保存轮次记录到allRounds
-            const updatedAllRounds = [...(prev.allRounds || []), roundRecord];
-            
-            // 一轮结束，由赢家开始下一轮
-            const winnerIndex = prev.lastPlayPlayerIndex;
-            const newState = {
-              ...prev,
-              players: newPlayers,
-              currentPlayerIndex: winnerIndex, // 由赢家开始下一轮
-              lastPlay: null, // 新轮次，清空lastPlay
-              lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
-              roundScore: 0, // 新轮次，重置分数
-              currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
-              roundNumber: prev.roundNumber + 1, // 新轮次
-              allRounds: updatedAllRounds,
-              gameRecord: prev.gameRecord ? {
-                ...prev.gameRecord,
-                allRounds: updatedAllRounds
-              } : prev.gameRecord
-            };
-            
-            // 如果赢家是AI，自动出牌开始下一轮
-            const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
-            if (newPlayers[winnerIndex].type === PlayerType.AI) {
-              speakPlay(play, winnerVoice).then(() => {
-                setTimeout(() => {
-                  playNextTurn();
-                }, 500); // 给一点时间让用户看到轮次切换
-              }).catch(() => {
-                setTimeout(() => {
-                  playNextTurn();
-                }, 1000);
-              });
-            } else {
-              speakPlay(play, winnerVoice).catch(console.error);
-            }
-            
-            return newState;
-          }
-        }
-        
-        // 即使没有分数，也要开始下一轮
-        const winnerIndex = prev.lastPlayPlayerIndex;
-        // 确保赢家还没有出完牌，如果出完了，找下一个还在游戏中的玩家
-        const nextPlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
-          ? winnerIndex 
-          : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
-        const newState = {
-          ...prev,
-          players: newPlayers,
-          currentPlayerIndex: nextPlayerIndex, // 由赢家（或下一个还在游戏中的玩家）开始下一轮
-          lastPlay: null, // 新轮次，清空lastPlay
-          lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
-          roundScore: 0, // 新轮次，重置分数
-          currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
-          roundNumber: prev.roundNumber + 1, // 新轮次
-        };
-        
-        // 如果赢家是AI，自动出牌开始下一轮
-        const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
-        if (newPlayers[winnerIndex].type === PlayerType.AI) {
-          speakPlay(play, winnerVoice).then(() => {
-            setTimeout(() => {
-              playNextTurn();
-            }, 500);
-          }).catch(() => {
-            setTimeout(() => {
-              playNextTurn();
-            }, 1000);
-          });
-        } else {
-          speakPlay(play, winnerVoice).catch(console.error);
-        }
-        
-        return newState;
-      }
-
       const newState = {
         ...prev,
         players: newPlayers,
@@ -1488,80 +1459,80 @@ export function useMultiPlayerGame() {
       // 计算下一个玩家，跳过已出完的玩家
       const nextPlayerIndex = findNextActivePlayer(playerIndex, prev.players, prev.playerCount);
 
-      // 如果下一个玩家是上家出牌的人，清空lastPlay，并把轮次分数给最后出牌的人
-      let newLastPlay = prev.lastPlay;
-      let newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
-      let newRoundScore = prev.roundScore;
       const newPlayers = [...prev.players];
       
-      // 检查是否一轮结束（回到最后出牌的人）
-      // 注意：只有当lastPlayPlayerIndex对应的玩家还没有出完牌时，才可能一轮结束
-      if (nextPlayerIndex === prev.lastPlayPlayerIndex && 
-          prev.lastPlayPlayerIndex !== null && 
-          newPlayers[prev.lastPlayPlayerIndex]?.hand.length > 0) {
-        // 一轮结束，把分数给最后出牌的人
-        if (prev.roundScore > 0) {
-          const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
-          if (lastPlayer) {
-            // 创建轮次记录
-            const roundRecord: RoundRecord = {
-              roundNumber: prev.roundNumber,
-              plays: [...prev.currentRoundPlays],
-              totalScore: prev.roundScore,
-              winnerId: prev.lastPlayPlayerIndex,
-              winnerName: lastPlayer.name
-            };
-            
+      // 只要有人"要不起"，且本轮有出牌记录（lastPlayPlayerIndex不为null），则强制结束本轮
+      if (prev.lastPlayPlayerIndex !== null) {
+        // 强制结束本轮，把分数给最后出牌的人
+        const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
+        if (lastPlayer) {
+          // 创建轮次记录
+          const roundRecord: RoundRecord = {
+            roundNumber: prev.roundNumber,
+            plays: [...prev.currentRoundPlays],
+            totalScore: prev.roundScore,
+            winnerId: prev.lastPlayPlayerIndex,
+            winnerName: lastPlayer.name
+          };
+          
+          // 如果有分数，给最后出牌的人
+          if (prev.roundScore > 0) {
             newPlayers[prev.lastPlayPlayerIndex] = {
               ...lastPlayer,
               score: (lastPlayer.score || 0) + prev.roundScore,
               wonRounds: [...(lastPlayer.wonRounds || []), roundRecord]
             };
-            
-            // 保存轮次记录到allRounds
-            const updatedAllRounds = [...(prev.allRounds || []), roundRecord];
-            
-            // 一轮结束，由赢家开始下一轮
-            const winnerIndex = prev.lastPlayPlayerIndex;
-            const newState = {
-              ...prev,
-              players: newPlayers,
-              currentPlayerIndex: winnerIndex, // 由赢家开始下一轮
-              lastPlay: null, // 新轮次，清空lastPlay
-              lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
-              roundScore: 0, // 新轮次，重置分数
-              currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
-              roundNumber: prev.roundNumber + 1, // 新轮次
-              allRounds: updatedAllRounds,
-              gameRecord: prev.gameRecord ? {
-                ...prev.gameRecord,
-                allRounds: updatedAllRounds
-              } : prev.gameRecord
-            };
-            
-            // 如果赢家是AI，自动出牌开始下一轮
-            const winnerVoice = newPlayers[winnerIndex]?.voiceConfig;
-            if (newPlayers[winnerIndex].type === PlayerType.AI) {
-              speakPass(winnerVoice).then(() => {
-                setTimeout(() => {
-                  playNextTurn();
-                }, 500); // 给一点时间让用户看到轮次切换
-              }).catch(() => {
-                setTimeout(() => {
-                  playNextTurn();
-                }, 1000);
-              });
-            } else {
-              speakPass(winnerVoice).catch(console.error);
-            }
-            
-            return newState;
           }
+          
+          // 保存轮次记录到allRounds
+          const updatedAllRounds = [...(prev.allRounds || []), roundRecord];
+          
+          // 一轮结束，由赢家开始下一轮（如果赢家已出完，找下一个还在游戏中的玩家）
+          const winnerIndex = prev.lastPlayPlayerIndex;
+          const nextActivePlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
+            ? winnerIndex 
+            : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+          
+          const newState = {
+            ...prev,
+            players: newPlayers,
+            currentPlayerIndex: nextActivePlayerIndex, // 由赢家（或下一个还在游戏中的玩家）开始下一轮
+            lastPlay: null, // 新轮次，清空lastPlay
+            lastPlayPlayerIndex: null, // 新轮次，清空lastPlayPlayerIndex
+            roundScore: 0, // 新轮次，重置分数
+            currentRoundPlays: [], // 新轮次，清空当前轮次出牌记录
+            roundNumber: prev.roundNumber + 1, // 新轮次
+            allRounds: updatedAllRounds,
+            gameRecord: prev.gameRecord ? {
+              ...prev.gameRecord,
+              allRounds: updatedAllRounds
+            } : prev.gameRecord
+          };
+          
+          // 如果下一个玩家是AI，自动出牌开始下一轮
+          const nextPlayerVoice = newPlayers[nextActivePlayerIndex]?.voiceConfig;
+          if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
+            speakPass(prev.players[playerIndex]?.voiceConfig).then(() => {
+              setTimeout(() => {
+                playNextTurn();
+              }, 500); // 给一点时间让用户看到轮次切换
+            }).catch(() => {
+              setTimeout(() => {
+                playNextTurn();
+              }, 1000);
+            });
+          } else {
+            speakPass(prev.players[playerIndex]?.voiceConfig).catch(console.error);
+          }
+          
+          return newState;
         }
-        newLastPlay = null;
-        newLastPlayPlayerIndex = null;
-        newRoundScore = 0; // 重置轮次分数
       }
+      
+      // 如果没有lastPlayPlayerIndex（接风状态），继续游戏
+      let newLastPlay = prev.lastPlay;
+      let newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
+      let newRoundScore = prev.roundScore;
 
       const newState = {
         ...prev,

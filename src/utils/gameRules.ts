@@ -103,14 +103,15 @@ export function applyFinalGameRules(
 ): Player[] {
   const rankings = calculateFinalRankings(players, finishOrder);
   
-  // 更新玩家数组
+  // 更新玩家数组，包括 finishedRank
   const updatedPlayers = players.map(player => {
     const ranking = rankings.find(r => r.player.id === player.id);
     if (ranking) {
       return {
         ...player,
-        score: ranking.finalScore
-      };
+        score: ranking.finalScore,
+        finishedRank: ranking.rank // 添加 finishedRank
+      } as Player & { finishedRank: number };
     }
     return player;
   });

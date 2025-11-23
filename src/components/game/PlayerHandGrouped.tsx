@@ -38,16 +38,12 @@ export const PlayerHandGrouped: React.FC<PlayerHandGroupedProps> = ({
 
           return (
             <div key={rank} className="card-group">
+              {/* 隐藏的头部，仅用于点击展开/收起 */}
               <div 
                 className={`card-group-header ${isExpanded ? 'expanded' : ''} ${selectedCount > 0 ? 'has-selected' : ''}`}
                 onClick={() => onToggleExpand(rank)}
-              >
-                <span className="rank-label">{getRankDisplay(rank)}</span>
-                <span className="count-badge">{cards.length}</span>
-                {selectedCount > 0 && (
-                  <span className="selected-badge">已选 {selectedCount}</span>
-                )}
-              </div>
+                style={{ display: 'none' }}
+              />
               {/* 叠放显示：不展开时显示一叠牌 */}
               {!isExpanded && (
                 <div 
@@ -55,11 +51,14 @@ export const PlayerHandGrouped: React.FC<PlayerHandGroupedProps> = ({
                   style={{
                     height: `${84 + Math.max(0, (cards.length - 1) * 40)}px`
                   }}
+                  onClick={() => onToggleExpand(rank)}
                 >
                   {cards.map((card: Card, index: number) => {
                     const isScore = isScoreCard(card);
                     const score = isScore ? getCardScore(card) : 0;
                     const stackOffset = index * 40; // 每张牌向上偏移40px（从底部开始）
+                    // 最上面的牌（第一张）是 index === cards.length - 1（最后一张）
+                    const isTopCard = index === cards.length - 1;
                     return (
                       <div
                         key={card.id}
@@ -67,7 +66,8 @@ export const PlayerHandGrouped: React.FC<PlayerHandGroupedProps> = ({
                         style={{
                           transform: `translateY(-${stackOffset}px)`, // 向上偏移
                           zIndex: index + 1, // 上面的牌 z-index 更大
-                          '--stack-offset': `-${stackOffset}px`
+                          '--stack-offset': `-${stackOffset}px`,
+                          position: 'relative' // 确保徽章定位正确
                         } as React.CSSProperties}
                       >
                         <CardComponent
@@ -75,6 +75,10 @@ export const PlayerHandGrouped: React.FC<PlayerHandGroupedProps> = ({
                           selected={selectedCards.some(c => c.id === card.id)}
                           onClick={() => onCardClick(card)}
                         />
+                        {/* 在最上面的牌上显示数量 */}
+                        {isTopCard && cards.length > 1 && (
+                          <div className="card-count-badge">{cards.length}</div>
+                        )}
                         {isScore && (
                           <div className="card-score-badge">{score}分</div>
                         )}

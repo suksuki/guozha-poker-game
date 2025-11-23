@@ -21,6 +21,9 @@
     "test:sorting": "vitest --run --no-coverage cardSorting",
     "test:dealing-sorting": "vitest --run --no-coverage dealingSortingRegression",
     "test:dealing-features": "vitest --run --no-coverage dealingManualMode cardStacking dealingFeaturesRegression",
+    "test:ai-avatar": "vitest --run --no-coverage aiPlayerAvatar dealingAIPlayerDisplay",
+    "test:comprehensive": "vitest --run --no-coverage dealingSortingRegression cardSorting aiPlayerAvatar dealingAIPlayerDisplay dealingAlgorithms",
+    "test:full-regression": "vitest --run --no-coverage regression dealingSortingRegression chatServiceRegression chatAndVoiceRegression dealingFeaturesRegression",
     "test:all": "vitest --run --no-coverage",
     "test:verbose": "vitest --run --reporter=verbose --no-coverage"
   },

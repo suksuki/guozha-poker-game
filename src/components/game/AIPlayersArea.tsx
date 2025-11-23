@@ -1,11 +1,12 @@
 /**
  * AI玩家区域组件
  * 显示所有AI玩家的区域
+ * 使用统一的AI玩家头像组件
  */
 
 import React from 'react';
 import { Player } from '../../types/card';
-import { AIPlayerCard } from './AIPlayerCard';
+import { AIPlayerAvatar } from './AIPlayerAvatar';
 
 interface AIPlayersAreaProps {
   players: Player[];
@@ -21,17 +22,18 @@ export const AIPlayersArea: React.FC<AIPlayersAreaProps> = ({
   const aiPlayers = players.filter(player => !player.isHuman);
 
   return (
-    <div className="other-players-area">
+    <div className="other-players-area ai-players-avatar-area">
       {aiPlayers.map((player) => {
         const isCurrent = currentPlayerIndex === player.id;
         const isLastPlay = lastPlayPlayerIndex === player.id;
         
         return (
-          <AIPlayerCard
+          <AIPlayerAvatar
             key={player.id}
             player={player}
             isCurrent={isCurrent}
             isLastPlay={isLastPlay}
+            showPosition={false}
           />
         );
       })}
