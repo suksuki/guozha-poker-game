@@ -20,6 +20,10 @@ export interface GameStartConfig {
   playerCount: number;
   humanPlayerIndex: number;
   aiConfigs: AIConfig[];
+  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered';
+  skipDealingAnimation?: boolean;
+  dealingSpeed?: number;
+  sortOrder?: 'asc' | 'desc' | 'grouped';
 }
 
 export function useGameConfig() {
@@ -28,6 +32,10 @@ export function useGameConfig() {
   const [humanPlayerIndex, setHumanPlayerIndex] = useState(0);
   const [strategy, setStrategy] = useState<'aggressive' | 'conservative' | 'balanced'>('balanced');
   const [algorithm, setAlgorithm] = useState<'simple' | 'mcts'>('mcts');
+  const [dealingAlgorithm, setDealingAlgorithm] = useState<'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered'>('random');
+  const [skipDealingAnimation, setSkipDealingAnimation] = useState(false);
+  const [dealingSpeed, setDealingSpeed] = useState(150); // 发牌速度（毫秒/张）
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'grouped'>('grouped'); // 排序规则
   
   // 训练模式配置
   const [trainingConfig, setTrainingConfig] = useState<TrainingConfig>({
@@ -35,7 +43,9 @@ export function useGameConfig() {
     playerCount: 4,
     mctIterations: 200,
     mctsDepth: 50,
-    showProgress: true
+    showProgress: true,
+    autoTune: false, // 默认不自动微调
+    tuneGamesPerConfig: 50 // 微调时每个配置50局
   });
 
   const handleStartGame = useCallback((startGame: (config: GameStartConfig) => void) => {
@@ -49,9 +59,13 @@ export function useGameConfig() {
     startGame({
       playerCount,
       humanPlayerIndex,
-      aiConfigs
+      aiConfigs,
+      dealingAlgorithm,
+      skipDealingAnimation,
+      dealingSpeed,
+      sortOrder
     });
-  }, [playerCount, humanPlayerIndex, strategy, algorithm]);
+  }, [playerCount, humanPlayerIndex, strategy, algorithm, dealingAlgorithm, skipDealingAnimation, dealingSpeed, sortOrder]);
 
   const [isTraining, setIsTraining] = useState(false);
 
@@ -62,11 +76,20 @@ export function useGameConfig() {
   }, []);
 
   const handleTrainingComplete = useCallback(() => {
-    setIsTraining(false);
+    console.log('handleTrainingComplete被调用，设置isTraining为false');
+    setIsTraining((prev) => {
+      console.log('handleTrainingComplete: setIsTraining: prev =', prev, '设置为 false');
+      return false;
+    });
   }, []);
 
   const handleTrainingBack = useCallback(() => {
-    setIsTraining(false);
+    console.log('handleTrainingBack被调用，设置isTraining为false');
+    // 使用函数式更新确保状态正确更新
+    setIsTraining((prev) => {
+      console.log('setIsTraining: prev =', prev, '设置为 false');
+      return false;
+    });
   }, []);
 
   return {
@@ -80,6 +103,14 @@ export function useGameConfig() {
     setStrategy,
     algorithm,
     setAlgorithm,
+    dealingAlgorithm,
+    setDealingAlgorithm,
+    skipDealingAnimation,
+    setSkipDealingAnimation,
+    dealingSpeed,
+    setDealingSpeed,
+    sortOrder,
+    setSortOrder,
     trainingConfig,
     setTrainingConfig,
     handleStartGame,

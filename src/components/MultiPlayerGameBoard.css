@@ -549,6 +549,41 @@
   max-width: 300px;
 }
 
+/* 叠放显示样式 */
+.card-stack {
+  position: relative;
+  width: 60px;
+  margin-top: 5px;
+  margin-bottom: 10px;
+  min-height: 84px;
+  overflow: visible;
+  align-self: flex-end; /* 叠放容器靠底部对齐 */
+}
+
+.card-stack-item {
+  position: absolute;
+  bottom: 0; /* 改为从底部开始，而不是从顶部 */
+  left: 0;
+  transition: transform 0.3s ease, z-index 0.3s ease;
+  cursor: pointer;
+  will-change: transform, z-index;
+}
+
+.card-stack-item:hover {
+  transform: translateY(var(--stack-offset, 0px)) translateY(-20px) scale(1.15) !important;
+  z-index: 1000 !important;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 叠放时显示厚度效果 - 通过阴影表现 */
+.card-stack-item {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.card-stack-item:nth-child(n+2) {
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+}
+
 .action-buttons {
   display: flex;
   gap: 10px;

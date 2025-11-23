@@ -4,8 +4,9 @@ import { dealCards, canPlayCards, canBeat, hasPlayableCards, findPlayableCards, 
 import { aiChoosePlay, AIConfig } from '../utils/aiPlayer';
 import { speakPlay, speakPass } from '../utils/speechUtils';
 import { generateRandomVoiceConfig } from '../services/voiceConfigService';
-import { triggerScoreStolenReaction, triggerScoreEatenCurseReaction, triggerFinishFirstReaction, triggerFinishMiddleReaction, clearChatMessages } from '../services/chatService';
+import { triggerScoreStolenReaction, triggerScoreEatenCurseReaction, triggerFinishFirstReaction, triggerFinishMiddleReaction, triggerFinishLastReaction, clearChatMessages } from '../services/chatService';
 import { findNextActivePlayer, checkGameFinished, MultiPlayerGameState } from '../utils/gameStateUtils';
+import { applyFinalGameRules, calculateFinalRankings } from '../utils/gameRules';
 import { handleDunScoring, createPlayRecord, updatePlayerAfterPlay, triggerGoodPlayReactions } from '../utils/playManager';
 
 // 游戏完整记录（用于保存）
@@ -32,6 +33,10 @@ export interface GameConfig {
     algorithm?: 'simple' | 'mcts';
     mctsIterations?: number;
   }[];
+  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered'; // 发牌算法
+  skipDealingAnimation?: boolean; // 是否跳过发牌动画
+  dealingSpeed?: number; // 发牌速度（毫秒/张）
+  sortOrder?: 'asc' | 'desc' | 'grouped'; // 排序规则
 }
 
 export function useMultiPlayerGame() {
@@ -55,6 +60,10 @@ export function useMultiPlayerGame() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
+  // 发牌状态
+  const [isDealing, setIsDealing] = useState(false);
+  const [pendingGameConfig, setPendingGameConfig] = useState<GameConfig | null>(null);
+
   // 辅助函数已移动到 gameStateUtils.ts
 
   // AI自动出牌（下一个回合）
@@ -64,6 +73,68 @@ export function useMultiPlayerGame() {
 
     const currentPlayer = currentState.players[currentState.currentPlayerIndex];
     if (!currentPlayer) return;
+    
+    // 检查是否只剩一个玩家还没出完，如果是，直接结束游戏
+    const remainingPlayers = currentState.players.filter(p => p.hand.length > 0);
+    if (remainingPlayers.length === 1) {
+      const lastPlayerIndex = remainingPlayers[0].id;
+      const lastPlayer = currentState.players[lastPlayerIndex];
+      
+      // 触发最后一名输了的聊天反应
+      triggerFinishLastReaction(lastPlayer).catch(console.error);
+      
+      // 计算最后一名手中的分牌分数
+      const lastPlayerScoreCards = lastPlayer.hand.filter(card => isScoreCard(card));
+      const lastPlayerRemainingScore = calculateCardsScore(lastPlayerScoreCards);
+      
+      setGameState(prev => {
+        if (prev.status !== GameStatus.PLAYING) return prev;
+        
+        const newPlayers = [...prev.players];
+        const newFinishOrder = [...(prev.finishOrder || [])];
+        
+        // 如果最后一名还没在finishOrder中，添加进去
+        if (!newFinishOrder.includes(lastPlayerIndex)) {
+          newFinishOrder.push(lastPlayerIndex);
+        }
+        
+        // 最后一名减去未出分牌的分数
+        newPlayers[lastPlayerIndex] = {
+          ...lastPlayer,
+          score: (lastPlayer.score || 0) - lastPlayerRemainingScore
+        };
+        
+        // 找到第一名（finishOrder中的第一个，即索引0）
+        if (newFinishOrder.length >= 1) {
+          const firstPlayerIndex = newFinishOrder[0];
+          const firstPlayer = newPlayers[firstPlayerIndex];
+          if (firstPlayer) {
+            // 第一名加上最后一名未出的分牌分数
+            newPlayers[firstPlayerIndex] = {
+              ...firstPlayer,
+              score: (firstPlayer.score || 0) + lastPlayerRemainingScore
+            };
+          }
+        }
+        
+        // 应用最终规则并结束游戏
+        const finalPlayers = applyFinalGameRules(newPlayers, newFinishOrder);
+        const finalRankings = calculateFinalRankings(finalPlayers, newFinishOrder);
+        
+        // 找到第一名（分数最高的）
+        const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+        
+        return {
+          ...prev,
+          status: GameStatus.FINISHED,
+          players: finalPlayers,
+          winner: winner.player.id,
+          finishOrder: newFinishOrder,
+          finalRankings
+        };
+      });
+      return;
+    }
     
     // 如果当前玩家已经出完牌了，跳过到下一个玩家
     if (currentPlayer.hand.length === 0) {
@@ -109,7 +180,8 @@ export function useMultiPlayerGame() {
       
       if (!aiCards || aiCards.length === 0) {
         // AI要不起 - 但需要验证是否真的没有能打过的牌
-        if (hasPlayable && currentState.lastPlay) {
+        // 如果是接风（lastPlay为null），应该强制出牌；如果有lastPlay且有能打过的牌，也应该强制出牌
+        if (hasPlayable) {
           // 如果有能打过的牌但没有选择，强制选择最小的能打过的牌
           const allPlayable = findPlayableCards(currentPlayer.hand, currentState.lastPlay);
           if (allPlayable.length > 0) {
@@ -164,6 +236,9 @@ export function useMultiPlayerGame() {
             const lastPlayerIndex = remainingPlayers[0].id;
             const lastPlayer = newPlayers[lastPlayerIndex];
             
+            // 触发最后一名输了的聊天反应
+            triggerFinishLastReaction(lastPlayer).catch(console.error);
+            
             // 计算最后一名手中的分牌分数
             const lastPlayerScoreCards = lastPlayer.hand.filter(card => isScoreCard(card));
             const lastPlayerRemainingScore = calculateCardsScore(lastPlayerScoreCards);
@@ -174,24 +249,34 @@ export function useMultiPlayerGame() {
               score: (lastPlayer.score || 0) - lastPlayerRemainingScore
             };
             
-            // 找到第二名（finishOrder中的第二个，即索引1）
-            if (newFinishOrder.length >= 2) {
-              const secondPlayerIndex = newFinishOrder[1];
-              const secondPlayer = newPlayers[secondPlayerIndex];
-              if (secondPlayer) {
-                // 第二名加上最后一名未出的分牌分数
-                newPlayers[secondPlayerIndex] = {
-                  ...secondPlayer,
-                  score: (secondPlayer.score || 0) + lastPlayerRemainingScore
+            // 找到第一名（finishOrder中的第一个，即索引0）
+            if (newFinishOrder.length >= 1) {
+              const firstPlayerIndex = newFinishOrder[0];
+              const firstPlayer = newPlayers[firstPlayerIndex];
+              if (firstPlayer) {
+                // 第一名加上最后一名未出的分牌分数
+                newPlayers[firstPlayerIndex] = {
+                  ...firstPlayer,
+                  score: (firstPlayer.score || 0) + lastPlayerRemainingScore
                 };
               }
             }
             
-            // 最后一个玩家也出完了，游戏结束
-            const gameFinished = checkGameFinished(prev, newPlayers, newFinishOrder);
-            if (gameFinished) {
-              return gameFinished;
-            }
+            // 应用最终规则并结束游戏
+            const finalPlayers = applyFinalGameRules(newPlayers, newFinishOrder);
+            const finalRankings = calculateFinalRankings(finalPlayers, newFinishOrder);
+            
+            // 找到第一名（分数最高的）
+            const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+            
+            return {
+              ...prev,
+              status: GameStatus.FINISHED,
+              players: finalPlayers,
+              winner: winner.player.id,
+              finishOrder: newFinishOrder,
+              finalRankings
+            };
           }
           
           // 检查是否所有玩家都出完了
@@ -613,6 +698,9 @@ export function useMultiPlayerGame() {
             const lastPlayerIndex = remainingPlayers[0].id;
             const lastPlayer = newPlayers[lastPlayerIndex];
             
+            // 触发最后一名输了的聊天反应
+            triggerFinishLastReaction(lastPlayer).catch(console.error);
+            
             // 计算最后一名手中的分牌分数
             const lastPlayerScoreCards = lastPlayer.hand.filter(card => isScoreCard(card));
             const lastPlayerRemainingScore = calculateCardsScore(lastPlayerScoreCards);
@@ -623,24 +711,34 @@ export function useMultiPlayerGame() {
               score: (lastPlayer.score || 0) - lastPlayerRemainingScore
             };
             
-            // 找到第二名（finishOrder中的第二个，即索引1）
-            if (newFinishOrder.length >= 2) {
-              const secondPlayerIndex = newFinishOrder[1];
-              const secondPlayer = newPlayers[secondPlayerIndex];
-              if (secondPlayer) {
-                // 第二名加上最后一名未出的分牌分数
-                newPlayers[secondPlayerIndex] = {
-                  ...secondPlayer,
-                  score: (secondPlayer.score || 0) + lastPlayerRemainingScore
+            // 找到第一名（finishOrder中的第一个，即索引0）
+            if (newFinishOrder.length >= 1) {
+              const firstPlayerIndex = newFinishOrder[0];
+              const firstPlayer = newPlayers[firstPlayerIndex];
+              if (firstPlayer) {
+                // 第一名加上最后一名未出的分牌分数
+                newPlayers[firstPlayerIndex] = {
+                  ...firstPlayer,
+                  score: (firstPlayer.score || 0) + lastPlayerRemainingScore
                 };
               }
             }
             
-            // 最后一个玩家也出完了，游戏结束
-            const gameFinished = checkGameFinished(prev, newPlayers, newFinishOrder);
-            if (gameFinished) {
-              return gameFinished;
-            }
+            // 应用最终规则并结束游戏
+            const finalPlayers = applyFinalGameRules(newPlayers, newFinishOrder);
+            const finalRankings = calculateFinalRankings(finalPlayers, newFinishOrder);
+            
+            // 找到第一名（分数最高的）
+            const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+            
+            return {
+              ...prev,
+              status: GameStatus.FINISHED,
+              players: finalPlayers,
+              winner: winner.player.id,
+              finishOrder: newFinishOrder,
+              finalRankings
+            };
           }
           
           // 检查是否所有玩家都出完了
@@ -649,20 +747,34 @@ export function useMultiPlayerGame() {
             return gameFinished;
           }
           
-          // 还没全部出完，找到下一个还在游戏中的玩家（接风）
+          // 还没全部出完，找到下一个还在游戏中的玩家
           // 重要：使用findNextActivePlayer确保跳过已出完牌的玩家
           const nextPlayerIndex = findNextActivePlayer(currentState.currentPlayerIndex, newPlayers, prev.playerCount);
           
-          // AI出完牌后，应该由下家接风出牌（清空lastPlay，让下家自由出牌）
-          // 因为当前玩家已经出完牌，所以应该清空lastPlay，让下一个玩家自由出牌
+          // 检查是否所有剩余玩家都要不起最后一手牌
+          // 如果都要不起，则接风（清空lastPlay，让下家自由出牌）
+          // 如果有人能打过，则不清空lastPlay，让能打过的玩家继续
+          let shouldTakeover = true; // 默认接风
+          for (let i = 0; i < newPlayers.length; i++) {
+            if (i !== currentState.currentPlayerIndex && newPlayers[i].hand.length > 0) {
+              // 检查这个玩家是否能打过最后一手牌
+              if (hasPlayableCards(newPlayers[i].hand, play)) {
+                shouldTakeover = false; // 有人能打过，不需要接风
+                break;
+              }
+            }
+          }
+          
+          // 根据是否接风决定游戏状态
+          // 注意：分数已经在前面（593行）加给玩家了，所以这里roundScore应该重置为0
           const newState = {
             ...prev,
             players: newPlayers,
             currentPlayerIndex: nextPlayerIndex,
-            lastPlay: null, // AI出完牌后，清空lastPlay，让下家接风出牌
-            lastPlayPlayerIndex: null, // 清空lastPlayPlayerIndex
+            lastPlay: shouldTakeover ? null : play, // 如果接风，清空lastPlay；否则保持lastPlay
+            lastPlayPlayerIndex: shouldTakeover ? null : currentState.currentPlayerIndex, // 如果接风，清空lastPlayPlayerIndex；否则保持为当前玩家
             roundScore: 0, // 分数已经给玩家了，重置轮次分数
-            currentRoundPlays: [], // 清空当前轮次记录
+            currentRoundPlays: shouldTakeover ? [] : [...prev.currentRoundPlays, playRecord], // 如果接风，清空记录；否则添加记录
             finishOrder: newFinishOrder
           };
           
@@ -760,12 +872,10 @@ export function useMultiPlayerGame() {
     }
   }, []);
 
-  // 开始新游戏
-  const startGame = useCallback((config: GameConfig) => {
+  // 开始新游戏（内部函数，处理发牌）
+  const startGameInternal = useCallback((config: GameConfig, hands: Card[][]) => {
     // 清空聊天记录
     clearChatMessages();
-    
-    const hands = dealCards(config.playerCount);
 
     const players: Player[] = hands.map((hand, index) => ({
       id: index,
@@ -829,6 +939,49 @@ export function useMultiPlayerGame() {
     }
   }, [playNextTurn]);
 
+  // 开始新游戏（公开接口，接收GameStartConfig）
+  const startGame = useCallback((startConfig: GameStartConfig) => {
+    // 转换为GameConfig
+    const config: GameConfig = {
+      playerCount: startConfig.playerCount,
+      humanPlayerIndex: startConfig.humanPlayerIndex,
+      aiConfigs: startConfig.aiConfigs,
+      dealingAlgorithm: startConfig.dealingAlgorithm,
+      skipDealingAnimation: startConfig.skipDealingAnimation
+    };
+
+    // 如果跳过发牌动画，直接使用旧逻辑
+    if (config.skipDealingAnimation) {
+      const hands = dealCards(config.playerCount);
+      startGameInternal(config, hands);
+      return;
+    }
+
+    // 否则，显示发牌动画
+    setIsDealing(true);
+    setPendingGameConfig(config);
+  }, [startGameInternal]);
+
+  // 发牌完成回调
+  const handleDealingComplete = useCallback((hands: Card[][]) => {
+    if (pendingGameConfig) {
+      setIsDealing(false);
+      startGameInternal(pendingGameConfig, hands);
+      setPendingGameConfig(null);
+    }
+  }, [pendingGameConfig, startGameInternal]);
+
+  // 取消发牌动画
+  const handleDealingCancel = useCallback(() => {
+    if (pendingGameConfig) {
+      // 快速发牌（不使用动画）
+      const hands = dealCards(pendingGameConfig.playerCount);
+      setIsDealing(false);
+      startGameInternal(pendingGameConfig, hands);
+      setPendingGameConfig(null);
+    }
+  }, [pendingGameConfig, startGameInternal]);
+
   // 玩家出牌
   const playerPlay = useCallback((playerIndex: number, selectedCards: Card[]): boolean => {
     setGameState(prev => {
@@ -837,6 +990,9 @@ export function useMultiPlayerGame() {
 
       const player = prev.players[playerIndex];
       if (!player) return prev;
+      
+      // 如果玩家已经出完牌了，不应该再出牌
+      if (player.hand.length === 0) return prev;
 
       const play = canPlayCards(selectedCards);
       if (!play) return prev;
@@ -1044,12 +1200,13 @@ export function useMultiPlayerGame() {
         // 检查是否所有玩家都出完了（包括当前玩家）
         const remainingPlayers = newPlayers.filter(p => p.hand.length > 0);
         
-        // 如果只剩下一个玩家还没出完，那就是最后一名
+        // 如果只剩下一个玩家还没出完，那就是最后一名，立即结束游戏
         if (remainingPlayers.length === 1) {
-          // 最后一个玩家，立即结束游戏
-          // 最后一个玩家的手牌中的分牌要给第二名
           const lastPlayerIndex = remainingPlayers[0].id;
           const lastPlayer = newPlayers[lastPlayerIndex];
+          
+          // 触发最后一名输了的聊天反应
+          triggerFinishLastReaction(lastPlayer).catch(console.error);
           
           // 计算最后一名手中的分牌分数
           const lastPlayerScoreCards = lastPlayer.hand.filter(card => isScoreCard(card));
@@ -1061,24 +1218,34 @@ export function useMultiPlayerGame() {
             score: (lastPlayer.score || 0) - lastPlayerRemainingScore
           };
           
-          // 找到第二名（finishOrder中的第二个，即索引1）
-          if (newFinishOrder.length >= 2) {
-            const secondPlayerIndex = newFinishOrder[1];
-            const secondPlayer = newPlayers[secondPlayerIndex];
-            if (secondPlayer) {
-              // 第二名加上最后一名未出的分牌分数
-              newPlayers[secondPlayerIndex] = {
-                ...secondPlayer,
-                score: (secondPlayer.score || 0) + lastPlayerRemainingScore
+          // 找到第一名（finishOrder中的第一个，即索引0）
+          if (newFinishOrder.length >= 1) {
+            const firstPlayerIndex = newFinishOrder[0];
+            const firstPlayer = newPlayers[firstPlayerIndex];
+            if (firstPlayer) {
+              // 第一名加上最后一名未出的分牌分数
+              newPlayers[firstPlayerIndex] = {
+                ...firstPlayer,
+                score: (firstPlayer.score || 0) + lastPlayerRemainingScore
               };
             }
           }
           
-          // 最后一个玩家也出完了，游戏结束
-          const gameFinished = checkGameFinished(prev, newPlayers, newFinishOrder);
-          if (gameFinished) {
-            return gameFinished;
-          }
+          // 应用最终规则并结束游戏
+          const finalPlayers = applyFinalGameRules(newPlayers, newFinishOrder);
+          const finalRankings = calculateFinalRankings(finalPlayers, newFinishOrder);
+          
+          // 找到第一名（分数最高的）
+          const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+          
+          return {
+            ...prev,
+            status: GameStatus.FINISHED,
+            players: finalPlayers,
+            winner: winner.player.id,
+            finishOrder: newFinishOrder,
+            finalRankings
+          };
         }
         
         // 检查是否所有玩家都出完了
@@ -1087,20 +1254,34 @@ export function useMultiPlayerGame() {
           return gameFinished;
         }
         
-        // 还没全部出完，找到下一个还在游戏中的玩家（接风）
+        // 还没全部出完，找到下一个还在游戏中的玩家
         // 重要：使用findNextActivePlayer确保跳过已出完牌的玩家
         const nextPlayerIndex = findNextActivePlayer(playerIndex, newPlayers, prev.playerCount);
         
-        // 玩家出完牌后，应该由下家接风出牌（清空lastPlay，让下家自由出牌）
-        // 因为当前玩家已经出完牌，所以应该清空lastPlay，让下一个玩家自由出牌
+        // 检查是否所有剩余玩家都要不起最后一手牌
+        // 如果都要不起，则接风（清空lastPlay，让下家自由出牌）
+        // 如果有人能打过，则不清空lastPlay，让能打过的玩家继续
+        let shouldTakeover = true; // 默认接风
+        for (let i = 0; i < newPlayers.length; i++) {
+          if (i !== playerIndex && newPlayers[i].hand.length > 0) {
+            // 检查这个玩家是否能打过最后一手牌
+            if (hasPlayableCards(newPlayers[i].hand, play)) {
+              shouldTakeover = false; // 有人能打过，不需要接风
+              break;
+            }
+          }
+        }
+        
+        // 根据是否接风决定游戏状态
+        // 注意：分数已经在前面（1039-1041行）加给玩家了，所以这里roundScore应该重置为0
         const newState = {
           ...prev,
           players: newPlayers,
           currentPlayerIndex: nextPlayerIndex,
-          lastPlay: null, // 玩家出完牌后，清空lastPlay，让下家接风出牌
-          lastPlayPlayerIndex: null, // 清空lastPlayPlayerIndex
+          lastPlay: shouldTakeover ? null : play, // 如果接风，清空lastPlay；否则保持lastPlay
+          lastPlayPlayerIndex: shouldTakeover ? null : playerIndex, // 如果接风，清空lastPlayPlayerIndex；否则保持为当前玩家
           roundScore: 0, // 分数已经给玩家了，重置轮次分数
-          currentRoundPlays: [], // 清空当前轮次记录
+          currentRoundPlays: shouldTakeover ? [] : [...prev.currentRoundPlays, playRecord], // 如果接风，清空记录；否则添加记录
           finishOrder: newFinishOrder
         };
         
@@ -1131,9 +1312,12 @@ export function useMultiPlayerGame() {
       const nextPlayerIndex = findNextActivePlayer(playerIndex, newPlayers, prev.playerCount);
 
       // 检查是否一轮结束（回到最后出牌的人）
-      if (nextPlayerIndex === prev.lastPlayPlayerIndex) {
+      // 注意：只有当lastPlayPlayerIndex对应的玩家还没有出完牌时，才可能一轮结束
+      if (nextPlayerIndex === prev.lastPlayPlayerIndex && 
+          prev.lastPlayPlayerIndex !== null && 
+          newPlayers[prev.lastPlayPlayerIndex]?.hand.length > 0) {
         // 一轮结束，把分数给最后出牌的人
-        if (prev.lastPlayPlayerIndex !== null && prev.roundScore + playScore > 0) {
+        if (prev.roundScore + playScore > 0) {
           const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
           if (lastPlayer) {
             // 创建轮次记录（包含当前这一手出牌）
@@ -1310,9 +1494,13 @@ export function useMultiPlayerGame() {
       let newRoundScore = prev.roundScore;
       const newPlayers = [...prev.players];
       
-      if (nextPlayerIndex === prev.lastPlayPlayerIndex) {
+      // 检查是否一轮结束（回到最后出牌的人）
+      // 注意：只有当lastPlayPlayerIndex对应的玩家还没有出完牌时，才可能一轮结束
+      if (nextPlayerIndex === prev.lastPlayPlayerIndex && 
+          prev.lastPlayPlayerIndex !== null && 
+          newPlayers[prev.lastPlayPlayerIndex]?.hand.length > 0) {
         // 一轮结束，把分数给最后出牌的人
-        if (prev.lastPlayPlayerIndex !== null && prev.roundScore > 0) {
+        if (prev.roundScore > 0) {
           const lastPlayer = newPlayers[prev.lastPlayPlayerIndex];
           if (lastPlayer) {
             // 创建轮次记录
@@ -1461,7 +1649,11 @@ export function useMultiPlayerGame() {
     playerPlay,
     playerPass,
     suggestPlay,
-    resetGame
+    resetGame,
+    isDealing,
+    pendingGameConfig,
+    handleDealingComplete,
+    handleDealingCancel
   };
 }
 

@@ -21,6 +21,13 @@ export enum ChatEventType {
   FINISH_MIDDLE = 'finish_middle', // 中间名次出完
   FINISH_LAST = 'finish_last', // 最后一个出完
   URGE_PLAY = 'urge_play', // 催促出牌
-  DUN_PLAYED = 'dun_played' // 出墩时的得意话
+  DUN_PLAYED = 'dun_played', // 出墩时的得意话
+  DEALING = 'dealing', // 发牌时的反应
+  DEALING_GOOD_CARD = 'dealing_good_card', // 发到好牌
+  DEALING_BAD_CARD = 'dealing_bad_card', // 发到差牌
+  DEALING_BOMB_FORMED = 'dealing_bomb_formed', // 理牌时形成炸弹
+  DEALING_DUN_FORMED = 'dealing_dun_formed', // 理牌时形成墩
+  DEALING_HUGE_CARD = 'dealing_huge_card', // 理牌时抓到超大牌
+  DEALING_POOR_HAND = 'dealing_poor_hand' // 理牌时手牌质量差
 }
 

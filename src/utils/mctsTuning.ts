@@ -42,7 +42,7 @@ export interface TuningConfig {
 }
 
 // 对局结果
-interface GameResult {
+export interface GameResult {
   config: MCTSConfig;
   aiWins: number;
   totalGames: number;
@@ -233,7 +233,8 @@ export function runSingleGame(
 
 // 运行参数微调
 export async function tuneMCTSParameters(
-  tuningConfig: TuningConfig
+  tuningConfig: TuningConfig,
+  onProgress?: (current: number, total: number, configIndex: number, totalConfigs: number, gameIndex: number, gamesPerConfig: number) => Promise<void> | void
 ): Promise<GameResult[]> {
   const results: GameResult[] = [];
   const totalConfigs = 
@@ -287,7 +288,16 @@ export async function tuneMCTSParameters(
         for (let game = 0; game < tuningConfig.gamesPerConfig; game++) {
           totalGameIndex++;
           
-          // 显示进度条
+          // 调用进度回调（浏览器环境）
+          if (onProgress) {
+            const result = onProgress(totalGameIndex, totalGames, configIndex, totalConfigs, game + 1, tuningConfig.gamesPerConfig);
+            // 如果回调返回 Promise，等待它完成（让UI有机会更新）
+            if (result instanceof Promise) {
+              await result;
+            }
+          }
+          
+          // 显示进度条（Node.js环境）
           if (typeof process !== 'undefined' && process.stdout) {
             updateProgressBar({
               total: totalGames,

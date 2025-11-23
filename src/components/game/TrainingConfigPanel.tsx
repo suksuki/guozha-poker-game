@@ -11,6 +11,8 @@ export interface TrainingConfig {
   mctIterations: number;
   mctsDepth: number;
   showProgress: boolean;
+  autoTune?: boolean; // 训练完成后是否自动微调参数
+  tuneGamesPerConfig?: number; // 微调时每个配置运行的游戏数
 }
 
 interface TrainingConfigPanelProps {
@@ -110,6 +112,37 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
             </label>
           </div>
 
+          <div className="config-item">
+            <label>
+              <input
+                type="checkbox"
+                checked={localConfig.autoTune || false}
+                onChange={(e) => updateConfig({ autoTune: e.target.checked })}
+              />
+              训练完成后自动微调参数
+            </label>
+            <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
+              自动测试多个参数组合，找到最佳配置（会增加训练时间）
+            </small>
+          </div>
+
+          {localConfig.autoTune && (
+            <div className="config-item">
+              <label>微调时每个配置的游戏数:</label>
+              <input
+                type="number"
+                min="10"
+                max="200"
+                step="10"
+                value={localConfig.tuneGamesPerConfig || 50}
+                onChange={(e) => updateConfig({ tuneGamesPerConfig: parseInt(e.target.value) || 50 })}
+              />
+              <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
+                每个参数配置运行的游戏数，越多越准确但越慢（建议：50-100）
+              </small>
+            </div>
+          )}
+
           <div className="info-box" style={{
             padding: '15px',
             backgroundColor: '#f0f0f0',
@@ -119,12 +152,17 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
             color: '#666'
           }}>
             <strong>训练说明：</strong>
-            <ul style={{ margin: '10px 0', paddingLeft: '20px' }}>
-              <li>训练将使用全信息模式（知道所有玩家手牌）</li>
-              <li>训练过程中会记录不同场景的最优决策</li>
-              <li>训练完成后会生成优化建议</li>
-              <li>训练进度会实时显示，可随时暂停或停止</li>
-            </ul>
+                <ul style={{ margin: '10px 0', paddingLeft: '20px' }}>
+                  <li>训练将使用全信息模式（知道所有玩家手牌）</li>
+                  <li>训练过程中会记录不同场景的最优决策</li>
+                  <li>训练完成后会生成优化建议</li>
+                  <li>训练进度会实时显示，可随时暂停或停止</li>
+                  {localConfig.autoTune && (
+                    <li style={{ color: '#2196F3', fontWeight: 'bold' }}>
+                      训练完成后将自动微调参数，测试多个配置找到最佳参数
+                    </li>
+                  )}
+                </ul>
           </div>
 
           <button 

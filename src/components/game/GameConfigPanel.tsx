@@ -15,10 +15,18 @@ interface GameConfigPanelProps {
   humanPlayerIndex: number;
   strategy: 'aggressive' | 'conservative' | 'balanced';
   algorithm: 'simple' | 'mcts';
+  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered';
+  skipDealingAnimation?: boolean;
+  dealingSpeed?: number;
+  sortOrder?: 'asc' | 'desc' | 'grouped';
   onPlayerCountChange: (count: number) => void;
   onHumanPlayerIndexChange: (index: number) => void;
   onStrategyChange: (strategy: 'aggressive' | 'conservative' | 'balanced') => void;
   onAlgorithmChange: (algorithm: 'simple' | 'mcts') => void;
+  onDealingAlgorithmChange?: (algorithm: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered') => void;
+  onSkipDealingAnimationChange?: (skip: boolean) => void;
+  onDealingSpeedChange?: (speed: number) => void;
+  onSortOrderChange?: (order: 'asc' | 'desc' | 'grouped') => void;
   onStartGame: () => void;
   onStartTraining?: () => void;
 }
@@ -30,10 +38,18 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   humanPlayerIndex,
   strategy,
   algorithm,
+  dealingAlgorithm = 'random',
+  skipDealingAnimation = false,
+  dealingSpeed = 150,
+  sortOrder = 'grouped',
   onPlayerCountChange,
   onHumanPlayerIndexChange,
   onStrategyChange,
   onAlgorithmChange,
+  onDealingAlgorithmChange,
+  onSkipDealingAnimationChange,
+  onDealingSpeedChange,
+  onSortOrderChange,
   onStartGame,
   onStartTraining
 }) => {
@@ -132,6 +148,73 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               策略仅影响简单算法，MCTS会自动学习最优策略
             </small>
           </div>
+          {onDealingAlgorithmChange && (
+            <div className="config-item">
+              <label>发牌算法:</label>
+              <select 
+                value={dealingAlgorithm} 
+                onChange={(e) => onDealingAlgorithmChange(e.target.value as any)}
+              >
+                <option value="random">完全随机</option>
+                <option value="fair">公平分配</option>
+                <option value="favor-human">偏袒人类玩家</option>
+                <option value="favor-ai">偏袒AI玩家</option>
+                <option value="balanced-score">平衡分牌</option>
+                <option value="clustered">聚类分配</option>
+              </select>
+              <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
+                选择发牌策略，影响游戏难度和趣味性
+              </small>
+            </div>
+          )}
+          {onSkipDealingAnimationChange && (
+            <div className="config-item">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={skipDealingAnimation}
+                  onChange={(e) => onSkipDealingAnimationChange(e.target.checked)}
+                />
+                跳过发牌动画
+              </label>
+              <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
+                勾选后直接开始游戏，不显示发牌动画
+              </small>
+            </div>
+          )}
+          {onDealingSpeedChange && (
+            <div className="config-item">
+              <label>发牌速度:</label>
+              <select 
+                value={dealingSpeed} 
+                onChange={(e) => onDealingSpeedChange(parseInt(e.target.value))}
+              >
+                <option value={50}>快速 (50ms/张)</option>
+                <option value={150}>正常 (150ms/张)</option>
+                <option value={300}>慢速 (300ms/张)</option>
+                <option value={500}>很慢 (500ms/张)</option>
+              </select>
+              <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
+                控制发牌动画的速度
+              </small>
+            </div>
+          )}
+          {onSortOrderChange && (
+            <div className="config-item">
+              <label>理牌排序:</label>
+              <select 
+                value={sortOrder} 
+                onChange={(e) => onSortOrderChange(e.target.value as 'asc' | 'desc' | 'grouped')}
+              >
+                <option value="grouped">按数字分组</option>
+                <option value="asc">从小到大</option>
+                <option value="desc">从大到小</option>
+              </select>
+              <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
+                发牌时手牌的排序方式
+              </small>
+            </div>
+          )}
               <button className="btn-primary" onClick={onStartGame}>
                 开始游戏
               </button>

@@ -10,8 +10,19 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:refactor": "vitest --run --reporter=verbose refactorRegression useGameConfig usePlayerHand useChatBubbles useGameActions",
-    "test:quick": "vitest --run --reporter=verbose refactorRegression"
+    "test:quick": "vitest --run --no-coverage",
+    "test:fast": "vitest --run --no-coverage",
+    "test:refactor": "vitest --run --no-coverage refactorRegression useGameConfig usePlayerHand useChatBubbles useGameActions",
+    "test:dealing": "vitest --run --no-coverage dealingAlgorithms",
+    "test:regression": "vitest --run --no-coverage regression",
+    "test:dealing-regression": "vitest --run --no-coverage dealingSortingRegression cardSorting",
+    "test:chat-regression": "vitest --run --no-coverage chatServiceRegression chatAndVoiceRegression",
+    "test:all-regression": "vitest --run --no-coverage regression dealingSortingRegression chatServiceRegression chatAndVoiceRegression",
+    "test:sorting": "vitest --run --no-coverage cardSorting",
+    "test:dealing-sorting": "vitest --run --no-coverage dealingSortingRegression",
+    "test:dealing-features": "vitest --run --no-coverage dealingManualMode cardStacking dealingFeaturesRegression",
+    "test:all": "vitest --run --no-coverage",
+    "test:verbose": "vitest --run --reporter=verbose --no-coverage"
   },
   "dependencies": {
     "react": "^18.2.0",

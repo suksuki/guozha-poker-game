@@ -48,6 +48,42 @@ export const PlayerHandGrouped: React.FC<PlayerHandGroupedProps> = ({
                   <span className="selected-badge">已选 {selectedCount}</span>
                 )}
               </div>
+              {/* 叠放显示：不展开时显示一叠牌 */}
+              {!isExpanded && (
+                <div 
+                  className="card-stack"
+                  style={{
+                    height: `${84 + Math.max(0, (cards.length - 1) * 40)}px`
+                  }}
+                >
+                  {cards.map((card: Card, index: number) => {
+                    const isScore = isScoreCard(card);
+                    const score = isScore ? getCardScore(card) : 0;
+                    const stackOffset = index * 40; // 每张牌向上偏移40px（从底部开始）
+                    return (
+                      <div
+                        key={card.id}
+                        className={`card-stack-item ${isScore ? 'score-card-wrapper' : ''}`}
+                        style={{
+                          transform: `translateY(-${stackOffset}px)`, // 向上偏移
+                          zIndex: index + 1, // 上面的牌 z-index 更大
+                          '--stack-offset': `-${stackOffset}px`
+                        } as React.CSSProperties}
+                      >
+                        <CardComponent
+                          card={card}
+                          selected={selectedCards.some(c => c.id === card.id)}
+                          onClick={() => onCardClick(card)}
+                        />
+                        {isScore && (
+                          <div className="card-score-badge">{score}分</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {/* 展开显示：展开时显示所有牌（用于选择） */}
               {isExpanded && (
                 <div className="card-group-content">
                   {cards.map((card: Card) => {

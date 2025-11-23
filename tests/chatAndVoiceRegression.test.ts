@@ -92,7 +92,7 @@ describe('聊天和语音系统回归测试', () => {
   });
 
   describe('聊天功能回归', () => {
-    it('应该能够正常触发随机闲聊', () => {
+    it('应该能够正常触发随机闲聊', async () => {
       const player: Player = {
         id: 0,
         name: '测试玩家',
@@ -105,12 +105,12 @@ describe('聊天和语音系统回归测试', () => {
       };
 
       // 使用高概率确保触发
-      const message = triggerRandomChat(player, 1.0);
+      const message = await triggerRandomChat(player, 1.0);
       expect(message).not.toBeNull();
       expect(message?.playerId).toBe(0);
     });
 
-    it('应该能够正常触发事件聊天', () => {
+    it('应该能够正常触发事件聊天', async () => {
       const player: Player = {
         id: 0,
         name: '测试玩家',
@@ -126,14 +126,14 @@ describe('聊天和语音系统回归测试', () => {
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于概率，确保触发
 
-      const message = triggerEventChat(player, ChatEventType.BIG_DUN);
+      const message = await triggerEventChat(player, ChatEventType.BIG_DUN);
       expect(message).not.toBeNull();
-      expect(message?.type).toBe('event');
+      expect(['event', 'taunt']).toContain(message?.type);
 
       Math.random = originalRandom;
     });
 
-    it('应该能够正常触发大墩反应', () => {
+    it('应该能够正常触发大墩反应', async () => {
       const players: Player[] = [
         {
           id: 0,

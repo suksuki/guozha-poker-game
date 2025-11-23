@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { GameStatus } from '../types/card';
+import { GameStatus, PlayerType } from '../types/card';
 import { useMultiPlayerGame } from '../hooks/useMultiPlayerGame';
 import { useGameConfig, GameMode } from '../hooks/useGameConfig';
 import { useChatBubbles } from '../hooks/useChatBubbles';
@@ -17,6 +17,7 @@ import { TrainingRunner } from './game/TrainingRunner';
 import { GameResultScreen } from './game/GameResultScreen';
 import { ErrorScreen } from './game/ErrorScreen';
 import { ChatBubblesContainer } from './game/ChatBubblesContainer';
+import { DealingAnimation } from './game/DealingAnimation';
 import { AIPlayersArea } from './game/AIPlayersArea';
 import { PlayArea } from './game/PlayArea';
 import { ActionButtons } from './game/ActionButtons';
@@ -26,7 +27,18 @@ import { PlayerHandGrouped } from './game/PlayerHandGrouped';
 import './MultiPlayerGameBoard.css';
 
 export const MultiPlayerGameBoard: React.FC = () => {
-  const { gameState, startGame, playerPlay, playerPass, suggestPlay, resetGame } = useMultiPlayerGame();
+  const { 
+    gameState, 
+    startGame, 
+    playerPlay, 
+    playerPass, 
+    suggestPlay, 
+    resetGame,
+    isDealing,
+    pendingGameConfig,
+    handleDealingComplete,
+    handleDealingCancel
+  } = useMultiPlayerGame();
   
   // 使用自定义 hooks
   const gameConfig = useGameConfig();
@@ -55,12 +67,44 @@ export const MultiPlayerGameBoard: React.FC = () => {
     }
   };
 
+  // 发牌动画状态
+  if (isDealing && pendingGameConfig) {
+    const playersWithoutHands = Array(pendingGameConfig.playerCount).fill(null).map((_, index) => ({
+      id: index,
+      name: index === pendingGameConfig.humanPlayerIndex ? '你' : `玩家${index + 1}`,
+      type: index === pendingGameConfig.humanPlayerIndex ? PlayerType.HUMAN : PlayerType.AI,
+      isHuman: index === pendingGameConfig.humanPlayerIndex,
+      score: 0,
+      aiConfig: index === pendingGameConfig.humanPlayerIndex ? undefined : pendingGameConfig.aiConfigs[index],
+      voiceConfig: {} as any
+    }));
+
+    return (
+      <DealingAnimation
+        playerCount={pendingGameConfig.playerCount}
+        humanPlayerIndex={pendingGameConfig.humanPlayerIndex}
+        players={playersWithoutHands}
+        dealingConfig={{
+          algorithm: pendingGameConfig.dealingAlgorithm || 'random',
+          playerCount: pendingGameConfig.playerCount,
+          favorPlayerIndex: pendingGameConfig.humanPlayerIndex
+        }}
+        onComplete={handleDealingComplete}
+        onCancel={handleDealingCancel}
+        dealingSpeed={pendingGameConfig.dealingSpeed}
+        sortOrder={pendingGameConfig.sortOrder}
+      />
+    );
+  }
+
   // 等待状态：显示配置面板
   if (gameState.status === GameStatus.WAITING) {
     // 训练模式：显示训练配置面板或训练运行器
     if (gameConfig.mode === 'training') {
+      console.log('MultiPlayerGameBoard: 训练模式, isTraining:', gameConfig.isTraining);
       // 如果正在训练，显示训练运行器
       if (gameConfig.isTraining) {
+        console.log('MultiPlayerGameBoard: 显示TrainingRunner');
         return (
           <TrainingRunner
             config={gameConfig.trainingConfig}
@@ -70,6 +114,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
         );
       }
       // 否则显示训练配置面板
+      console.log('MultiPlayerGameBoard: 显示TrainingConfigPanel');
       return (
         <TrainingConfigPanel
           config={gameConfig.trainingConfig}
@@ -82,17 +127,25 @@ export const MultiPlayerGameBoard: React.FC = () => {
     
     // 游戏模式：显示游戏配置面板
     return (
-      <GameConfigPanel 
+      <GameConfigPanel
+        dealingSpeed={gameConfig.dealingSpeed}
+        sortOrder={gameConfig.sortOrder}
+        onDealingSpeedChange={gameConfig.setDealingSpeed}
+        onSortOrderChange={gameConfig.setSortOrder} 
         mode={gameConfig.mode}
         onModeChange={gameConfig.setMode}
         playerCount={gameConfig.playerCount}
         humanPlayerIndex={gameConfig.humanPlayerIndex}
         strategy={gameConfig.strategy}
         algorithm={gameConfig.algorithm}
+        dealingAlgorithm={gameConfig.dealingAlgorithm}
+        skipDealingAnimation={gameConfig.skipDealingAnimation}
         onPlayerCountChange={gameConfig.setPlayerCount}
         onHumanPlayerIndexChange={gameConfig.setHumanPlayerIndex}
         onStrategyChange={gameConfig.setStrategy}
         onAlgorithmChange={gameConfig.setAlgorithm}
+        onDealingAlgorithmChange={gameConfig.setDealingAlgorithm}
+        onSkipDealingAnimationChange={gameConfig.setSkipDealingAnimation}
         onStartGame={() => gameConfig.handleStartGame(startGame)}
         onStartTraining={() => gameConfig.setMode('training')}
       />

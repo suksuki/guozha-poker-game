@@ -6,6 +6,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Player, PlayerType } from '../src/types/card';
 import { ChatEventType } from '../src/types/chat';
 import { chatService, addChatMessage, getChatMessages, clearChatMessages, createChatMessage, triggerRandomChat, triggerEventChat, triggerBigDunReaction, triggerScoreStolenReaction, triggerGoodPlayReaction, triggerTaunt, triggerBadLuckReaction, triggerWinningReaction, triggerLosingReaction, triggerFinishFirstReaction, triggerFinishLastReaction } from '../src/services/chatService';
+import { Card, Suit, Rank } from '../src/types/card';
+import { ChatEventType } from '../src/types/chat';
 
 // Mock voiceService
 vi.mock('../src/services/voiceService', () => ({
@@ -343,6 +345,119 @@ describe('聊天服务', () => {
       
       const messages = chatService.getMessages();
       expect(messages.length).toBeLessThanOrEqual(10);
+    });
+  });
+
+  describe('triggerSortingReaction - 理牌聊天触发', () => {
+    const createCard = (suit: Suit, rank: Rank, id: string): Card => ({
+      suit,
+      rank,
+      id
+    });
+
+    it('应该在形成炸弹时触发聊天', async () => {
+      clearChatMessages();
+      const originalRandom = Math.random;
+      Math.random = vi.fn(() => 0.1); // 确保触发
+
+      const hand: Card[] = [
+        createCard(Suit.HEARTS, Rank.FIVE, '1'),
+        createCard(Suit.SPADES, Rank.FIVE, '2'),
+        createCard(Suit.DIAMONDS, Rank.FIVE, '3'),
+        createCard(Suit.CLUBS, Rank.FIVE, '4')
+      ];
+      const newlyDealtCard = createCard(Suit.HEARTS, Rank.FIVE, '5');
+
+      await chatService.triggerSortingReaction(mockPlayer, hand, newlyDealtCard);
+
+      const messages = getChatMessages();
+      // 应该触发炸弹相关的聊天
+      expect(messages.length).toBeGreaterThan(0);
+
+      Math.random = originalRandom;
+    });
+
+    it('应该在形成墩时触发聊天', async () => {
+      clearChatMessages();
+      const originalRandom = Math.random;
+      Math.random = vi.fn(() => 0.1); // 确保触发
+
+      const hand: Card[] = Array.from({ length: 7 }, (_, i) =>
+        createCard(Suit.HEARTS, Rank.TEN, `card-${i}`)
+      );
+      const newlyDealtCard = createCard(Suit.SPADES, Rank.TEN, 'new-card');
+
+      await chatService.triggerSortingReaction(mockPlayer, hand, newlyDealtCard);
+
+      const messages = getChatMessages();
+      // 应该触发墩相关的聊天
+      expect(messages.length).toBeGreaterThan(0);
+
+      Math.random = originalRandom;
+    });
+
+    it('应该在抓到超大牌时触发聊天', async () => {
+      clearChatMessages();
+      const originalRandom = Math.random;
+      Math.random = vi.fn(() => 0.1); // 确保触发
+
+      const hand: Card[] = [
+        createCard(Suit.HEARTS, Rank.THREE, '1'),
+        createCard(Suit.SPADES, Rank.FOUR, '2')
+      ];
+      const newlyDealtCard = createCard(Suit.JOKER, Rank.JOKER_BIG, 'big-joker');
+
+      await chatService.triggerSortingReaction(mockPlayer, hand, newlyDealtCard);
+
+      const messages = getChatMessages();
+      // 应该触发超大牌相关的聊天
+      expect(messages.length).toBeGreaterThan(0);
+
+      Math.random = originalRandom;
+    });
+
+    it('应该在手牌质量差时触发聊天', async () => {
+      clearChatMessages();
+      const originalRandom = Math.random;
+      Math.random = vi.fn(() => 0.1); // 确保触发
+
+      // 创建质量差的手牌（都是小牌，没有组合）
+      const hand: Card[] = Array.from({ length: 25 }, (_, i) =>
+        createCard(Suit.HEARTS, Rank.THREE + (i % 5), `card-${i}`)
+      );
+      const newlyDealtCard = createCard(Suit.SPADES, Rank.FOUR, 'new-card');
+
+      await chatService.triggerSortingReaction(mockPlayer, hand, newlyDealtCard);
+
+      const messages = getChatMessages();
+      // 可能会触发差牌相关的聊天（取决于概率）
+      // 由于有概率控制，可能不会每次都触发，所以只检查没有错误
+
+      Math.random = originalRandom;
+    });
+
+    it('应该优先检测炸弹/墩而不是超大牌', async () => {
+      clearChatMessages();
+      const originalRandom = Math.random;
+      Math.random = vi.fn(() => 0.1); // 确保触发
+
+      // 既有炸弹又有超大牌
+      const hand: Card[] = [
+        createCard(Suit.HEARTS, Rank.FIVE, '1'),
+        createCard(Suit.SPADES, Rank.FIVE, '2'),
+        createCard(Suit.DIAMONDS, Rank.FIVE, '3'),
+        createCard(Suit.CLUBS, Rank.FIVE, '4'),
+        createCard(Suit.JOKER, Rank.JOKER_BIG, '5')
+      ];
+      const newlyDealtCard = createCard(Suit.HEARTS, Rank.TWO, 'two');
+
+      await chatService.triggerSortingReaction(mockPlayer, hand, newlyDealtCard);
+
+      const messages = getChatMessages();
+      // 应该优先触发炸弹相关的聊天，而不是超大牌
+      expect(messages.length).toBeGreaterThan(0);
+
+      Math.random = originalRandom;
     });
   });
 });

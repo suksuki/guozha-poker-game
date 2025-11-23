@@ -5,7 +5,7 @@
  */
 
 import { ChatMessage, ChatEventType } from '../types/chat';
-import { Player } from '../types/card';
+import { Player, Card, Suit, Rank } from '../types/card';
 import { 
   ChatServiceConfig, 
   DEFAULT_CHAT_SERVICE_CONFIG, 
@@ -17,6 +17,9 @@ import {
 import { speakText } from './voiceService';
 import type { IChatStrategy, ChatContext } from '../chat/strategy';
 import { getChatStrategy } from '../chat/strategy';
+import { getCardType } from '../utils/cardUtils';
+import { groupCardsByRank } from '../utils/cardSorting';
+import { evaluateHandValue } from '../ai/simpleStrategy';
 
 // 聊天服务类
 class ChatService {
@@ -255,6 +258,92 @@ class ChatService {
   async triggerDunPlayedReaction(player: Player, context?: ChatContext): Promise<void> {
     await this.triggerEventChat(player, ChatEventType.DUN_PLAYED, context);
   }
+
+  // 触发发牌反应
+  async triggerDealingReaction(player: Player, card: Card, currentIndex: number, totalCards: number, context?: ChatContext): Promise<void> {
+    // 根据发牌进度和牌的质量触发不同反应
+    const progress = currentIndex / totalCards;
+    const isGoodCard = card.suit === 'JOKER' || card.rank === 15 || card.rank === 14; // 大小王、2、A
+    
+    if (isGoodCard) {
+      await this.triggerEventChat(player, ChatEventType.DEALING_GOOD_CARD, {
+        ...context,
+        eventData: { card, progress }
+      });
+    } else if (progress > 0.8 && Math.random() < 0.3) {
+      // 发牌快结束时，偶尔抱怨
+      await this.triggerEventChat(player, ChatEventType.DEALING_BAD_CARD, {
+        ...context,
+        eventData: { card, progress }
+      });
+    } else if (progress < 0.2 && Math.random() < 0.2) {
+      // 发牌开始时，偶尔闲聊
+      await this.triggerEventChat(player, ChatEventType.DEALING, {
+        ...context,
+        eventData: { card, progress }
+      });
+    }
+  }
+
+  // 触发理牌过程中的聊天反应
+  async triggerSortingReaction(
+    player: Player,
+    hand: Card[],
+    newlyDealtCard: Card,
+    context?: ChatContext
+  ): Promise<void> {
+    // 控制触发频率，避免过于频繁（30%概率）
+    if (Math.random() > 0.3) {
+      return;
+    }
+
+    // 1. 检测炸弹/墩（优先检测，因为最兴奋）
+    const rankGroups = groupCardsByRank(hand);
+    for (const [rank, cards] of rankGroups) {
+      if (cards.length >= 7) {
+        // 形成墩了！
+        await this.triggerEventChat(player, ChatEventType.DEALING_DUN_FORMED, {
+          ...context,
+          eventData: { rank, count: cards.length, hand }
+        });
+        return; // 优先触发，触发后不再检测其他
+      } else if (cards.length >= 4) {
+        // 形成炸弹了！
+        await this.triggerEventChat(player, ChatEventType.DEALING_BOMB_FORMED, {
+          ...context,
+          eventData: { rank, count: cards.length, hand }
+        });
+        return; // 优先触发，触发后不再检测其他
+      }
+    }
+
+    // 2. 检测超大牌（刚抓到的牌）
+    if (newlyDealtCard.suit === Suit.JOKER || 
+        newlyDealtCard.rank === Rank.TWO || 
+        newlyDealtCard.rank === Rank.ACE) {
+      await this.triggerEventChat(player, ChatEventType.DEALING_HUGE_CARD, {
+        ...context,
+        eventData: { card: newlyDealtCard, hand }
+      });
+      return;
+    }
+
+    // 3. 评估手牌质量（如果手牌已经发了一半以上，且手牌质量差）
+    if (hand.length >= 20) {
+      const handValue = evaluateHandValue(hand);
+      // 手牌质量阈值：如果手牌价值很低（负数或很小的正数），说明手牌质量差
+      // 根据手牌数量调整阈值
+      const threshold = -hand.length * 5; // 动态阈值
+      
+      if (handValue < threshold) {
+        await this.triggerEventChat(player, ChatEventType.DEALING_POOR_HAND, {
+          ...context,
+          eventData: { handValue, handLength: hand.length, hand }
+        });
+        return;
+      }
+    }
+  }
 }
 
 // 创建全局聊天服务实例（默认使用rule-based策略）
@@ -343,5 +432,14 @@ export async function triggerFinishMiddleReaction(player: Player): Promise<void>
 
 export async function triggerDunPlayedReaction(player: Player): Promise<void> {
   await chatService.triggerDunPlayedReaction(player);
+}
+
+export async function triggerDealingReaction(
+  player: Player, 
+  card: Card, 
+  currentIndex: number, 
+  totalCards: number
+): Promise<void> {
+  await chatService.triggerDealingReaction(player, card, currentIndex, totalCards);
 }
 
