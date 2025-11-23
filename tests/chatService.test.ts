@@ -56,6 +56,7 @@ describe('聊天服务', () => {
     });
 
     it('应该能够获取所有聊天消息', () => {
+      clearChatMessages(); // 确保测试前清空
       const message1 = createChatMessage(mockPlayer, '消息1', 'random');
       const message2 = createChatMessage(mockPlayer, '消息2', 'event');
       
@@ -67,6 +68,7 @@ describe('聊天服务', () => {
     });
 
     it('应该能够清空聊天消息', () => {
+      clearChatMessages(); // 确保测试前清空
       const message = createChatMessage(mockPlayer, '测试消息', 'random');
       addChatMessage(message);
       
@@ -101,28 +103,28 @@ describe('聊天服务', () => {
   });
 
   describe('triggerRandomChat', () => {
-    it('应该根据概率触发随机闲聊', () => {
+    it('应该根据概率触发随机闲聊', async () => {
       // 使用高概率确保触发
-      const message = triggerRandomChat(mockPlayer, 1.0);
+      const message = await triggerRandomChat(mockPlayer, 1.0);
       expect(message).not.toBeNull();
       expect(message?.playerId).toBe(0);
       expect(message?.type).toBe('random');
     });
 
-    it('应该根据概率不触发随机闲聊', () => {
+    it('应该根据概率不触发随机闲聊', async () => {
       // 使用低概率确保不触发
-      const message = triggerRandomChat(mockPlayer, 0.0);
+      const message = await triggerRandomChat(mockPlayer, 0.0);
       expect(message).toBeNull();
     });
   });
 
   describe('triggerEventChat', () => {
-    it('应该触发大墩事件聊天', () => {
+    it('应该触发大墩事件聊天', async () => {
       // Mock Math.random 确保触发
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于概率，确保触发
       
-      const message = triggerEventChat(mockPlayer, ChatEventType.BIG_DUN);
+      const message = await triggerEventChat(mockPlayer, ChatEventType.BIG_DUN);
       expect(message).not.toBeNull();
       expect(message?.type).toBe('event');
       expect(message?.playerId).toBe(0);
@@ -130,22 +132,22 @@ describe('聊天服务', () => {
       Math.random = originalRandom;
     });
 
-    it('应该触发分牌被捡走事件聊天', () => {
+    it('应该触发分牌被捡走事件聊天', async () => {
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1);
       
-      const message = triggerEventChat(mockPlayer, ChatEventType.SCORE_STOLEN);
+      const message = await triggerEventChat(mockPlayer, ChatEventType.SCORE_STOLEN);
       expect(message).not.toBeNull();
       expect(message?.type).toBe('event');
       
       Math.random = originalRandom;
     });
 
-    it('应该触发好牌事件聊天', () => {
+    it('应该触发好牌事件聊天', async () => {
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1);
       
-      const message = triggerEventChat(mockPlayer, ChatEventType.GOOD_PLAY);
+      const message = await triggerEventChat(mockPlayer, ChatEventType.GOOD_PLAY);
       expect(message).not.toBeNull();
       expect(message?.type).toBe('event');
       
@@ -154,7 +156,7 @@ describe('聊天服务', () => {
   });
 
   describe('triggerBigDunReaction', () => {
-    it('应该为大墩触发其他玩家的反应', () => {
+    it('应该为大墩触发其他玩家的反应', async () => {
       const players: Player[] = [
         { ...mockPlayer, id: 0 },
         { ...mockPlayer, id: 1, name: '玩家2' },
@@ -169,7 +171,7 @@ describe('聊天服务', () => {
         return 0.1; // 小于0.5，确保触发
       });
 
-      triggerBigDunReaction(players, 0, 8);
+      await triggerBigDunReaction(players, 0, 8);
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);
@@ -177,14 +179,14 @@ describe('聊天服务', () => {
       Math.random = originalRandom;
     });
 
-    it('不应该为小墩触发反应', () => {
+    it('不应该为小墩触发反应', async () => {
       const players: Player[] = [
         { ...mockPlayer, id: 0 },
         { ...mockPlayer, id: 1, name: '玩家2' }
       ];
 
       clearChatMessages();
-      triggerBigDunReaction(players, 0, 6); // 小于8张
+      await triggerBigDunReaction(players, 0, 6); // 小于8张
 
       const messages = getChatMessages();
       expect(messages.length).toBe(0);
@@ -192,12 +194,12 @@ describe('聊天服务', () => {
   });
 
   describe('triggerScoreStolenReaction', () => {
-    it('应该触发分牌被捡走反应', () => {
+    it('应该触发分牌被捡走反应', async () => {
       // Mock Math.random 确保触发
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于概率，确保触发
 
-      triggerScoreStolenReaction(mockPlayer, 10);
+      await triggerScoreStolenReaction(mockPlayer, 10);
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);
@@ -205,9 +207,9 @@ describe('聊天服务', () => {
       Math.random = originalRandom;
     });
 
-    it('不应该在没有分牌被捡走时触发', () => {
+    it('不应该在没有分牌被捡走时触发', async () => {
       clearChatMessages();
-      triggerScoreStolenReaction(mockPlayer, 0);
+      await triggerScoreStolenReaction(mockPlayer, 0);
 
       const messages = getChatMessages();
       expect(messages.length).toBe(0);
@@ -215,12 +217,12 @@ describe('聊天服务', () => {
   });
 
   describe('triggerGoodPlayReaction', () => {
-    it('应该触发好牌反应', () => {
+    it('应该触发好牌反应', async () => {
       // Mock Math.random 确保触发
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于概率，确保触发
 
-      triggerGoodPlayReaction(mockPlayer);
+      await triggerGoodPlayReaction(mockPlayer);
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);
@@ -230,12 +232,12 @@ describe('聊天服务', () => {
   });
 
   describe('triggerTaunt', () => {
-    it('应该触发对骂', () => {
+    it('应该触发对骂', async () => {
       // Mock Math.random 确保触发
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于0.2，确保触发
 
-      triggerTaunt(mockPlayer);
+      await triggerTaunt(mockPlayer);
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);
@@ -246,11 +248,11 @@ describe('聊天服务', () => {
   });
 
   describe('其他事件反应函数', () => {
-    it('应该触发坏运气反应', () => {
+    it('应该触发坏运气反应', async () => {
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于概率，确保触发
 
-      triggerBadLuckReaction(mockPlayer);
+      await triggerBadLuckReaction(mockPlayer);
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);
@@ -259,11 +261,11 @@ describe('聊天服务', () => {
       Math.random = originalRandom;
     });
 
-    it('应该触发获胜反应', () => {
+    it('应该触发获胜反应', async () => {
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于概率，确保触发
 
-      triggerWinningReaction(mockPlayer);
+      await triggerWinningReaction(mockPlayer);
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);
@@ -272,11 +274,11 @@ describe('聊天服务', () => {
       Math.random = originalRandom;
     });
 
-    it('应该触发失败反应', () => {
+    it('应该触发失败反应', async () => {
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于概率，确保触发
 
-      triggerLosingReaction(mockPlayer);
+      await triggerLosingReaction(mockPlayer);
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);
@@ -285,11 +287,11 @@ describe('聊天服务', () => {
       Math.random = originalRandom;
     });
 
-    it('应该触发第一个出完反应', () => {
+    it('应该触发第一个出完反应', async () => {
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于概率，确保触发
 
-      triggerFinishFirstReaction(mockPlayer);
+      await triggerFinishFirstReaction(mockPlayer);
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);
@@ -298,11 +300,11 @@ describe('聊天服务', () => {
       Math.random = originalRandom;
     });
 
-    it('应该触发最后一个出完反应', () => {
+    it('应该触发最后一个出完反应', async () => {
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于概率，确保触发
 
-      triggerFinishLastReaction(mockPlayer);
+      await triggerFinishLastReaction(mockPlayer);
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);

@@ -14,7 +14,6 @@ import {
   TauntConfig, 
   DEFAULT_TAUNT_CONFIG
 } from '../config/chatConfig';
-import { speakText } from './voiceService';
 import type { IChatStrategy, ChatContext } from '../chat/strategy';
 import { getChatStrategy } from '../chat/strategy';
 import { getCardType } from '../utils/cardUtils';
@@ -115,17 +114,6 @@ class ChatService {
     };
   }
 
-  // 播放聊天语音（如果启用）
-  private async playChatVoice(content: string, player: Player): Promise<void> {
-    if (this.config.enableVoice && player.voiceConfig) {
-      try {
-        await speakText(content, player.voiceConfig);
-      } catch (err) {
-        console.warn('播放聊天语音失败:', err);
-      }
-    }
-  }
-
   // 触发随机闲聊
   async triggerRandomChat(player: Player, probability?: number, context?: ChatContext): Promise<ChatMessage | null> {
     // 先检查概率
@@ -138,8 +126,7 @@ class ChatService {
     const message = await this.strategy.generateRandomChat(player, context);
     if (message) {
       this.addMessage(message);
-      // 播放语音
-      this.playChatVoice(message.content, player);
+      // 不再自动播放语音，由组件决定是否播放
     }
     
     return message;
@@ -161,8 +148,7 @@ class ChatService {
     const message = await this.strategy.generateEventChat(player, eventType, context);
     if (message) {
       this.addMessage(message);
-      // 播放语音
-      this.playChatVoice(message.content, player);
+      // 不再自动播放语音，由组件决定是否播放
     }
     
     return message;
@@ -225,8 +211,7 @@ class ChatService {
     const message = await this.strategy.generateTaunt(player, targetPlayer, context);
     if (message) {
       this.addMessage(message);
-      // 播放语音
-      this.playChatVoice(message.content, player);
+      // 不再自动播放语音，由组件决定是否播放
     }
   }
 
@@ -263,7 +248,7 @@ class ChatService {
   async triggerDealingReaction(player: Player, card: Card, currentIndex: number, totalCards: number, context?: ChatContext): Promise<void> {
     // 根据发牌进度和牌的质量触发不同反应
     const progress = currentIndex / totalCards;
-    const isGoodCard = card.suit === 'JOKER' || card.rank === 15 || card.rank === 14; // 大小王、2、A
+    const isGoodCard = card.suit === Suit.JOKER || card.rank === Rank.TWO || card.rank === Rank.ACE; // 大小王、2、A
     
     if (isGoodCard) {
       await this.triggerEventChat(player, ChatEventType.DEALING_GOOD_CARD, {
@@ -299,7 +284,7 @@ class ChatService {
 
     // 1. 检测炸弹/墩（优先检测，因为最兴奋）
     const rankGroups = groupCardsByRank(hand);
-    for (const [rank, cards] of rankGroups) {
+    for (const [rank, cards] of Array.from(rankGroups.entries())) {
       if (cards.length >= 7) {
         // 形成墩了！
         await this.triggerEventChat(player, ChatEventType.DEALING_DUN_FORMED, {

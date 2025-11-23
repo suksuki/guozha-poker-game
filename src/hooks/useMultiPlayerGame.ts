@@ -1,13 +1,15 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, Play, GameStatus, Player, PlayerType, Rank, RoundPlayRecord, RoundRecord } from '../types/card';
-import { dealCards, canPlayCards, canBeat, hasPlayableCards, findPlayableCards, calculateCardsScore, isScoreCard, calculateDunCount, calculateDunScore } from '../utils/cardUtils';
+import { dealCards, canPlayCards, canBeat, hasPlayableCards, findPlayableCards, calculateCardsScore, isScoreCard } from '../utils/cardUtils';
 import { aiChoosePlay, AIConfig } from '../utils/aiPlayer';
-import { speakPlay, speakPass } from '../utils/speechUtils';
+import { voiceService } from '../services/voiceService';
+import { announcePlay, announcePass } from '../services/systemAnnouncementService';
 import { generateRandomVoiceConfig } from '../services/voiceConfigService';
 import { triggerScoreStolenReaction, triggerScoreEatenCurseReaction, triggerFinishFirstReaction, triggerFinishMiddleReaction, triggerFinishLastReaction, clearChatMessages } from '../services/chatService';
 import { findNextActivePlayer, checkGameFinished, MultiPlayerGameState } from '../utils/gameStateUtils';
 import { applyFinalGameRules, calculateFinalRankings } from '../utils/gameRules';
 import { handleDunScoring, createPlayRecord, updatePlayerAfterPlay, triggerGoodPlayReactions } from '../utils/playManager';
+import { getGameConfig } from '../config/gameConfig';
 
 // 游戏完整记录（用于保存）
 export interface GameRecord {
@@ -40,6 +42,10 @@ export interface GameConfig {
 }
 
 export function useMultiPlayerGame() {
+  // 获取游戏配置
+  const gameConfig = getGameConfig();
+  const announcementDelay = gameConfig.announcementDelay;
+
   const [gameState, setGameState] = useState<MultiPlayerGameState>({
     status: GameStatus.WAITING,
     players: [],
@@ -70,6 +76,39 @@ export function useMultiPlayerGame() {
   const playNextTurn = useCallback(async () => {
     const currentState = gameStateRef.current;
     if (currentState.status !== GameStatus.PLAYING) return;
+
+    // 检查是否正在播放语音，如果是，等待完成
+    // 确保AI等待上家报牌完成后再出牌（无论上家是AI还是真人）
+    // 注意：由于报牌使用speakImmediate会立即播放并中断其他语音，
+    // 所以如果isSpeaking为true，很可能就是正在报牌
+    if (voiceService.isCurrentlySpeaking()) {
+      // 记录初始状态，用于检查游戏是否已经更新
+      const initialState = gameStateRef.current;
+      const initialPlayerIndex = initialState.currentPlayerIndex;
+      
+      // 等待语音播放完成（最多等待1秒，避免卡住）
+      await new Promise<void>((resolve) => {
+        const checkInterval = setInterval(() => {
+          // 如果语音播放完成，或者游戏状态已经更新（说明上家已经出牌），就继续
+          const currentState = gameStateRef.current;
+          const stateChanged = currentState.currentPlayerIndex !== initialPlayerIndex;
+          
+          if (!voiceService.isCurrentlySpeaking() || stateChanged) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 50); // 每50ms检查一次
+        
+        // 超时保护：1秒后强制继续（避免卡住游戏）
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          resolve();
+        }, 1000);
+      });
+      
+      // 再等待一小段时间，确保语音完全结束（但不超过200ms）
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
 
     const currentPlayer = currentState.players[currentState.currentPlayerIndex];
     if (!currentPlayer) return;
@@ -327,20 +366,15 @@ export function useMultiPlayerGame() {
             finishOrder: newFinishOrder
                   };
           
-          // 如果下一个玩家是AI，等待语音播放完成后再继续
+          // 报牌（系统信息）：立即报牌，不等待完成
           const currentPlayerVoice = newPlayers[currentState.currentPlayerIndex]?.voiceConfig;
+          announcePlay(fallbackPlay, currentPlayerVoice).catch(console.error);
+          
+          // 播报后等待，如果下一个玩家是AI，自动继续
           if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-            speakPlay(fallbackPlay, currentPlayerVoice).then(() => {
-              setTimeout(() => {
-                playNextTurn();
-              }, 300);
-            }).catch(() => {
-              setTimeout(() => {
-                playNextTurn();
-              }, 1000);
-            });
-          } else {
-            speakPlay(fallbackPlay, currentPlayerVoice).catch(console.error);
+            setTimeout(() => {
+              playNextTurn();
+            }, announcementDelay);
           }
           
           return newState;
@@ -356,20 +390,15 @@ export function useMultiPlayerGame() {
                   roundScore: prev.roundScore + fallbackScore // 累加轮次分数
                 };
 
-                // 如果下一个玩家是AI，等待语音播放完成后再继续
+                // 报牌（系统信息）：立即报牌，不等待完成
                 const currentPlayerVoice = newPlayers[currentState.currentPlayerIndex]?.voiceConfig;
+                announcePlay(fallbackPlay, currentPlayerVoice).catch(console.error);
+                
+                // 1.5秒后，如果下一个玩家是AI，自动继续
                 if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-                  speakPlay(fallbackPlay, currentPlayerVoice).then(() => {
-                    setTimeout(() => {
-                      playNextTurn();
-                    }, 300);
-                  }).catch(() => {
-                    setTimeout(() => {
-                      playNextTurn();
-                    }, 1000);
-                  });
-                } else {
-                  speakPlay(fallbackPlay, currentPlayerVoice).catch(console.error);
+                  setTimeout(() => {
+                    playNextTurn();
+                  }, 1500);
                 }
 
                 return newState;
@@ -436,19 +465,16 @@ export function useMultiPlayerGame() {
               };
               
               // 如果下一个玩家是AI，自动出牌开始下一轮
-              const nextPlayerVoice = newPlayers[nextActivePlayerIndex]?.voiceConfig;
+              // 报"要不起"（系统信息）：必须等待完成才能继续游戏流程
+              const currentPlayerVoice = prev.players[prev.currentPlayerIndex]?.voiceConfig;
+              // 报"要不起"（系统信息）：立即报牌，不等待完成
+              announcePass(currentPlayerVoice).catch(console.error);
+              
+              // 1.5秒后，如果下一个玩家是AI，自动继续
               if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
-                speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).then(() => {
-                  setTimeout(() => {
-                    playNextTurn();
-                  }, 500); // 给一点时间让用户看到轮次切换
-                }).catch(() => {
-                  setTimeout(() => {
-                    playNextTurn();
-                  }, 1000);
-                });
-              } else {
-                speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).catch(console.error);
+                setTimeout(() => {
+                  playNextTurn();
+                }, 1500);
               }
               
               return newState;
@@ -471,20 +497,15 @@ export function useMultiPlayerGame() {
             roundNumber: nextPlayerIndex === prev.lastPlayPlayerIndex ? prev.roundNumber + 1 : prev.roundNumber // 新轮次
           };
 
-          // 如果下一个玩家是AI，等待"要不起"语音播放完成后再继续
+          // 报"要不起"（系统信息）：立即报牌，不等待完成
           const currentPlayerVoice = prev.players[prev.currentPlayerIndex]?.voiceConfig;
+          announcePass(currentPlayerVoice).catch(console.error);
+          
+          // 1.5秒后，如果下一个玩家是AI，自动继续
           if (prev.players[nextPlayerIndex].type === PlayerType.AI) {
-            speakPass(currentPlayerVoice).then(() => {
-              setTimeout(() => {
-                playNextTurn();
-              }, 300);
-            }).catch(() => {
             setTimeout(() => {
               playNextTurn();
-            }, 1000);
-            });
-          } else {
-            speakPass(currentPlayerVoice).catch(console.error);
+            }, 1500);
           }
 
           return newState;
@@ -548,19 +569,16 @@ export function useMultiPlayerGame() {
               };
               
               // 如果下一个玩家是AI，自动出牌开始下一轮
-              const nextPlayerVoice = newPlayers[nextActivePlayerIndex]?.voiceConfig;
+              // 报"要不起"（系统信息）：必须等待完成才能继续游戏流程
+              const currentPlayerVoice = prev.players[prev.currentPlayerIndex]?.voiceConfig;
+              // 报"要不起"（系统信息）：立即报牌，不等待完成
+              announcePass(currentPlayerVoice).catch(console.error);
+              
+              // 1.5秒后，如果下一个玩家是AI，自动继续
               if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
-                speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).then(() => {
-                  setTimeout(() => {
-                    playNextTurn();
-                  }, 500); // 给一点时间让用户看到轮次切换
-                }).catch(() => {
-                  setTimeout(() => {
-                    playNextTurn();
-                  }, 1000);
-                });
-              } else {
-                speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).catch(console.error);
+                setTimeout(() => {
+                  playNextTurn();
+                }, 1500);
               }
               
               return newState;
@@ -773,6 +791,10 @@ export function useMultiPlayerGame() {
           
           // 根据是否接风决定游戏状态
           // 注意：分数已经在前面（593行）加给玩家了，所以这里roundScore应该重置为0
+          // 报牌（系统信息）：立即报牌，不等待完成
+          const currentPlayerVoice = newPlayers[currentState.currentPlayerIndex]?.voiceConfig;
+          announcePlay(play, currentPlayerVoice).catch(console.error);
+          
           const newState = {
             ...prev,
             players: newPlayers,
@@ -784,23 +806,11 @@ export function useMultiPlayerGame() {
             finishOrder: newFinishOrder
           };
           
-          // 如果下一个玩家是AI，等待语音播放完成后再继续
-          const currentPlayerVoice = newPlayers[currentState.currentPlayerIndex]?.voiceConfig;
+          // 播报后等待，如果下一个玩家是AI，自动继续
           if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-            // 等待语音播放完成后再继续
-            speakPlay(play, currentPlayerVoice).then(() => {
-              setTimeout(() => {
-                playNextTurn();
-              }, 300); // 语音播放完成后再等300ms
-            }).catch(() => {
-              // 如果语音播放失败，直接继续
-              setTimeout(() => {
-                playNextTurn();
-              }, 1000);
-            });
-          } else {
-            // 人类玩家，也播放语音但不等待
-            speakPlay(play, currentPlayerVoice).catch(console.error);
+            setTimeout(() => {
+              playNextTurn();
+            }, announcementDelay);
           }
           
           return newState;
@@ -819,23 +829,15 @@ export function useMultiPlayerGame() {
           currentRoundPlays: [...prev.currentRoundPlays, playRecord] // 记录这一手出牌
         };
 
-        // 如果下一个玩家是AI，等待语音播放完成后再继续
+        // 报牌（系统信息）：立即报牌，不等待完成
         const currentPlayerVoice = newPlayers[currentState.currentPlayerIndex]?.voiceConfig;
+        announcePlay(play, currentPlayerVoice).catch(console.error);
+        
+        // 1.5秒后，如果下一个玩家是AI，自动继续
         if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-          // 等待语音播放完成后再继续
-          speakPlay(play, currentPlayerVoice).then(() => {
-            setTimeout(() => {
-              playNextTurn();
-            }, 300); // 语音播放完成后再等300ms
-          }).catch(() => {
-            // 如果语音播放失败，直接继续
-            setTimeout(() => {
-              playNextTurn();
-            }, 1000);
-          });
-        } else {
-          // 人类玩家，也播放语音但不等待
-          speakPlay(play, currentPlayerVoice).catch(console.error);
+          setTimeout(() => {
+            playNextTurn();
+          }, 1500);
         }
 
         return newState;
@@ -898,20 +900,16 @@ export function useMultiPlayerGame() {
               } : prev.gameRecord
             };
             
-            // 如果下一个玩家是AI，自动出牌开始下一轮
-            const nextPlayerVoice = newPlayers[nextActivePlayerIndex]?.voiceConfig;
+            // 报牌（系统信息）：必须等待完成才能继续游戏流程
+            const currentPlayerVoice = prev.players[prev.currentPlayerIndex]?.voiceConfig;
+            // 报"要不起"（系统信息）：立即报牌，不等待完成
+            announcePass(currentPlayerVoice).catch(console.error);
+            
+            // 1.5秒后，如果下一个玩家是AI，自动继续
             if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
-              speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).then(() => {
-                setTimeout(() => {
-                  playNextTurn();
-                }, 500);
-              }).catch(() => {
-                setTimeout(() => {
-                  playNextTurn();
-                }, 1000);
-              });
-            } else {
-              speakPass(prev.players[prev.currentPlayerIndex]?.voiceConfig).catch(console.error);
+              setTimeout(() => {
+                playNextTurn();
+              }, 1500);
             }
             
             return newState;
@@ -1002,8 +1000,8 @@ export function useMultiPlayerGame() {
     }
   }, [playNextTurn]);
 
-  // 开始新游戏（公开接口，接收GameStartConfig）
-  const startGame = useCallback((startConfig: GameStartConfig) => {
+  // 开始新游戏（公开接口，接收GameConfig）
+  const startGame = useCallback((startConfig: GameConfig) => {
     // 转换为GameConfig
     const config: GameConfig = {
       playerCount: startConfig.playerCount,
@@ -1122,20 +1120,16 @@ export function useMultiPlayerGame() {
               } : prev.gameRecord
             };
             
-            // 如果下一个玩家是AI，自动出牌开始下一轮
-            const nextPlayerVoice = newPlayers[nextActivePlayerIndex]?.voiceConfig;
+            // 报牌（系统信息）：必须等待完成才能继续游戏流程
+            const currentPlayerVoice = prev.players[playerIndex]?.voiceConfig;
+            // 报"要不起"（系统信息）：立即报牌，不等待完成
+            announcePass(currentPlayerVoice).catch(console.error);
+            
+            // 1.5秒后，如果下一个玩家是AI，自动继续
             if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
-              speakPass(prev.players[playerIndex]?.voiceConfig).then(() => {
-                setTimeout(() => {
-                  playNextTurn();
-                }, 500); // 给一点时间让用户看到轮次切换
-              }).catch(() => {
-                setTimeout(() => {
-                  playNextTurn();
-                }, 1000);
-              });
-            } else {
-              speakPass(prev.players[playerIndex]?.voiceConfig).catch(console.error);
+              setTimeout(() => {
+                playNextTurn();
+              }, 1500);
             }
             
             return newState;
@@ -1158,19 +1152,16 @@ export function useMultiPlayerGame() {
         };
 
         // 等待"要不起"语音播放完成后再继续
+        // 报"要不起"（系统信息）：必须等待完成才能继续游戏流程
         const currentPlayerVoice = newPlayers[prev.currentPlayerIndex]?.voiceConfig;
+        // 报"要不起"（系统信息）：立即报牌，不等待完成
+        announcePass(currentPlayerVoice).catch(console.error);
+        
+        // 1.5秒后，如果下一个玩家是AI，自动继续
         if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-          speakPass(currentPlayerVoice).then(() => {
-            setTimeout(() => {
-              playNextTurn();
-            }, 300);
-          }).catch(() => {
-            setTimeout(() => {
-              playNextTurn();
-            }, 1000);
-          });
-        } else {
-          speakPass(currentPlayerVoice).catch(console.error);
+          setTimeout(() => {
+            playNextTurn();
+          }, 1500);
         }
 
         return newState;
@@ -1357,25 +1348,17 @@ export function useMultiPlayerGame() {
           finishOrder: newFinishOrder
         };
         
-        // 播放语音，然后自动继续（无论下一个是AI还是人类，都自动继续）
+        // 报牌（系统信息）：必须等待完成才能继续游戏流程
         const currentPlayerVoice = newPlayers[playerIndex]?.voiceConfig;
-        speakPlay(play, currentPlayerVoice).then(() => {
-          // 如果下一个玩家是AI，自动出牌
-          if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-            setTimeout(() => {
-              playNextTurn();
-            }, 300);
-          }
-          // 如果下一个是人类玩家，也自动继续（因为人类已经出完牌了，应该让AI继续）
-          // 实际上，如果人类出完牌，下一个应该是AI，所以这里应该不会执行
-        }).catch(() => {
-          // 如果语音播放失败，直接继续
-          if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-            setTimeout(() => {
-              playNextTurn();
-            }, 1000);
-          }
-        });
+        // 报牌（系统信息）：立即报牌，不等待完成
+        announcePlay(play, currentPlayerVoice).catch(console.error);
+        
+        // 1.5秒后，如果下一个玩家是AI，自动继续
+        if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
+          setTimeout(() => {
+            playNextTurn();
+          }, 1500);
+        }
         
         return newState;
       }
@@ -1393,20 +1376,16 @@ export function useMultiPlayerGame() {
         currentRoundPlays: [...(prev.currentRoundPlays || []), playRecord] // 记录这一手出牌
       };
 
-      // 如果下一个玩家是AI，等待语音播放完成后再继续
+      // 报牌（系统信息）：必须等待完成才能继续游戏流程
       const currentPlayerVoice = newPlayers[playerIndex]?.voiceConfig;
+      // 报牌（系统信息）：立即报牌，不等待完成
+      announcePlay(play, currentPlayerVoice).catch(console.error);
+      
+      // 1.5秒后，如果下一个玩家是AI，自动继续
       if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-        speakPlay(play, currentPlayerVoice).then(() => {
-          setTimeout(() => {
-            playNextTurn();
-          }, 300);
-        }).catch(() => {
-          setTimeout(() => {
-            playNextTurn();
-          }, 1000);
-        });
-      } else {
-        speakPlay(play, currentPlayerVoice).catch(console.error);
+        setTimeout(() => {
+          playNextTurn();
+        }, 1500);
       }
 
       return newState;
@@ -1509,21 +1488,23 @@ export function useMultiPlayerGame() {
             } : prev.gameRecord
           };
           
-          // 如果下一个玩家是AI，自动出牌开始下一轮
-          const nextPlayerVoice = newPlayers[nextActivePlayerIndex]?.voiceConfig;
-          if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
-            speakPass(prev.players[playerIndex]?.voiceConfig).then(() => {
+          // 报牌（系统信息）：必须等待完成才能继续游戏流程
+          const currentPlayerVoice = prev.players[playerIndex]?.voiceConfig;
+          announcePass(currentPlayerVoice).then(() => {
+            // 报牌完成后，如果下一个玩家是AI，自动继续
+            if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
               setTimeout(() => {
                 playNextTurn();
-              }, 500); // 给一点时间让用户看到轮次切换
-            }).catch(() => {
+              }, announcementDelay); // 报牌完成后等待配置的时间再继续
+            }
+          }).catch(() => {
+            // 如果报牌失败，直接继续（避免卡住游戏）
+            if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
               setTimeout(() => {
                 playNextTurn();
               }, 1000);
-            });
-          } else {
-            speakPass(prev.players[playerIndex]?.voiceConfig).catch(console.error);
-          }
+            }
+          });
           
           return newState;
         }
@@ -1544,19 +1525,16 @@ export function useMultiPlayerGame() {
       };
 
       // 如果下一个玩家是AI，等待"要不起"语音播放完成后再继续
+      // 报"要不起"（系统信息）：必须等待完成才能继续游戏流程
       const currentPlayerVoice = prev.players[playerIndex]?.voiceConfig;
+      // 报"要不起"（系统信息）：立即报牌，不等待完成
+      announcePass(currentPlayerVoice).catch(console.error);
+      
+      // 1.5秒后，如果下一个玩家是AI，自动继续
       if (prev.players[nextPlayerIndex].type === PlayerType.AI) {
-        speakPass(currentPlayerVoice).then(() => {
-          setTimeout(() => {
-            playNextTurn();
-          }, 300);
-        }).catch(() => {
         setTimeout(() => {
           playNextTurn();
-        }, 1000);
-        });
-      } else {
-        speakPass(currentPlayerVoice).catch(console.error);
+        }, 1500);
       }
 
       return newState;

@@ -75,6 +75,13 @@ export interface ChatContext {
     stolenScore?: number;
     cardType?: string;
     playValue?: number;
+    card?: any; // 卡牌对象
+    progress?: number; // 发牌进度
+    rank?: number; // 牌的点数
+    count?: number; // 牌的数量
+    hand?: any[]; // 手牌
+    handValue?: number; // 手牌价值
+    handLength?: number; // 手牌长度
   };
   playerState?: {
     handCount?: number;

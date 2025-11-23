@@ -3,15 +3,16 @@
  * 管理聊天气泡的显示和位置
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import React from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import * as React from 'react';
 import { GameStatus, Player } from '../types/card';
 import { ChatMessage } from '../types/chat';
-import { getChatMessages, triggerRandomChat } from '../services/chatService';
-import { waitForVoices, listAvailableVoices } from '../services/voiceService';
+import { getChatMessages, triggerRandomChat, chatService } from '../services/chatService';
+import { waitForVoices, listAvailableVoices, voiceService } from '../services/voiceService';
 
 export function useChatBubbles(gameState: { status: GameStatus; players: Player[]; currentPlayerIndex: number }) {
   const [activeChatBubbles, setActiveChatBubbles] = useState<Map<number, ChatMessage>>(new Map());
+  const lastMessageIdRef = useRef<string | null>(null);
 
   // 初始化语音功能（某些浏览器需要等待voices加载）
   useEffect(() => {
@@ -22,17 +23,41 @@ export function useChatBubbles(gameState: { status: GameStatus; players: Player[
     });
   }, []);
 
-  // 监听聊天消息并显示气泡
+  // 监听聊天消息并显示气泡，同时播放语音
   useEffect(() => {
     const messages = getChatMessages();
     if (messages.length > 0) {
       const latestMessage = messages[messages.length - 1];
+      
+      // 避免重复处理同一条消息
+      const messageId = `${latestMessage.playerId}-${latestMessage.timestamp}`;
+      if (lastMessageIdRef.current === messageId) {
+        return;
+      }
+      lastMessageIdRef.current = messageId;
+      
       // 添加新的聊天气泡
       setActiveChatBubbles(prev => {
         const newMap = new Map(prev);
         newMap.set(latestMessage.playerId, latestMessage);
         return newMap;
       });
+      
+      // 如果启用语音，播放聊天语音（组件直接调用voiceService）
+      const player = gameState.players.find(p => p.id === latestMessage.playerId);
+      if (player?.voiceConfig) {
+        // 传递 playerId 以支持多声道模式
+        console.log('[useChatBubbles] 播放聊天语音:', latestMessage.content, '玩家:', player.name, 'playerId:', latestMessage.playerId);
+        voiceService.speak(latestMessage.content, player.voiceConfig, 0, latestMessage.playerId).catch(err => {
+          console.warn('[useChatBubbles] 播放聊天语音失败:', err);
+        });
+      } else {
+        console.warn('[useChatBubbles] 无法播放语音: 玩家不存在或没有voiceConfig', {
+          playerId: latestMessage.playerId,
+          player: player,
+          players: gameState.players.map(p => ({ id: p.id, name: p.name, hasVoiceConfig: !!p.voiceConfig }))
+        });
+      }
     }
   }, [gameState.players, gameState.currentPlayerIndex]);
 
@@ -45,14 +70,15 @@ export function useChatBubbles(gameState: { status: GameStatus; players: Player[
       const activePlayers = gameState.players.filter(p => p.hand.length > 0);
       if (activePlayers.length > 0 && Math.random() < 0.3) {
         const randomPlayer = activePlayers[Math.floor(Math.random() * activePlayers.length)];
-        const chatMessage = triggerRandomChat(randomPlayer, 0.5);
-        if (chatMessage) {
-          setActiveChatBubbles(prev => {
-            const newMap = new Map(prev);
-            newMap.set(chatMessage.playerId, chatMessage);
-            return newMap;
-          });
-        }
+        triggerRandomChat(randomPlayer, 0.5).then(chatMessage => {
+          if (chatMessage) {
+            setActiveChatBubbles(prev => {
+              const newMap = new Map(prev);
+              newMap.set(chatMessage.playerId, chatMessage);
+              return newMap;
+            });
+          }
+        });
       }
     }, 8000); // 每8秒检查一次
 

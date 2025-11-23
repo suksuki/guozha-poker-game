@@ -12,8 +12,11 @@ import { waitForVoices, listAvailableVoices } from '../src/services/voiceService
 // Mock chatService
 vi.mock('../src/services/chatService', () => ({
   getChatMessages: vi.fn(() => []),
-  triggerRandomChat: vi.fn(() => null),
-  clearChatMessages: vi.fn()
+  triggerRandomChat: vi.fn(() => Promise.resolve(null)),
+  clearChatMessages: vi.fn(),
+  chatService: {
+    config: { enableVoice: false }
+  }
 }));
 
 // Mock voiceService

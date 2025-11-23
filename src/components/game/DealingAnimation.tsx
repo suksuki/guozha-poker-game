@@ -8,6 +8,7 @@ import { Card, Player, Suit, Rank } from '../../types/card';
 import { CardComponent } from '../CardComponent';
 import { dealCardsWithAlgorithm, DealingConfig, DealingAlgorithm } from '../../utils/dealingAlgorithms';
 import { triggerDealingReaction, chatService, getChatMessages } from '../../services/chatService';
+import { voiceService } from '../../services/voiceService';
 import { sortCards, SortOrder, groupCardsByRank } from '../../utils/cardSorting';
 import { PlayerHandGrouped } from './PlayerHandGrouped';
 import { ChatBubble } from '../ChatBubble';
@@ -184,6 +185,15 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
                 newMap.set(latestMessage.playerId, latestMessage);
                 return newMap;
               });
+              
+              // 播放语音（发牌阶段需要直接播放，因为 useChatBubbles 可能无法检测到）
+              if (currentPlayer.voiceConfig) {
+                console.log('[DealingAnimation] 播放发牌聊天语音:', latestMessage.content, '玩家:', currentPlayer.name);
+                voiceService.speak(latestMessage.content, currentPlayer.voiceConfig, 0, currentPlayer.id).catch(err => {
+                  console.warn('[DealingAnimation] 播放发牌聊天语音失败:', err);
+                });
+              }
+              
               // 3秒后移除气泡
               setTimeout(() => {
                 setActiveChatBubbles(prev => {
@@ -216,6 +226,15 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
                 newMap.set(latestMessage.playerId, latestMessage);
                 return newMap;
               });
+              
+              // 播放语音（发牌阶段需要直接播放，因为 useChatBubbles 可能无法检测到）
+              if (humanPlayer.voiceConfig) {
+                console.log('[DealingAnimation] 播放理牌聊天语音:', latestMessage.content, '玩家:', humanPlayer.name);
+                voiceService.speak(latestMessage.content, humanPlayer.voiceConfig, 0, humanPlayer.id).catch(err => {
+                  console.warn('[DealingAnimation] 播放理牌聊天语音失败:', err);
+                });
+              }
+              
               // 3秒后移除气泡
               setTimeout(() => {
                 setActiveChatBubbles(prev => {

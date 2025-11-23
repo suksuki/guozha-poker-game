@@ -32,7 +32,14 @@ export const DEFAULT_CHAT_SERVICE_CONFIG: ChatServiceConfig = {
     [ChatEventType.FINISH_MIDDLE]: 0.7, // 中间名次出完，较高概率
     [ChatEventType.FINISH_LAST]: 0.5,
     [ChatEventType.URGE_PLAY]: 0.7, // 催促出牌，较高概率
-    [ChatEventType.DUN_PLAYED]: 0.8 // 出墩时的得意话，高概率
+    [ChatEventType.DUN_PLAYED]: 0.8, // 出墩时的得意话，高概率
+    [ChatEventType.DEALING]: 0.2, // 发牌时的反应
+    [ChatEventType.DEALING_GOOD_CARD]: 0.5, // 发到好牌
+    [ChatEventType.DEALING_BAD_CARD]: 0.3, // 发到差牌
+    [ChatEventType.DEALING_BOMB_FORMED]: 0.7, // 理牌时形成炸弹
+    [ChatEventType.DEALING_DUN_FORMED]: 0.9, // 理牌时形成墩
+    [ChatEventType.DEALING_HUGE_CARD]: 0.6, // 理牌时抓到超大牌
+    [ChatEventType.DEALING_POOR_HAND]: 0.4 // 理牌时手牌质量差
   },
   enableVoice: true
 };
