@@ -288,6 +288,7 @@ class MultiChannelVoiceService {
       }
 
       if (!('speechSynthesis' in window)) {
+        console.error(`[${CHANNEL_CONFIGS[channel].name}] 错误：浏览器不支持语音合成API`);
         setTimeout(() => resolve(), 300);
         return;
       }
@@ -300,7 +301,21 @@ class MultiChannelVoiceService {
           })
         ]);
 
+        if (voices.length === 0) {
+          console.warn(`[${CHANNEL_CONFIGS[channel].name}] 警告：没有可用的语音，尝试使用默认语音`);
+        }
+
         const utterance = this.createUtterance(text, voiceConfig, voices);
+        
+        // 添加调试信息
+        console.log(`[${CHANNEL_CONFIGS[channel].name}] 语音配置:`, {
+          text,
+          lang: utterance.lang,
+          voice: utterance.voice?.name || '默认',
+          rate: utterance.rate,
+          pitch: utterance.pitch,
+          volume: utterance.volume
+        });
         
         const item: SpeechItem = {
           text,
@@ -365,7 +380,19 @@ class MultiChannelVoiceService {
           }
           // 检查是否还是当前项
           if (this.channelItems.get(channel) === item) {
-            console.warn(`[${channelConfig.name}] 播放出错:`, text, error);
+            console.error(`[${channelConfig.name}] 播放出错:`, {
+              text,
+              error,
+              errorType,
+              errorMessage: (error as any).message || '未知错误',
+              utterance: {
+                lang: utterance.lang,
+                voice: utterance.voice?.name,
+                rate: utterance.rate,
+                pitch: utterance.pitch,
+                volume: utterance.volume
+              }
+            });
             cleanup();
           }
         };
@@ -383,9 +410,30 @@ class MultiChannelVoiceService {
           }
         }, estimatedDuration + this.config.defaultTimeout);
 
+        // 检查speechSynthesis状态
+        if (window.speechSynthesis.speaking) {
+          console.log(`[${CHANNEL_CONFIGS[channel].name}] 注意：已有语音正在播放，将中断后播放新语音`);
+        }
+        
         window.speechSynthesis.speak(utterance);
+        
+        // 验证是否成功开始播放
+        setTimeout(() => {
+          if (window.speechSynthesis.pending) {
+            console.log(`[${CHANNEL_CONFIGS[channel].name}] 语音已加入队列，等待播放`);
+          } else if (window.speechSynthesis.speaking) {
+            console.log(`[${CHANNEL_CONFIGS[channel].name}] 语音正在播放`);
+          } else {
+            console.warn(`[${CHANNEL_CONFIGS[channel].name}] 警告：语音可能没有开始播放`);
+          }
+        }, 100);
       } catch (error) {
-        console.error('播放语音时出错:', error);
+        console.error(`[${CHANNEL_CONFIGS[channel].name}] 播放语音时出错:`, {
+          error,
+          text,
+          errorMessage: (error as Error).message,
+          stack: (error as Error).stack
+        });
         this.channelItems.delete(channel);
         // 清除待处理请求标记
         const pendingSet = this.pendingRequests.get(channel);

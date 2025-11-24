@@ -19,6 +19,7 @@ import { getChatStrategy } from '../chat/strategy';
 import { getCardType } from '../utils/cardUtils';
 import { groupCardsByRank } from '../utils/cardSorting';
 import { evaluateHandValue } from '../ai/simpleStrategy';
+import { MultiPlayerGameState } from '../utils/gameStateUtils';
 
 // 聊天服务类
 class ChatService {
@@ -27,17 +28,23 @@ class ChatService {
   private bigDunConfig: BigDunConfig;
   private tauntConfig: TauntConfig;
   private strategy: IChatStrategy;
+  private fallbackStrategy: IChatStrategy | null = null; // 回退策略（规则策略）
 
   constructor(
-    strategy: 'rule-based' | 'llm' = 'rule-based',
+    strategy: 'rule-based' | 'llm' = 'llm', // 默认使用llm策略，因为大模型已启动
     config: ChatServiceConfig = DEFAULT_CHAT_SERVICE_CONFIG,
     bigDunConfig: BigDunConfig = DEFAULT_BIG_DUN_CONFIG,
-    tauntConfig: TauntConfig = DEFAULT_TAUNT_CONFIG
+    tauntConfig: TauntConfig = DEFAULT_TAUNT_CONFIG,
+    llmConfig?: any // LLMChatConfig
   ) {
     this.config = config;
     this.bigDunConfig = bigDunConfig;
     this.tauntConfig = tauntConfig;
-    this.strategy = getChatStrategy(strategy, config, bigDunConfig, tauntConfig);
+    this.strategy = getChatStrategy(strategy, config, bigDunConfig, tauntConfig, llmConfig);
+    // 如果使用LLM策略，创建规则策略作为回退
+    if (strategy === 'llm') {
+      this.fallbackStrategy = getChatStrategy('rule-based', config, bigDunConfig, tauntConfig);
+    }
   }
 
   // 更新配置
@@ -68,6 +75,15 @@ class ChatService {
   // 切换策略
   setStrategy(strategy: 'rule-based' | 'llm'): void {
     this.strategy = getChatStrategy(strategy, this.config, this.bigDunConfig, this.tauntConfig);
+  }
+
+  // 获取当前策略信息
+  getCurrentStrategy(): { name: string; description: string; isLLM: boolean } {
+    return {
+      name: this.strategy.name,
+      description: this.strategy.description,
+      isLLM: this.strategy.name === 'llm'
+    };
   }
 
   // 添加聊天消息
@@ -115,18 +131,53 @@ class ChatService {
   }
 
   // 触发随机闲聊
-  async triggerRandomChat(player: Player, probability?: number, context?: ChatContext): Promise<ChatMessage | null> {
+  async triggerRandomChat(
+    player: Player, 
+    probability?: number, 
+    context?: ChatContext,
+    fullGameState?: any // MultiPlayerGameState
+  ): Promise<ChatMessage | null> {
     // 先检查概率
     const prob = probability ?? this.config.eventChatProbability[ChatEventType.RANDOM];
     if (Math.random() > prob) {
       return null;
     }
 
+    // 构建完整上下文
+    const fullContext: ChatContext = {
+      ...context,
+      fullGameState,
+      currentPlayer: player,
+      allPlayers: fullGameState?.players || context?.allPlayers,
+      gameState: fullGameState ? {
+        roundNumber: fullGameState.roundNumber,
+        roundScore: fullGameState.roundScore,
+        totalScore: fullGameState.totalScore,
+        playerCount: fullGameState.playerCount,
+        currentPlayerIndex: fullGameState.currentPlayerIndex,
+        status: fullGameState.status,
+        lastPlay: fullGameState.lastPlay,
+        lastPlayPlayerIndex: fullGameState.lastPlayPlayerIndex
+      } : context?.gameState,
+      history: this.config.enableHistory ? this.messages.slice(-this.config.maxHistoryLength || 10) : undefined
+    };
+
     // 使用策略生成聊天内容
-    const message = await this.strategy.generateRandomChat(player, context);
+    console.log('[ChatService] 调用策略生成随机闲聊，策略:', this.strategy.name);
+    let message = await this.strategy.generateRandomChat(player, fullContext);
+    
+    // 如果LLM策略失败，使用规则策略作为回退
+    if (!message && this.fallbackStrategy && this.strategy.name === 'llm') {
+      console.warn('[ChatService] ⚠️ LLM策略返回null，切换到规则策略回退');
+      message = await this.fallbackStrategy.generateRandomChat(player, fullContext);
+    }
+    
     if (message) {
+      console.log('[ChatService] ✅ 收到聊天消息:', message.content);
       this.addMessage(message);
       // 不再自动播放语音，由组件决定是否播放
+    } else {
+      console.warn('[ChatService] ⚠️ 所有策略都返回null，未生成聊天消息');
     }
     
     return message;
@@ -136,7 +187,8 @@ class ChatService {
   async triggerEventChat(
     player: Player,
     eventType: ChatEventType,
-    context?: ChatContext
+    context?: ChatContext,
+    fullGameState?: any // MultiPlayerGameState
   ): Promise<ChatMessage | null> {
     // 先检查概率
     const prob = this.config.eventChatProbability[eventType] ?? 0.5;
@@ -144,11 +196,41 @@ class ChatService {
       return null;
     }
 
+    // 构建完整上下文
+    const fullContext: ChatContext = {
+      ...context,
+      fullGameState,
+      currentPlayer: player,
+      allPlayers: fullGameState?.players || context?.allPlayers,
+      gameState: fullGameState ? {
+        roundNumber: fullGameState.roundNumber,
+        roundScore: fullGameState.roundScore,
+        totalScore: fullGameState.totalScore,
+        playerCount: fullGameState.playerCount,
+        currentPlayerIndex: fullGameState.currentPlayerIndex,
+        status: fullGameState.status,
+        lastPlay: fullGameState.lastPlay,
+        lastPlayPlayerIndex: fullGameState.lastPlayPlayerIndex
+      } : context?.gameState,
+      history: this.config.enableHistory ? this.messages.slice(-this.config.maxHistoryLength || 10) : undefined
+    };
+
     // 使用策略生成聊天内容
-    const message = await this.strategy.generateEventChat(player, eventType, context);
+    console.log('[ChatService] 调用策略生成事件聊天，策略:', this.strategy.name);
+    let message = await this.strategy.generateEventChat(player, eventType, fullContext);
+    
+    // 如果LLM策略失败，使用规则策略作为回退
+    if (!message && this.fallbackStrategy && this.strategy.name === 'llm') {
+      console.warn('[ChatService] ⚠️ LLM策略返回null，切换到规则策略回退');
+      message = await this.fallbackStrategy.generateEventChat(player, eventType, fullContext);
+    }
+    
     if (message) {
+      console.log('[ChatService] ✅ 收到聊天消息:', message.content);
       this.addMessage(message);
       // 不再自动播放语音，由组件决定是否播放
+    } else {
+      console.warn('[ChatService] ⚠️ 所有策略都返回null，未生成聊天消息');
     }
     
     return message;
@@ -170,22 +252,30 @@ class ChatService {
   }
 
   // 触发分牌被捡走反应（普通抱怨）
-  async triggerScoreStolenReaction(player: Player, stolenScore: number): Promise<void> {
+  async triggerScoreStolenReaction(
+    player: Player, 
+    stolenScore: number,
+    fullGameState?: MultiPlayerGameState
+  ): Promise<void> {
     if (stolenScore > 0) {
       const context: ChatContext = {
         eventData: { stolenScore }
       };
-      await this.triggerEventChat(player, ChatEventType.SCORE_STOLEN, context);
+      await this.triggerEventChat(player, ChatEventType.SCORE_STOLEN, context, fullGameState);
     }
   }
 
   // 触发分牌被吃反应（脏话，更激烈）
-  async triggerScoreEatenCurseReaction(player: Player, stolenScore: number): Promise<void> {
+  async triggerScoreEatenCurseReaction(
+    player: Player, 
+    stolenScore: number,
+    fullGameState?: MultiPlayerGameState
+  ): Promise<void> {
     if (stolenScore > 0) {
       const context: ChatContext = {
         eventData: { stolenScore }
       };
-      await this.triggerEventChat(player, ChatEventType.SCORE_EATEN_CURSE, context);
+      await this.triggerEventChat(player, ChatEventType.SCORE_EATEN_CURSE, context, fullGameState);
     }
   }
 
@@ -201,17 +291,54 @@ class ChatService {
   }
 
   // 触发好牌反应
-  async triggerGoodPlayReaction(player: Player, context?: ChatContext): Promise<void> {
-    await this.triggerEventChat(player, ChatEventType.GOOD_PLAY, context);
+  async triggerGoodPlayReaction(
+    player: Player, 
+    context?: ChatContext,
+    fullGameState?: MultiPlayerGameState
+  ): Promise<void> {
+    await this.triggerEventChat(player, ChatEventType.GOOD_PLAY, context, fullGameState);
   }
 
   // 触发对骂
-  async triggerTaunt(player: Player, targetPlayer?: Player, context?: ChatContext): Promise<void> {
+  async triggerTaunt(
+    player: Player, 
+    targetPlayer?: Player, 
+    context?: ChatContext,
+    fullGameState?: any // MultiPlayerGameState
+  ): Promise<void> {
+    // 构建完整上下文
+    const fullContext: ChatContext = {
+      ...context,
+      fullGameState,
+      currentPlayer: player,
+      allPlayers: fullGameState?.players || context?.allPlayers,
+      gameState: fullGameState ? {
+        roundNumber: fullGameState.roundNumber,
+        roundScore: fullGameState.roundScore,
+        totalScore: fullGameState.totalScore,
+        playerCount: fullGameState.playerCount,
+        currentPlayerIndex: fullGameState.currentPlayerIndex,
+        status: fullGameState.status,
+        lastPlay: fullGameState.lastPlay,
+        lastPlayPlayerIndex: fullGameState.lastPlayPlayerIndex
+      } : context?.gameState,
+      history: this.config.enableHistory ? this.messages.slice(-this.config.maxHistoryLength || 10) : undefined
+    };
+
     // 使用策略生成对骂内容
-    const message = await this.strategy.generateTaunt(player, targetPlayer, context);
+    let message = await this.strategy.generateTaunt(player, targetPlayer, fullContext);
+    
+    // 如果LLM策略失败，使用规则策略作为回退
+    if (!message && this.fallbackStrategy && this.strategy.name === 'llm') {
+      console.warn('[ChatService] ⚠️ LLM策略返回null，切换到规则策略回退（对骂）');
+      message = await this.fallbackStrategy.generateTaunt(player, targetPlayer, fullContext);
+    }
+    
     if (message) {
       this.addMessage(message);
       // 不再自动播放语音，由组件决定是否播放
+    } else {
+      console.warn('[ChatService] ⚠️ 所有策略都返回null，未生成对骂消息');
     }
   }
 
@@ -228,16 +355,28 @@ class ChatService {
     await this.triggerEventChat(player, ChatEventType.LOSING, context);
   }
 
-  async triggerFinishFirstReaction(player: Player, context?: ChatContext): Promise<void> {
-    await this.triggerEventChat(player, ChatEventType.FINISH_FIRST, context);
+  async triggerFinishFirstReaction(
+    player: Player, 
+    context?: ChatContext,
+    fullGameState?: MultiPlayerGameState
+  ): Promise<void> {
+    await this.triggerEventChat(player, ChatEventType.FINISH_FIRST, context, fullGameState);
   }
 
-  async triggerFinishLastReaction(player: Player, context?: ChatContext): Promise<void> {
-    await this.triggerEventChat(player, ChatEventType.FINISH_LAST, context);
+  async triggerFinishLastReaction(
+    player: Player, 
+    context?: ChatContext,
+    fullGameState?: MultiPlayerGameState
+  ): Promise<void> {
+    await this.triggerEventChat(player, ChatEventType.FINISH_LAST, context, fullGameState);
   }
 
-  async triggerFinishMiddleReaction(player: Player, context?: ChatContext): Promise<void> {
-    await this.triggerEventChat(player, ChatEventType.FINISH_MIDDLE, context);
+  async triggerFinishMiddleReaction(
+    player: Player, 
+    context?: ChatContext,
+    fullGameState?: MultiPlayerGameState
+  ): Promise<void> {
+    await this.triggerEventChat(player, ChatEventType.FINISH_MIDDLE, context, fullGameState);
   }
 
   async triggerDunPlayedReaction(player: Player, context?: ChatContext): Promise<void> {
@@ -331,8 +470,15 @@ class ChatService {
   }
 }
 
-// 创建全局聊天服务实例（默认使用rule-based策略）
-export const chatService = new ChatService('rule-based');
+// 创建全局聊天服务实例（默认使用llm策略，因为大模型已启动）
+export const chatService = new ChatService('llm');
+
+// 输出当前使用的策略信息
+console.log('📢 聊天服务初始化:', {
+  策略: chatService['strategy'].name,
+  描述: chatService['strategy'].description,
+  是否使用LLM: chatService['strategy'].name === 'llm'
+});
 
 // 导出便捷函数（保持向后兼容）
 export function addChatMessage(message: ChatMessage): void {
@@ -347,6 +493,11 @@ export function clearChatMessages(): void {
   chatService.clearMessages();
 }
 
+// 导出检查函数
+export function checkChatStrategy(): { name: string; description: string; isLLM: boolean } {
+  return chatService.getCurrentStrategy();
+}
+
 export function createChatMessage(
   player: Player,
   content: string,
@@ -356,35 +507,54 @@ export function createChatMessage(
 }
 
 // 异步函数，保持向后兼容（返回Promise）
-export async function triggerRandomChat(player: Player, probability?: number): Promise<ChatMessage | null> {
-  return await chatService.triggerRandomChat(player, probability);
+export async function triggerRandomChat(
+  player: Player, 
+  probability?: number,
+  context?: any,
+  fullGameState?: any
+): Promise<ChatMessage | null> {
+  return await chatService.triggerRandomChat(player, probability, context, fullGameState);
 }
 
 export async function triggerEventChat(
   player: Player,
-  eventType: ChatEventType
+  eventType: ChatEventType,
+  context?: any,
+  fullGameState?: any
 ): Promise<ChatMessage | null> {
-  return await chatService.triggerEventChat(player, eventType);
+  return await chatService.triggerEventChat(player, eventType, context, fullGameState);
 }
 
 export async function triggerBigDunReaction(players: Player[], dunPlayerId: number, dunSize: number): Promise<void> {
   await chatService.triggerBigDunReaction(players, dunPlayerId, dunSize);
 }
 
-export async function triggerScoreStolenReaction(player: Player, stolenScore: number): Promise<void> {
-  await chatService.triggerScoreStolenReaction(player, stolenScore);
+export async function triggerScoreStolenReaction(
+  player: Player, 
+  stolenScore: number,
+  fullGameState?: any
+): Promise<void> {
+  await chatService.triggerScoreStolenReaction(player, stolenScore, fullGameState);
 }
 
-export async function triggerScoreEatenCurseReaction(player: Player, stolenScore: number): Promise<void> {
-  await chatService.triggerScoreEatenCurseReaction(player, stolenScore);
+export async function triggerScoreEatenCurseReaction(
+  player: Player, 
+  stolenScore: number,
+  fullGameState?: any
+): Promise<void> {
+  await chatService.triggerScoreEatenCurseReaction(player, stolenScore, fullGameState);
 }
 
 export async function triggerUrgePlayReaction(player: Player, targetPlayer?: Player): Promise<void> {
   await chatService.triggerUrgePlayReaction(player, targetPlayer);
 }
 
-export async function triggerGoodPlayReaction(player: Player): Promise<void> {
-  await chatService.triggerGoodPlayReaction(player);
+export async function triggerGoodPlayReaction(
+  player: Player,
+  context?: any,
+  fullGameState?: any
+): Promise<void> {
+  await chatService.triggerGoodPlayReaction(player, context, fullGameState);
 }
 
 export async function triggerTaunt(player: Player, targetPlayer?: Player): Promise<void> {
@@ -403,16 +573,28 @@ export async function triggerLosingReaction(player: Player): Promise<void> {
   await chatService.triggerLosingReaction(player);
 }
 
-export async function triggerFinishFirstReaction(player: Player): Promise<void> {
-  await chatService.triggerFinishFirstReaction(player);
+export async function triggerFinishFirstReaction(
+  player: Player,
+  context?: any,
+  fullGameState?: any
+): Promise<void> {
+  await chatService.triggerFinishFirstReaction(player, context, fullGameState);
 }
 
-export async function triggerFinishLastReaction(player: Player): Promise<void> {
-  await chatService.triggerFinishLastReaction(player);
+export async function triggerFinishLastReaction(
+  player: Player,
+  context?: any,
+  fullGameState?: any
+): Promise<void> {
+  await chatService.triggerFinishLastReaction(player, context, fullGameState);
 }
 
-export async function triggerFinishMiddleReaction(player: Player): Promise<void> {
-  await chatService.triggerFinishMiddleReaction(player);
+export async function triggerFinishMiddleReaction(
+  player: Player,
+  context?: any,
+  fullGameState?: any
+): Promise<void> {
+  await chatService.triggerFinishMiddleReaction(player, context, fullGameState);
 }
 
 export async function triggerDunPlayedReaction(player: Player): Promise<void> {

@@ -108,11 +108,19 @@ export function updatePlayerAfterPlay(
 export function triggerGoodPlayReactions(
   player: Player,
   play: Play,
-  scoreCards: Card[]
+  scoreCards: Card[],
+  fullGameState?: any
 ): void {
   if (play.type === 'bomb' || play.type === 'dun' || scoreCards.length > 0) {
     // 异步触发，不阻塞
-    triggerGoodPlayReaction(player).catch(console.error);
+    const context = {
+      eventData: {
+        cardType: play.type,
+        playValue: play.value,
+        scoreCards: scoreCards.length
+      }
+    };
+    triggerGoodPlayReaction(player, context, fullGameState).catch(console.error);
   }
 }
 

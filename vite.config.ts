@@ -16,6 +16,11 @@ export default defineConfig({
     hmr: {
       host: 'localhost' // HMR 使用 localhost
     }
+    // 注意：不在server级别设置headers，避免覆盖JS模块的Content-Type
+    // 字符编码由Electron的webRequest拦截器处理
+  },
+  // 确保构建输出使用UTF-8
+  build: {
+    charset: 'utf8'
   }
 })
-

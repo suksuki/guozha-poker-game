@@ -12,6 +12,8 @@ export interface ChatServiceConfig {
   randomChatProbability: number; // 随机闲聊概率
   eventChatProbability: Record<ChatEventType, number>; // 各事件触发概率
   enableVoice: boolean; // 是否启用语音
+  enableHistory?: boolean; // 是否使用聊天历史（用于大模型）
+  maxHistoryLength?: number; // 最大历史长度
 }
 
 // 默认聊天服务配置
@@ -19,6 +21,8 @@ export const DEFAULT_CHAT_SERVICE_CONFIG: ChatServiceConfig = {
   maxMessages: 50,
   randomChatInterval: 8000, // 8秒
   randomChatProbability: 0.3, // 30%
+  enableHistory: true, // 默认启用历史
+  maxHistoryLength: 10, // 默认历史长度
   eventChatProbability: {
     [ChatEventType.RANDOM]: 0.3,
     [ChatEventType.BIG_DUN]: 0.6, // 大墩出现，提高概率
@@ -64,34 +68,39 @@ export const DEFAULT_TAUNT_CONFIG: TauntConfig = {
   probability: 0.2 // 20%
 };
 
-// 大模型聊天配置（预留，未来使用）
+// 大模型聊天配置
 export interface LLMChatConfig {
   provider: 'openai' | 'claude' | 'custom'; // 模型提供商
+  apiUrl?: string; // API地址（自定义大模型时使用，如 http://localhost:8000/v1/chat/completions）
   model?: string; // 模型名称
-  apiKey?: string; // API密钥
+  apiKey?: string; // API密钥（可选，如果大模型不需要认证）
   temperature?: number; // 温度参数
   maxTokens?: number; // 最大token数
   systemPrompt?: string; // 系统提示词
   enableContext?: boolean; // 是否使用游戏上下文
   enableHistory?: boolean; // 是否使用聊天历史
   maxHistoryLength?: number; // 最大历史长度
+  timeout?: number; // 请求超时时间（毫秒）
 }
 
 export const DEFAULT_LLM_CHAT_CONFIG: LLMChatConfig = {
-  provider: 'openai',
-  model: 'gpt-4',
+  provider: 'custom',
+  apiUrl: 'http://localhost:11434/api/chat', // Ollama原生API地址
+  model: 'qwen2:0.5b', // Ollama模型名称
   temperature: 0.8, // 更高的温度，让聊天更生动
   maxTokens: 100,
   enableContext: true,
   enableHistory: true,
   maxHistoryLength: 10,
+  timeout: 60000, // 60秒超时（LLM生成可能需要较长时间）
   systemPrompt: `你是一个过炸牌游戏的AI玩家，需要根据游戏情况生成自然、有趣的聊天内容。
 规则：
-1. 内容要符合游戏场景，简短有力
+1. 内容要符合游戏场景，简短有力（1-2句话，不超过20字）
 2. 可以适当使用方言特色（如果玩家设置了方言）
 3. 要有个性，不同玩家有不同的说话风格
 4. 对骂要适度，不能过于激烈
-5. 根据游戏状态（领先、落后、出好牌等）调整语气`
+5. 根据游戏状态（领先、落后、出好牌等）调整语气
+6. 只返回要说的话，不要添加任何解释或标记`
 };
 
 /**

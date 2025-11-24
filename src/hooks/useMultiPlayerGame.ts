@@ -125,8 +125,8 @@ export function useMultiPlayerGame() {
       const lastPlayerIndex = remainingPlayers[0].id;
       const lastPlayer = currentState.players[lastPlayerIndex];
       
-      // 触发最后一名输了的聊天反应
-      triggerFinishLastReaction(lastPlayer).catch(console.error);
+      // 触发最后一名输了的聊天反应（传递完整游戏状态）
+      triggerFinishLastReaction(lastPlayer, undefined, currentState).catch(console.error);
       
       // 计算最后一名手中的分牌分数
       const lastPlayerScoreCards = lastPlayer.hand.filter(card => isScoreCard(card));
@@ -313,8 +313,12 @@ export function useMultiPlayerGame() {
             const lastPlayerIndex = remainingPlayers[0].id;
             const lastPlayer = newPlayers[lastPlayerIndex];
             
-            // 触发最后一名输了的聊天反应
-            triggerFinishLastReaction(lastPlayer).catch(console.error);
+            // 触发最后一名输了的聊天反应（传递完整游戏状态）
+            const currentGameState: MultiPlayerGameState = {
+              ...prev,
+              players: newPlayers
+            };
+            triggerFinishLastReaction(lastPlayer, undefined, currentGameState).catch(console.error);
             
             // 计算最后一名手中的分牌分数
             const lastPlayerScoreCards = lastPlayer.hand.filter(card => isScoreCard(card));
@@ -914,14 +918,19 @@ export function useMultiPlayerGame() {
           // 计算当前玩家的名次（根据出完牌的顺序，第一个出完的是第1名）
           const currentRank = newFinishOrder.length;
           
-          // 触发出完牌时的聊天反应
+          // 触发出完牌时的聊天反应（传递完整游戏状态）
           const finishPosition = newFinishOrder.length;
+          const currentGameState: MultiPlayerGameState = {
+            ...prev,
+            players: newPlayers,
+            finishOrder: newFinishOrder
+          };
           if (finishPosition === 1) {
             // 头名出完，兴奋
-            triggerFinishFirstReaction(updatedPlayer).catch(console.error);
+            triggerFinishFirstReaction(updatedPlayer, undefined, currentGameState).catch(console.error);
           } else {
             // 中间名次出完，感慨
-            triggerFinishMiddleReaction(updatedPlayer).catch(console.error);
+            triggerFinishMiddleReaction(updatedPlayer, undefined, currentGameState).catch(console.error);
           }
           
           // 把轮次分数给获胜者
@@ -949,8 +958,12 @@ export function useMultiPlayerGame() {
             const lastPlayerIndex = remainingPlayers[0].id;
             const lastPlayer = newPlayers[lastPlayerIndex];
             
-            // 触发最后一名输了的聊天反应
-            triggerFinishLastReaction(lastPlayer).catch(console.error);
+            // 触发最后一名输了的聊天反应（传递完整游戏状态）
+            const currentGameState: MultiPlayerGameState = {
+              ...prev,
+              players: newPlayers
+            };
+            triggerFinishLastReaction(lastPlayer, undefined, currentGameState).catch(console.error);
             
             // 计算最后一名手中的分牌分数
             const lastPlayerScoreCards = lastPlayer.hand.filter(card => isScoreCard(card));
@@ -1580,8 +1593,12 @@ export function useMultiPlayerGame() {
       const newPlayers = [...playersAfterDun];
       newPlayers[playerIndex] = updatedPlayer;
       
-      // 触发好牌反应
-      triggerGoodPlayReactions(player, play, scoreCards);
+      // 触发好牌反应（传递完整游戏状态）
+      const currentGameState: MultiPlayerGameState = {
+        ...prev,
+        players: newPlayers
+      };
+      triggerGoodPlayReactions(player, play, scoreCards, currentGameState);
       
       // 如果捡到了分，可能触发其他玩家的反应
       if (playScore > 0) {
@@ -1599,17 +1616,17 @@ export function useMultiPlayerGame() {
             if (shouldCurse) {
               // 大分被吃，触发脏话（更激烈）- 80%概率
               if (Math.random() < 0.8) {
-                triggerScoreEatenCurseReaction(p, lostScore).catch(console.error);
+                triggerScoreEatenCurseReaction(p, lostScore, currentGameState).catch(console.error);
               } else if (Math.random() < 0.3) {
                 // 20%概率普通抱怨
-                triggerScoreStolenReaction(p, lostScore).catch(console.error);
+                triggerScoreStolenReaction(p, lostScore, currentGameState).catch(console.error);
               }
             } else {
               // 小分被吃，也有一定概率触发脏话（30%），或者普通抱怨（40%）
               if (Math.random() < 0.3) {
-                triggerScoreEatenCurseReaction(p, lostScore).catch(console.error);
+                triggerScoreEatenCurseReaction(p, lostScore, currentGameState).catch(console.error);
               } else if (Math.random() < 0.4) {
-                triggerScoreStolenReaction(p, lostScore).catch(console.error);
+                triggerScoreStolenReaction(p, lostScore, currentGameState).catch(console.error);
               }
             }
           }
@@ -1638,14 +1655,19 @@ export function useMultiPlayerGame() {
         // 计算当前玩家的名次（根据出完牌的顺序，第一个出完的是第1名）
         const currentRank = newFinishOrder.length;
         
-        // 触发出完牌时的聊天反应
+        // 触发出完牌时的聊天反应（传递完整游戏状态）
         const finishPosition = newFinishOrder.length;
+        const currentGameState: MultiPlayerGameState = {
+          ...prev,
+          players: newPlayers,
+          finishOrder: newFinishOrder
+        };
         if (finishPosition === 1) {
           // 头名出完，兴奋
-          triggerFinishFirstReaction(updatedPlayer).catch(console.error);
+          triggerFinishFirstReaction(updatedPlayer, undefined, currentGameState).catch(console.error);
         } else {
           // 中间名次出完，感慨
-          triggerFinishMiddleReaction(updatedPlayer).catch(console.error);
+          triggerFinishMiddleReaction(updatedPlayer, undefined, currentGameState).catch(console.error);
         }
         
         // 先把轮次分数加上（包括当前这一手的分牌）

@@ -10,7 +10,9 @@ import { ChatMessage } from '../types/chat';
 import { getChatMessages, triggerRandomChat, chatService } from '../services/chatService';
 import { waitForVoices, listAvailableVoices, voiceService } from '../services/voiceService';
 
-export function useChatBubbles(gameState: { status: GameStatus; players: Player[]; currentPlayerIndex: number }) {
+import { MultiPlayerGameState } from '../utils/gameStateUtils';
+
+export function useChatBubbles(gameState: MultiPlayerGameState | { status: GameStatus; players: Player[]; currentPlayerIndex: number }) {
   const [activeChatBubbles, setActiveChatBubbles] = useState<Map<number, ChatMessage>>(new Map());
   const lastMessageIdRef = useRef<string | null>(null);
 
@@ -70,7 +72,9 @@ export function useChatBubbles(gameState: { status: GameStatus; players: Player[
       const activePlayers = gameState.players.filter(p => p.hand.length > 0);
       if (activePlayers.length > 0 && Math.random() < 0.3) {
         const randomPlayer = activePlayers[Math.floor(Math.random() * activePlayers.length)];
-        triggerRandomChat(randomPlayer, 0.5).then(chatMessage => {
+        // 传递完整的游戏状态给大模型
+        const fullGameState = 'roundNumber' in gameState ? gameState as MultiPlayerGameState : undefined;
+        triggerRandomChat(randomPlayer, 0.5, undefined, fullGameState).then(chatMessage => {
           if (chatMessage) {
             setActiveChatBubbles(prev => {
               const newMap = new Map(prev);
@@ -78,6 +82,8 @@ export function useChatBubbles(gameState: { status: GameStatus; players: Player[
               return newMap;
             });
           }
+        }).catch(err => {
+          console.error('触发随机闲聊失败:', err);
         });
       }
     }, 8000); // 每8秒检查一次

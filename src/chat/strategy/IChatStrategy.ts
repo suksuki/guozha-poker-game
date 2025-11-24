@@ -59,35 +59,58 @@ export interface IChatStrategy {
   readonly description: string;
 }
 
+import { Player, Card, Play, GameStatus } from '../../types/card';
+import { MultiPlayerGameState } from '../../utils/gameStateUtils';
+
 /**
  * 聊天上下文信息
  * 用于提供更多上下文给策略生成更合适的聊天内容
  */
 export interface ChatContext {
+  // 完整游戏状态（用于大模型）
+  fullGameState?: MultiPlayerGameState;
+  
+  // 当前玩家信息
+  currentPlayer?: Player;
+  
+  // 所有玩家信息
+  allPlayers?: Player[];
+  
+  // 游戏状态摘要
   gameState?: {
     roundNumber?: number;
     roundScore?: number;
+    totalScore?: number;
     playerCount?: number;
     currentPlayerIndex?: number;
+    status?: GameStatus;
+    lastPlay?: Play | null;
+    lastPlayPlayerIndex?: number | null;
   };
+  
+  // 事件数据
   eventData?: {
     dunSize?: number;
     stolenScore?: number;
     cardType?: string;
     playValue?: number;
-    card?: any; // 卡牌对象
+    card?: Card;
     progress?: number; // 发牌进度
     rank?: number; // 牌的点数
     count?: number; // 牌的数量
-    hand?: any[]; // 手牌
+    hand?: Card[]; // 手牌
     handValue?: number; // 手牌价值
     handLength?: number; // 手牌长度
   };
+  
+  // 玩家状态
   playerState?: {
     handCount?: number;
     score?: number;
     rank?: number;
   };
+  
+  // 聊天历史
   history?: ChatMessage[]; // 最近的聊天历史
 }
 
