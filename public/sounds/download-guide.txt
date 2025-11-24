@@ -1,0 +1,18 @@
+快速下载指南：
+
+1. 访问 Mixkit (推荐，无需注册):
+   https://mixkit.co/free-sound-effects/explosion/
+
+2. 下载几个不同强度的爆炸音效，重命名为：
+   - bomb.mp3 (炸弹音效)
+   - explosion.mp3 (爆炸音效)
+   - dun-small.mp3 (小爆炸，可选)
+   - dun-medium.mp3 (中爆炸，可选)
+   - dun-large.mp3 (大爆炸，可选)
+   - dun-huge.mp3 (超大爆炸，可选)
+
+3. 将文件放到此目录下即可
+
+其他免费资源：
+- Pixabay: https://pixabay.com/zh/sound-effects/search/explosion/
+- Freesound: https://freesound.org/ (需要注册)

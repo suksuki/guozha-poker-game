@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { GameStartConfig, GameMode } from '../../hooks/useGameConfig';
 
 export type { GameMode };
@@ -53,11 +54,12 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   onStartGame,
   onStartTraining
 }) => {
+  const { t } = useTranslation(['game', 'ui']);
 
   return (
     <div className="game-container">
       <div className="start-screen">
-        <h1>过炸扑克游戏（多人版）</h1>
+        <h1>{t('game:title')}</h1>
         
         {/* 模式选择器 */}
         {onModeChange && (
@@ -81,7 +83,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                 transition: 'all 0.3s'
               }}
             >
-              🎮 游戏模式
+              {t('game:modes.game')}
             </button>
             <button
               className={`mode-button ${mode === 'training' ? 'active' : ''}`}
@@ -97,7 +99,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                 transition: 'all 0.3s'
               }}
             >
-              🏋️ 训练模式
+              {t('game:modes.training')}
             </button>
           </div>
         )}
@@ -107,7 +109,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
             <>
               {/* 游戏模式配置 */}
           <div className="config-item">
-            <label>玩家数量 (4-8人):</label>
+            <label>{t('ui:config.playerCount')}</label>
             <input
               type="number"
               min="4"
@@ -117,53 +119,53 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
             />
           </div>
           <div className="config-item">
-            <label>你的位置:</label>
+            <label>{t('ui:config.yourPosition')}</label>
             <select 
               value={humanPlayerIndex} 
               onChange={(e) => onHumanPlayerIndexChange(parseInt(e.target.value))}
             >
               {Array.from({ length: playerCount }, (_, i) => (
-                <option key={i} value={i}>玩家{i + 1}</option>
+                <option key={i} value={i}>{t('ui:config.player', { index: i + 1 })}</option>
               ))}
             </select>
           </div>
           <div className="config-item">
-            <label>AI算法:</label>
+            <label>{t('ui:config.aiAlgorithm')}</label>
             <select value={algorithm} onChange={(e) => onAlgorithmChange(e.target.value as any)}>
-              <option value="mcts">MCTS蒙特卡洛树搜索（推荐）</option>
-              <option value="simple">智能策略算法</option>
+              <option value="mcts">{t('ui:algorithms.mcts')}</option>
+              <option value="simple">{t('ui:algorithms.simple')}</option>
             </select>
             <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-              MCTS更智能但较慢，如果觉得慢请选择"智能策略算法"（快速模式）
+              {t('ui:algorithmHints.mcts')}
             </small>
           </div>
           <div className="config-item">
-            <label>AI策略:</label>
+            <label>{t('ui:config.aiStrategy')}</label>
             <select value={strategy} onChange={(e) => onStrategyChange(e.target.value as any)}>
-              <option value="balanced">平衡</option>
-              <option value="aggressive">激进</option>
-              <option value="conservative">保守</option>
+              <option value="balanced">{t('ui:strategies.balanced')}</option>
+              <option value="aggressive">{t('ui:strategies.aggressive')}</option>
+              <option value="conservative">{t('ui:strategies.conservative')}</option>
             </select>
             <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-              策略仅影响简单算法，MCTS会自动学习最优策略
+              {t('ui:algorithmHints.simple')}
             </small>
           </div>
           {onDealingAlgorithmChange && (
             <div className="config-item">
-              <label>发牌算法:</label>
+              <label>{t('ui:config.dealingAlgorithm')}</label>
               <select 
                 value={dealingAlgorithm} 
                 onChange={(e) => onDealingAlgorithmChange(e.target.value as any)}
               >
-                <option value="random">完全随机</option>
-                <option value="fair">公平分配</option>
-                <option value="favor-human">偏袒人类玩家</option>
-                <option value="favor-ai">偏袒AI玩家</option>
-                <option value="balanced-score">平衡分牌</option>
-                <option value="clustered">聚类分配</option>
+                <option value="random">{t('ui:dealingAlgorithms.random')}</option>
+                <option value="fair">{t('ui:dealingAlgorithms.fair')}</option>
+                <option value="favor-human">{t('ui:dealingAlgorithms.favorHuman')}</option>
+                <option value="favor-ai">{t('ui:dealingAlgorithms.favorAi')}</option>
+                <option value="balanced-score">{t('ui:dealingAlgorithms.balancedScore')}</option>
+                <option value="clustered">{t('ui:dealingAlgorithms.clustered')}</option>
               </select>
               <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-                选择发牌策略，影响游戏难度和趣味性
+                {t('ui:dealingAlgorithmHint')}
               </small>
             </div>
           )}
@@ -175,48 +177,48 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                   checked={skipDealingAnimation}
                   onChange={(e) => onSkipDealingAnimationChange(e.target.checked)}
                 />
-                跳过发牌动画
+                {t('ui:config.skipDealingAnimation')}
               </label>
               <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-                勾选后直接开始游戏，不显示发牌动画
+                {t('ui:skipDealingAnimationHint')}
               </small>
             </div>
           )}
           {onDealingSpeedChange && (
             <div className="config-item">
-              <label>发牌速度:</label>
+              <label>{t('ui:config.dealingSpeed')}</label>
               <select 
                 value={dealingSpeed} 
                 onChange={(e) => onDealingSpeedChange(parseInt(e.target.value))}
               >
-                <option value={50}>快速 (50ms/张)</option>
-                <option value={150}>正常 (150ms/张)</option>
-                <option value={300}>慢速 (300ms/张)</option>
-                <option value={500}>很慢 (500ms/张)</option>
+                <option value={50}>{t('ui:dealingSpeeds.fast')}</option>
+                <option value={150}>{t('ui:dealingSpeeds.normal')}</option>
+                <option value={300}>{t('ui:dealingSpeeds.slow')}</option>
+                <option value={500}>{t('ui:dealingSpeeds.verySlow')}</option>
               </select>
               <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-                控制发牌动画的速度
+                {t('ui:dealingSpeedHint')}
               </small>
             </div>
           )}
           {onSortOrderChange && (
             <div className="config-item">
-              <label>理牌排序:</label>
+              <label>{t('ui:config.sortOrder')}</label>
               <select 
                 value={sortOrder} 
                 onChange={(e) => onSortOrderChange(e.target.value as 'asc' | 'desc' | 'grouped')}
               >
-                <option value="grouped">按数字分组</option>
-                <option value="asc">从小到大</option>
-                <option value="desc">从大到小</option>
+                <option value="grouped">{t('ui:sortOrders.grouped')}</option>
+                <option value="asc">{t('ui:sortOrders.asc')}</option>
+                <option value="desc">{t('ui:sortOrders.desc')}</option>
               </select>
               <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-                发牌时手牌的排序方式
+                {t('ui:sortOrderHint')}
               </small>
             </div>
           )}
               <button className="btn-primary" onClick={onStartGame}>
-                开始游戏
+                {t('game:actions.startGame')}
               </button>
             </>
           ) : (
@@ -230,14 +232,14 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                 fontSize: '14px',
                 color: '#1976d2'
               }}>
-                <strong>训练模式</strong>
+                <strong>{t('ui:training.title')}</strong>
                 <p style={{ margin: '10px 0 0 0' }}>
-                  点击下方按钮进入训练配置面板，设置训练参数并开始训练。
+                  {t('ui:training.description')}
                 </p>
               </div>
               {onStartTraining && (
                 <button className="btn-primary" onClick={onStartTraining}>
-                  🚀 进入训练配置
+                  {t('ui:training.enterConfig')}
                 </button>
               )}
             </>

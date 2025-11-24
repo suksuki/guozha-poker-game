@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { quickTestConfig, MCTSConfig } from '../src/utils/mctsTuning';
 
+// @slow - 慢测试（MCTS微调，耗时约5分钟），平时可以跳过
 describe('超快速微调测试（演示用）', () => {
   it('应该能够快速测试2个探索常数', async () => {
     console.log('\n' + '='.repeat(60));

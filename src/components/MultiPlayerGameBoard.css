@@ -261,7 +261,7 @@
   animation: pulse 1.5s ease-in-out infinite;
 }
 
-/* 出牌区域 */
+/* 出牌区域 - 放在最上层，避免被其他元素遮挡 */
 .play-area {
   display: flex;
   flex-direction: column;
@@ -270,6 +270,8 @@
   padding: 10px 20px;
   min-height: 120px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 2000; /* 设置很高的 z-index，确保在最上层 */
 }
 
 /* 操作按钮区域（在手牌上方） */
@@ -294,6 +296,9 @@
   border-radius: 15px;
   backdrop-filter: blur(10px);
   text-align: center;
+  position: relative;
+  z-index: 2001; /* 确保内容也在最上层 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* 添加阴影增强层次感 */
 }
 
 .play-label {
@@ -309,6 +314,8 @@
   justify-content: center;
   margin-bottom: 10px;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 2002; /* 卡牌也在最上层 */
 }
 
 .play-type {

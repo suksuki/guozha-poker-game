@@ -2,6 +2,7 @@
  * 多声道语音服务
  * 使用 Web Audio API 实现真正的多声道音频
  * 每个玩家分配一个声道，报牌使用独立声道
+ * 支持多语言语音（根据当前 i18n 语言选择）
  */
 
 import { VoiceConfig } from '../types/card';
@@ -10,6 +11,7 @@ import {
   VoiceServiceConfig,
   DEFAULT_VOICE_SERVICE_CONFIG
 } from '../config/voiceConfig';
+import i18n from '../i18n';
 
 // 声道类型
 export enum ChannelType {
@@ -133,14 +135,23 @@ class MultiChannelVoiceService {
   ): SpeechSynthesisUtterance {
     const utterance = new SpeechSynthesisUtterance(text);
 
+    // 根据当前 i18n 语言和玩家的 dialect 选择语音语言
+    const currentLang = i18n.language || 'zh-CN';
+
     if (voiceConfig?.dialect) {
-      // 安全访问 DIALECT_LANG_MAP，如果方言不在映射中则使用默认值
+      // 如果当前语言是中文，使用 dialect 映射；否则使用当前 i18n 语言
+      if (currentLang.startsWith('zh')) {
       const lang = voiceConfig.dialect in DIALECT_LANG_MAP 
         ? DIALECT_LANG_MAP[voiceConfig.dialect as keyof typeof DIALECT_LANG_MAP]
         : 'zh-CN';
       utterance.lang = lang;
     } else {
-      utterance.lang = 'zh-CN';
+        // 非中文语言，使用当前 i18n 语言
+        utterance.lang = currentLang;
+      }
+    } else {
+      // 没有 voiceConfig，使用当前 i18n 语言
+      utterance.lang = currentLang;
     }
 
     utterance.rate = voiceConfig?.rate ?? 1.0;
@@ -154,27 +165,31 @@ class MultiChannelVoiceService {
     }
     utterance.volume = voiceConfig?.volume ?? 1.0;
 
-    if (voices.length > 0 && voiceConfig) {
-      const chineseVoices = voices.filter(voice => {
-        const lang = voice.lang.toLowerCase();
-        return lang.includes('zh') || lang.includes('cn') || lang.includes('hk') || lang.includes('tw');
+    // 根据 utterance.lang 选择匹配的语音
+    if (voices.length > 0) {
+      // 根据语言代码选择匹配的语音
+      const targetLang = utterance.lang.toLowerCase();
+      const matchingVoices = voices.filter(voice => {
+        const voiceLang = voice.lang.toLowerCase();
+        // 精确匹配或部分匹配
+        return voiceLang === targetLang || 
+               voiceLang.startsWith(targetLang.split('-')[0]) ||
+               targetLang.startsWith(voiceLang.split('-')[0]);
       });
 
-      if (chineseVoices.length > 0) {
-        if (voiceConfig.voiceIndex !== undefined) {
-          const index = voiceConfig.voiceIndex % chineseVoices.length;
-          utterance.voice = chineseVoices[index];
+      if (matchingVoices.length > 0) {
+        if (voiceConfig?.voiceIndex !== undefined) {
+          const index = voiceConfig.voiceIndex % matchingVoices.length;
+          utterance.voice = matchingVoices[index];
         } else {
-          utterance.voice = chineseVoices[0];
-        }
+          utterance.voice = matchingVoices[0];
       }
-    } else if (voices.length > 0) {
-      const chineseVoice = voices.find(voice => {
-        const lang = voice.lang.toLowerCase();
-        return lang.includes('zh') || lang.includes('cn');
-      });
-      if (chineseVoice) {
-        utterance.voice = chineseVoice;
+      } else {
+        // 如果没有匹配的语音，尝试查找默认语音
+        const defaultVoice = voices.find(voice => voice.default) || voices[0];
+        if (defaultVoice) {
+          utterance.voice = defaultVoice;
+        }
       }
     }
 

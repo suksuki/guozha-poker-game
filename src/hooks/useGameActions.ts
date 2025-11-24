@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, GameStatus, Player } from '../types/card';
 import { Play } from '../types/card';
 import { hasPlayableCards } from '../utils/cardUtils';
@@ -38,6 +39,7 @@ export function useGameActions({
   playerPass,
   suggestPlay
 }: GameActionsParams) {
+  const { t } = useTranslation(['game']);
   const [isSuggesting, setIsSuggesting] = useState(false);
 
   // 检查玩家是否有能打过的牌（用于强制出牌规则）
@@ -98,11 +100,12 @@ export function useGameActions({
         // 这里不直接设置selectedCards，而是通过返回值让调用者处理
         return suggestedCards;
       } else {
-        alert('AI建议：要不起');
+        alert(`${t('game:actions.aiSuggest')}: ${t('game:actions.pass')}`);
         return null;
       }
     } catch (error) {
       console.error('获取AI建议失败:', error);
+      // 注意：这里暂时保留中文，因为这是错误提示，不是游戏核心功能
       alert('获取AI建议失败，请稍后重试');
       return null;
     } finally {

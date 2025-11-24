@@ -9,6 +9,7 @@ import { Play } from '../types/card';
 import { VoiceConfig } from '../types/card';
 import { playToSpeechText } from '../utils/speechUtils';
 import { voiceService } from './voiceService';
+import i18n from '../i18n';
 
 /**
  * 系统报牌服务
@@ -65,8 +66,10 @@ class SystemAnnouncementService {
    * @returns Promise（不等待完成）
    */
   async announcePass(voiceConfig?: VoiceConfig): Promise<void> {
+    // 根据当前语言获取"要不起"的翻译文本
+    const passText = i18n.t('game:actions.pass');
     // 立即播放，不等待完成
-    return voiceService.speakImmediate('要不起', voiceConfig);
+    return voiceService.speakImmediate(passText, voiceConfig);
   }
 }
 

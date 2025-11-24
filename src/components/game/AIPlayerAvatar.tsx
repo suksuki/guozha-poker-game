@@ -4,6 +4,8 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { Player } from '../../types/card';
 
 export interface AIPlayerAvatarProps {
@@ -23,6 +25,7 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
   isLastPlay = false,
   showPosition = false
 }, ref) => {
+  const { t } = useTranslation(['ui']);
   const actualHandCount = handCount !== undefined ? handCount : (player.hand?.length || 0);
   const playerScore = player.score || 0;
   const playerRank = player.finishedRank ?? null;
@@ -64,29 +67,39 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
       {/* 状态信息面板 */}
       <div className="ai-player-status-panel">
         <div className="status-item">
-          <span className="status-label">分数:</span>
+          <span className="status-label">{t('ui:aiPlayer.scoreLabel')}</span>
           <span className="status-value">{playerScore}</span>
         </div>
         <div className="status-item">
-          <span className="status-label">墩数:</span>
+          <span className="status-label">{t('ui:aiPlayer.dunCountLabel')}</span>
           <span className="status-value">{dunCount}</span>
         </div>
         {playerRank !== null && (
           <div className="status-item rank-item">
-            <span className="status-label">名次:</span>
+            <span className="status-label">{t('ui:aiPlayer.rankLabel')}</span>
             <span className={`status-value rank-badge rank-${playerRank}`}>
               {trophyIcon && <span className="trophy-icon">{trophyIcon}</span>}
-              第{playerRank}名
+              {(() => {
+                // 根据语言格式化名次显示
+                const lang = i18n.language || 'zh-CN';
+                if (lang.startsWith('en')) {
+                  // 英文：1st, 2nd, 3rd, 4th...
+                  const suffix = playerRank === 1 ? 'st' : playerRank === 2 ? 'nd' : playerRank === 3 ? 'rd' : 'th';
+                  return `${playerRank}${suffix}`;
+                }
+                // 其他语言使用翻译
+                return t('ui:aiPlayer.rankBadge', { rank: playerRank });
+              })()}
             </span>
           </div>
         )}
         <div className="status-item">
-          <span className="status-label">手牌:</span>
-          <span className="status-value">{actualHandCount} 张</span>
+          <span className="status-label">{t('ui:aiPlayer.handLabel')}</span>
+          <span className="status-value">{t('ui:aiPlayer.cards', { count: actualHandCount })}</span>
         </div>
         {isCurrent && (
           <div className="status-item current-indicator">
-            <span className="status-value">思考中...</span>
+            <span className="status-value">{t('ui:aiPlayer.thinking')}</span>
           </div>
         )}
       </div>

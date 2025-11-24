@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { quickTestConfig, tuneMCTSParameters, MCTSConfig } from '../src/utils/mctsTuning';
 
+// @slow - 慢测试（MCTS微调，耗时约5分钟），平时可以跳过
 describe('MCTS微调测试（带进度条）', () => {
   // 测试进度条显示
   it('应该能够显示进度条和时间估算', async () => {

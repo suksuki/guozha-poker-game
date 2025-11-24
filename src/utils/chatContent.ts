@@ -1,10 +1,11 @@
 /**
  * 聊天内容库
  * 包含随机闲聊、事件触发、对骂等内容
- * 优化后的模块化结构
+ * 使用 i18n 支持多语言
  */
 
 import { ChatEventType } from '../types/chat';
+import i18n from '../i18n';
 
 export type Dialect = 'mandarin' | 'cantonese';
 
@@ -327,24 +328,94 @@ const chatContentLibrary: Partial<Record<ChatEventType | 'taunt', ChatContentMap
 
 // 从内容列表中随机选择
 function getRandomFromList(list: string[]): string {
+  if (!list || list.length === 0) {
+    return '';
+  }
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// 根据事件类型和方言获取聊天内容
+// 将 ChatEventType 映射到 i18n 键名
+function getI18nKey(eventType: ChatEventType, dialect: Dialect): string {
+  const keyMap: Record<ChatEventType, string> = {
+    [ChatEventType.RANDOM]: dialect === 'cantonese' ? 'randomCantonese' : 'random',
+    [ChatEventType.BIG_DUN]: dialect === 'cantonese' ? 'bigDunCantonese' : 'bigDun',
+    [ChatEventType.SCORE_STOLEN]: dialect === 'cantonese' ? 'scoreStolenCantonese' : 'scoreStolen',
+    [ChatEventType.SCORE_EATEN_CURSE]: dialect === 'cantonese' ? 'scoreEatenCurseCantonese' : 'scoreEatenCurse',
+    [ChatEventType.GOOD_PLAY]: dialect === 'cantonese' ? 'goodPlayCantonese' : 'goodPlay',
+    [ChatEventType.FINISH_FIRST]: dialect === 'cantonese' ? 'finishFirstCantonese' : 'finishFirst',
+    [ChatEventType.FINISH_MIDDLE]: dialect === 'cantonese' ? 'finishMiddleCantonese' : 'finishMiddle',
+    [ChatEventType.DUN_PLAYED]: dialect === 'cantonese' ? 'dunPlayedCantonese' : 'dunPlayed',
+    [ChatEventType.URGE_PLAY]: dialect === 'cantonese' ? 'urgePlayCantonese' : 'urgePlay',
+    // 其他事件类型使用默认内容
+    [ChatEventType.BAD_LUCK]: 'default',
+    [ChatEventType.WINNING]: 'default',
+    [ChatEventType.LOSING]: 'default',
+    [ChatEventType.FINISH_LAST]: 'default',
+    [ChatEventType.DEALING]: 'default',
+    [ChatEventType.DEALING_GOOD_CARD]: 'default',
+    [ChatEventType.DEALING_BAD_CARD]: 'default',
+    [ChatEventType.DEALING_BOMB_FORMED]: 'default',
+    [ChatEventType.DEALING_DUN_FORMED]: 'default',
+    [ChatEventType.DEALING_HUGE_CARD]: 'default',
+    [ChatEventType.DEALING_POOR_HAND]: 'default',
+  };
+  return keyMap[eventType] || 'default';
+}
+
+// 根据事件类型和方言获取聊天内容（使用 i18n）
 export function getChatContent(
   eventType: ChatEventType,
   dialect: Dialect,
   isTaunt: boolean = false
 ): string {
+  const currentLang = i18n.language || 'zh-CN';
+  
   // 对骂内容
   if (isTaunt) {
+    // 如果当前语言是中文，支持 mandarin 和 cantonese 的区别
+    // 否则使用当前语言的 taunt 内容
+    let key = 'taunt';
+    if (currentLang.startsWith('zh')) {
+      key = dialect === 'cantonese' ? 'tauntCantonese' : 'taunt';
+    }
+    
+    const content = i18n.t(`chat:${key}`, { returnObjects: true }) as string[];
+    if (Array.isArray(content) && content.length > 0) {
+      return getRandomFromList(content);
+    }
+    // 回退到旧的内容库
     const contentMap = chatContentLibrary.taunt;
     return getRandomFromList(contentMap[dialect]);
   }
 
-  // 事件触发内容
+  // 事件触发内容 - 使用 i18n
+  // 如果当前语言是中文，支持 mandarin 和 cantonese 的区别
+  // 否则使用当前语言的对应内容
+  let i18nKey = getI18nKey(eventType, dialect);
+  if (!currentLang.startsWith('zh')) {
+    // 非中文语言，使用标准键名（不带 Cantonese 后缀）
+    i18nKey = getI18nKey(eventType, 'mandarin').replace('Cantonese', '');
+  }
+  
+  const content = i18n.t(`chat:${i18nKey}`, { returnObjects: true }) as string[];
+  
+  if (Array.isArray(content) && content.length > 0) {
+    return getRandomFromList(content);
+  }
+
+  // 回退到旧的内容库（兼容性，仅中文）
+  if (currentLang.startsWith('zh')) {
   const contentMap = chatContentLibrary[eventType] || chatContentLibrary[ChatEventType.RANDOM] || defaultContent;
   return getRandomFromList(contentMap[dialect]);
+  }
+  
+  // 非中文语言，使用默认内容
+  const defaultContentArray = i18n.t('chat:default', { returnObjects: true }) as string[];
+  if (Array.isArray(defaultContentArray) && defaultContentArray.length > 0) {
+    return getRandomFromList(defaultContentArray);
+  }
+  
+  return 'OK';
 }
 
 // 获取随机闲聊内容
@@ -359,6 +430,15 @@ export function getTaunt(dialect: Dialect): string {
 
 // 获取指定事件类型的所有内容（用于测试和调试）
 export function getAllContentForEvent(eventType: ChatEventType, dialect: Dialect): string[] {
+  // 尝试从 i18n 获取
+  const i18nKey = getI18nKey(eventType, dialect);
+  const content = i18n.t(`chat:${i18nKey}`, { returnObjects: true }) as string[];
+  
+  if (Array.isArray(content) && content.length > 0) {
+    return [...content];
+  }
+
+  // 回退到旧的内容库
   const contentMap = chatContentLibrary[eventType] || chatContentLibrary[ChatEventType.RANDOM] || defaultContent;
   if (!contentMap) {
     return [...defaultContent[dialect]];

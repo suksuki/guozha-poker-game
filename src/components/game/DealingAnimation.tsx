@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, Player, Suit, Rank } from '../../types/card';
 import { CardComponent } from '../CardComponent';
 import { dealCardsWithAlgorithm, DealingConfig, DealingAlgorithm } from '../../utils/dealingAlgorithms';
@@ -46,6 +47,7 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
   dealingSpeed = 150,
   sortOrder = 'grouped'
 }) => {
+  const { t } = useTranslation(['ui']);
   const [dealingState, setDealingState] = useState<DealingState>({
     currentCardIndex: 0,
     currentPlayerIndex: 0,
@@ -438,7 +440,7 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
             {dealingState.allCards.length - dealingState.currentCardIndex}
           </div>
           {isManualMode && !dealingState.isComplete && (
-            <div className="manual-deal-hint">点击抓牌</div>
+            <div className="manual-deal-hint">{t('ui:dealing.clickToDraw')}</div>
           )}
         </div>
       </div>
@@ -477,9 +479,9 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
         }}
       >
         <div className="human-player-hand-header">
-          <div className="player-name">{players[humanPlayerIndex]?.name || '你'}</div>
+          <div className="player-name">{players[humanPlayerIndex]?.name || t('ui:dealing.you')}</div>
           <div className="player-card-count">
-            {sortedHands[humanPlayerIndex]?.length || 0} 张
+            {sortedHands[humanPlayerIndex]?.length || 0} {t('ui:dealing.cardsUnit')}
           </div>
         </div>
         <div className="human-player-hand-content">
@@ -518,7 +520,7 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
       {/* 进度信息 */}
       <div className="dealing-progress">
         <div className="progress-text">
-          发牌中... {dealingState.currentCardIndex} / {dealingState.allCards.length}
+          {t('ui:dealing.dealingProgress', { current: dealingState.currentCardIndex, total: dealingState.allCards.length })}
         </div>
         <div className="progress-bar">
           <div 
@@ -532,7 +534,7 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
       <div className="dealing-controls">
         {onCancel && (
           <button className="dealing-cancel-btn" onClick={onCancel}>
-            跳过发牌动画
+            {t('ui:dealing.skipAnimation')}
           </button>
         )}
         <button 
@@ -569,7 +571,7 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
             }
           }}
         >
-          {isManualMode ? '🔄 切换到自动' : '👆 切换到手动'}
+          {isManualMode ? t('ui:dealing.switchToAuto') : t('ui:dealing.switchToManual')}
         </button>
         {/* 手动模式下的抓牌按钮 */}
         {isManualMode && !dealingState.isComplete && (
@@ -581,7 +583,7 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
               isDealingToAI
             }
           >
-            🎴 抓牌
+            {t('ui:dealing.drawCard')}
           </button>
         )}
       </div>

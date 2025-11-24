@@ -1,0 +1,112 @@
+{
+  "config": {
+    "playerCount": "Player Count (4-8)",
+    "yourPosition": "Your Position",
+    "player": "Player {{index}}",
+    "aiStrategy": "AI Strategy",
+    "aiAlgorithm": "AI Algorithm",
+    "dealingAlgorithm": "Dealing Algorithm",
+    "skipDealingAnimation": "Skip Dealing Animation",
+    "dealingSpeed": "Dealing Speed",
+    "sortOrder": "Card Sorting"
+  },
+  "strategies": {
+    "aggressive": "Aggressive",
+    "conservative": "Conservative",
+    "balanced": "Balanced"
+  },
+  "algorithms": {
+    "mcts": "MCTS Monte Carlo Tree Search (Recommended)",
+    "simple": "Smart Strategy Algorithm"
+  },
+  "algorithmHints": {
+    "mcts": "MCTS is smarter but slower. If it's too slow, choose \"Smart Strategy Algorithm\" (Fast Mode)",
+    "simple": "Strategy only affects simple algorithm. MCTS automatically learns optimal strategy"
+  },
+  "dealingAlgorithms": {
+    "random": "Completely Random",
+    "fair": "Fair Distribution",
+    "favorHuman": "Favor Human Player",
+    "favorAi": "Favor AI Players",
+    "balancedScore": "Balanced Score Cards",
+    "clustered": "Clustered Distribution"
+  },
+  "dealingAlgorithmHint": "Choose dealing strategy, affects game difficulty and fun",
+  "skipDealingAnimationHint": "Check to start game directly without dealing animation",
+  "dealingSpeeds": {
+    "fast": "Fast (50ms/card)",
+    "normal": "Normal (150ms/card)",
+    "slow": "Slow (300ms/card)",
+    "verySlow": "Very Slow (500ms/card)"
+  },
+  "dealingSpeedHint": "Control the speed of dealing animation",
+  "sortOrders": {
+    "grouped": "Grouped by Number",
+    "asc": "Ascending",
+    "desc": "Descending"
+  },
+  "sortOrderHint": "Card sorting method when dealing",
+  "training": {
+    "title": "Training Mode",
+    "description": "Click the button below to enter training configuration panel, set training parameters and start training.",
+    "enterConfig": "🚀 Enter Training Config",
+    "mctsTraining": "🏋️ MCTS Training Mode",
+    "backToGame": "← Back to Game Mode",
+    "simulationCount": "Simulation Game Count",
+    "simulationCountHint": "Recommended: 100-1000 games (testing), 1000-10000 games (formal training)",
+    "mctsIterations": "MCTS Iterations During Training",
+    "mctsIterationsHint": "Use more iterations during training for more accurate results (default 200, 50 during gameplay)",
+    "mctsDepth": "MCTS Simulation Depth During Training",
+    "mctsDepthHint": "Use deeper simulation during training for more accurate results (default 50, 20 during gameplay)",
+    "showProgress": "Show Detailed Progress",
+    "autoTune": "Auto-tune Parameters After Training",
+    "autoTuneHint": "Automatically test multiple parameter combinations to find the best configuration (will increase training time)",
+    "tuneGamesPerConfig": "Games Per Config During Tuning",
+    "tuneGamesPerConfigHint": "Number of games to run for each parameter configuration, more is more accurate but slower (recommended: 50-100)",
+    "instructions": {
+      "title": "Training Instructions:",
+      "item1": "Training will use full information mode (know all player hands)",
+      "item2": "Training will record optimal decisions for different scenarios",
+      "item3": "Training will generate optimization suggestions after completion",
+      "item4": "Training progress will be displayed in real-time, can pause or stop at any time",
+      "item5": "After training, parameters will be automatically fine-tuned, testing multiple configurations to find the best parameters"
+    },
+    "startTraining": "🚀 Start Training"
+  },
+  "playerInfo": {
+    "yourHand": "Your Hand ({{count}} cards)",
+    "score": "Score: {{score}} points",
+    "wonRounds": "You won {{count}} rounds",
+    "roundTitle": "Round {{round}}: {{score}} points",
+    "roundBadge": "R{{round}}: {{score}}pts"
+  },
+  "playerHand": {
+    "loading": "Loading hand data...",
+    "score": "{{score}}pts"
+  },
+  "aiPlayer": {
+    "remaining": "Remaining: {{count}} cards",
+    "score": "Score: {{score}} points",
+    "wonRounds": "Won {{count}} rounds",
+    "roundTitle": "Round {{round}}: {{score}} points",
+    "roundBadge": "R{{round}}: {{score}}pts",
+    "thinking": "Thinking...",
+    "scoreLabel": "Score:",
+    "dunCountLabel": "Duns:",
+    "rankLabel": "Rank:",
+    "handLabel": "Hand:",
+    "rankBadge": "{{rank}}",
+    "cards": "{{count}} cards"
+  },
+  "dealing": {
+    "clickToDraw": "Click to draw",
+    "dealingProgress": "Dealing... {{current}} / {{total}}",
+    "skipAnimation": "Skip dealing animation",
+    "switchToAuto": "🔄 Switch to Auto",
+    "switchToManual": "👆 Switch to Manual",
+    "drawCard": "🎴 Draw Card",
+    "you": "You",
+    "cardsUnit": "cards"
+  }
+}
+

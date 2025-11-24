@@ -4,7 +4,7 @@
  */
 
 import { Card, Play, Player } from '../types/card';
-import { calculateCardsScore, isScoreCard, calculateDunCount, calculateDunScore } from './cardUtils';
+import { isScoreCard, calculateDunCount, calculateDunScore } from './cardUtils';
 import { triggerBigDunReaction, triggerGoodPlayReaction, triggerDunPlayedReaction } from '../services/chatService';
 import { animationService } from '../services/animationService';
 import { getDunAnimationConfig } from '../config/animationConfig';
@@ -12,13 +12,15 @@ import { getDunAnimationConfig } from '../config/animationConfig';
 /**
  * 处理墩的计分逻辑
  * 返回更新后的玩家数组和墩的分数
+ * @param animationPosition 动画位置（可选，如果提供则触发动画）
  */
 export function handleDunScoring(
   players: Player[],
   playerIndex: number,
   cards: Card[],
   playerCount: number,
-  play: Play
+  play: Play,
+  animationPosition?: { x: number; y: number }
 ): { updatedPlayers: Player[]; dunScore: number } {
   const newPlayers = [...players];
   let dunScore = 0;
@@ -35,6 +37,18 @@ export function handleDunScoring(
         p.score = (p.score || 0) - dunScoreResult.otherPlayersScore;
       }
     });
+    
+    // 触发出墩爆炸动画（如果提供了位置）
+    if (animationPosition) {
+      const config = getDunAnimationConfig(cards.length);
+      animationService.triggerDunExplosion({
+        playerId: playerIndex,
+        playerName: newPlayers[playerIndex]?.name || `玩家${playerIndex}`,
+        dunSize: cards.length,
+        intensity: config.intensity,
+        position: animationPosition
+      });
+    }
     
     // 触发大墩反应（其他玩家的惊呼，异步，不阻塞）
     triggerBigDunReaction(newPlayers, playerIndex, cards.length).catch(console.error);

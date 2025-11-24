@@ -63,6 +63,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// @async - 异步调用测试，平时可以跳过
 describe('语音工具测试', () => {
   describe('牌型转语音文本', () => {
     it('应该正确转换单张', () => {
@@ -227,7 +228,7 @@ describe('语音工具测试', () => {
       // 等待队列处理（使用轮询检查，最多等待1秒）
       let attempts = 0;
       while (mockSpeak.mock.calls.length === 0 && attempts < 100) {
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, 1));
         attempts++;
       }
       

@@ -31,6 +31,40 @@ vi.mock('../src/services/voiceService', () => ({
   speakText: vi.fn(() => Promise.resolve())
 }));
 
+// Mock chat strategy
+vi.mock('../src/chat/strategy', () => ({
+  getChatStrategy: vi.fn(() => ({
+    generateRandomChat: vi.fn(async (player) => ({
+      playerId: player.id,
+      playerName: player.name,
+      content: '随机闲聊',
+      type: 'random',
+      timestamp: Date.now()
+    })),
+    generateEventChat: vi.fn(async (player, eventType) => {
+      // 根据实际策略逻辑：SCORE_STOLEN 返回 taunt，其他返回 event
+      const isTaunt = eventType === ChatEventType.SCORE_STOLEN;
+      return {
+        playerId: player.id,
+        playerName: player.name,
+        content: isTaunt ? '对骂内容' : '事件聊天',
+        type: isTaunt ? 'taunt' : 'event',
+        timestamp: Date.now()
+      };
+    }),
+    generateTaunt: vi.fn(async (player) => ({
+      playerId: player.id,
+      playerName: player.name,
+      content: '对骂内容',
+      type: 'taunt',
+      timestamp: Date.now()
+    })),
+    name: 'rule-based',
+    description: 'Mock strategy'
+  }))
+}));
+
+// @async - 异步调用测试，平时可以跳过
 describe('聊天服务回归测试', () => {
   let mockPlayer: Player;
 
@@ -80,6 +114,10 @@ describe('聊天服务回归测试', () => {
 
   describe('功能完整性', () => {
     it('应该能够处理多个玩家的聊天', async () => {
+      // Mock Math.random 确保触发
+      const originalRandom = Math.random;
+      Math.random = vi.fn(() => 0.0); // 小于概率，确保触发
+      
       const players: Player[] = [
         { ...mockPlayer, id: 0, name: '玩家1' },
         { ...mockPlayer, id: 1, name: '玩家2' },
@@ -94,9 +132,15 @@ describe('聊天服务回归测试', () => {
 
       const messages = getChatMessages();
       expect(messages.length).toBe(3);
+      
+      Math.random = originalRandom;
     });
 
     it('应该能够处理不同方言的聊天', async () => {
+      // Mock Math.random 确保触发
+      const originalRandom = Math.random;
+      Math.random = vi.fn(() => 0.0); // 小于概率，确保触发
+      
       const mandarinPlayer: Player = {
         ...mockPlayer,
         voiceConfig: { gender: 'female', dialect: 'mandarin' }
@@ -112,6 +156,8 @@ describe('聊天服务回归测试', () => {
 
       const messages = getChatMessages();
       expect(messages.length).toBe(2);
+      
+      Math.random = originalRandom;
     });
 
     it('应该能够处理所有事件类型', async () => {
@@ -181,6 +227,14 @@ describe('聊天服务回归测试', () => {
     });
 
     it('应该能够处理完整的聊天流程', async () => {
+      // Mock Math.random 确保触发
+      const originalRandom = Math.random;
+      let callCount = 0;
+      Math.random = vi.fn(() => {
+        callCount++;
+        return 0.0; // 小于概率，确保触发
+      });
+      
       // 1. 随机闲聊
       const randomMessage = await triggerRandomChat(mockPlayer, 1.0);
       expect(randomMessage).not.toBeNull();
@@ -205,6 +259,8 @@ describe('聊天服务回归测试', () => {
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);
+      
+      Math.random = originalRandom;
     });
   });
 

@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Player } from '../../types/card';
 import { CardComponent } from '../CardComponent';
 
@@ -18,20 +19,26 @@ export const AIPlayerCard: React.FC<AIPlayerCardProps> = ({
   isCurrent,
   isLastPlay
 }) => {
+  const { t } = useTranslation(['ui']);
+
   return (
     <div 
       className={`player-card ${isCurrent ? 'current-player' : ''} ${isLastPlay ? 'last-play-player' : ''}`}
     >
       <div className="player-name">{player.name}</div>
-      <div className="player-card-count">剩余: {player.hand.length} 张</div>
-      <div className="player-score">得分: {player.score || 0} 分</div>
+      <div className="player-card-count">{t('ui:aiPlayer.remaining', { count: player.hand.length })}</div>
+      <div className="player-score">{t('ui:aiPlayer.score', { score: player.score || 0 })}</div>
       {player.wonRounds && player.wonRounds.length > 0 && (
         <div className="player-won-rounds">
-          <div className="won-rounds-label">赢得 {player.wonRounds.length} 轮</div>
+          <div className="won-rounds-label">{t('ui:aiPlayer.wonRounds', { count: player.wonRounds.length })}</div>
           <div className="won-rounds-summary">
             {player.wonRounds.map((round, idx) => (
-              <div key={idx} className="won-round-badge" title={`第${round.roundNumber}轮: ${round.totalScore}分`}>
-                轮{round.roundNumber}: {round.totalScore}分
+              <div 
+                key={idx} 
+                className="won-round-badge" 
+                title={t('ui:aiPlayer.roundTitle', { round: round.roundNumber, score: round.totalScore })}
+              >
+                {t('ui:aiPlayer.roundBadge', { round: round.roundNumber, score: round.totalScore })}
               </div>
             ))}
           </div>
@@ -42,7 +49,7 @@ export const AIPlayerCard: React.FC<AIPlayerCardProps> = ({
           <CardComponent key={i} card={player.hand[0]} faceDown size="small" />
         ))}
       </div>
-      {isCurrent && <div className="turn-indicator">思考中...</div>}
+      {isCurrent && <div className="turn-indicator">{t('ui:aiPlayer.thinking')}</div>}
     </div>
   );
 };

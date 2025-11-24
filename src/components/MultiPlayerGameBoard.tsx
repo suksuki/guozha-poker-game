@@ -3,7 +3,8 @@
  * 使用拆分的 hooks 和组件
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GameStatus, PlayerType } from '../types/card';
 import { useMultiPlayerGame } from '../hooks/useMultiPlayerGame';
 import { useGameConfig, GameMode } from '../hooks/useGameConfig';
@@ -11,6 +12,7 @@ import { useChatBubbles } from '../hooks/useChatBubbles';
 import { usePlayerHand } from '../hooks/usePlayerHand';
 import { useGameActions } from '../hooks/useGameActions';
 import { useUrgePlay } from '../hooks/useUrgePlay';
+import { soundService } from '../services/soundService';
 import { GameConfigPanel } from './game/GameConfigPanel';
 import { TrainingConfigPanel } from './game/TrainingConfigPanel';
 import { TrainingRunner } from './game/TrainingRunner';
@@ -19,6 +21,7 @@ import { ErrorScreen } from './game/ErrorScreen';
 import { ChatBubblesContainer } from './game/ChatBubblesContainer';
 import { DealingAnimation } from './game/DealingAnimation';
 import { AIPlayersArea } from './game/AIPlayersArea';
+import { AnimationContainer } from './animations/AnimationContainer';
 import { PlayArea } from './game/PlayArea';
 import { ActionButtons } from './game/ActionButtons';
 import { RoundPlaysPanel } from './game/RoundPlaysPanel';
@@ -28,6 +31,9 @@ import './MultiPlayerGameBoard.css';
 import './game/DealingAnimation.css'; // 导入AI玩家头像样式
 
 export const MultiPlayerGameBoard: React.FC = () => {
+  const { t } = useTranslation(['game']);
+  const [showRankings, setShowRankings] = useState(false);
+  
   const { 
     gameState, 
     startGame, 
@@ -40,6 +46,45 @@ export const MultiPlayerGameBoard: React.FC = () => {
     handleDealingComplete,
     handleDealingCancel
   } = useMultiPlayerGame();
+  
+  // 当游戏重新开始时，重置显示排名状态
+  useEffect(() => {
+    if (gameState.status !== GameStatus.FINISHED) {
+      setShowRankings(false);
+    }
+  }, [gameState.status]);
+  
+  // 初始化音效服务（在组件挂载时）
+  useEffect(() => {
+    console.log('[MultiPlayerGameBoard] 初始化音效服务（使用 Web Audio API）');
+    
+    // 异步预加载音效
+    soundService.preloadSounds().catch(error => {
+      console.warn('[MultiPlayerGameBoard] 音效预加载失败', error);
+    });
+    
+    // 尝试解锁音频上下文（处理浏览器自动播放限制）
+    const unlockAudio = () => {
+      // 通过播放一个静音音效来解锁音频上下文
+      try {
+        soundService.playSound('dun-small', 0);
+        console.log('[MultiPlayerGameBoard] 尝试解锁音频上下文');
+      } catch (error) {
+        // 忽略错误，这只是为了解锁
+        console.warn('[MultiPlayerGameBoard] 解锁音频上下文失败', error);
+      }
+    };
+    
+    // 在用户第一次交互时解锁
+    const handleFirstInteraction = () => {
+      unlockAudio();
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('keydown', handleFirstInteraction);
+    };
+    
+    document.addEventListener('click', handleFirstInteraction, { once: true });
+    document.addEventListener('keydown', handleFirstInteraction, { once: true });
+  }, []);
   
   // 使用自定义 hooks
   const gameConfig = useGameConfig();
@@ -153,17 +198,25 @@ export const MultiPlayerGameBoard: React.FC = () => {
     );
   }
 
-  // 结束状态：显示结果屏幕
+  // 结束状态：根据 showRankings 决定显示排名界面还是游戏界面
   if (gameState.status === GameStatus.FINISHED) {
     const winner = gameState.players[gameState.winner!];
-    return (
-      <GameResultScreen
-        winner={winner}
-        rankings={gameState.finalRankings || []}
-        gameRecord={gameState.gameRecord}
-        onReset={resetGame}
-      />
-    );
+    
+    // 如果用户点击了查看排名按钮，显示排名界面
+    if (showRankings) {
+      return (
+        <GameResultScreen
+          winner={winner}
+          rankings={gameState.finalRankings || []}
+          gameRecord={gameState.gameRecord}
+          onReset={resetGame}
+          onBackToGame={() => setShowRankings(false)}
+        />
+      );
+    }
+    
+    // 否则继续显示游戏界面，但添加"查看排名"按钮
+    // 这样用户可以查看最后的牌面情况
   }
 
   // 错误状态：显示错误屏幕
@@ -179,6 +232,9 @@ export const MultiPlayerGameBoard: React.FC = () => {
 
   return (
     <div className="game-container">
+      {/* 动画容器 */}
+      <AnimationContainer />
+
       {/* 聊天气泡 */}
       <ChatBubblesContainer
         activeChatBubbles={chatBubbles.activeChatBubbles}
@@ -195,15 +251,17 @@ export const MultiPlayerGameBoard: React.FC = () => {
           lastPlayPlayerIndex={gameState.lastPlayPlayerIndex}
         />
 
-        {/* 出牌区域 */}
-        <PlayArea
-          lastPlay={gameState.lastPlay}
-          lastPlayPlayerName={lastPlayPlayerName}
-          roundScore={gameState.roundScore}
-        />
+        {/* 出牌区域 - 放在最上层，避免被遮挡 */}
+        <div style={{ position: 'relative', zIndex: 2000 }}>
+          <PlayArea
+            lastPlay={gameState.lastPlay}
+            lastPlayPlayerName={lastPlayPlayerName}
+            roundScore={gameState.roundScore}
+          />
+        </div>
 
         {/* 操作按钮区域 */}
-        {humanPlayer && (
+        {humanPlayer && gameState.status === GameStatus.PLAYING && (
           <ActionButtons
             isPlayerTurn={gameActions.isPlayerTurn}
             canPass={gameActions.canPass}
@@ -214,6 +272,41 @@ export const MultiPlayerGameBoard: React.FC = () => {
             onPlay={gameActions.handlePlay}
             onPass={gameActions.handlePass}
           />
+        )}
+        
+        {/* 游戏结束后的查看排名按钮 */}
+        {gameState.status === GameStatus.FINISHED && !showRankings && (
+          <div className="game-finished-actions" style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            gap: '15px',
+            padding: '20px',
+            background: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '15px',
+            backdropFilter: 'blur(10px)',
+            marginTop: '20px'
+          }}>
+            <div style={{ 
+              color: 'white', 
+              fontSize: '1.5em', 
+              fontWeight: 'bold',
+              textShadow: '2px 2px 4px rgba(0, 0, 0, 0.3)'
+            }}>
+              {t('game:result.gameOver')}
+            </div>
+            <button 
+              className="btn-primary" 
+              onClick={() => setShowRankings(true)}
+              style={{
+                padding: '15px 30px',
+                fontSize: '18px',
+                fontWeight: 'bold'
+              }}
+            >
+              {t('game:result.viewRankings')}
+            </button>
+          </div>
         )}
       </div>
 

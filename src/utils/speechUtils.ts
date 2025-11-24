@@ -4,8 +4,9 @@
  */
 
 import { Play, CardType, Rank } from '../types/card';
+import i18n from '../i18n';
 
-// 将牌型转换为中文语音文本
+// 将牌型转换为语音文本（支持多语言）
 export function playToSpeechText(play: Play): string {
   const { type, cards } = play;
   const cardCount = cards.length;
@@ -14,48 +15,54 @@ export function playToSpeechText(play: Play): string {
   const firstCard = cards[0];
   const rank = firstCard.rank;
   
-  // 将rank转换为中文
-  const rankText = rankToChinese(rank);
+  // 将rank转换为当前语言的文本
+  const rankText = rankToLocalized(rank);
   
   switch (type) {
     case CardType.SINGLE:
       return rankText;
     
     case CardType.PAIR:
-      return `对${rankText}`;
+      return i18n.t('cards:speech.pair', { rank: rankText });
     
     case CardType.TRIPLE:
-      return `三个${rankText}`;
+      return i18n.t('cards:speech.triple', { rank: rankText });
     
     case CardType.BOMB:
-      return `${cardCount}个${rankText}`;
+      return i18n.t('cards:speech.bomb', { count: cardCount, rank: rankText });
     
     case CardType.DUN:
-      return `${cardCount}个${rankText}`;
+      return i18n.t('cards:speech.dun', { count: cardCount, rank: rankText });
     
     default:
-      return `${cardCount}张牌`;
+      return i18n.t('cards:speech.default', { count: cardCount });
   }
 }
 
-// 将rank转换为中文
-function rankToChinese(rank: Rank): string {
+// 将rank转换为当前语言的文本
+function rankToLocalized(rank: Rank): string {
+  const rankKey = rankToKey(rank);
+  return i18n.t(`cards:ranks.${rankKey}`);
+}
+
+// 将rank转换为翻译键
+function rankToKey(rank: Rank): string {
   switch (rank) {
-    case Rank.THREE: return '三';
-    case Rank.FOUR: return '四';
-    case Rank.FIVE: return '五';
-    case Rank.SIX: return '六';
-    case Rank.SEVEN: return '七';
-    case Rank.EIGHT: return '八';
-    case Rank.NINE: return '九';
-    case Rank.TEN: return '十';
-    case Rank.JACK: return '钩';
-    case Rank.QUEEN: return '圈圈';
-    case Rank.KING: return 'K';
-    case Rank.ACE: return '桌桌';
-    case Rank.TWO: return '喔喔';
-    case Rank.JOKER_SMALL: return '小王';
-    case Rank.JOKER_BIG: return '大王';
-    default: return '未知';
+    case Rank.THREE: return 'three';
+    case Rank.FOUR: return 'four';
+    case Rank.FIVE: return 'five';
+    case Rank.SIX: return 'six';
+    case Rank.SEVEN: return 'seven';
+    case Rank.EIGHT: return 'eight';
+    case Rank.NINE: return 'nine';
+    case Rank.TEN: return 'ten';
+    case Rank.JACK: return 'jack';
+    case Rank.QUEEN: return 'queen';
+    case Rank.KING: return 'king';
+    case Rank.ACE: return 'ace';
+    case Rank.TWO: return 'two';
+    case Rank.JOKER_SMALL: return 'jokerSmall';
+    case Rank.JOKER_BIG: return 'jokerBig';
+    default: return 'unknown';
   }
 }

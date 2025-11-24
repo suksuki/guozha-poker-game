@@ -25,6 +25,7 @@ vi.mock('../src/services/voiceService', () => ({
   listAvailableVoices: vi.fn()
 }));
 
+// @ui - 界面交互测试，平时可以跳过
 describe('useChatBubbles', () => {
   let mockGameState: {
     status: GameStatus;

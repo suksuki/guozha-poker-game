@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ActionButtonsProps {
   isPlayerTurn: boolean;
@@ -26,6 +27,8 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   onPlay,
   onPass
 }) => {
+  const { t } = useTranslation(['game']);
+
   return (
     <div className="action-buttons-top">
       <button
@@ -33,26 +36,26 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         onClick={onSuggest}
         disabled={!isPlayerTurn || isSuggesting}
       >
-        {isSuggesting ? 'AI思考中...' : '🤖 AI建议'}
+        {isSuggesting ? t('game:actions.aiThinking') : t('game:actions.aiSuggest')}
       </button>
       <button
         className="btn-action"
         onClick={onPlay}
         disabled={selectedCardsCount === 0 || !isPlayerTurn}
       >
-        出牌 ({selectedCardsCount})
+        {t('game:actions.playWithCount', { count: selectedCardsCount })}
       </button>
       <button
         className="btn-action btn-pass"
         onClick={onPass}
         disabled={!isPlayerTurn || !lastPlay || !canPass}
-        title={!canPass && isPlayerTurn && lastPlay ? "你有能打过的牌，必须出牌！" : "要不起"}
+        title={!canPass && isPlayerTurn && lastPlay ? t('game:hints.mustPlayTitle') : t('game:actions.pass')}
       >
-        {!canPass && isPlayerTurn && lastPlay ? "必须出牌" : "要不起"}
+        {!canPass && isPlayerTurn && lastPlay ? t('game:actions.mustPlay') : t('game:actions.pass')}
       </button>
       {!canPass && isPlayerTurn && lastPlay && (
         <div className="must-play-hint">
-          ⚠️ 你有能打过的牌，必须出牌！
+          ⚠️ {t('game:hints.mustPlay')}
         </div>
       )}
     </div>

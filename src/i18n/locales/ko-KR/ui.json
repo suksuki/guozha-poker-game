@@ -1,0 +1,112 @@
+{
+  "config": {
+    "playerCount": "플레이어 수 (4-8명)",
+    "yourPosition": "당신의 위치",
+    "player": "플레이어 {{index}}",
+    "aiStrategy": "AI 전략",
+    "aiAlgorithm": "AI 알고리즘",
+    "dealingAlgorithm": "카드 나누기 알고리즘",
+    "skipDealingAnimation": "카드 나누기 애니메이션 건너뛰기",
+    "dealingSpeed": "카드 나누기 속도",
+    "sortOrder": "카드 정렬"
+  },
+  "strategies": {
+    "aggressive": "공격적",
+    "conservative": "보수적",
+    "balanced": "균형"
+  },
+  "algorithms": {
+    "mcts": "MCTS 몬테카를로 트리 탐색 (권장)",
+    "simple": "스마트 전략 알고리즘"
+  },
+  "algorithmHints": {
+    "mcts": "MCTS는 더 똑똑하지만 느립니다. 너무 느리면 \"스마트 전략 알고리즘\" (빠른 모드)을 선택하세요",
+    "simple": "전략은 간단한 알고리즘에만 영향을 미칩니다. MCTS는 자동으로 최적 전략을 학습합니다"
+  },
+  "dealingAlgorithms": {
+    "random": "완전 랜덤",
+    "fair": "공정한 분배",
+    "favorHuman": "인간 플레이어 우대",
+    "favorAi": "AI 플레이어 우대",
+    "balancedScore": "균형 점수 카드",
+    "clustered": "클러스터 분배"
+  },
+  "dealingAlgorithmHint": "카드 나누기 전략 선택, 게임 난이도와 재미에 영향",
+  "skipDealingAnimationHint": "체크하면 카드 나누기 애니메이션 없이 바로 게임 시작",
+  "dealingSpeeds": {
+    "fast": "빠름 (50ms/장)",
+    "normal": "보통 (150ms/장)",
+    "slow": "느림 (300ms/장)",
+    "verySlow": "매우 느림 (500ms/장)"
+  },
+  "dealingSpeedHint": "카드 나누기 애니메이션 속도 제어",
+  "sortOrders": {
+    "grouped": "숫자별 그룹화",
+    "asc": "오름차순",
+    "desc": "내림차순"
+  },
+  "sortOrderHint": "카드 나누기 시 카드 정렬 방법",
+  "training": {
+    "title": "훈련 모드",
+    "description": "아래 버튼을 클릭하여 훈련 설정 패널에 들어가 훈련 매개변수를 설정하고 훈련을 시작하세요.",
+    "enterConfig": "🚀 훈련 설정 입력",
+    "mctsTraining": "🏋️ MCTS 훈련 모드",
+    "backToGame": "← 게임 모드로 돌아가기",
+    "simulationCount": "시뮬레이션 게임 수",
+    "simulationCountHint": "권장: 100-1000게임 (테스트), 1000-10000게임 (정식 훈련)",
+    "mctsIterations": "훈련 중 MCTS 반복 횟수",
+    "mctsIterationsHint": "더 정확한 결과를 위해 훈련 중 더 많은 반복 사용 (기본 200, 게임 중 50)",
+    "mctsDepth": "훈련 중 MCTS 시뮬레이션 깊이",
+    "mctsDepthHint": "더 정확한 결과를 위해 훈련 중 더 깊은 시뮬레이션 사용 (기본 50, 게임 중 20)",
+    "showProgress": "상세 진행 상황 표시",
+    "autoTune": "훈련 후 자동 매개변수 조정",
+    "autoTuneHint": "최적 구성을 찾기 위해 여러 매개변수 조합을 자동으로 테스트 (훈련 시간 증가)",
+    "tuneGamesPerConfig": "조정 중 구성당 게임 수",
+    "tuneGamesPerConfigHint": "각 매개변수 구성에 대해 실행할 게임 수, 많을수록 정확하지만 느림 (권장: 50-100)",
+    "instructions": {
+      "title": "훈련 설명:",
+      "item1": "훈련은 전체 정보 모드를 사용합니다 (모든 플레이어 손패를 알고 있음)",
+      "item2": "훈련 과정에서 다양한 시나리오에 대한 최적 결정을 기록합니다",
+      "item3": "훈련 완료 후 최적화 제안을 생성합니다",
+      "item4": "훈련 진행 상황이 실시간으로 표시되며, 언제든지 일시 중지하거나 중지할 수 있습니다",
+      "item5": "훈련 완료 후 매개변수가 자동으로 미세 조정되어 여러 구성을 테스트하여 최적의 매개변수를 찾습니다"
+    },
+    "startTraining": "🚀 훈련 시작"
+  },
+  "playerInfo": {
+    "yourHand": "당신의 손패 ({{count}}장)",
+    "score": "점수: {{score}}점",
+    "wonRounds": "당신이 {{count}}라운드를 이겼습니다",
+    "roundTitle": "{{round}}라운드: {{score}}점",
+    "roundBadge": "R{{round}}: {{score}}점"
+  },
+  "playerHand": {
+    "loading": "손패 데이터 로딩 중...",
+    "score": "{{score}}점"
+  },
+  "aiPlayer": {
+    "remaining": "남은 카드: {{count}}장",
+    "score": "점수: {{score}}점",
+    "wonRounds": "{{count}}라운드 승리",
+    "roundTitle": "{{round}}라운드: {{score}}점",
+    "roundBadge": "R{{round}}: {{score}}점",
+    "thinking": "생각 중...",
+    "scoreLabel": "점수:",
+    "dunCountLabel": "둔:",
+    "rankLabel": "순위:",
+    "handLabel": "손패:",
+    "rankBadge": "{{rank}}위",
+    "cards": "{{count}}장"
+  },
+  "dealing": {
+    "clickToDraw": "클릭하여 카드 뽑기",
+    "dealingProgress": "카드 나누는 중... {{current}} / {{total}}",
+    "skipAnimation": "카드 나누기 애니메이션 건너뛰기",
+    "switchToAuto": "🔄 자동으로 전환",
+    "switchToManual": "👆 수동으로 전환",
+    "drawCard": "🎴 카드 뽑기",
+    "you": "당신",
+    "cardsUnit": "장"
+  }
+}
+

@@ -1,6 +1,7 @@
 /**
  * 基于规则的聊天策略实现
  * 使用预定义的规则和内容库生成聊天内容
+ * 支持多语言（通过 i18n）
  */
 
 import { ChatMessage, ChatEventType } from '../../types/chat';
@@ -8,6 +9,7 @@ import { Player } from '../../types/card';
 import { IChatStrategy, ChatContext } from './IChatStrategy';
 import { getChatContent, getRandomChat, getTaunt } from '../../utils/chatContent';
 import { ChatServiceConfig, BigDunConfig, TauntConfig } from '../../config/chatConfig';
+import i18n from '../../i18n';
 
 export class RuleBasedStrategy implements IChatStrategy {
   readonly name = 'rule-based';
@@ -28,7 +30,13 @@ export class RuleBasedStrategy implements IChatStrategy {
       return null;
     }
 
+    // 根据当前 i18n 语言和玩家的 dialect 选择内容
+    // 如果当前语言是中文，支持 mandarin 和 cantonese 的区别
+    // 如果当前语言是其他语言，使用当前 i18n 语言
+    const currentLang = i18n.language || 'zh-CN';
     const dialect = player.voiceConfig?.dialect === 'cantonese' ? 'cantonese' : 'mandarin';
+    
+    // 如果当前语言是中文，使用 dialect；否则使用当前语言的内容
     const content = getRandomChat(dialect);
     
     return {
@@ -50,6 +58,8 @@ export class RuleBasedStrategy implements IChatStrategy {
       return null;
     }
 
+    // 根据当前 i18n 语言和玩家的 dialect 选择内容
+    const currentLang = i18n.language || 'zh-CN';
     const dialect = player.voiceConfig?.dialect === 'cantonese' ? 'cantonese' : 'mandarin';
     const isTaunt = eventType === ChatEventType.SCORE_STOLEN;
     const content = getChatContent(eventType, dialect, isTaunt);
@@ -69,6 +79,8 @@ export class RuleBasedStrategy implements IChatStrategy {
     context?: ChatContext
   ): ChatMessage | null {
     if (Math.random() < this.tauntConfig.probability) {
+      // 根据当前 i18n 语言和玩家的 dialect 选择内容
+      const currentLang = i18n.language || 'zh-CN';
       const dialect = player.voiceConfig?.dialect === 'cantonese' ? 'cantonese' : 'mandarin';
       const content = getTaunt(dialect);
       

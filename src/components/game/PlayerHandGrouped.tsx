@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card } from '../../types/card';
 import { CardComponent } from '../CardComponent';
 import { isScoreCard, getCardScore } from '../../utils/cardUtils';
@@ -24,8 +25,10 @@ export const PlayerHandGrouped: React.FC<PlayerHandGroupedProps> = ({
   onCardClick,
   onToggleExpand
 }) => {
+  const { t } = useTranslation(['ui']);
+
   if (groupedHand.size === 0) {
-    return <div className="no-cards">手牌数据加载中...</div>;
+    return <div className="no-cards">{t('ui:playerHand.loading')}</div>;
   }
 
   return (
@@ -80,7 +83,7 @@ export const PlayerHandGrouped: React.FC<PlayerHandGroupedProps> = ({
                           <div className="card-count-badge">{cards.length}</div>
                         )}
                         {isScore && (
-                          <div className="card-score-badge">{score}分</div>
+                          <div className="card-score-badge">{t('ui:playerHand.score', { score })}</div>
                         )}
                       </div>
                     );
@@ -101,7 +104,7 @@ export const PlayerHandGrouped: React.FC<PlayerHandGroupedProps> = ({
                           onClick={() => onCardClick(card)}
                         />
                         {isScore && (
-                          <div className="card-score-badge">{score}分</div>
+                          <div className="card-score-badge">{t('ui:playerHand.score', { score })}</div>
                         )}
                       </div>
                     );

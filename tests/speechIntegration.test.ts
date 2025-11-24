@@ -50,6 +50,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// @async - 异步调用测试，平时可以跳过
 describe('语音功能集成测试', () => {
   describe('实际游戏场景的语音提示', () => {
     it('应该正确转换6个5的语音', async () => {
@@ -68,8 +69,8 @@ describe('语音功能集成测试', () => {
       
       const promise = speakPlay(play);
       
-      // 等待一小段时间让队列处理
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // 等待一小段时间让队列处理（测试环境可以更快）
+      await new Promise(resolve => setTimeout(resolve, 1));
       
       expect(mockSpeak).toHaveBeenCalledTimes(1);
       const utterance = mockSpeak.mock.calls[0][0];
@@ -99,8 +100,8 @@ describe('语音功能集成测试', () => {
       
       const promise = speakPlay(play);
       
-      // 等待一小段时间让队列处理
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // 等待一小段时间让队列处理（测试环境可以更快）
+      await new Promise(resolve => setTimeout(resolve, 1));
       
       expect(mockSpeak).toHaveBeenCalledTimes(1);
       const utterance = mockSpeak.mock.calls[0][0];
@@ -183,15 +184,15 @@ describe('语音功能集成测试', () => {
       // 连续调用多次（由于去重机制，相同语音会被忽略）
       const promise1 = speakPlay(play);
       // 等待一小段时间
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 1)); // 从10ms减少到1ms
       
       // 第二次调用会被去重（因为和第一次相同且时间间隔短）
       const promise2 = speakPlay(play);
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 1)); // 从10ms减少到1ms
       
       // 第三次调用也会被去重
       const promise3 = speakPlay(play);
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 1)); // 从10ms减少到1ms
       
       // 由于去重机制，只有第一次会真正播放
       expect(mockSpeak).toHaveBeenCalledTimes(1);

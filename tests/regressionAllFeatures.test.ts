@@ -3,7 +3,7 @@
  * 确保已实现的功能不会因为后续修改而失效
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { Card, Suit, Rank, CardType, PlayerType } from '../src/types/card';
 import { 
   calculateDunCount, 
@@ -13,8 +13,18 @@ import {
   isScoreCard
 } from '../src/utils/cardUtils';
 import { playToSpeechText } from '../src/utils/speechUtils';
+import i18n from '../src/i18n';
 
 describe('所有新功能回归测试', () => {
+  beforeEach(async () => {
+    // 确保使用中文进行测试（因为测试期望中文输出）
+    if (!i18n.isInitialized) {
+      await i18n.init();
+    }
+    await i18n.changeLanguage('zh-CN');
+    await new Promise(resolve => setTimeout(resolve, 20)); // 从50ms减少到20ms
+  });
+
   describe('回归测试：墩的计分规则', () => {
     it('修复前：7张相同牌应该被识别为墩 - 应该已修复', () => {
       const cards: Card[] = Array.from({ length: 7 }, (_, i) => ({

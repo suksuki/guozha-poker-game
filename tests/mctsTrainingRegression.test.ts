@@ -16,6 +16,7 @@ import { MCTSNode, SimulatedGameState } from '../src/ai/types';
 import { Card, Suit, Rank, Play } from '../src/types/card';
 import { createDeck, dealCards } from '../src/utils/cardUtils';
 
+// @slow - 慢测试（MCTS训练，耗时1-2分钟），平时可以跳过
 describe('MCTS训练功能回归测试', () => {
   describe('配置分离测试', () => {
     it('应该支持不同的训练和游戏配置', () => {

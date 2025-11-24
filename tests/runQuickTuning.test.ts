@@ -7,6 +7,7 @@
 import { describe, it } from 'vitest';
 import { quickExplorationTuning } from '../src/utils/runQuickTuning';
 
+// @slow - 极慢测试（MCTS微调，耗时30-40分钟），平时必须跳过
 describe('快速微调测试', () => {
   it('应该能够运行快速探索常数微调', async () => {
     console.log('\n' + '='.repeat(60));

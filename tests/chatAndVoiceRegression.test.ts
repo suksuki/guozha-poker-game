@@ -17,6 +17,7 @@ import {
 } from '../src/services/chatService';
 import { getChatContent, getRandomChat, getTaunt } from '../src/utils/chatContent';
 
+// @async - 异步调用测试，平时可以跳过
 describe('聊天和语音系统回归测试', () => {
   beforeEach(() => {
     clearChatMessages();

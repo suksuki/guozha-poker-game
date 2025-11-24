@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface TrainingConfig {
   gameCount: number;
@@ -28,6 +29,7 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
   onStartTraining,
   onBack
 }) => {
+  const { t } = useTranslation(['ui']);
   const [localConfig, setLocalConfig] = useState<TrainingConfig>(config);
 
   const updateConfig = (updates: Partial<TrainingConfig>) => {
@@ -39,14 +41,14 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
   return (
     <div className="game-container">
       <div className="start-screen">
-        <h1>🏋️ MCTS训练模式</h1>
+        <h1>{t('ui:training.mctsTraining')}</h1>
         <div className="config-panel">
           <button className="btn-back" onClick={onBack} style={{ marginBottom: '20px' }}>
-            ← 返回游戏模式
+            {t('ui:training.backToGame')}
           </button>
           
           <div className="config-item">
-            <label>模拟牌局数量:</label>
+            <label>{t('ui:training.simulationCount')}</label>
             <input
               type="number"
               min="10"
@@ -56,12 +58,12 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
               onChange={(e) => updateConfig({ gameCount: parseInt(e.target.value) || 1000 })}
             />
             <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-              建议：100-1000局（测试），1000-10000局（正式训练）
+              {t('ui:training.simulationCountHint')}
             </small>
           </div>
 
           <div className="config-item">
-            <label>玩家数量:</label>
+            <label>{t('ui:config.playerCount')}</label>
             <input
               type="number"
               min="4"
@@ -72,7 +74,7 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
           </div>
 
           <div className="config-item">
-            <label>训练时MCTS迭代次数:</label>
+            <label>{t('ui:training.mctsIterations')}</label>
             <input
               type="number"
               min="50"
@@ -82,12 +84,12 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
               onChange={(e) => updateConfig({ mctIterations: parseInt(e.target.value) || 200 })}
             />
             <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-              训练时使用更多迭代以获得更准确的结果（默认200，游戏时50）
+              {t('ui:training.mctsIterationsHint')}
             </small>
           </div>
 
           <div className="config-item">
-            <label>训练时MCTS模拟深度:</label>
+            <label>{t('ui:training.mctsDepth')}</label>
             <input
               type="number"
               min="20"
@@ -97,7 +99,7 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
               onChange={(e) => updateConfig({ mctsDepth: parseInt(e.target.value) || 50 })}
             />
             <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-              训练时使用更深的模拟以获得更准确的结果（默认50，游戏时20）
+              {t('ui:training.mctsDepthHint')}
             </small>
           </div>
 
@@ -108,7 +110,7 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
                 checked={localConfig.showProgress}
                 onChange={(e) => updateConfig({ showProgress: e.target.checked })}
               />
-              显示详细进度
+              {t('ui:training.showProgress')}
             </label>
           </div>
 
@@ -119,16 +121,16 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
                 checked={localConfig.autoTune || false}
                 onChange={(e) => updateConfig({ autoTune: e.target.checked })}
               />
-              训练完成后自动微调参数
+              {t('ui:training.autoTune')}
             </label>
             <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-              自动测试多个参数组合，找到最佳配置（会增加训练时间）
+              {t('ui:training.autoTuneHint')}
             </small>
           </div>
 
           {localConfig.autoTune && (
             <div className="config-item">
-              <label>微调时每个配置的游戏数:</label>
+              <label>{t('ui:training.tuneGamesPerConfig')}</label>
               <input
                 type="number"
                 min="10"
@@ -138,7 +140,7 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
                 onChange={(e) => updateConfig({ tuneGamesPerConfig: parseInt(e.target.value) || 50 })}
               />
               <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-                每个参数配置运行的游戏数，越多越准确但越慢（建议：50-100）
+                {t('ui:training.tuneGamesPerConfigHint')}
               </small>
             </div>
           )}
@@ -151,15 +153,15 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
             fontSize: '14px',
             color: '#666'
           }}>
-            <strong>训练说明：</strong>
+            <strong>{t('ui:training.instructions.title')}</strong>
                 <ul style={{ margin: '10px 0', paddingLeft: '20px' }}>
-                  <li>训练将使用全信息模式（知道所有玩家手牌）</li>
-                  <li>训练过程中会记录不同场景的最优决策</li>
-                  <li>训练完成后会生成优化建议</li>
-                  <li>训练进度会实时显示，可随时暂停或停止</li>
+                  <li>{t('ui:training.instructions.item1')}</li>
+                  <li>{t('ui:training.instructions.item2')}</li>
+                  <li>{t('ui:training.instructions.item3')}</li>
+                  <li>{t('ui:training.instructions.item4')}</li>
                   {localConfig.autoTune && (
                     <li style={{ color: '#2196F3', fontWeight: 'bold' }}>
-                      训练完成后将自动微调参数，测试多个配置找到最佳参数
+                      {t('ui:training.instructions.item5')}
                     </li>
                   )}
                 </ul>
@@ -176,7 +178,7 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
             style={{ width: '100%', fontSize: '16px', padding: '12px', cursor: 'pointer' }}
             type="button"
           >
-            🚀 开始训练
+            {t('ui:training.startTraining')}
           </button>
         </div>
       </div>

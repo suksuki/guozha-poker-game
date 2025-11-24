@@ -45,6 +45,7 @@ vi.mock('../src/utils/dealingAlgorithms', () => ({
   getDealingAlgorithmDescription: vi.fn((alg) => `算法: ${alg}`)
 }));
 
+// @ui - 界面交互测试，平时可以跳过
 describe('发牌动画组件', () => {
   const mockPlayers = [
     {
@@ -166,6 +167,7 @@ describe('发牌动画组件', () => {
   });
 
   it('发牌完成后应该调用 onComplete', async () => {
+    // 使用更快的发牌速度（1ms）来加速测试
     render(
       <DealingAnimation
         playerCount={4}
@@ -173,16 +175,17 @@ describe('发牌动画组件', () => {
         players={mockPlayers}
         dealingConfig={mockDealingConfig}
         onComplete={mockOnComplete}
+        dealingSpeed={1} // 测试时使用1ms，而不是默认的150ms
       />
     );
 
     // 等待发牌完成（需要等待所有牌发完）
-    // 4个玩家 * 54张牌 = 216张牌，每张150ms = 32400ms
-    await vi.advanceTimersByTimeAsync(35000);
+    // 4个玩家 * 54张牌 = 216张牌，每张1ms = 216ms，加上一些缓冲
+    await vi.advanceTimersByTimeAsync(500);
 
     await waitFor(() => {
       expect(mockOnComplete).toHaveBeenCalled();
-    });
+    }, { timeout: 1000 });
 
     // 验证 onComplete 被调用时传入了正确的牌
     expect(mockOnComplete).toHaveBeenCalledWith(

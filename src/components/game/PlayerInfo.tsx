@@ -13,23 +13,25 @@ interface PlayerInfoProps {
 }
 
 export const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, isPlayerTurn }) => {
+  const { t } = useTranslation(['game', 'ui']);
+
   return (
     <div className="player-info">
-      <h3>你的手牌 ({player.hand.length} 张)</h3>
-      <div className="player-score-display">得分: {player.score || 0} 分</div>
+      <h3>{t('ui:playerInfo.yourHand', { count: player.hand.length })}</h3>
+      <div className="player-score-display">{t('ui:playerInfo.score', { score: player.score || 0 })}</div>
       {player.wonRounds && player.wonRounds.length > 0 && (
         <div className="player-won-rounds">
-          <div className="won-rounds-label">你赢得了 {player.wonRounds.length} 轮</div>
+          <div className="won-rounds-label">{t('ui:playerInfo.wonRounds', { count: player.wonRounds.length })}</div>
           <div className="won-rounds-summary">
             {player.wonRounds.map((round, idx) => (
-              <div key={idx} className="won-round-badge" title={`第${round.roundNumber}轮: ${round.totalScore}分`}>
-                轮{round.roundNumber}: {round.totalScore}分
+              <div key={idx} className="won-round-badge" title={t('ui:playerInfo.roundTitle', { round: round.roundNumber, score: round.totalScore })}>
+                {t('ui:playerInfo.roundBadge', { round: round.roundNumber, score: round.totalScore })}
               </div>
             ))}
           </div>
         </div>
       )}
-      {isPlayerTurn && <div className="your-turn">轮到你出牌</div>}
+      {isPlayerTurn && <div className="your-turn">{t('game:status.yourTurn')}</div>}
     </div>
   );
 };

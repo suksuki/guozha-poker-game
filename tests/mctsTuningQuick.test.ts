@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { quickTestConfig, MCTSConfig } from '../src/utils/mctsTuning';
 
+// @slow - 慢测试（MCTS微调，耗时1-2分钟），平时可以跳过
 describe('MCTS微调快速验证', () => {
   it('应该能够运行单局测试', async () => {
     const config: MCTSConfig = {

@@ -1,0 +1,112 @@
+{
+  "config": {
+    "playerCount": "プレイヤー数 (4-8人)",
+    "yourPosition": "あなたの位置",
+    "player": "プレイヤー{{index}}",
+    "aiStrategy": "AI戦略",
+    "aiAlgorithm": "AIアルゴリズム",
+    "dealingAlgorithm": "カード配りアルゴリズム",
+    "skipDealingAnimation": "カード配りアニメーションをスキップ",
+    "dealingSpeed": "カード配り速度",
+    "sortOrder": "カードソート"
+  },
+  "strategies": {
+    "aggressive": "アグレッシブ",
+    "conservative": "保守的",
+    "balanced": "バランス"
+  },
+  "algorithms": {
+    "mcts": "MCTSモンテカルロ木探索（推奨）",
+    "simple": "スマート戦略アルゴリズム"
+  },
+  "algorithmHints": {
+    "mcts": "MCTSはより賢いですが遅いです。遅すぎる場合は「スマート戦略アルゴリズム」（高速モード）を選択してください",
+    "simple": "戦略はシンプルなアルゴリズムにのみ影響します。MCTSは自動的に最適な戦略を学習します"
+  },
+  "dealingAlgorithms": {
+    "random": "完全ランダム",
+    "fair": "公平な配布",
+    "favorHuman": "人間プレイヤー優遇",
+    "favorAi": "AIプレイヤー優遇",
+    "balancedScore": "バランススコアカード",
+    "clustered": "クラスター配布"
+  },
+  "dealingAlgorithmHint": "カード配り戦略を選択、ゲーム難易度と楽しさに影響",
+  "skipDealingAnimationHint": "チェックするとカード配りアニメーションなしで直接ゲーム開始",
+  "dealingSpeeds": {
+    "fast": "高速 (50ms/枚)",
+    "normal": "通常 (150ms/枚)",
+    "slow": "低速 (300ms/枚)",
+    "verySlow": "非常に低速 (500ms/枚)"
+  },
+  "dealingSpeedHint": "カード配りアニメーションの速度を制御",
+  "sortOrders": {
+    "grouped": "数字別グループ化",
+    "asc": "昇順",
+    "desc": "降順"
+  },
+  "sortOrderHint": "カード配り時のカードソート方法",
+  "training": {
+    "title": "トレーニングモード",
+    "description": "下のボタンをクリックしてトレーニング設定パネルに入り、トレーニングパラメータを設定してトレーニングを開始してください。",
+    "enterConfig": "🚀 トレーニング設定に入る",
+    "mctsTraining": "🏋️ MCTSトレーニングモード",
+    "backToGame": "← ゲームモードに戻る",
+    "simulationCount": "シミュレーションゲーム数",
+    "simulationCountHint": "推奨: 100-1000ゲーム (テスト), 1000-10000ゲーム (正式トレーニング)",
+    "mctsIterations": "トレーニング中のMCTS反復回数",
+    "mctsIterationsHint": "より正確な結果を得るためにトレーニング中により多くの反復を使用 (デフォルト200, ゲーム中50)",
+    "mctsDepth": "トレーニング中のMCTSシミュレーション深度",
+    "mctsDepthHint": "より正確な結果を得るためにトレーニング中により深いシミュレーションを使用 (デフォルト50, ゲーム中20)",
+    "showProgress": "詳細な進捗を表示",
+    "autoTune": "トレーニング後にパラメータを自動調整",
+    "autoTuneHint": "最適な構成を見つけるために複数のパラメータ組み合わせを自動的にテスト (トレーニング時間が増加)",
+    "tuneGamesPerConfig": "調整中の構成ごとのゲーム数",
+    "tuneGamesPerConfigHint": "各パラメータ構成に対して実行するゲーム数、多いほど正確だが遅い (推奨: 50-100)",
+    "instructions": {
+      "title": "トレーニング説明:",
+      "item1": "トレーニングは全情報モードを使用します (すべてのプレイヤーの手札を知っている)",
+      "item2": "トレーニングプロセスでさまざまなシナリオの最適な決定を記録します",
+      "item3": "トレーニング完了後に最適化提案を生成します",
+      "item4": "トレーニングの進捗がリアルタイムで表示され、いつでも一時停止または停止できます",
+      "item5": "トレーニング完了後、パラメータが自動的に微調整され、複数の構成をテストして最適なパラメータを見つけます"
+    },
+    "startTraining": "🚀 トレーニング開始"
+  },
+  "playerInfo": {
+    "yourHand": "あなたの手札 ({{count}}枚)",
+    "score": "スコア: {{score}}点",
+    "wonRounds": "あなたは{{count}}ラウンドを勝ちました",
+    "roundTitle": "{{round}}ラウンド: {{score}}点",
+    "roundBadge": "R{{round}}: {{score}}点"
+  },
+  "playerHand": {
+    "loading": "手札データ読み込み中...",
+    "score": "{{score}}点"
+  },
+  "aiPlayer": {
+    "remaining": "残り: {{count}}枚",
+    "score": "スコア: {{score}}点",
+    "wonRounds": "{{count}}ラウンド勝利",
+    "roundTitle": "{{round}}ラウンド: {{score}}点",
+    "roundBadge": "R{{round}}: {{score}}点",
+    "thinking": "考え中...",
+    "scoreLabel": "スコア:",
+    "dunCountLabel": "ドゥン:",
+    "rankLabel": "順位:",
+    "handLabel": "手札:",
+    "rankBadge": "{{rank}}位",
+    "cards": "{{count}}枚"
+  },
+  "dealing": {
+    "clickToDraw": "クリックしてカードを引く",
+    "dealingProgress": "配布中... {{current}} / {{total}}",
+    "skipAnimation": "配布アニメーションをスキップ",
+    "switchToAuto": "🔄 自動に切り替え",
+    "switchToManual": "👆 手動に切り替え",
+    "drawCard": "🎴 カードを引く",
+    "you": "あなた",
+    "cardsUnit": "枚"
+  }
+}
+

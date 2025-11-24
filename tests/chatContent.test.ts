@@ -2,11 +2,16 @@
  * 聊天内容库测试
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { ChatEventType } from '../src/types/chat';
 import { getChatContent, getRandomChat, getTaunt } from '../src/utils/chatContent';
+import i18n from '../src/i18n';
 
 describe('聊天内容库', () => {
+  beforeEach(async () => {
+    // 确保测试使用中文语言
+    await i18n.changeLanguage('zh-CN');
+  });
   describe('getChatContent', () => {
     it('应该返回普通话的随机闲聊内容', () => {
       const content = getChatContent(ChatEventType.RANDOM, 'mandarin');

@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Player } from '../../types/card';
 
 interface Ranking {
@@ -21,14 +22,18 @@ interface GameResultScreenProps {
   rankings: Ranking[];
   gameRecord?: GameRecord;
   onReset: () => void;
+  onBackToGame?: () => void; // 返回查看牌面
 }
 
 export const GameResultScreen: React.FC<GameResultScreenProps> = ({
   winner,
   rankings,
   gameRecord,
-  onReset
+  onReset,
+  onBackToGame
 }) => {
+  const { t } = useTranslation(['game']);
+
   const handleDownload = () => {
     if (!gameRecord) return;
     const dataStr = JSON.stringify(gameRecord, null, 2);
@@ -44,12 +49,12 @@ export const GameResultScreen: React.FC<GameResultScreenProps> = ({
   return (
     <div className="game-container">
       <div className="result-screen">
-        <h1>{winner?.isHuman ? '🎉 你赢了！' : `😢 ${winner?.name}赢了`}</h1>
+        <h1>{winner?.isHuman ? t('game:result.youWon') : t('game:result.playerWon', { name: winner?.name })}</h1>
         
         {/* 显示排名 */}
         {rankings.length > 0 && (
           <div className="rankings-container" style={{ marginTop: '20px', marginBottom: '20px' }}>
-            <h2>最终排名</h2>
+            <h2>{t('game:result.finalRankings')}</h2>
             <div className="rankings-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
               {rankings
                 .sort((a, b) => b.finalScore - a.finalScore)
@@ -74,14 +79,14 @@ export const GameResultScreen: React.FC<GameResultScreenProps> = ({
                       <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
                         {ranking.player.name}
                       </span>
-                      {ranking.player.isHuman && <span style={{ fontSize: '12px', color: '#666' }}>(你)</span>}
+                      {ranking.player.isHuman && <span style={{ fontSize: '12px', color: '#666' }}>{t('game:result.you')}</span>}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                       <span style={{ fontSize: '18px', fontWeight: 'bold', color: index === 0 ? '#ff6b6b' : '#333' }}>
-                        {ranking.finalScore} 分
+                        {t('game:result.score', { score: ranking.finalScore })}
                       </span>
                       <span style={{ fontSize: '12px', color: '#666' }}>
-                        排名: {ranking.rank}
+                        {t('game:result.ranking', { rank: ranking.rank })}
                       </span>
                     </div>
                   </div>
@@ -90,13 +95,18 @@ export const GameResultScreen: React.FC<GameResultScreenProps> = ({
           </div>
         )}
         
-        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {onBackToGame && (
+            <button className="btn-action" onClick={onBackToGame} style={{ background: '#2196F3' }}>
+              {t('game:result.backToGame')}
+            </button>
+          )}
           <button className="btn-primary" onClick={onReset}>
-            再来一局
+            {t('game:result.playAgain')}
           </button>
           {gameRecord && (
             <button className="btn-action" onClick={handleDownload}>
-              下载游戏记录
+              {t('game:result.downloadRecord')}
             </button>
           )}
         </div>

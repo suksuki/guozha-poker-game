@@ -4,19 +4,22 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ErrorScreenProps {
   onReset: () => void;
 }
 
 export const ErrorScreen: React.FC<ErrorScreenProps> = ({ onReset }) => {
+  const { t } = useTranslation(['game']);
+
   return (
     <div className="game-container">
       <div className="error-screen">
-        <h2>游戏状态错误</h2>
-        <p>玩家数据未正确加载，请重新开始游戏</p>
+        <h2>{t('game:error.title')}</h2>
+        <p>{t('game:error.message')}</p>
         <button className="btn-primary" onClick={onReset}>
-          返回开始界面
+          {t('game:error.backToStart')}
         </button>
       </div>
     </div>
