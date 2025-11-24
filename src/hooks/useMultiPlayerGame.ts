@@ -6,10 +6,11 @@ import { voiceService } from '../services/voiceService';
 import { announcePlay, announcePass } from '../services/systemAnnouncementService';
 import { generateRandomVoiceConfig } from '../services/voiceConfigService';
 import { triggerScoreStolenReaction, triggerScoreEatenCurseReaction, triggerFinishFirstReaction, triggerFinishMiddleReaction, triggerFinishLastReaction, clearChatMessages } from '../services/chatService';
-import { findNextActivePlayer, checkGameFinished, MultiPlayerGameState } from '../utils/gameStateUtils';
+import { findNextActivePlayer, checkGameFinished, MultiPlayerGameState, checkAllRemainingPlayersPassed } from '../utils/gameStateUtils';
 import { applyFinalGameRules, calculateFinalRankings } from '../utils/gameRules';
 import { handleDunScoring, createPlayRecord, updatePlayerAfterPlay, triggerGoodPlayReactions } from '../utils/playManager';
 import { getGameConfig } from '../config/gameConfig';
+import { calculatePlayAnimationPosition } from '../utils/animationUtils';
 
 // 游戏完整记录（用于保存）
 export interface GameRecord {
@@ -65,6 +66,11 @@ export function useMultiPlayerGame() {
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // 用于防止重复触发AI出牌的标志
+  const isAITurnProcessingRef = useRef(false);
+  // 用于跟踪上一次处理的玩家索引，避免重复触发
+  const lastProcessedPlayerIndexRef = useRef<number | null>(null);
 
   // 发牌状态
   const [isDealing, setIsDealing] = useState(false);
@@ -182,6 +188,25 @@ export function useMultiPlayerGame() {
         
         const nextPlayerIndex = findNextActivePlayer(prev.currentPlayerIndex, prev.players, prev.playerCount);
         
+        // 如果所有玩家都出完了，结束游戏
+        if (nextPlayerIndex === null) {
+          const allFinished = prev.players.every(p => p.hand.length === 0);
+          if (allFinished) {
+            const finalPlayers = applyFinalGameRules(prev.players, prev.finishOrder || []);
+            const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+            const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+            
+            return {
+              ...prev,
+              status: GameStatus.FINISHED,
+              players: finalPlayers,
+              winner: winner.player.id,
+              finalRankings
+            };
+          }
+          return prev; // 不应该发生，但作为保护
+        }
+        
         return {
           ...prev,
           currentPlayerIndex: nextPlayerIndex
@@ -239,13 +264,22 @@ export function useMultiPlayerGame() {
                 // 计算这手牌的分值
                 const fallbackScore = calculateCardsScore(fallbackCards);
                 
+                // 计算动画位置
+                const animationPosition = calculatePlayAnimationPosition(
+                  currentState.currentPlayerIndex,
+                  prev.players,
+                  prev.players.findIndex(p => p.isHuman),
+                  prev.playerCount
+                );
+                
                 // 处理墩的计分
                 const { updatedPlayers: playersAfterDun, dunScore } = handleDunScoring(
                   prev.players,
                   currentState.currentPlayerIndex,
                   fallbackCards,
                   prev.playerCount,
-                  fallbackPlay
+                  fallbackPlay,
+                  animationPosition
                 );
                 
                 // 更新玩家手牌和分数
@@ -331,6 +365,26 @@ export function useMultiPlayerGame() {
           // 还没全部出完，找到下一个还在游戏中的玩家（接风）
           const nextPlayerIndex = findNextActivePlayer(currentState.currentPlayerIndex, newPlayers, prev.playerCount);
           
+          // 如果所有玩家都出完了，结束游戏
+          if (nextPlayerIndex === null) {
+            const allFinished = newPlayers.every(p => p.hand.length === 0);
+            if (allFinished) {
+              const finalPlayers = applyFinalGameRules(newPlayers, newFinishOrder);
+              const finalRankings = calculateFinalRankings(finalPlayers, newFinishOrder);
+              const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+              
+              return {
+                ...prev,
+                status: GameStatus.FINISHED,
+                players: finalPlayers,
+                winner: winner.player.id,
+                finishOrder: newFinishOrder,
+                finalRankings
+              };
+            }
+            return prev; // 不应该发生，但作为保护
+          }
+          
           // AI出完牌后，如果最后一手牌没人能打过，应该由下家接风出牌（清空lastPlay）
           // 检查是否所有剩余玩家都要不起这一手牌
           let allCannotBeat = true;
@@ -372,8 +426,8 @@ export function useMultiPlayerGame() {
           
           // 播报后等待，如果下一个玩家是AI，自动继续
           if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-            setTimeout(() => {
-              playNextTurn();
+              setTimeout(() => {
+                playNextTurn();
             }, announcementDelay);
           }
           
@@ -381,6 +435,28 @@ export function useMultiPlayerGame() {
         }
 
                 const nextPlayerIndex = findNextActivePlayer(currentState.currentPlayerIndex, newPlayers, prev.playerCount);
+                
+                // 如果所有玩家都出完了，结束游戏
+                if (nextPlayerIndex === null) {
+                  const allFinished = newPlayers.every(p => p.hand.length === 0);
+                  if (allFinished) {
+                    const finishOrder = prev.finishOrder || [];
+                    const finalPlayers = applyFinalGameRules(newPlayers, finishOrder);
+                    const finalRankings = calculateFinalRankings(finalPlayers, finishOrder);
+                    const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+                    
+                    return {
+                      ...prev,
+                      status: GameStatus.FINISHED,
+                      players: finalPlayers,
+                      winner: winner.player.id,
+                      finishOrder: finishOrder,
+                      finalRankings
+                    };
+                  }
+                  return prev; // 不应该发生，但作为保护
+                }
+                
                 const newState = {
                   ...prev,
                   players: newPlayers,
@@ -396,8 +472,8 @@ export function useMultiPlayerGame() {
                 
                 // 1.5秒后，如果下一个玩家是AI，自动继续
                 if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-                  setTimeout(() => {
-                    playNextTurn();
+                    setTimeout(() => {
+                      playNextTurn();
                   }, 1500);
                 }
 
@@ -414,6 +490,26 @@ export function useMultiPlayerGame() {
           if (prev.currentPlayerIndex !== currentState.currentPlayerIndex) return prev;
 
           const nextPlayerIndex = findNextActivePlayer(prev.currentPlayerIndex, prev.players, prev.playerCount);
+          
+          // 如果所有玩家都出完了，结束游戏
+          if (nextPlayerIndex === null) {
+            const allFinished = prev.players.every(p => p.hand.length === 0);
+            if (allFinished) {
+              const finalPlayers = applyFinalGameRules(prev.players, prev.finishOrder || []);
+              const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+              const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+              
+              return {
+                ...prev,
+                status: GameStatus.FINISHED,
+                players: finalPlayers,
+                winner: winner.player.id,
+                finalRankings
+              };
+            }
+            return prev; // 不应该发生，但作为保护
+          }
+          
           const newPlayers = [...prev.players];
           
           // 只要有人"要不起"，且本轮有出牌记录（lastPlayPlayerIndex不为null），则强制结束本轮
@@ -444,9 +540,31 @@ export function useMultiPlayerGame() {
               
               // 一轮结束，由赢家开始下一轮（如果赢家已出完，找下一个还在游戏中的玩家）
               const winnerIndex = prev.lastPlayPlayerIndex;
-              const nextActivePlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
-                ? winnerIndex 
-                : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+              let nextActivePlayerIndex: number | null;
+              if (newPlayers[winnerIndex]?.hand.length > 0) {
+                nextActivePlayerIndex = winnerIndex;
+              } else {
+                nextActivePlayerIndex = findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+              }
+              
+              // 如果所有玩家都出完了，结束游戏
+              if (nextActivePlayerIndex === null) {
+                const allFinished = newPlayers.every(p => p.hand.length === 0);
+                if (allFinished) {
+                  const finalPlayers = applyFinalGameRules(newPlayers, prev.finishOrder || []);
+                  const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+                  const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+                  
+                  return {
+                    ...prev,
+                    status: GameStatus.FINISHED,
+                    players: finalPlayers,
+                    winner: winner.player.id,
+                    finalRankings
+                  };
+                }
+                return prev; // 不应该发生，但作为保护
+              }
               
               const newState = {
                 ...prev,
@@ -472,8 +590,8 @@ export function useMultiPlayerGame() {
               
               // 1.5秒后，如果下一个玩家是AI，自动继续
               if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
-                setTimeout(() => {
-                  playNextTurn();
+                  setTimeout(() => {
+                    playNextTurn();
                 }, 1500);
               }
               
@@ -481,7 +599,65 @@ export function useMultiPlayerGame() {
             }
           }
           
-          // 如果没有lastPlayPlayerIndex（接风状态），继续游戏
+          // 如果没有lastPlayPlayerIndex（接风状态），检查是否所有剩余玩家都要不起
+          if (prev.lastPlayPlayerIndex === null) {
+            // 接风状态下，如果所有剩余玩家都要不起，强制开始新轮次
+            const allPassed = checkAllRemainingPlayersPassed(
+              prev.currentPlayerIndex,
+              prev.players,
+              prev.playerCount,
+              prev.lastPlay
+            );
+            
+            if (allPassed) {
+              // 所有剩余玩家都要不起，强制开始新轮次，由当前玩家开始
+              const newState = {
+                ...prev,
+                players: newPlayers,
+                currentPlayerIndex: prev.currentPlayerIndex, // 由当前玩家开始新轮次
+                lastPlay: null,
+                lastPlayPlayerIndex: null,
+                roundScore: 0,
+                currentRoundPlays: [],
+                roundNumber: prev.roundNumber + 1
+              };
+              
+              // 报"要不起"（系统信息）：立即报牌，不等待完成
+              const currentPlayerVoice = prev.players[prev.currentPlayerIndex]?.voiceConfig;
+              announcePass(currentPlayerVoice).catch(console.error);
+              
+              // 1.5秒后，如果当前玩家是AI，自动继续
+              if (prev.players[prev.currentPlayerIndex].type === PlayerType.AI) {
+                  setTimeout(() => {
+                    playNextTurn();
+                }, 1500);
+              }
+              
+              return newState;
+            }
+          }
+          
+          // 正常继续游戏
+          // 检查 nextPlayerIndex 是否为 null（所有玩家都出完了）
+          if (nextPlayerIndex === null) {
+            // 所有玩家都出完了，结束游戏
+            const allFinished = newPlayers.every(p => p.hand.length === 0);
+            if (allFinished) {
+              const finalPlayers = applyFinalGameRules(newPlayers, prev.finishOrder || []);
+              const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+              const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+              
+              return {
+                ...prev,
+                status: GameStatus.FINISHED,
+                players: finalPlayers,
+                winner: winner.player.id,
+                finalRankings
+              };
+            }
+            return prev; // 不应该发生，但作为保护
+          }
+          
           let newLastPlay = prev.lastPlay;
           let newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
           let newRoundScore = prev.roundScore;
@@ -503,8 +679,8 @@ export function useMultiPlayerGame() {
           
           // 1.5秒后，如果下一个玩家是AI，自动继续
           if (prev.players[nextPlayerIndex].type === PlayerType.AI) {
-            setTimeout(() => {
-              playNextTurn();
+              setTimeout(() => {
+                playNextTurn();
             }, 1500);
           }
 
@@ -518,6 +694,26 @@ export function useMultiPlayerGame() {
         setGameState(prev => {
           if (prev.status !== GameStatus.PLAYING) return prev;
           const nextPlayerIndex = findNextActivePlayer(prev.currentPlayerIndex, prev.players, prev.playerCount);
+          
+          // 如果所有玩家都出完了，结束游戏
+          if (nextPlayerIndex === null) {
+            const allFinished = prev.players.every(p => p.hand.length === 0);
+            if (allFinished) {
+              const finalPlayers = applyFinalGameRules(prev.players, prev.finishOrder || []);
+              const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+              const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+              
+              return {
+                ...prev,
+                status: GameStatus.FINISHED,
+                players: finalPlayers,
+                winner: winner.player.id,
+                finalRankings
+              };
+            }
+            return prev; // 不应该发生，但作为保护
+          }
+          
           const newPlayers = [...prev.players];
           
           // 只要有人"要不起"，且本轮有出牌记录（lastPlayPlayerIndex不为null），则强制结束本轮
@@ -548,9 +744,31 @@ export function useMultiPlayerGame() {
               
               // 一轮结束，由赢家开始下一轮（如果赢家已出完，找下一个还在游戏中的玩家）
               const winnerIndex = prev.lastPlayPlayerIndex;
-              const nextActivePlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
-                ? winnerIndex 
-                : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+              let nextActivePlayerIndex: number | null;
+              if (newPlayers[winnerIndex]?.hand.length > 0) {
+                nextActivePlayerIndex = winnerIndex;
+              } else {
+                nextActivePlayerIndex = findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+              }
+              
+              // 如果所有玩家都出完了，结束游戏
+              if (nextActivePlayerIndex === null) {
+                const allFinished = newPlayers.every(p => p.hand.length === 0);
+                if (allFinished) {
+                  const finalPlayers = applyFinalGameRules(newPlayers, prev.finishOrder || []);
+                  const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+                  const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+                  
+                  return {
+                    ...prev,
+                    status: GameStatus.FINISHED,
+                    players: finalPlayers,
+                    winner: winner.player.id,
+                    finalRankings
+                  };
+                }
+                return prev; // 不应该发生，但作为保护
+              }
               
               const newState = {
                 ...prev,
@@ -576,8 +794,8 @@ export function useMultiPlayerGame() {
               
               // 1.5秒后，如果下一个玩家是AI，自动继续
               if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
-                setTimeout(() => {
-                  playNextTurn();
+                  setTimeout(() => {
+                    playNextTurn();
                 }, 1500);
               }
               
@@ -619,13 +837,22 @@ export function useMultiPlayerGame() {
           return prev;
         }
 
+        // 计算动画位置
+        const animationPosition = calculatePlayAnimationPosition(
+          currentState.currentPlayerIndex,
+          prev.players,
+          prev.players.findIndex(p => p.isHuman),
+          prev.playerCount
+        );
+
         // 处理墩的计分
         const { updatedPlayers: playersAfterDun, dunScore } = handleDunScoring(
           prev.players,
           currentState.currentPlayerIndex,
           aiCards,
           prev.playerCount,
-          play
+          play,
+          animationPosition
         );
         
         // 更新玩家手牌和分数
@@ -791,6 +1018,26 @@ export function useMultiPlayerGame() {
           
           // 根据是否接风决定游戏状态
           // 注意：分数已经在前面（593行）加给玩家了，所以这里roundScore应该重置为0
+          // 检查 nextPlayerIndex 是否为 null
+          if (nextPlayerIndex === null) {
+            const allFinished = newPlayers.every(p => p.hand.length === 0);
+            if (allFinished) {
+              const finalPlayers = applyFinalGameRules(newPlayers, newFinishOrder);
+              const finalRankings = calculateFinalRankings(finalPlayers, newFinishOrder);
+              const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+              
+              return {
+                ...prev,
+                status: GameStatus.FINISHED,
+                players: finalPlayers,
+                winner: winner.player.id,
+                finishOrder: newFinishOrder,
+                finalRankings
+              };
+            }
+            return prev; // 不应该发生，但作为保护
+          }
+          
           // 报牌（系统信息）：立即报牌，不等待完成
           const currentPlayerVoice = newPlayers[currentState.currentPlayerIndex]?.voiceConfig;
           announcePlay(play, currentPlayerVoice).catch(console.error);
@@ -808,8 +1055,8 @@ export function useMultiPlayerGame() {
           
           // 播报后等待，如果下一个玩家是AI，自动继续
           if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-            setTimeout(() => {
-              playNextTurn();
+              setTimeout(() => {
+                playNextTurn();
             }, announcementDelay);
           }
           
@@ -818,6 +1065,27 @@ export function useMultiPlayerGame() {
 
         // 计算下一个玩家，跳过已出完的玩家
         const nextPlayerIndex = findNextActivePlayer(currentState.currentPlayerIndex, newPlayers, prev.playerCount);
+        
+        // 如果所有玩家都出完了，结束游戏
+        if (nextPlayerIndex === null) {
+          const allFinished = newPlayers.every(p => p.hand.length === 0);
+          if (allFinished) {
+            const finishOrder = prev.finishOrder || [];
+            const finalPlayers = applyFinalGameRules(newPlayers, finishOrder);
+            const finalRankings = calculateFinalRankings(finalPlayers, finishOrder);
+            const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+            
+            return {
+              ...prev,
+              status: GameStatus.FINISHED,
+              players: finalPlayers,
+              winner: winner.player.id,
+              finishOrder: finishOrder,
+              finalRankings
+            };
+          }
+          return prev; // 不应该发生，但作为保护
+        }
         
         const newState = {
           ...prev,
@@ -835,8 +1103,8 @@ export function useMultiPlayerGame() {
         
         // 1.5秒后，如果下一个玩家是AI，自动继续
         if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-          setTimeout(() => {
-            playNextTurn();
+            setTimeout(() => {
+              playNextTurn();
           }, 1500);
         }
 
@@ -880,9 +1148,31 @@ export function useMultiPlayerGame() {
             
             // 一轮结束，由赢家开始下一轮（如果赢家已出完，找下一个还在游戏中的玩家）
             const winnerIndex = prev.lastPlayPlayerIndex;
-            const nextActivePlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
-              ? winnerIndex 
-              : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+            let nextActivePlayerIndex: number | null;
+            if (newPlayers[winnerIndex]?.hand.length > 0) {
+              nextActivePlayerIndex = winnerIndex;
+            } else {
+              nextActivePlayerIndex = findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+            }
+            
+            // 如果所有玩家都出完了，结束游戏
+            if (nextActivePlayerIndex === null) {
+              const allFinished = newPlayers.every(p => p.hand.length === 0);
+              if (allFinished) {
+                const finalPlayers = applyFinalGameRules(newPlayers, prev.finishOrder || []);
+                const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+                const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+                
+                return {
+                  ...prev,
+                  status: GameStatus.FINISHED,
+                  players: finalPlayers,
+                  winner: winner.player.id,
+                  finalRankings
+                };
+              }
+              return prev; // 不应该发生，但作为保护
+            }
             
             const newState = {
               ...prev,
@@ -907,8 +1197,8 @@ export function useMultiPlayerGame() {
             
             // 1.5秒后，如果下一个玩家是AI，自动继续
             if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
-              setTimeout(() => {
-                playNextTurn();
+                setTimeout(() => {
+                  playNextTurn();
               }, 1500);
             }
             
@@ -932,6 +1222,61 @@ export function useMultiPlayerGame() {
       });
     }
   }, []);
+
+  // 监听currentPlayerIndex变化，自动触发AI玩家出牌
+  useEffect(() => {
+    // 如果游戏不在进行中，或者正在处理AI回合，则跳过
+    if (gameState.status !== GameStatus.PLAYING || isAITurnProcessingRef.current) {
+      return;
+    }
+
+    // 如果这个玩家索引已经处理过，跳过（避免重复触发）
+    if (lastProcessedPlayerIndexRef.current === gameState.currentPlayerIndex) {
+      return;
+    }
+
+    // 确保players数组已经初始化
+    if (!gameState.players || gameState.players.length === 0) {
+      return;
+    }
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (!currentPlayer) return;
+
+    // 如果当前玩家是AI，自动触发出牌
+    if (currentPlayer.type === PlayerType.AI && currentPlayer.hand.length > 0) {
+      // 标记这个玩家索引已经处理
+      lastProcessedPlayerIndexRef.current = gameState.currentPlayerIndex;
+      // 设置标志，防止重复触发
+      isAITurnProcessingRef.current = true;
+      
+      // 延迟一小段时间，确保状态完全更新（包括gameStateRef）
+      const timer = setTimeout(() => {
+        // 再次检查，确保状态已经更新
+        const latestState = gameStateRef.current;
+        if (latestState.status === GameStatus.PLAYING && 
+            latestState.currentPlayerIndex === gameState.currentPlayerIndex &&
+            latestState.players[latestState.currentPlayerIndex]?.type === PlayerType.AI) {
+          playNextTurn().finally(() => {
+            // 出牌完成后，重置标志
+            isAITurnProcessingRef.current = false;
+          });
+        } else {
+          // 如果状态不匹配，重置标志
+          isAITurnProcessingRef.current = false;
+        }
+      }, 150); // 稍微增加延迟，确保状态完全更新
+
+      return () => {
+        clearTimeout(timer);
+        isAITurnProcessingRef.current = false;
+      };
+    } else {
+      // 如果不是AI玩家，更新lastProcessedPlayerIndexRef，但重置标志
+      lastProcessedPlayerIndexRef.current = gameState.currentPlayerIndex;
+      isAITurnProcessingRef.current = false;
+    }
+  }, [gameState.currentPlayerIndex, gameState.status, playNextTurn]);
 
   // 开始新游戏（内部函数，处理发牌）
   const startGameInternal = useCallback((config: GameConfig, hands: Card[][]) => {
@@ -1100,9 +1445,31 @@ export function useMultiPlayerGame() {
             
             // 一轮结束，由赢家开始下一轮（如果赢家已出完，找下一个还在游戏中的玩家）
             const winnerIndex = prev.lastPlayPlayerIndex;
-            const nextActivePlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
-              ? winnerIndex 
-              : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+            let nextActivePlayerIndex: number | null;
+            if (newPlayers[winnerIndex]?.hand.length > 0) {
+              nextActivePlayerIndex = winnerIndex;
+            } else {
+              nextActivePlayerIndex = findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+            }
+            
+            // 如果所有玩家都出完了，结束游戏
+            if (nextActivePlayerIndex === null) {
+              const allFinished = newPlayers.every(p => p.hand.length === 0);
+              if (allFinished) {
+                const finalPlayers = applyFinalGameRules(newPlayers, prev.finishOrder || []);
+                const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+                const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+                
+                return {
+                  ...prev,
+                  status: GameStatus.FINISHED,
+                  players: finalPlayers,
+                  winner: winner.player.id,
+                  finalRankings
+                };
+              }
+              return prev; // 不应该发生，但作为保护
+            }
             
             const newState = {
               ...prev,
@@ -1127,8 +1494,8 @@ export function useMultiPlayerGame() {
             
             // 1.5秒后，如果下一个玩家是AI，自动继续
             if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
-              setTimeout(() => {
-                playNextTurn();
+                setTimeout(() => {
+                  playNextTurn();
               }, 1500);
             }
             
@@ -1137,6 +1504,25 @@ export function useMultiPlayerGame() {
         }
         
         // 如果没有lastPlayPlayerIndex（接风状态），继续游戏
+        // 检查 nextPlayerIndex 是否为 null
+        if (nextPlayerIndex === null) {
+          const allFinished = newPlayers.every(p => p.hand.length === 0);
+          if (allFinished) {
+            const finalPlayers = applyFinalGameRules(newPlayers, prev.finishOrder || []);
+            const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+            const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+            
+            return {
+              ...prev,
+              status: GameStatus.FINISHED,
+              players: finalPlayers,
+              winner: winner.player.id,
+              finalRankings
+            };
+          }
+          return prev; // 不应该发生，但作为保护
+        }
+        
         newLastPlay = prev.lastPlay;
         newLastPlayPlayerIndex = prev.lastPlayPlayerIndex;
         newRoundScore = prev.roundScore;
@@ -1159,8 +1545,8 @@ export function useMultiPlayerGame() {
         
         // 1.5秒后，如果下一个玩家是AI，自动继续
         if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-          setTimeout(() => {
-            playNextTurn();
+            setTimeout(() => {
+              playNextTurn();
           }, 1500);
         }
 
@@ -1171,13 +1557,22 @@ export function useMultiPlayerGame() {
       const playScore = calculateCardsScore(selectedCards);
       const scoreCards = selectedCards.filter(card => isScoreCard(card));
 
+      // 计算动画位置
+      const animationPosition = calculatePlayAnimationPosition(
+        playerIndex,
+        prev.players,
+        prev.players.findIndex(p => p.isHuman),
+        prev.playerCount
+      );
+
       // 处理墩的计分
       const { updatedPlayers: playersAfterDun, dunScore } = handleDunScoring(
         prev.players,
         playerIndex,
         selectedCards,
         prev.playerCount,
-        play
+        play,
+        animationPosition
       );
       
       // 更新玩家手牌和分数
@@ -1321,6 +1716,26 @@ export function useMultiPlayerGame() {
         // 重要：使用findNextActivePlayer确保跳过已出完牌的玩家
         const nextPlayerIndex = findNextActivePlayer(playerIndex, newPlayers, prev.playerCount);
         
+        // 如果所有玩家都出完了，结束游戏
+        if (nextPlayerIndex === null) {
+          const allFinished = newPlayers.every(p => p.hand.length === 0);
+          if (allFinished) {
+            const finalPlayers = applyFinalGameRules(newPlayers, newFinishOrder);
+            const finalRankings = calculateFinalRankings(finalPlayers, newFinishOrder);
+            const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+            
+            return {
+              ...prev,
+              status: GameStatus.FINISHED,
+              players: finalPlayers,
+              winner: winner.player.id,
+              finishOrder: newFinishOrder,
+              finalRankings
+            };
+          }
+          return prev; // 不应该发生，但作为保护
+        }
+        
         // 检查是否所有剩余玩家都要不起最后一手牌
         // 如果都要不起，则接风（清空lastPlay，让下家自由出牌）
         // 如果有人能打过，则不清空lastPlay，让能打过的玩家继续
@@ -1354,9 +1769,9 @@ export function useMultiPlayerGame() {
         announcePlay(play, currentPlayerVoice).catch(console.error);
         
         // 1.5秒后，如果下一个玩家是AI，自动继续
-        if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-          setTimeout(() => {
-            playNextTurn();
+          if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
+            setTimeout(() => {
+              playNextTurn();
           }, 1500);
         }
         
@@ -1365,6 +1780,27 @@ export function useMultiPlayerGame() {
 
       // 计算下一个玩家，跳过已出完的玩家
       const nextPlayerIndex = findNextActivePlayer(playerIndex, newPlayers, prev.playerCount);
+      
+      // 如果所有玩家都出完了，结束游戏
+      if (nextPlayerIndex === null) {
+        const allFinished = newPlayers.every(p => p.hand.length === 0);
+        if (allFinished) {
+          const finishOrder = prev.finishOrder || [];
+          const finalPlayers = applyFinalGameRules(newPlayers, finishOrder);
+          const finalRankings = calculateFinalRankings(finalPlayers, finishOrder);
+          const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+          
+          return {
+            ...prev,
+            status: GameStatus.FINISHED,
+            players: finalPlayers,
+            winner: winner.player.id,
+            finishOrder: finishOrder,
+            finalRankings
+          };
+        }
+        return prev; // 不应该发生，但作为保护
+      }
 
       const newState = {
         ...prev,
@@ -1383,8 +1819,8 @@ export function useMultiPlayerGame() {
       
       // 1.5秒后，如果下一个玩家是AI，自动继续
       if (newPlayers[nextPlayerIndex].type === PlayerType.AI) {
-        setTimeout(() => {
-          playNextTurn();
+          setTimeout(() => {
+            playNextTurn();
         }, 1500);
       }
 
@@ -1407,6 +1843,25 @@ export function useMultiPlayerGame() {
       if (player.hand.length === 0) {
         // 找到下一个还在游戏中的玩家
         const nextPlayerIndex = findNextActivePlayer(playerIndex, prev.players, prev.playerCount);
+        
+        // 如果所有玩家都出完了，结束游戏
+        if (nextPlayerIndex === null) {
+          const allFinished = prev.players.every(p => p.hand.length === 0);
+          if (allFinished) {
+            const finalPlayers = applyFinalGameRules(prev.players, prev.finishOrder || []);
+            const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+            const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+            
+            return {
+              ...prev,
+              status: GameStatus.FINISHED,
+              players: finalPlayers,
+              winner: winner.player.id,
+              finalRankings
+            };
+          }
+          return prev; // 不应该发生，但作为保护
+        }
         
         const newState = {
           ...prev,
@@ -1437,6 +1892,25 @@ export function useMultiPlayerGame() {
 
       // 计算下一个玩家，跳过已出完的玩家
       const nextPlayerIndex = findNextActivePlayer(playerIndex, prev.players, prev.playerCount);
+      
+      // 如果所有玩家都出完了，结束游戏
+      if (nextPlayerIndex === null) {
+        const allFinished = prev.players.every(p => p.hand.length === 0);
+        if (allFinished) {
+          const finalPlayers = applyFinalGameRules(prev.players, prev.finishOrder || []);
+          const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+          const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+          
+          return {
+            ...prev,
+            status: GameStatus.FINISHED,
+            players: finalPlayers,
+            winner: winner.player.id,
+            finalRankings
+          };
+        }
+        return prev; // 不应该发生，但作为保护
+      }
 
       const newPlayers = [...prev.players];
       
@@ -1468,9 +1942,31 @@ export function useMultiPlayerGame() {
           
           // 一轮结束，由赢家开始下一轮（如果赢家已出完，找下一个还在游戏中的玩家）
           const winnerIndex = prev.lastPlayPlayerIndex;
-          const nextActivePlayerIndex = newPlayers[winnerIndex]?.hand.length > 0 
-            ? winnerIndex 
-            : findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+          let nextActivePlayerIndex: number | null;
+          if (newPlayers[winnerIndex]?.hand.length > 0) {
+            nextActivePlayerIndex = winnerIndex;
+          } else {
+            nextActivePlayerIndex = findNextActivePlayer(winnerIndex, newPlayers, prev.playerCount);
+          }
+          
+          // 如果所有玩家都出完了，结束游戏
+          if (nextActivePlayerIndex === null) {
+            const allFinished = newPlayers.every(p => p.hand.length === 0);
+            if (allFinished) {
+              const finalPlayers = applyFinalGameRules(newPlayers, prev.finishOrder || []);
+              const finalRankings = calculateFinalRankings(finalPlayers, prev.finishOrder || []);
+              const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+              
+              return {
+                ...prev,
+                status: GameStatus.FINISHED,
+                players: finalPlayers,
+                winner: winner.player.id,
+                finalRankings
+              };
+            }
+            return prev; // 不应该发生，但作为保护
+          }
           
           const newState = {
             ...prev,
@@ -1492,18 +1988,18 @@ export function useMultiPlayerGame() {
           const currentPlayerVoice = prev.players[playerIndex]?.voiceConfig;
           announcePass(currentPlayerVoice).then(() => {
             // 报牌完成后，如果下一个玩家是AI，自动继续
-            if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
+          if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
               setTimeout(() => {
                 playNextTurn();
               }, announcementDelay); // 报牌完成后等待配置的时间再继续
             }
-          }).catch(() => {
+            }).catch(() => {
             // 如果报牌失败，直接继续（避免卡住游戏）
             if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
               setTimeout(() => {
                 playNextTurn();
               }, 1000);
-            }
+          }
           });
           
           return newState;
@@ -1532,8 +2028,8 @@ export function useMultiPlayerGame() {
       
       // 1.5秒后，如果下一个玩家是AI，自动继续
       if (prev.players[nextPlayerIndex].type === PlayerType.AI) {
-        setTimeout(() => {
-          playNextTurn();
+          setTimeout(() => {
+            playNextTurn();
         }, 1500);
       }
 

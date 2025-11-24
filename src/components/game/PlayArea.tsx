@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Play, Player } from '../../types/card';
 import { CardComponent } from '../CardComponent';
 import { getCardTypeName } from '../../utils/gameUtils';
@@ -19,12 +20,14 @@ export const PlayArea: React.FC<PlayAreaProps> = ({
   lastPlayPlayerName,
   roundScore
 }) => {
+  const { t } = useTranslation('game');
+
   return (
     <div className="play-area">
       {lastPlay && (
         <div className="last-play">
           <div className="play-label">
-            {lastPlayPlayerName} 出牌:
+            {t('playArea.playerPlayed', { name: lastPlayPlayerName || '' })}
           </div>
           <div className="play-cards">
             {lastPlay.cards.map((card) => (
@@ -33,12 +36,12 @@ export const PlayArea: React.FC<PlayAreaProps> = ({
           </div>
           <div className="play-type">{getCardTypeName(lastPlay.type)}</div>
           {roundScore > 0 && (
-            <div className="round-score">本轮分数: {roundScore} 分</div>
+            <div className="round-score">{t('playArea.roundScore', { score: roundScore })}</div>
           )}
         </div>
       )}
       {!lastPlay && (
-        <div className="no-play">可以出任意合法牌型</div>
+        <div className="no-play">{t('playArea.noPlay')}</div>
       )}
     </div>
   );

@@ -61,7 +61,26 @@ export const RoundPlaysPanel: React.FC<RoundPlaysPanelProps> = ({
         // 计算这一列的宽度：第一张卡40px + 后续每张卡向右偏移20px
         const cardWidth = 40; // 小卡片宽度
         const stackOffset = (playRecord.cards.length - 1) * 20; // 最后一张卡的偏移
-        const columnWidth = cardWidth + stackOffset; // 这一列的总宽度
+        const lastCardRightEdge = stackOffset + cardWidth; // 最后一张卡的右边缘位置
+        
+        // 检查所有分牌，找出最右边的徽章位置
+        // 分数徽章位于 right: -6px，宽度16px，所以徽章右边缘 = 卡牌右边缘 + 6 + 16 = 卡牌右边缘 + 22
+        // 每张卡的位置 = cardIndex * 20，卡牌右边缘 = cardIndex * 20 + 40
+        // 如果卡是分牌，徽章右边缘 = cardIndex * 20 + 40 + 22 = cardIndex * 20 + 62
+        let maxBadgeRightEdge = lastCardRightEdge; // 默认是最后一张卡的右边缘
+        
+        playRecord.cards.forEach((card, cardIndex) => {
+          if (isScoreCard(card)) {
+            const cardRightEdge = cardIndex * 20 + cardWidth; // 这张卡的右边缘
+            const badgeRightEdge = cardRightEdge + 22; // 徽章右边缘（6px偏移 + 16px宽度）
+            if (badgeRightEdge > maxBadgeRightEdge) {
+              maxBadgeRightEdge = badgeRightEdge;
+            }
+          }
+        });
+        
+        // 容器宽度 = 最右边的元素（最后一张卡或分牌徽章）的位置
+        const columnWidth = maxBadgeRightEdge;
         
         positions.push(currentX);
         
@@ -95,7 +114,27 @@ export const RoundPlaysPanel: React.FC<RoundPlaysPanelProps> = ({
                 <div 
                   className="round-play-cards-stacked"
                   style={{
-                    width: `${40 + (playRecord.cards.length - 1) * 20}px` // 动态计算宽度：第一张40px + 后续每张20px
+                    // 动态计算宽度：检查所有分牌，找出最右边的徽章位置
+                    // 计算方式与 calculateColumnPositions 保持一致
+                    width: (() => {
+                      const cardWidth = 40;
+                      const stackOffset = (playRecord.cards.length - 1) * 20;
+                      const lastCardRightEdge = stackOffset + cardWidth;
+                      
+                      // 检查所有分牌，找出最右边的徽章位置
+                      let maxBadgeRightEdge = lastCardRightEdge;
+                      playRecord.cards.forEach((card, cardIndex) => {
+                        if (isScoreCard(card)) {
+                          const cardRightEdge = cardIndex * 20 + cardWidth;
+                          const badgeRightEdge = cardRightEdge + 22; // 6px偏移 + 16px宽度
+                          if (badgeRightEdge > maxBadgeRightEdge) {
+                            maxBadgeRightEdge = badgeRightEdge;
+                          }
+                        }
+                      });
+                      
+                      return `${maxBadgeRightEdge}px`;
+                    })()
                   }}
                 >
                   {playRecord.cards.map((card, cardIndex) => {

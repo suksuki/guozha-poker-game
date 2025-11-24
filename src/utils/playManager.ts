@@ -6,6 +6,8 @@
 import { Card, Play, Player } from '../types/card';
 import { calculateCardsScore, isScoreCard, calculateDunCount, calculateDunScore } from './cardUtils';
 import { triggerBigDunReaction, triggerGoodPlayReaction, triggerDunPlayedReaction } from '../services/chatService';
+import { animationService } from '../services/animationService';
+import { getDunAnimationConfig } from '../config/animationConfig';
 
 /**
  * 处理墩的计分逻辑
