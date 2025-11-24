@@ -5,7 +5,7 @@ import { aiChoosePlay, AIConfig } from '../utils/aiPlayer';
 import { voiceService } from '../services/voiceService';
 import { announcePlay, announcePass } from '../services/systemAnnouncementService';
 import { generateRandomVoiceConfig } from '../services/voiceConfigService';
-import { triggerScoreStolenReaction, triggerScoreEatenCurseReaction, triggerFinishFirstReaction, triggerFinishMiddleReaction, triggerFinishLastReaction, clearChatMessages } from '../services/chatService';
+import { triggerScoreStolenReaction, triggerScoreEatenCurseReaction, triggerFinishFirstReaction, triggerFinishMiddleReaction, triggerFinishLastReaction, clearChatMessages, triggerTaunt } from '../services/chatService';
 import { findNextActivePlayer, checkGameFinished, MultiPlayerGameState, checkAllRemainingPlayersPassed } from '../utils/gameStateUtils';
 import { applyFinalGameRules, calculateFinalRankings } from '../utils/gameRules';
 import { handleDunScoring, createPlayRecord, updatePlayerAfterPlay, triggerGoodPlayReactions } from '../utils/playManager';
@@ -1600,6 +1600,35 @@ export function useMultiPlayerGame() {
       };
       triggerGoodPlayReactions(player, play, scoreCards, currentGameState);
       
+      // 如果出的是好牌（炸弹、墩、有分牌），其他玩家可能对骂
+      // 测试模式：提高触发概率，确保能看到大量对骂
+      if (play.type === 'bomb' || play.type === 'dun' || scoreCards.length > 0) {
+        newPlayers.forEach((p, idx) => {
+          if (idx !== playerIndex && p.hand.length > 0) {
+            // 测试模式：100%概率对骂（确保能看到）
+            // 炸弹：100%概率对骂
+            // 墩：100%概率对骂（更激烈）
+            // 有分牌：100%概率对骂
+            const tauntProbability = 1.0; // 100%触发，用于测试
+            if (Math.random() < tauntProbability) {
+              triggerTaunt(p, player, currentGameState).catch(console.error);
+            }
+          }
+        });
+      }
+      
+      // 测试模式：每次出牌都有一定概率触发对骂（增加触发频率）
+      // 即使不是好牌，也有30%概率触发对骂
+      if (play.type !== 'bomb' && play.type !== 'dun' && scoreCards.length === 0) {
+        newPlayers.forEach((p, idx) => {
+          if (idx !== playerIndex && p.hand.length > 0) {
+            if (Math.random() < 0.3) { // 30%概率
+              triggerTaunt(p, player, currentGameState).catch(console.error);
+            }
+          }
+        });
+      }
+      
       // 如果捡到了分，可能触发其他玩家的反应
       if (playScore > 0) {
         // 检查是否有其他玩家失去了分
@@ -1911,6 +1940,20 @@ export function useMultiPlayerGame() {
 
       // 播放"要不起"语音提示（异步，不阻塞状态更新）
       // 注意：会在状态更新后统一处理
+      // 立即播放"要不起"语音（在状态更新前，确保能播放）
+      const currentPlayerVoice = prev.players[playerIndex]?.voiceConfig;
+      if (currentPlayerVoice) {
+        console.log('[useMultiPlayerGame] 玩家要不起，立即播放语音:', player.name, 'voiceConfig:', currentPlayerVoice);
+        announcePass(currentPlayerVoice).catch(err => {
+          console.error('[useMultiPlayerGame] 播放"要不起"语音失败:', err);
+        });
+      } else {
+        console.warn('[useMultiPlayerGame] 玩家要不起，但没有voiceConfig:', player.name, playerIndex);
+        // 即使没有voiceConfig，也尝试播放（使用默认语音）
+        announcePass(undefined).catch(err => {
+          console.error('[useMultiPlayerGame] 播放"要不起"语音失败（无voiceConfig）:', err);
+        });
+      }
 
       // 计算下一个玩家，跳过已出完的玩家
       const nextPlayerIndex = findNextActivePlayer(playerIndex, prev.players, prev.playerCount);
@@ -2007,7 +2050,7 @@ export function useMultiPlayerGame() {
           };
           
           // 报牌（系统信息）：必须等待完成才能继续游戏流程
-          const currentPlayerVoice = prev.players[playerIndex]?.voiceConfig;
+          // 使用之前已声明的 currentPlayerVoice
           announcePass(currentPlayerVoice).then(() => {
             // 报牌完成后，如果下一个玩家是AI，自动继续
           if (newPlayers[nextActivePlayerIndex].type === PlayerType.AI) {
@@ -2043,10 +2086,8 @@ export function useMultiPlayerGame() {
       };
 
       // 如果下一个玩家是AI，等待"要不起"语音播放完成后再继续
-      // 报"要不起"（系统信息）：必须等待完成才能继续游戏流程
-      const currentPlayerVoice = prev.players[playerIndex]?.voiceConfig;
       // 报"要不起"（系统信息）：立即报牌，不等待完成
-      announcePass(currentPlayerVoice).catch(console.error);
+      // 使用之前已声明的 currentPlayerVoice（已在状态更新前播放过，这里不再重复播放）
       
       // 1.5秒后，如果下一个玩家是AI，自动继续
       if (prev.players[nextPlayerIndex].type === PlayerType.AI) {

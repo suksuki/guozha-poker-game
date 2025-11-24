@@ -557,8 +557,8 @@ export async function triggerGoodPlayReaction(
   await chatService.triggerGoodPlayReaction(player, context, fullGameState);
 }
 
-export async function triggerTaunt(player: Player, targetPlayer?: Player): Promise<void> {
-  await chatService.triggerTaunt(player, targetPlayer);
+export async function triggerTaunt(player: Player, targetPlayer?: Player, fullGameState?: any): Promise<void> {
+  await chatService.triggerTaunt(player, targetPlayer, undefined, fullGameState);
 }
 
 export async function triggerBadLuckReaction(player: Player): Promise<void> {

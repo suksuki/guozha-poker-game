@@ -6,21 +6,78 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'utf8-headers',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          // 确保所有文本类型文件都包含UTF-8编码
+          if (req.url) {
+            // 音频文件 - 确保正确的Content-Type（重要！）
+            if (req.url.match(/\.(mp3|aiff|aif|wav|ogg|m4a)$/i)) {
+              const ext = req.url.split('.').pop()?.toLowerCase();
+              const mimeTypes: Record<string, string> = {
+                'mp3': 'audio/mpeg',
+                'aiff': 'audio/aiff',
+                'aif': 'audio/aiff',
+                'wav': 'audio/wav',
+                'ogg': 'audio/ogg',
+                'm4a': 'audio/mp4'
+              };
+              if (ext && mimeTypes[ext]) {
+                res.setHeader('Content-Type', mimeTypes[ext]);
+              }
+              // 不要修改音频文件的响应，直接传递给下一个中间件
+              next();
+              return;
+            }
+            
+            // JSON文件
+            if (req.url.endsWith('.json') || req.url.includes('/locales/')) {
+              res.setHeader('Content-Type', 'application/json; charset=UTF-8');
+            }
+            // JavaScript/TypeScript文件
+            else if (req.url.endsWith('.js') || req.url.endsWith('.mjs') || req.url.endsWith('.ts') || req.url.endsWith('.tsx')) {
+              const existingType = res.getHeader('Content-Type');
+              if (existingType && typeof existingType === 'string' && !existingType.includes('charset')) {
+                res.setHeader('Content-Type', existingType + '; charset=UTF-8');
+              }
+            }
+            // CSS文件
+            else if (req.url.endsWith('.css')) {
+              const existingType = res.getHeader('Content-Type');
+              if (existingType && typeof existingType === 'string' && !existingType.includes('charset')) {
+                res.setHeader('Content-Type', existingType + '; charset=UTF-8');
+              }
+            }
+            // HTML文件
+            else if (req.url.endsWith('.html') || req.url === '/' || !req.url.includes('.')) {
+              const existingType = res.getHeader('Content-Type');
+              if (existingType && typeof existingType === 'string' && !existingType.includes('charset')) {
+                res.setHeader('Content-Type', existingType + '; charset=UTF-8');
+              }
+            }
+          }
+          next();
+        });
+      }
+    }
+  ],
   cacheDir: path.resolve(__dirname, 'node_modules/.vite'), // 使用绝对路径，确保缓存目录在项目内
   server: {
-    host: '0.0.0.0', // 监听所有网络接口，允许从 Windows 访问 WSL
+    host: process.platform === 'win32' ? 'localhost' : '0.0.0.0', // Windows 使用 localhost，WSL 使用 0.0.0.0
     port: 3000,
     strictPort: false, // 如果端口被占用，自动选择其他端口
-    open: false, // 不在 WSL 中自动打开浏览器
+    open: false, // 不自动打开浏览器
     hmr: {
       host: 'localhost' // HMR 使用 localhost
     }
-    // 注意：不在server级别设置headers，避免覆盖JS模块的Content-Type
-    // 字符编码由Electron的webRequest拦截器处理
   },
   // 确保构建输出使用UTF-8
   build: {
     charset: 'utf8'
-  }
+  },
+  // 确保public目录正确映射（Electron需要）
+  publicDir: 'public'
 })

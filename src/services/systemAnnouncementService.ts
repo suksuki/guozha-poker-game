@@ -68,7 +68,20 @@ class SystemAnnouncementService {
   async announcePass(voiceConfig?: VoiceConfig): Promise<void> {
     // 根据当前语言获取"要不起"的翻译文本
     const passText = i18n.t('game:actions.pass');
+    const now = Date.now();
+    
+    // 去重检查：如果最近刚播放过，跳过（防止重复调用）
+    if (passText === this.lastAnnounceText && (now - this.lastAnnounceTime) < this.deduplicationWindow) {
+      console.log('[SystemAnnouncement] 去重：最近刚播放过"要不起"，跳过');
+      return;
+    }
+    
+    // 记录当前调用
+    this.lastAnnounceText = passText;
+    this.lastAnnounceTime = now;
+    
     // 立即播放，不等待完成
+    console.log('[SystemAnnouncement] 播放"要不起":', passText, 'voiceConfig:', voiceConfig);
     return voiceService.speakImmediate(passText, voiceConfig);
   }
 }

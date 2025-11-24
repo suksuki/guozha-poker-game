@@ -24,7 +24,7 @@ export interface VoiceParamRanges {
 
 // 默认语音参数范围
 export const DEFAULT_VOICE_PARAM_RANGES: VoiceParamRanges = {
-  rate: { min: 0.9, max: 1.1 },
+  rate: { min: 0.9, max: 1.1 }, // 恢复正常语速范围
   pitch: { min: 1.0, max: 1.3 }, // 女声范围
   volume: { min: 0.95, max: 1.0 }
 };

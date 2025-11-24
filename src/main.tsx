@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
-import './i18n'
+// 确保i18n在React渲染前初始化
+import './i18n' // 导入i18n配置（会自动查找index.ts）
 import { isSpeechSupported, listAvailableVoices } from './services/voiceService'
 import { checkChatStrategy } from './services/chatService'
 import './utils/testLLMChat' // 导入测试函数
@@ -52,7 +53,9 @@ document.addEventListener('touchstart', activateVoice, { once: true });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <Suspense fallback={<div>Loading...</div>}>
+      <App />
+    </Suspense>
   </React.StrictMode>,
 )
 

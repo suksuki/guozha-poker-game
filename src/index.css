@@ -17,6 +17,21 @@ body {
   font-size: 14px;
 }
 
+/* Emoji和图标字体支持 */
+.avatar-emoji,
+.trophy-icon,
+[class*="emoji"],
+[class*="icon"] {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 
+               'Noto Color Emoji', 'EmojiOne Color', 'Twemoji Mozilla',
+               'Android Emoji', 'EmojiSymbols', 'EmojiOne Mozilla',
+               'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Emoji',
+               'Apple Color Emoji', 'Android Emoji', 'EmojiSymbols',
+               'EmojiOne', 'Twemoji', 'Noto Color Emoji', sans-serif !important;
+  font-feature-settings: 'liga', 'kern' !important;
+  text-rendering: optimizeLegibility !important;
+}
+
 #root {
   width: 100vw;
   height: 100vh;

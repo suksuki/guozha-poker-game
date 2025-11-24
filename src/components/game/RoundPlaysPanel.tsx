@@ -59,28 +59,13 @@ export const RoundPlaysPanel: React.FC<RoundPlaysPanelProps> = ({
         }
         
         // 计算这一列的宽度：第一张卡40px + 后续每张卡向右偏移20px
+        // 分数徽章在卡牌内部（右上角），不影响容器宽度
         const cardWidth = 40; // 小卡片宽度
         const stackOffset = (playRecord.cards.length - 1) * 20; // 最后一张卡的偏移
         const lastCardRightEdge = stackOffset + cardWidth; // 最后一张卡的右边缘位置
         
-        // 检查所有分牌，找出最右边的徽章位置
-        // 分数徽章位于 right: -6px，宽度16px，所以徽章右边缘 = 卡牌右边缘 + 6 + 16 = 卡牌右边缘 + 22
-        // 每张卡的位置 = cardIndex * 20，卡牌右边缘 = cardIndex * 20 + 40
-        // 如果卡是分牌，徽章右边缘 = cardIndex * 20 + 40 + 22 = cardIndex * 20 + 62
-        let maxBadgeRightEdge = lastCardRightEdge; // 默认是最后一张卡的右边缘
-        
-        playRecord.cards.forEach((card, cardIndex) => {
-          if (isScoreCard(card)) {
-            const cardRightEdge = cardIndex * 20 + cardWidth; // 这张卡的右边缘
-            const badgeRightEdge = cardRightEdge + 22; // 徽章右边缘（6px偏移 + 16px宽度）
-            if (badgeRightEdge > maxBadgeRightEdge) {
-              maxBadgeRightEdge = badgeRightEdge;
-            }
-          }
-        });
-        
-        // 容器宽度 = 最右边的元素（最后一张卡或分牌徽章）的位置
-        const columnWidth = maxBadgeRightEdge;
+        // 容器宽度 = 最后一张卡的右边缘 + 一些padding（给徽章留出空间）
+        const columnWidth = lastCardRightEdge + 10; // 加10px padding，确保徽章不超出
         
         positions.push(currentX);
         
@@ -104,6 +89,11 @@ export const RoundPlaysPanel: React.FC<RoundPlaysPanelProps> = ({
             if (!playRecord) return null;
             const leftPosition = columnPositions[rowIndex][colIndex];
             
+            // 计算卡牌叠放区域的宽度（分数徽章在卡牌内部，不影响宽度）
+            const cardWidth = 40;
+            const stackOffset = (playRecord.cards.length - 1) * 20;
+            const cardsContainerWidth = stackOffset + cardWidth;
+            
             return (
               <div 
                 key={`${rowIndex}-${colIndex}`} 
@@ -111,30 +101,11 @@ export const RoundPlaysPanel: React.FC<RoundPlaysPanelProps> = ({
                 style={{ left: `${leftPosition}px` }}
               >
                 <div className="round-play-player-inline">{playRecord.playerName}:</div>
+                {/* 卡牌叠放容器 - 一行横着叠放，所有卡牌纵坐标相同 */}
                 <div 
                   className="round-play-cards-stacked"
                   style={{
-                    // 动态计算宽度：检查所有分牌，找出最右边的徽章位置
-                    // 计算方式与 calculateColumnPositions 保持一致
-                    width: (() => {
-                      const cardWidth = 40;
-                      const stackOffset = (playRecord.cards.length - 1) * 20;
-                      const lastCardRightEdge = stackOffset + cardWidth;
-                      
-                      // 检查所有分牌，找出最右边的徽章位置
-                      let maxBadgeRightEdge = lastCardRightEdge;
-                      playRecord.cards.forEach((card, cardIndex) => {
-                        if (isScoreCard(card)) {
-                          const cardRightEdge = cardIndex * 20 + cardWidth;
-                          const badgeRightEdge = cardRightEdge + 22; // 6px偏移 + 16px宽度
-                          if (badgeRightEdge > maxBadgeRightEdge) {
-                            maxBadgeRightEdge = badgeRightEdge;
-                          }
-                        }
-                      });
-                      
-                      return `${maxBadgeRightEdge}px`;
-                    })()
+                    width: `${cardsContainerWidth}px`
                   }}
                 >
                   {playRecord.cards.map((card, cardIndex) => {
@@ -146,13 +117,14 @@ export const RoundPlaysPanel: React.FC<RoundPlaysPanelProps> = ({
                         key={card.id}
                         className={`round-play-card-stack-item ${isScore ? 'score-card-wrapper' : ''}`}
                         style={{
-                          transform: `translateX(${stackOffset}px)`,
+                          transform: `translateX(${stackOffset}px)`, // 只改变横坐标，纵坐标保持0
                           zIndex: cardIndex + 1
                         }}
                       >
                         <CardComponent card={card} size="small" />
+                        {/* 分数徽章放在卡牌上方（顶部居中），不影响水平布局 */}
                         {isScore && (
-                          <div className="card-score-badge-small">{score}</div>
+                          <div className="card-score-badge-small-top">{score}</div>
                         )}
                       </div>
                     );

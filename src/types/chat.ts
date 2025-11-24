@@ -5,6 +5,7 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   type: 'random' | 'event' | 'taunt'; // 随机闲聊、事件触发、对骂
+  originalContent?: string; // 原文（如果经过翻译）
 }
 
 // 聊天事件类型

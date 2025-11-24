@@ -39,16 +39,20 @@
 .round-play-cards-stacked {
   position: relative;
   height: 60px; /* 固定高度，容纳叠放的卡牌 */
-  min-width: 100px; /* 最小宽度 */
-  overflow: visible; /* 允许卡牌超出容器边界，避免换行 */
+  overflow: visible; /* 允许卡牌和徽章超出容器边界 */
 }
 
-/* 叠放的卡牌项 - 从左到右，-40px重叠 */
+/* 叠放的卡牌项 - 从左到右，所有卡牌纵坐标相同（top: 0），只通过translateX改变横坐标 */
 .round-play-card-stack-item {
   position: absolute;
-  left: 0;
-  top: 0;
+  left: 0; /* 所有卡牌都从left: 0开始 */
+  top: 0; /* 所有卡牌纵坐标都是0，确保在同一水平线上 */
   transition: transform 0.2s ease;
+}
+
+/* 确保卡牌内部的徽章定位正确 */
+.round-play-card-stack-item.score-card-wrapper {
+  position: absolute; /* 保持绝对定位 */
 }
 
 .round-play-card-stack-item:hover {
@@ -63,23 +67,27 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
-/* 分牌徽章（小尺寸） */
-.card-score-badge-small {
+/* 分牌徽章（小尺寸）- 放在卡牌上方（顶部居中），不影响水平布局 */
+.card-score-badge-small-top {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: -8px; /* 在卡牌上方 */
+  left: 50%; /* 水平居中 */
+  transform: translateX(-50%); /* 中心对齐 */
   background: #FFD700;
   color: #000;
-  border-radius: 50%;
-  width: 16px;
+  border-radius: 12px; /* 圆角矩形，支持更宽的内容 */
+  min-width: 16px; /* 最小宽度（1位数） */
   height: 16px;
+  padding: 0 4px; /* 左右内边距，让内容不贴边 */
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 9px;
   font-weight: bold;
   border: 1px solid #000;
-  z-index: 10;
+  z-index: 10; /* 确保在卡牌上方 */
+  white-space: nowrap; /* 防止换行 */
+  box-sizing: border-box; /* 包含边框和内边距 */
 }
 
 /* 滚动条样式 */

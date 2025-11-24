@@ -8,6 +8,8 @@ import { Player, Card, Suit, Rank, Play } from '../../types/card';
 import { IChatStrategy, ChatContext } from './IChatStrategy';
 import { LLMChatConfig } from '../../config/chatConfig';
 import { getCardType, isScoreCard, calculateCardsScore } from '../../utils/cardUtils';
+import { processContent } from '../../services/contentProcessor';
+import { trainingDataCollector } from '../../services/trainingDataCollector';
 import { MultiPlayerGameState } from '../../utils/gameStateUtils';
 
 export class LLMChatStrategy implements IChatStrategy {
@@ -23,10 +25,22 @@ export class LLMChatStrategy implements IChatStrategy {
     console.log('[LLMChatStrategy] 🎲 生成随机闲聊，玩家:', player.name);
     const prompt = this.buildPrompt(player, ChatEventType.RANDOM, context);
     console.log('[LLMChatStrategy] 📝 生成的Prompt长度:', prompt.length, '字符');
-    const content = await this.callLLMAPI(prompt);
+    let content = await this.callLLMAPI(prompt);
     if (!content) {
       console.warn('[LLMChatStrategy] ⚠️ 大模型返回空内容，可能API调用失败');
       return null;
+    }
+    
+    // 处理内容：精简和优化（只选择一句话，最多15个字）
+    const originalContent = content;
+    content = processContent(content, { maxLength: 15, removeFormal: true });
+    
+    if (content !== originalContent) {
+      console.log('[LLMChatStrategy] 📝 内容已精简:', {
+        原文: originalContent,
+        精简后: content,
+        长度: `${originalContent.length} → ${content.length}`
+      });
     }
     
     console.log('[LLMChatStrategy] ✅ 成功生成聊天内容:', content);
@@ -47,17 +61,55 @@ export class LLMChatStrategy implements IChatStrategy {
     console.log('[LLMChatStrategy] 生成事件聊天，玩家:', player.name, '事件:', eventType);
     const prompt = this.buildPrompt(player, eventType, context);
     console.log('[LLMChatStrategy] 生成的Prompt长度:', prompt.length);
-    const content = await this.callLLMAPI(prompt);
+    let content = await this.callLLMAPI(prompt);
     if (!content) {
       console.warn('[LLMChatStrategy] 大模型返回空内容，可能API调用失败');
       return null;
     }
     
-    console.log('[LLMChatStrategy] ✅ 成功生成聊天内容:', content);
+    // 处理内容：精简和优化
+    const originalContent = content;
+    const processedContent = processContent(content, { maxLength: 30, removeFormal: true });
+    
+    // 收集训练数据
+    const reduction = originalContent.length - processedContent.length;
+    const reductionPercent = originalContent.length > 0 
+      ? (reduction / originalContent.length) * 100 
+      : 0;
+    
+    trainingDataCollector.collectSample({
+      playerId: player.id,
+      playerName: player.name,
+      eventType: eventType,
+      prompt: this.buildPrompt(player, eventType, context),
+      originalContent,
+      processedContent,
+      processingStats: {
+        originalLength: originalContent.length,
+        processedLength: processedContent.length,
+        reduction,
+        reductionPercent
+      },
+      context: context ? {
+        gameState: context.gameState,
+        eventData: context.eventData,
+        playerState: context.playerState
+      } : undefined
+    });
+    
+    if (processedContent !== originalContent) {
+      console.log('[LLMChatStrategy] 📝 内容已精简:', {
+        原文: originalContent,
+        精简后: processedContent,
+        长度: `${originalContent.length} → ${processedContent.length} (减少 ${reduction} 字符, ${reductionPercent.toFixed(1)}%)`
+      });
+    }
+    
+    console.log('[LLMChatStrategy] ✅ 成功生成聊天内容:', processedContent);
     return {
       playerId: player.id,
       playerName: player.name,
-      content,
+      content: processedContent,
       timestamp: Date.now(),
       type: 'event'
     };
@@ -68,14 +120,58 @@ export class LLMChatStrategy implements IChatStrategy {
     targetPlayer?: Player,
     context?: ChatContext
   ): Promise<ChatMessage | null> {
+    console.log('[LLMChatStrategy] 生成对骂，玩家:', player.name, '目标:', targetPlayer?.name);
     const prompt = this.buildTauntPrompt(player, targetPlayer, context);
-    const content = await this.callLLMAPI(prompt);
-    if (!content) return null;
+    const originalContent = await this.callLLMAPI(prompt);
+    if (!originalContent) {
+      console.warn('[LLMChatStrategy] ⚠️ 大模型返回空内容，可能API调用失败');
+      return null;
+    }
     
+    // 处理内容：精简和优化（对骂也最多15个字）
+    const processedContent = processContent(originalContent, { maxLength: 15, removeFormal: true });
+    
+    // 收集训练数据
+    const reduction = originalContent.length - processedContent.length;
+    const reductionPercent = originalContent.length > 0 
+      ? (reduction / originalContent.length) * 100 
+      : 0;
+    
+    trainingDataCollector.collectSample({
+      playerId: player.id,
+      playerName: player.name,
+      eventType: 'taunt',
+      prompt,
+      originalContent,
+      processedContent,
+      processingStats: {
+        originalLength: originalContent.length,
+        processedLength: processedContent.length,
+        reduction,
+        reductionPercent
+      },
+      context: context ? {
+        gameState: context.gameState,
+        targetPlayer: targetPlayer ? {
+          id: targetPlayer.id,
+          name: targetPlayer.name
+        } : undefined
+      } : undefined
+    });
+    
+    if (processedContent !== originalContent) {
+      console.log('[LLMChatStrategy] 📝 对骂内容已精简:', {
+        原文: originalContent,
+        精简后: processedContent,
+        长度: `${originalContent.length} → ${processedContent.length} (减少 ${reduction} 字符, ${reductionPercent.toFixed(1)}%)`
+      });
+    }
+    
+    console.log('[LLMChatStrategy] ✅ 成功生成对骂内容:', processedContent);
     return {
       playerId: player.id,
       playerName: player.name,
-      content,
+      content: processedContent,
       timestamp: Date.now(),
       type: 'taunt'
     };
@@ -105,11 +201,21 @@ ${playerInfo}
 ${eventInfo}
 
 ## 任务
-根据以上信息，生成一句符合当前游戏场景的聊天内容。要求：
-1. 简短有力（1-2句话，不超过20字）
-2. 符合玩家的性格和方言特色
-3. 符合当前游戏状态和事件
-4. 只返回要说的话，不要添加任何解释或标记
+根据以上信息，生成一句符合当前游戏场景的聊天内容。
+
+重要要求：
+1. 只返回一句话（不要多句）
+2. 最多15个字（必须严格遵守）
+3. 简洁自然，不要"好的，"、"我觉得，"等冗余开头
+4. 符合玩家的性格和方言特色
+5. 符合当前游戏状态和事件
+6. 只返回要说的话，不要添加任何解释或标记
+
+示例：
+- 好牌！
+- 这手不错
+- 要不起
+- 等等我
 
 聊天内容：`;
   }
@@ -137,11 +243,30 @@ ${playerInfo}
 ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
 
 ## 任务
-生成一句对目标玩家的对骂/挑衅内容。要求：
-1. 简短有力（1句话，不超过15字）
-2. 适度，不能过于激烈或低俗
-3. 符合玩家的性格和方言特色
-4. 只返回要说的话，不要添加任何解释或标记
+生成一句对目标玩家的对骂/挑衅内容。
+
+重要要求：
+1. 只返回一句话（不要多句）
+2. 最多15个字（必须严格遵守）
+3. 必须包含脏话或粗口（这是对骂，不是普通聊天）
+4. 简洁自然，不要冗余表达
+5. 符合玩家的性格和方言特色
+6. 只返回要说的话，不要添加任何解释或标记
+
+脏话要求：
+- 必须使用脏话，如"你妈逼"、"妈的"、"靠"、"卧槽"、"我去"等
+- 这是打牌时的对骂，要激烈一些
+- 可以适度使用方言脏话
+
+示例（必须包含脏话）：
+- 你妈逼，等着
+- 妈的，太狠了
+- 靠，你完了
+- 卧槽，你等着
+- 我去，你妈逼
+- 你妈逼，看我的
+- 妈的，别得意
+- 靠，你死定了
 
 对骂内容：`;
   }

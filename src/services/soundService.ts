@@ -64,13 +64,29 @@ class SoundService {
         audio.volume = this.config.volume;
         audio.preload = this.config.preload ? 'auto' : 'none';
         
-        audio.addEventListener('error', (e) => {
-          console.warn(`[SoundService] HTML5 Audio 加载失败: ${name}`, url);
+        // 添加超时处理
+        const timeout = setTimeout(() => {
+          console.warn(`[SoundService] HTML5 Audio 加载超时: ${name}`, url);
           (audio as any).__loadFailed = true;
-          reject(new Error(`HTML5 Audio 加载失败: ${name}`));
+          reject(new Error(`HTML5 Audio 加载超时: ${name}`));
+        }, 10000); // 10秒超时
+        
+        audio.addEventListener('error', (e) => {
+          clearTimeout(timeout);
+          const error = audio.error;
+          console.warn(`[SoundService] HTML5 Audio 加载失败: ${name}`, {
+            url,
+            errorCode: error?.code,
+            errorMessage: error?.message,
+            networkState: audio.networkState,
+            readyState: audio.readyState
+          });
+          (audio as any).__loadFailed = true;
+          reject(new Error(`HTML5 Audio 加载失败: ${name} (${error?.code || 'unknown'})`));
         });
         
         audio.addEventListener('canplaythrough', () => {
+          clearTimeout(timeout);
           console.log(`[SoundService] HTML5 Audio 加载成功: ${name}`, url);
           this.htmlAudioSounds.set(name, audio);
           resolve();
@@ -78,9 +94,13 @@ class SoundService {
         
         // 如果已经可以播放，立即解析
         if (audio.readyState >= 3) {
+          clearTimeout(timeout);
           this.htmlAudioSounds.set(name, audio);
           resolve();
         }
+        
+        // 尝试加载（触发网络请求）
+        audio.load();
       });
     }
 
@@ -116,18 +136,36 @@ class SoundService {
 
     // 使用 Web Audio API 加载（主要用于 MP3）
     try {
+      console.log(`[SoundService] 尝试加载音频: ${name}`, url);
       const response = await fetch(url);
+      console.log(`[SoundService] 响应状态: ${response.status}`, {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
+      });
+      
       if (!response.ok) {
         // 文件不存在，抛出错误让调用者继续尝试下一个路径
-        throw new Error(`文件不存在 (${response.status})`);
+        throw new Error(`文件不存在 (${response.status} ${response.statusText})`);
       }
       const arrayBuffer = await response.arrayBuffer();
+      console.log(`[SoundService] 音频数据大小: ${arrayBuffer.byteLength} bytes`);
       const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
       this.sounds.set(name, audioBuffer);
-      console.log(`[SoundService] Web Audio 音效加载成功: ${name}`, url);
+      console.log(`[SoundService] Web Audio 音效加载成功: ${name}`, {
+        url,
+        duration: audioBuffer.duration,
+        sampleRate: audioBuffer.sampleRate,
+        channels: audioBuffer.numberOfChannels
+      });
     } catch (error) {
       // 解码失败，尝试使用 HTML5 Audio 作为备用
-      console.warn(`[SoundService] Web Audio 音效加载失败: ${name} (${url})，尝试 HTML5 Audio`, error);
+      console.warn(`[SoundService] Web Audio 音效加载失败: ${name} (${url})，尝试 HTML5 Audio`, {
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.constructor.name : typeof error
+      });
       
       return new Promise((resolve, reject) => {
         const audio = new Audio(url);
@@ -216,6 +254,7 @@ class SoundService {
 
   /**
    * 播放音效（使用 Web Audio API）
+   * 系统声音通过独立声道播放（中央声道）
    * @param name 音效名称
    * @param volume 音量（可选，覆盖默认音量）
    */
@@ -241,6 +280,17 @@ class SoundService {
           this.audioContext.resume();
         }
 
+        // 尝试使用多声道服务播放系统声音（如果可用）
+        try {
+          const { webAudioVoiceService } = require('./webAudioVoiceService');
+          webAudioVoiceService.playSystemSound(audioBuffer, vol);
+          console.log(`[SoundService] 播放系统声音 (多声道): ${name}`, { volume: vol });
+          return;
+        } catch (e) {
+          // 多声道服务不可用，使用普通播放
+        }
+
+        // 普通播放（中央声道）
         const source = this.audioContext.createBufferSource();
         const gainNode = this.audioContext.createGain();
         
