@@ -149,9 +149,12 @@
 
 .play-cards {
   display: flex;
+  flex-direction: row; /* 明确设置为横向排列 */
+  align-items: center; /* 垂直居中对齐 */
   gap: 5px;
   justify-content: center;
   margin-bottom: 10px;
+  flex-wrap: wrap; /* 如果卡牌太多，允许换行 */
 }
 
 .play-type {

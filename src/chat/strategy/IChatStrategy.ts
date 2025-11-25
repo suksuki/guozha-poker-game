@@ -49,6 +49,19 @@ export interface IChatStrategy {
   ): Promise<ChatMessage | null> | ChatMessage | null;
 
   /**
+   * 生成回复内容
+   * @param player 回复的玩家
+   * @param originalMessage 原始消息（被回复的消息）
+   * @param context 上下文信息（可选）
+   * @returns 聊天消息，如果返回null表示不触发
+   */
+  generateReply?(
+    player: Player,
+    originalMessage: ChatMessage,
+    context?: ChatContext
+  ): Promise<ChatMessage | null> | ChatMessage | null;
+
+  /**
    * 策略名称
    */
   readonly name: string;
@@ -75,6 +88,9 @@ export interface ChatContext {
   
   // 所有玩家信息
   allPlayers?: Player[];
+  
+  // 目标玩家（用于对骂等场景）
+  targetPlayer?: Player;
   
   // 游戏状态摘要
   gameState?: {

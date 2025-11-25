@@ -99,7 +99,9 @@ describe('useChatBubbles', () => {
 
     expect(position).toHaveProperty('bottom');
     expect(position).toHaveProperty('left');
-    expect(position.left).toBe('50%');
+    // 已更新为10%以避免挡住出牌区域（之前是50%）
+    expect(position.left).toBe('10%');
+    expect(position.bottom).toBe('450px');
   });
 
   it('应该能够计算AI玩家的气泡位置', () => {

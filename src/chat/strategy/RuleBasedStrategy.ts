@@ -4,7 +4,8 @@
  * 支持多语言（通过 i18n）
  */
 
-import { ChatMessage, ChatEventType } from '../../types/chat';
+import { ChatMessage, ChatEventType, ChatScene } from '../../types/chat';
+import { ChatSceneProcessorFactory } from '../scene/ChatSceneProcessorFactory';
 import { Player } from '../../types/card';
 import { IChatStrategy, ChatContext } from './IChatStrategy';
 import { getChatContent, getRandomChat, getTaunt } from '../../utils/chatContent';
@@ -44,7 +45,8 @@ export class RuleBasedStrategy implements IChatStrategy {
       playerName: player.name,
       content,
       timestamp: Date.now(),
-      type: 'random'
+      type: 'random',
+      scene: ChatScene.SPONTANEOUS // 标记场景类型
     };
   }
 
@@ -64,12 +66,17 @@ export class RuleBasedStrategy implements IChatStrategy {
     const isTaunt = eventType === ChatEventType.SCORE_STOLEN;
     const content = getChatContent(eventType, dialect, isTaunt);
     
+    // 根据事件类型确定场景
+    const scene = ChatSceneProcessorFactory.getSceneByEventType(eventType);
+    
     return {
       playerId: player.id,
       playerName: player.name,
       content,
       timestamp: Date.now(),
-      type: isTaunt ? 'taunt' : 'event'
+      type: isTaunt ? 'taunt' : 'event',
+      scene: scene, // 标记场景类型
+      eventType: eventType // 记录事件类型
     };
   }
 
@@ -89,11 +96,72 @@ export class RuleBasedStrategy implements IChatStrategy {
         playerName: player.name,
         content,
         timestamp: Date.now(),
-        type: 'taunt'
+        type: 'taunt',
+        scene: ChatScene.TAUNT // 标记场景类型
       };
     }
     
     return null;
+  }
+
+  generateReply(
+    player: Player,
+    originalMessage: ChatMessage,
+    context?: ChatContext
+  ): ChatMessage | null {
+    // 规则策略的简单回复逻辑：根据原消息类型生成简单回复
+    const dialect = player.voiceConfig?.dialect === 'cantonese' ? 'cantonese' : 'mandarin';
+    
+    // 简单的回复内容库（可以根据原消息类型选择不同的回复）
+    const replyTemplates: Record<string, string[]> = {
+      'zh-CN': {
+        'mandarin': [
+          '确实',
+          '还行',
+          '我也这么觉得',
+          '嗯嗯',
+          '好的',
+          '知道了',
+          '明白',
+          '对',
+          '没错',
+          '是的'
+        ],
+        'cantonese': [
+          '系啊',
+          '系咁',
+          '我都系咁谂',
+          '嗯嗯',
+          '好',
+          '知道',
+          '明白',
+          '对',
+          '冇错',
+          '系'
+        ]
+      }
+    };
+
+    const currentLang = i18n.language || 'zh-CN';
+    const langKey = currentLang.startsWith('zh') ? 'zh-CN' : currentLang;
+    const templates = replyTemplates[langKey]?.[dialect] || replyTemplates['zh-CN']?.['mandarin'] || ['好的', '知道了'];
+    
+    const content = templates[Math.floor(Math.random() * templates.length)];
+    
+    return {
+      playerId: player.id,
+      playerName: player.name,
+      content,
+      timestamp: Date.now(),
+      type: 'random',
+      scene: ChatScene.SPONTANEOUS,
+      replyTo: {
+        playerId: originalMessage.playerId,
+        playerName: originalMessage.playerName,
+        content: originalMessage.content,
+        timestamp: originalMessage.timestamp
+      }
+    };
   }
 }
 

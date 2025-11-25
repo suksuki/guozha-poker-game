@@ -20,6 +20,17 @@
 - 炸弹可以压过其他牌型
 - 先出完牌的玩家获胜
 
+## 📚 文档
+
+项目文档已整理到 `docs/` 目录：
+
+- **快速开始**：[QUICK-START.md](QUICK-START.md)
+- **开发计划**：[docs/development/](docs/development/)
+- **功能文档**：[docs/features/](docs/features/)
+- **问题修复**：[docs/fixes/](docs/fixes/)
+- **设置指南**：[docs/setup/](docs/setup/)
+- **测试文档**：[docs/testing/](docs/testing/)
+
 ## 安装和运行
 
 1. 安装依赖：

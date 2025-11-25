@@ -21,6 +21,9 @@ import { groupCardsByRank } from '../utils/cardSorting';
 import { evaluateHandValue } from '../ai/simpleStrategy';
 import { MultiPlayerGameState } from '../utils/gameStateUtils';
 
+// 消息订阅回调类型
+type MessageSubscriber = (message: ChatMessage) => void;
+
 // 聊天服务类
 class ChatService {
   private messages: ChatMessage[] = [];
@@ -29,6 +32,9 @@ class ChatService {
   private tauntConfig: TauntConfig;
   private strategy: IChatStrategy;
   private fallbackStrategy: IChatStrategy | null = null; // 回退策略（规则策略）
+  
+  // 消息订阅者（用于通知其他玩家有新消息）
+  private subscribers: Set<MessageSubscriber> = new Set();
 
   constructor(
     strategy: 'rule-based' | 'llm' = 'llm', // 默认使用llm策略，因为大模型已启动
@@ -73,8 +79,23 @@ class ChatService {
   }
 
   // 切换策略
-  setStrategy(strategy: 'rule-based' | 'llm'): void {
-    this.strategy = getChatStrategy(strategy, this.config, this.bigDunConfig, this.tauntConfig);
+  setStrategy(strategy: 'rule-based' | 'llm', llmConfig?: any): void {
+    this.strategy = getChatStrategy(strategy, this.config, this.bigDunConfig, this.tauntConfig, llmConfig);
+    // 如果使用LLM策略，创建规则策略作为回退
+    if (strategy === 'llm') {
+      this.fallbackStrategy = getChatStrategy('rule-based', this.config, this.bigDunConfig, this.tauntConfig);
+    }
+  }
+
+  // 更新LLM配置
+  updateLLMConfig(llmConfig: Partial<any>): void {
+    if (this.strategy.name === 'llm') {
+      // 获取当前LLM配置
+      const currentConfig = (this.strategy as any).config || {};
+      const newConfig = { ...currentConfig, ...llmConfig };
+      // 重新创建策略实例
+      this.strategy = getChatStrategy('llm', this.config, this.bigDunConfig, this.tauntConfig, newConfig);
+    }
   }
 
   // 获取当前策略信息
@@ -86,6 +107,26 @@ class ChatService {
     };
   }
 
+  // 订阅消息通知
+  subscribe(callback: MessageSubscriber): () => void {
+    this.subscribers.add(callback);
+    // 返回取消订阅函数
+    return () => {
+      this.subscribers.delete(callback);
+    };
+  }
+
+  // 通知所有订阅者
+  private notifySubscribers(message: ChatMessage): void {
+    this.subscribers.forEach(callback => {
+      try {
+        callback(message);
+      } catch (error) {
+        console.error('[ChatService] 消息订阅回调出错:', error);
+      }
+    });
+  }
+
   // 添加聊天消息
   addMessage(message: ChatMessage): void {
     this.messages.push(message);
@@ -93,6 +134,8 @@ class ChatService {
     if (this.messages.length > this.config.maxMessages) {
       this.messages.shift();
     }
+    // 通知所有订阅者
+    this.notifySubscribers(message);
   }
 
   // 获取所有聊天消息
@@ -297,6 +340,71 @@ class ChatService {
     fullGameState?: MultiPlayerGameState
   ): Promise<void> {
     await this.triggerEventChat(player, ChatEventType.GOOD_PLAY, context, fullGameState);
+  }
+
+  // 触发回复
+  async triggerReply(
+    player: Player,
+    originalMessage: ChatMessage,
+    probability?: number,
+    fullGameState?: MultiPlayerGameState
+  ): Promise<ChatMessage | null> {
+    // 先检查概率（默认0.4，40%概率回复）
+    const prob = probability ?? 0.4;
+    if (Math.random() > prob) {
+      return null;
+    }
+
+    // 构建完整上下文
+    const fullContext: ChatContext = {
+      fullGameState,
+      currentPlayer: player,
+      allPlayers: fullGameState?.players,
+      targetPlayer: fullGameState?.players.find(p => p.id === originalMessage.playerId),
+      gameState: fullGameState ? {
+        roundNumber: fullGameState.roundNumber,
+        roundScore: fullGameState.roundScore,
+        totalScore: fullGameState.totalScore,
+        playerCount: fullGameState.playerCount,
+        currentPlayerIndex: fullGameState.currentPlayerIndex,
+        status: fullGameState.status,
+        lastPlay: fullGameState.lastPlay,
+        lastPlayPlayerIndex: fullGameState.lastPlayPlayerIndex
+      } : undefined,
+      history: this.config.enableHistory ? this.messages.slice(-this.config.maxHistoryLength || 10) : undefined
+    };
+
+    // 检查策略是否支持回复
+    if (!this.strategy.generateReply) {
+      console.warn('[ChatService] 当前策略不支持回复功能');
+      return null;
+    }
+
+    // 使用策略生成回复内容
+    console.log('[ChatService] 调用策略生成回复，策略:', this.strategy.name, '回复:', originalMessage.content);
+    let message = await this.strategy.generateReply(player, originalMessage, fullContext);
+    
+    // 如果LLM策略失败，使用规则策略作为回退
+    if (!message && this.fallbackStrategy?.generateReply && this.strategy.name === 'llm') {
+      console.warn('[ChatService] ⚠️ LLM策略返回null，切换到规则策略回退');
+      message = await this.fallbackStrategy.generateReply(player, originalMessage, fullContext);
+    }
+    
+    if (message) {
+      // 标记为回复消息
+      message.replyTo = {
+        playerId: originalMessage.playerId,
+        playerName: originalMessage.playerName,
+        content: originalMessage.content,
+        timestamp: originalMessage.timestamp
+      };
+      console.log('[ChatService] ✅ 收到回复消息:', message.content);
+      this.addMessage(message);
+    } else {
+      console.warn('[ChatService] ⚠️ 所有策略都返回null，未生成回复消息');
+    }
+    
+    return message;
   }
 
   // 触发对骂
@@ -608,5 +716,25 @@ export async function triggerDealingReaction(
   totalCards: number
 ): Promise<void> {
   await chatService.triggerDealingReaction(player, card, currentIndex, totalCards);
+}
+
+// 更新LLM配置
+export function updateChatLLMConfig(llmConfig: Partial<LLMChatConfig>): void {
+  chatService.updateLLMConfig(llmConfig);
+}
+
+// 触发回复
+export async function triggerReply(
+  player: Player,
+  originalMessage: ChatMessage,
+  probability?: number,
+  fullGameState?: MultiPlayerGameState
+): Promise<ChatMessage | null> {
+  return await chatService.triggerReply(player, originalMessage, probability, fullGameState);
+}
+
+// 订阅消息通知
+export function subscribeToMessages(callback: (message: ChatMessage) => void): () => void {
+  return chatService.subscribe(callback);
 }
 

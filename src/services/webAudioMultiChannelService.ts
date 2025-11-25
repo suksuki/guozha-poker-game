@@ -10,6 +10,9 @@
  * 
  * 注意：由于浏览器限制，此方案需要用户授权音频捕获权限
  * 备选方案：使用 TTS API 生成音频文件，然后用 Web Audio API 播放
+ * 
+ * @deprecated 此文件目前未被使用，已改用串行播放策略（multiChannelVoiceService.ts）
+ * 保留此文件仅作为未来可能的参考实现
  */
 
 import { VoiceConfig } from '../types/card';

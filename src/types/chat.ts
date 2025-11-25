@@ -1,11 +1,26 @@
+// 聊天场景类型
+export enum ChatScene {
+  SPONTANEOUS = 'spontaneous', // 自发聊天（纯闲聊）
+  EVENT_DRIVEN = 'event-driven', // 事件触发聊天（基于游戏事件）
+  TAUNT = 'taunt' // 对骂（特殊场景）
+}
+
 // 聊天消息类型
 export interface ChatMessage {
   playerId: number;
   playerName: string;
   content: string;
   timestamp: number;
-  type: 'random' | 'event' | 'taunt'; // 随机闲聊、事件触发、对骂
+  type: 'random' | 'event' | 'taunt'; // 随机闲聊、事件触发、对骂（保持向后兼容）
+  scene?: ChatScene; // 场景类型（新增，用于场景化处理）
+  eventType?: ChatEventType; // 如果是事件触发，记录具体事件类型
   originalContent?: string; // 原文（如果经过翻译）
+  replyTo?: {
+    playerId: number; // 被回复的玩家ID
+    playerName: string; // 被回复的玩家名称
+    content: string; // 被回复的消息内容
+    timestamp: number; // 被回复的消息时间戳
+  }; // 如果是回复消息，记录被回复的消息信息
 }
 
 // 聊天事件类型

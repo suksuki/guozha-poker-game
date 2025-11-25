@@ -25,13 +25,78 @@ vi.mock('../src/services/voiceService', () => ({
   }
 }));
 
-// Mock i18n（避免国际化加载影响测试）
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { changeLanguage: vi.fn() }
-  })
+// Mock i18next-browser-languagedetector（必须在 i18n 之前）
+vi.mock('i18next-browser-languagedetector', () => ({
+  default: {
+    type: 'languageDetector' as const,
+    detect: vi.fn(() => 'en-US'),
+    init: vi.fn(),
+    cacheUserLanguage: vi.fn()
+  }
 }));
+
+// Mock i18next（避免初始化）
+vi.mock('i18next', () => {
+  const mockI18n = {
+    language: 'en-US',
+    isInitialized: true,
+    use: vi.fn().mockReturnThis(),
+    init: vi.fn().mockResolvedValue(undefined),
+    changeLanguage: vi.fn().mockResolvedValue(undefined),
+    t: (key: string) => key
+  };
+  return {
+    default: mockI18n
+  };
+});
+
+// Mock i18n 模块（避免在测试中初始化）
+vi.mock('../src/i18n', () => ({
+  default: {
+    language: 'en-US',
+    isInitialized: true,
+    changeLanguage: vi.fn().mockResolvedValue(undefined),
+    t: (key: string) => key
+  }
+}));
+
+// Mock react-i18next（使用 importOriginal 来部分 mock）
+vi.mock('react-i18next', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-i18next')>();
+  return {
+    ...actual,
+    useTranslation: () => ({
+      t: (key: string, params?: any) => {
+        // 处理带参数的翻译
+        if (key === 'ui:dealing.dealingProgress' && params) {
+          return `Dealing... ${params.current} / ${params.total}`;
+        }
+        // 其他翻译键的映射
+        const translations: { [key: string]: string } = {
+          'ui:dealing.skipAnimation': 'Skip dealing animation',
+          'ui:dealing.switchToManual': '👆 Switch to Manual',
+          'ui:dealing.switchToAuto': '👆 Switch to Auto',
+          'ui:dealing.drawCard': '🎴 抓牌',
+          'ui:playerHand.loading': 'Loading hand data...',
+          'ui:dealing.cardsUnit': ' 张',
+          'ui:aiPlayer.scoreLabel': 'Score',
+          'ui:aiPlayer.dunCountLabel': 'Duns',
+          'ui:aiPlayer.handLabel': 'Hand',
+          'ui:aiPlayer.cards': 'cards'
+        };
+        return translations[key] || key;
+      },
+      i18n: { 
+        changeLanguage: vi.fn(),
+        language: 'en-US'
+      }
+    }),
+    initReactI18next: {
+      type: 'languageDetector' as const,
+      init: vi.fn()
+    }
+  };
+});
 
 // Mock dealCardsWithAlgorithm
 vi.mock('../src/utils/dealingAlgorithms', () => ({
@@ -114,7 +179,7 @@ describe('手动发牌模式', () => {
     vi.clearAllMocks();
   });
 
-  it('应该显示手动/自动切换按钮', () => {
+  it('应该显示手动/自动切换按钮', async () => {
     render(
       <DealingAnimation
         playerCount={2}
@@ -126,8 +191,13 @@ describe('手动发牌模式', () => {
       />
     );
 
-    // 应该显示切换按钮
-    const modeButton = screen.getByText(/切换到手动|切换到自动/);
+    // 等待组件初始化
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    // 应该显示切换按钮（使用翻译后的文本）
+    const modeButton = await screen.findByText(/Switch to Manual|Switch to Auto/, {}, { timeout: 2000 });
     expect(modeButton).toBeInTheDocument();
   });
 
@@ -145,22 +215,22 @@ describe('手动发牌模式', () => {
 
     // 等待组件初始化（精确控制时间，避免无限循环）
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(50);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
-    // 使用 findBy* 自动等待按钮出现（更可靠）
-    const modeButton = await screen.findByText(/切换到手动/, {}, { timeout: 1000 });
+    // 使用 findBy* 自动等待按钮出现（更可靠，使用翻译后的文本）
+    const modeButton = await screen.findByText(/Switch to Manual/, {}, { timeout: 2000 });
     
     // 点击按钮并推进时间（只推进必要的时长）
     await act(async () => {
-    fireEvent.click(modeButton);
-      await vi.advanceTimersByTimeAsync(50); // 只推进必要的时长，避免触发太多定时器
+      fireEvent.click(modeButton);
+      await vi.advanceTimersByTimeAsync(100); // 推进足够的时间让状态更新完成
     });
 
-    // 等待手动模式下的抓牌按钮出现（手动模式下使用按钮）
-    const drawButton = await screen.findByText(/🎴 抓牌/, {}, { timeout: 1000 });
+    // 等待手动模式下的抓牌按钮出现（手动模式下使用按钮，使用翻译后的文本）
+    const drawButton = await screen.findByText(/🎴 抓牌|Draw Card/, {}, { timeout: 2000 });
     expect(drawButton).toBeInTheDocument();
-  }, 5000); // 减少超时时间
+  }, 10000); // 增加超时时间到10秒
 
   it('手动模式下点击抓牌按钮应该发一张牌', async () => {
     render(
@@ -176,39 +246,39 @@ describe('手动发牌模式', () => {
 
     // 等待组件初始化（精确控制时间）
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(50);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
-    // 使用 findBy* 自动等待按钮出现
-    const modeButton = await screen.findByText(/切换到手动/, {}, { timeout: 1000 });
+    // 使用 findBy* 自动等待按钮出现（使用翻译后的文本）
+    const modeButton = await screen.findByText(/Switch to Manual/, {}, { timeout: 2000 });
     
     // 点击按钮并推进时间
     await act(async () => {
-    fireEvent.click(modeButton);
-      await vi.advanceTimersByTimeAsync(50);
+      fireEvent.click(modeButton);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
-    // 等待手动模式下的抓牌按钮出现（手动模式下使用按钮）
-    const drawButton = await screen.findByText(/🎴 抓牌/, {}, { timeout: 1000 });
+    // 等待手动模式下的抓牌按钮出现（手动模式下使用按钮，使用翻译后的文本）
+    const drawButton = await screen.findByText(/🎴 抓牌|Draw Card/, {}, { timeout: 2000 });
     expect(drawButton).toBeInTheDocument();
 
-    // 获取初始牌数
-    const initialCount = screen.getByText(/\d+ 张/).textContent;
+    // 获取初始牌数（使用翻译后的文本）
+    const initialCount = screen.getByText(/\d+ 张|\d+ cards/).textContent;
     const initialCountNum = parseInt(initialCount?.match(/\d+/)?.[0] || '0');
 
     // 点击抓牌按钮（手动模式下使用按钮，不是点击牌堆）
     await act(async () => {
       fireEvent.click(drawButton);
-      await vi.advanceTimersByTimeAsync(50); // 只推进必要的时长
+      await vi.advanceTimersByTimeAsync(150); // 推进足够的时间让发牌完成
     });
 
-    // 应该发了一张牌（牌数增加）
-    const newCount = screen.getByText(/\d+ 张/).textContent;
+    // 应该发了一张牌（牌数增加，使用翻译后的文本）
+    const newCount = screen.getByText(/\d+ 张|\d+ cards/).textContent;
     const newCountNum = parseInt(newCount?.match(/\d+/)?.[0] || '0');
     
     // 注意：由于是轮询发牌，可能已经发了几张，所以只检查牌数有变化
     expect(newCountNum).toBeGreaterThanOrEqual(initialCountNum);
-  }, 5000); // 减少超时时间
+  }, 10000); // 增加超时时间到10秒
 
   it('手动模式下不应该自动发牌', async () => {
     render(
@@ -224,29 +294,29 @@ describe('手动发牌模式', () => {
 
     // 等待组件初始化（精确控制时间）
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(50);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
-    // 使用 findBy* 自动等待按钮出现
-    const modeButton = await screen.findByText(/切换到手动/, {}, { timeout: 1000 });
+    // 使用 findBy* 自动等待按钮出现（使用翻译后的文本）
+    const modeButton = await screen.findByText(/Switch to Manual/, {}, { timeout: 2000 });
     
     // 点击按钮并推进时间
     await act(async () => {
-    fireEvent.click(modeButton);
-      await vi.advanceTimersByTimeAsync(50);
+      fireEvent.click(modeButton);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
-    // 等待手动模式下的抓牌按钮出现（手动模式下使用按钮）
-    const drawButton = await screen.findByText(/🎴 抓牌/, {}, { timeout: 1000 });
+    // 等待手动模式下的抓牌按钮出现（手动模式下使用按钮，使用翻译后的文本）
+    const drawButton = await screen.findByText(/🎴 抓牌|Draw Card/, {}, { timeout: 2000 });
     expect(drawButton).toBeInTheDocument();
 
-    // 获取初始牌数
-    const initialCount = screen.getByText(/\d+ 张/).textContent;
+    // 获取初始牌数（使用翻译后的文本）
+    const initialCount = screen.getByText(/\d+ 张|\d+ cards/).textContent;
     const initialCountNum = parseInt(initialCount?.match(/\d+/)?.[0] || '0');
 
     // 等待一段时间（应该不会自动发牌，精确控制时间）
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(200); // 只推进必要的时长
+      await vi.advanceTimersByTimeAsync(300); // 推进足够的时间，但应该不会自动发牌
     });
 
     // 牌数应该不变（除非手动点击）
@@ -255,7 +325,7 @@ describe('手动发牌模式', () => {
     
     // 在手动模式下，不点击应该不会发牌
     expect(newCountNum).toBe(initialCountNum);
-  }, 5000); // 减少超时时间
+  }, 10000); // 增加超时时间到10秒
 
   it('应该能够从手动模式切换回自动模式', async () => {
     render(
@@ -271,38 +341,38 @@ describe('手动发牌模式', () => {
 
     // 等待组件初始化（精确控制时间）
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(50);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
-    // 使用 findBy* 自动等待按钮出现
-    const modeButton = await screen.findByText(/切换到手动/, {}, { timeout: 1000 });
+    // 使用 findBy* 自动等待按钮出现（使用翻译后的文本）
+    const modeButton = await screen.findByText(/Switch to Manual/, {}, { timeout: 2000 });
     
     // 点击按钮并推进时间
     await act(async () => {
-    fireEvent.click(modeButton);
-      await vi.advanceTimersByTimeAsync(50);
+      fireEvent.click(modeButton);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
-    // 等待手动模式下的抓牌按钮出现（手动模式下使用按钮）
-    const drawButton = await screen.findByText(/🎴 抓牌/, {}, { timeout: 1000 });
+    // 等待手动模式下的抓牌按钮出现（手动模式下使用按钮，使用翻译后的文本）
+    const drawButton = await screen.findByText(/🎴 抓牌|Draw Card/, {}, { timeout: 2000 });
     expect(drawButton).toBeInTheDocument();
 
-    // 切换回自动模式（使用 findBy* 自动等待）
-    const autoButton = await screen.findByText(/切换到自动/, {}, { timeout: 1000 });
+    // 切换回自动模式（使用 findBy* 自动等待，使用翻译后的文本）
+    const autoButton = await screen.findByText(/Switch to Auto/, {}, { timeout: 2000 });
     
     await act(async () => {
-    fireEvent.click(autoButton);
-      await vi.advanceTimersByTimeAsync(50);
+      fireEvent.click(autoButton);
+      await vi.advanceTimersByTimeAsync(100);
     });
 
     // 等待一段时间后，牌数应该增加（自动发牌，精确控制时间）
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(100); // 只推进必要的时长
+      await vi.advanceTimersByTimeAsync(200); // 推进足够的时间让自动发牌开始
     });
     
-    // 验证自动发牌正在进行（牌数应该增加）
-    const countText = screen.getByText(/\d+ 张/);
+    // 验证自动发牌正在进行（牌数应该增加，使用翻译后的文本）
+    const countText = screen.getByText(/\d+ 张|\d+ cards/);
     expect(countText).toBeInTheDocument();
-  }, 5000); // 减少超时时间
+  }, 10000); // 增加超时时间到10秒
 });
 

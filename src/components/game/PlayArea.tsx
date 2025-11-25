@@ -26,22 +26,32 @@ export const PlayArea: React.FC<PlayAreaProps> = ({
     <div className="play-area">
       {lastPlay && (
         <div className="last-play">
-          <div className="play-label">
-            {t('playArea.playerPlayed', { name: lastPlayPlayerName || '' })}
+          <div className="play-label" style={{ color: 'white', marginBottom: '28px' }}>
+            <span className="play-icon" style={{ color: 'white' }}>🎴</span>
+            <span className="play-label-text" style={{ color: 'white' }}>{t('playArea.playerPlayed', { name: lastPlayPlayerName || '' })}</span>
           </div>
-          <div className="play-cards">
+          <div className="play-cards" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '5px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '0', marginBottom: '20px' }}>
             {lastPlay.cards.map((card) => (
               <CardComponent key={card.id} card={card} size="medium" />
             ))}
           </div>
-          <div className="play-type">{getCardTypeName(lastPlay.type)}</div>
+          <div className="play-type" style={{ color: 'white' }}>
+            <span className="play-type-icon" style={{ color: 'white' }}>✨</span>
+            <span className="play-type-text" style={{ color: 'white' }}>{getCardTypeName(lastPlay.type)}</span>
+          </div>
           {roundScore > 0 && (
-            <div className="round-score">{t('playArea.roundScore', { score: roundScore })}</div>
+            <div className="round-score">
+              <span className="score-icon">⭐</span>
+              <span className="score-text">{t('playArea.roundScore', { score: roundScore })}</span>
+            </div>
           )}
         </div>
       )}
       {!lastPlay && (
-        <div className="no-play">{t('playArea.noPlay')}</div>
+        <div className="no-play">
+          <span className="no-play-icon">🎯</span>
+          <span className="no-play-text">{t('playArea.noPlay')}</span>
+        </div>
       )}
     </div>
   );

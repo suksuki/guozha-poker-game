@@ -3,6 +3,9 @@
   z-index: 1000;
   animation: slideIn 0.3s ease-out;
   pointer-events: none;
+  /* 确保气泡不会挡住重要UI元素，但允许显示完整内容 */
+  max-width: 400px; /* 增加最大宽度，允许显示更长内容 */
+  min-width: 200px;
 }
 
 .chat-bubble.fade-out {
@@ -14,9 +17,11 @@
   border-radius: 24px;
   padding: 16px 24px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  max-width: 400px;
+  max-width: 400px; /* 增加最大宽度，允许显示完整内容 */
   min-width: 200px;
   position: relative;
+  word-wrap: break-word; /* 确保长文本自动换行 */
+  overflow-wrap: break-word; /* 兼容性更好的换行 */
 }
 
 .chat-bubble.event .chat-bubble-content {
@@ -98,6 +103,39 @@
   to {
     opacity: 0;
     transform: translateY(-10px);
+  }
+}
+
+/* 播放中动画 */
+.chat-bubble.speaking {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.chat-bubble.speaking .chat-bubble-content {
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
+}
+
+.speaking-indicator {
+  display: inline-block;
+  margin-left: 8px;
+  animation: bounce 0.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
   }
 }
 

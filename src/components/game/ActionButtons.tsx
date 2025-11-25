@@ -30,34 +30,42 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   const { t } = useTranslation(['game']);
 
   return (
-    <div className="action-buttons-top">
-      <button
-        className="btn-action btn-suggest"
-        onClick={onSuggest}
-        disabled={!isPlayerTurn || isSuggesting}
-      >
-        {isSuggesting ? t('game:actions.aiThinking') : t('game:actions.aiSuggest')}
-      </button>
-      <button
-        className="btn-action"
-        onClick={onPlay}
-        disabled={selectedCardsCount === 0 || !isPlayerTurn}
-      >
-        {t('game:actions.playWithCount', { count: selectedCardsCount })}
-      </button>
-      <button
-        className="btn-action btn-pass"
-        onClick={onPass}
-        disabled={!isPlayerTurn || !lastPlay || !canPass}
-        title={!canPass && isPlayerTurn && lastPlay ? t('game:hints.mustPlayTitle') : t('game:actions.pass')}
-      >
-        {!canPass && isPlayerTurn && lastPlay ? t('game:actions.mustPlay') : t('game:actions.pass')}
-      </button>
+    <div className="action-buttons-wrapper">
+      {/* 提示信息放在按钮上面 */}
       {!canPass && isPlayerTurn && lastPlay && (
-        <div className="must-play-hint">
+        <div className="must-play-hint-compact">
           ⚠️ {t('game:hints.mustPlay')}
         </div>
       )}
+      {/* 按钮区域 */}
+      <div className="action-buttons-compact">
+        <button
+          className="btn-action-compact btn-play"
+          onClick={onPlay}
+          disabled={selectedCardsCount === 0 || !isPlayerTurn}
+        >
+          <span className="btn-icon">🎴</span>
+          <span className="btn-text">{selectedCardsCount > 0 ? `出牌 (${selectedCardsCount})` : '出牌'}</span>
+        </button>
+        <button
+          className="btn-action-compact btn-pass"
+          onClick={onPass}
+          disabled={!isPlayerTurn || !lastPlay || !canPass}
+          title={!canPass && isPlayerTurn && lastPlay ? t('game:hints.mustPlayTitle') : t('game:actions.pass')}
+        >
+          <span className="btn-icon">❌</span>
+          <span className="btn-text">{!canPass && isPlayerTurn && lastPlay ? '必须出' : '要不起'}</span>
+        </button>
+        <button
+          className="btn-action-compact btn-suggest"
+          onClick={onSuggest}
+          disabled={!isPlayerTurn || isSuggesting}
+          title={t('game:actions.aiSuggest')}
+        >
+          <span className="btn-icon">{isSuggesting ? '🤔' : '💡'}</span>
+          <span className="btn-text">{isSuggesting ? '思考中' : 'AI建议'}</span>
+        </button>
+      </div>
     </div>
   );
 };

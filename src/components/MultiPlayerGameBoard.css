@@ -290,46 +290,319 @@
   margin-top: 5px;
 }
 
+/* 操作按钮包装器 */
+.action-buttons-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+/* 简洁版操作按钮 */
+.action-buttons-compact {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.btn-action-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-action-compact:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.btn-action-compact:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-action-compact .btn-icon {
+  font-size: 16px;
+  line-height: 1;
+  /* 去掉白色线框和任何边框 */
+  border: none !important;
+  outline: none !important;
+  background: none !important;
+  padding: 0;
+  margin: 0;
+  /* 确保 emoji 没有边框 */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  /* 去掉可能的文本装饰 */
+  text-decoration: none;
+  /* 确保没有阴影或边框效果 */
+  box-shadow: none;
+  filter: none;
+}
+
+.btn-action-compact .btn-text {
+  line-height: 1;
+  /* 确保文本也没有边框 */
+  border: none;
+  outline: none;
+}
+
+.btn-action-compact.btn-play {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+}
+
+.btn-action-compact.btn-play:hover:not(:disabled) {
+  background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
+}
+
+.btn-action-compact.btn-pass {
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  color: white;
+}
+
+.btn-action-compact.btn-pass:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
+}
+
+.btn-action-compact.btn-suggest {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+  color: white;
+  padding: 10px 14px;
+}
+
+.btn-action-compact.btn-suggest:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+}
+
+.must-play-hint-compact {
+  width: 100%;
+  text-align: center;
+  color: #ff9800;
+  font-size: 12px;
+  margin: 0; /* 移除 margin-top，由 wrapper 的 gap 控制间距 */
+  padding: 6px 12px;
+  background: rgba(255, 152, 0, 0.15);
+  border-radius: 8px;
+  font-weight: bold;
+  animation: pulse-warning 1.5s ease-in-out infinite;
+  order: -1; /* 确保在按钮上方显示 */
+}
+
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+
 .last-play {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 20px;
-  border-radius: 15px;
-  backdrop-filter: blur(10px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%);
+  padding: 24px 28px;
+  border-radius: 20px;
+  backdrop-filter: blur(15px);
   text-align: center;
   position: relative;
   z-index: 2001; /* 确保内容也在最上层 */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* 添加阴影增强层次感 */
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(255, 255, 255, 0.1) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  animation: play-area-glow 3s ease-in-out infinite;
+  transition: all 0.3s ease;
+  color: white !important; /* 强制所有子元素继承白色 */
+}
+
+/* 确保 .last-play 内所有文字都是白色 */
+.last-play * {
+  color: white !important;
+}
+
+.last-play .play-label,
+.last-play .play-label *,
+.last-play .play-type,
+.last-play .play-type *,
+.last-play .round-score,
+.last-play .round-score * {
+  color: white !important;
+}
+
+.last-play:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(255, 255, 255, 0.15) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+@keyframes play-area-glow {
+  0%, 100% {
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      0 2px 8px rgba(255, 255, 255, 0.1) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 8px 32px rgba(102, 126, 234, 0.4),
+      0 2px 8px rgba(255, 255, 255, 0.15) inset,
+      0 0 0 1px rgba(102, 126, 234, 0.3);
+  }
 }
 
 .play-label {
-  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: white !important; /* 强制白色，覆盖其他样式 */
   font-weight: bold;
-  margin-bottom: 10px;
+  margin-bottom: 28px !important; /* 调整间距为28px，适中距离 */
   font-size: 1.2em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  line-height: 1.6; /* 行高1.6，适中 */
+}
+
+.play-icon {
+  font-size: 1.3em;
+  animation: icon-bounce 2s ease-in-out infinite;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.play-label-text {
+  color: white !important; /* 强制白色，覆盖其他样式 */
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes icon-bounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(5deg);
+  }
 }
 
 .play-cards {
-  display: flex;
+  display: flex !important; /* 确保覆盖其他样式 */
+  flex-direction: row !important; /* 明确设置为横向排列 */
+  align-items: center; /* 垂直居中对齐 */
   gap: 5px;
   justify-content: center;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  margin-bottom: 20px !important; /* 调整间距为20px，适中距离 */
+  margin-top: 0 !important; /* 强制移除顶部间距，由 .play-label 的 margin-bottom 控制 */
+  flex-wrap: wrap; /* 如果卡牌太多，允许换行 */
   position: relative;
   z-index: 2002; /* 卡牌也在最上层 */
 }
 
+/* 确保 CardComponent 在 play-cards 中也是横向排列 */
+.play-cards > * {
+  flex-shrink: 0; /* 防止卡牌被压缩 */
+}
+
 .play-type {
-  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: white !important; /* 强制白色，覆盖其他样式 */
   font-size: 1.1em;
   font-weight: bold;
+  margin-top: 24px; /* 增加间距，从16px增加到24px */
+  padding: 6px 12px;
+  background: rgba(102, 126, 234, 0.2);
+  border-radius: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); /* 增强文字阴影 */
+  line-height: 1.6; /* 增加行高 */
+}
+
+.play-type-icon {
+  font-size: 1.1em;
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+.play-type-text {
+  color: white !important; /* 强制白色，覆盖其他样式 */
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 0.8;
+  }
 }
 
 .round-score {
-  color: #FFD700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #FFD700 !important; /* 强制金色，覆盖其他样式 */
   font-size: 1.2em;
   font-weight: bold;
-  margin-top: 10px;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  margin-top: 16px; /* 增加间距，从12px增加到16px */
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 193, 7, 0.15) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.2);
+  animation: score-pulse 2s ease-in-out infinite;
+}
+
+.score-icon {
+  font-size: 1.2em;
+  animation: star-rotate 3s linear infinite;
+}
+
+.score-text {
+  color: #FFD700 !important; /* 强制金色，覆盖其他样式 */
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes score-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.2);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+  }
+}
+
+@keyframes star-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 轮次出牌记录 */
@@ -441,9 +714,54 @@
 }
 
 .no-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   color: white;
   font-size: 1.5em;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  padding: 20px 30px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.15) 100%);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  animation: no-play-float 3s ease-in-out infinite;
+}
+
+.no-play-icon {
+  font-size: 1.5em;
+  animation: target-bounce 2s ease-in-out infinite;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.no-play-text {
+  color: white; /* 改为白色，不使用渐变文字 */
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes no-play-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes target-bounce {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.1) rotate(-10deg);
+  }
+  75% {
+    transform: scale(1.1) rotate(10deg);
+  }
 }
 
 /* 玩家区域 */
@@ -473,6 +791,56 @@
   font-size: 1.2em;
   font-weight: bold;
   margin-top: 5px;
+}
+
+/* 简洁版玩家信息 */
+.player-info-compact {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.player-info-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.player-hand-count {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.player-score-compact {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.your-turn-badge {
+  font-size: 12px;
+  color: #FFD700;
+  background: rgba(255, 215, 0, 0.2);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: bold;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
+  }
   animation: pulse 1.5s ease-in-out infinite;
 }
 

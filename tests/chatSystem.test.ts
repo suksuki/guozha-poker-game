@@ -33,35 +33,71 @@ vi.mock('../src/utils/chatContent', () => ({
 
 // Mock chat strategy
 vi.mock('../src/chat/strategy', () => ({
-  getChatStrategy: vi.fn(() => ({
-    generateRandomChat: vi.fn(async (player) => ({
-      playerId: player.id,
-      playerName: player.name,
-      content: '随机闲聊',
-      type: 'random',
-      timestamp: Date.now()
-    })),
-    generateEventChat: vi.fn(async (player, eventType) => {
-      // 根据实际策略逻辑：SCORE_STOLEN 返回 taunt，其他返回 event
-      const isTaunt = eventType === ChatEventType.SCORE_STOLEN;
+  getChatStrategy: vi.fn((strategy, config, bigDunConfig, tauntConfig, llmConfig) => {
+    // 根据策略类型返回不同的 mock
+    if (strategy === 'llm') {
+      // LLM 策略 mock
       return {
-        playerId: player.id,
-        playerName: player.name,
-        content: isTaunt ? '对骂内容' : '事件聊天',
-        type: isTaunt ? 'taunt' : 'event',
-        timestamp: Date.now()
+        generateRandomChat: vi.fn(async (player) => ({
+          playerId: player.id,
+          playerName: player.name,
+          content: '随机闲聊',
+          type: 'random',
+          timestamp: Date.now()
+        })),
+        generateEventChat: vi.fn(async (player, eventType) => {
+          // 根据实际策略逻辑：SCORE_STOLEN 和 SCORE_EATEN_CURSE 返回 taunt，其他返回 event
+          const isTaunt = eventType === ChatEventType.SCORE_STOLEN || eventType === ChatEventType.SCORE_EATEN_CURSE;
+          return {
+            playerId: player.id,
+            playerName: player.name,
+            content: isTaunt ? '对骂内容' : '事件聊天',
+            type: isTaunt ? 'taunt' : 'event',
+            timestamp: Date.now()
+          };
+        }),
+        generateTaunt: vi.fn(async (player, targetPlayer) => ({
+          playerId: player.id,
+          playerName: player.name,
+          content: '对骂内容',
+          type: 'taunt',
+          timestamp: Date.now()
+        })),
+        name: 'llm',
+        description: 'Mock LLM strategy'
       };
-    }),
-    generateTaunt: vi.fn(async (player) => ({
-      playerId: player.id,
-      playerName: player.name,
-      content: '对骂内容',
-      type: 'taunt',
-      timestamp: Date.now()
-    })),
-    name: 'rule-based',
-    description: 'Mock strategy'
-  }))
+    } else {
+      // 规则策略 mock（作为回退）
+      return {
+        generateRandomChat: vi.fn(async (player) => ({
+          playerId: player.id,
+          playerName: player.name,
+          content: '随机闲聊',
+          type: 'random',
+          timestamp: Date.now()
+        })),
+        generateEventChat: vi.fn(async (player, eventType) => {
+          const isTaunt = eventType === ChatEventType.SCORE_STOLEN || eventType === ChatEventType.SCORE_EATEN_CURSE;
+          return {
+            playerId: player.id,
+            playerName: player.name,
+            content: isTaunt ? '对骂内容' : '事件聊天',
+            type: isTaunt ? 'taunt' : 'event',
+            timestamp: Date.now()
+          };
+        }),
+        generateTaunt: vi.fn(async (player, targetPlayer) => ({
+          playerId: player.id,
+          playerName: player.name,
+          content: '对骂内容',
+          type: 'taunt',
+          timestamp: Date.now()
+        })),
+        name: 'rule-based',
+        description: 'Mock rule-based strategy'
+      };
+    }
+  })
 }));
 
 describe('聊天系统', () => {
@@ -203,16 +239,17 @@ describe('聊天系统', () => {
       Math.random = originalRandom;
     });
 
-    it('应该触发对骂聊天', async () => {
+    it('应该触发对骂聊天（使用 triggerTaunt）', async () => {
       // Mock Math.random 确保触发
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.1); // 小于概率，确保触发
 
-      const message = await triggerEventChat(mockPlayer, ChatEventType.RANDOM);
-      expect(message).not.toBeNull();
-      // 注意：triggerEventChat 不直接支持 isTaunt 参数，需要通过其他方式触发对骂
-      // 这里可能需要调整测试逻辑
-      expect(message?.type).toBe('event');
+      // 使用 triggerTaunt 触发对骂，而不是 triggerEventChat
+      await triggerTaunt(mockPlayer);
+      
+      const messages = getChatMessages();
+      expect(messages.length).toBeGreaterThan(0);
+      expect(messages[0].type).toBe('taunt');
 
       Math.random = originalRandom;
     });

@@ -175,18 +175,20 @@ export function removeFormalExpressions(text: string): string {
 
 /**
  * 完整的内容处理流程
- * 目标：只选择一句话，最多15个字
+ * 目标：去掉冗余表达，保持语义完整，不强制截断长度
  */
 export function processContent(text: string, options?: {
-  maxLength?: number;
+  maxLength?: number; // 可选的最大长度（用于极端情况，一般不使用）
   removeFormal?: boolean;
+  scene?: 'spontaneous' | 'event-driven' | 'taunt'; // 场景类型
 }): string {
   if (!text || text.trim().length === 0) {
     return text;
   }
 
-  const maxLength = options?.maxLength ?? 15; // 默认最多15个字
+  const maxLength = options?.maxLength; // 不再强制使用，仅作为极端情况的保护
   const removeFormal = options?.removeFormal ?? true;
+  const scene = options?.scene;
 
   let processed = text;
 
@@ -195,9 +197,245 @@ export function processContent(text: string, options?: {
     processed = removeFormalExpressions(processed);
   }
 
-  // 2. 精简内容
-  processed = processChatContent(processed, maxLength);
+  // 2. 根据场景进行差异化处理（去掉冗余，保持语义完整）
+  if (scene === 'spontaneous') {
+    // 自发聊天：宽松处理，保留更多口语化表达
+    processed = processSpontaneousContent(processed, maxLength);
+  } else if (scene === 'event-driven') {
+    // 事件触发：去掉冗余，保持语义完整
+    processed = processEventDrivenContent(processed, maxLength);
+  } else if (scene === 'taunt') {
+    // 对骂：保留原始性，只去掉明显冗余
+    processed = processTauntContent(processed, maxLength);
+  } else {
+    // 默认处理：去掉冗余，保持语义完整
+    processed = processContentCleanup(processed, maxLength);
+  }
 
   return processed;
+}
+
+/**
+ * 处理自发聊天内容（宽松，去掉冗余但保持语义完整）
+ */
+function processSpontaneousContent(text: string, maxLength?: number): string {
+  let processed = text.trim();
+
+  // 移除明显的冗余开头，但保持语义完整
+  const redundantPrefixes = [
+    /^好的，/i,
+    /^好的/i,
+    /^我觉得，/i,
+    /^我觉得/i,
+    /^我认为，/i,
+    /^我认为/i,
+    /^说实话，/i,
+    /^说实话/i,
+    /^其实，/i,
+    /^其实/i,
+  ];
+
+  for (const prefix of redundantPrefixes) {
+    processed = processed.replace(prefix, '');
+  }
+
+  // 移除冗余结尾，但保持语义完整
+  const redundantSuffixes = [
+    /，对吧$/,
+    /，是吧$/,
+    /，对不对$/,
+    /，是不是$/,
+    /，你说呢$/,
+    /，你觉得呢$/,
+    /，怎么样$/,
+    /，如何$/,
+  ];
+
+  for (const suffix of redundantSuffixes) {
+    processed = processed.replace(suffix, '');
+  }
+
+  // 只选择第一句话（按句号、问号、感叹号分割），保持语义完整
+  const sentenceEnders = /([。！？])/;
+  const sentences = processed.split(sentenceEnders);
+  if (sentences.length >= 2) {
+    processed = sentences[0] + (sentences[1] || '');
+  }
+
+  // 清理多余空格
+  processed = processed.replace(/\s+/g, ' ').trim();
+
+  // 极端情况保护：如果内容过长（超过100字），才进行截断
+  if (maxLength && processed.length > maxLength && processed.length > 100) {
+    processed = processed.substring(0, maxLength);
+    if (/[\u4e00-\u9fa5]/.test(processed[processed.length - 1])) {
+      processed = processed.substring(0, processed.length - 1);
+    }
+  }
+
+  return processed.trim();
+}
+
+/**
+ * 处理事件触发内容（去掉冗余，保持语义完整）
+ */
+function processEventDrivenContent(text: string, maxLength?: number): string {
+  let processed = text.trim();
+
+  // 移除所有冗余表达（包括不带逗号的），但保持语义完整
+  const redundantPrefixes = [
+    /^好的，/i,
+    /^好的/i,
+    /^我觉得，/i,
+    /^我觉得/i,
+    /^我认为，/i,
+    /^我认为/i,
+    /^说实话，/i,
+    /^说实话/i,
+    /^其实，/i,
+    /^其实/i,
+    /^这个，/i,
+    /^这个/i,
+    /^那个，/i,
+    /^那个/i,
+  ];
+
+  for (const prefix of redundantPrefixes) {
+    processed = processed.replace(prefix, '');
+  }
+
+  // 移除冗余结尾，但保持语义完整
+  const redundantSuffixes = [
+    /，对吧$/,
+    /，是吧$/,
+    /，对不对$/,
+    /，是不是$/,
+    /，你说呢$/,
+    /，你觉得呢$/,
+    /，怎么样$/,
+    /，如何$/,
+  ];
+
+  for (const suffix of redundantSuffixes) {
+    processed = processed.replace(suffix, '');
+  }
+
+  // 只选择第一句话（按句号、问号、感叹号分割），保持语义完整
+  const sentenceEnders = /([。！？])/;
+  const sentences = processed.split(sentenceEnders);
+  if (sentences.length >= 2) {
+    processed = sentences[0] + (sentences[1] || '');
+  }
+
+  // 清理多余空格和标点
+  processed = processed.replace(/\s+/g, ' ').trim();
+  processed = processed.replace(/[。，、]{2,}/g, '。');
+
+  // 极端情况保护：如果内容过长（超过100字），才进行截断
+  if (maxLength && processed.length > maxLength && processed.length > 100) {
+    processed = processed.substring(0, maxLength);
+    if (/[\u4e00-\u9fa5]/.test(processed[processed.length - 1])) {
+      processed = processed.substring(0, processed.length - 1);
+    }
+  }
+
+  return processed.trim();
+}
+
+/**
+ * 处理对骂内容（去掉明显冗余，保持语义完整）
+ * 注意：APP主打对骂，保留内容的原始性和完整性
+ * 只去掉明显的冗余表达，不强制截断长度
+ */
+function processTauntContent(text: string, maxLength?: number): string {
+  let processed = text.trim();
+
+  // 对骂内容保留原始性，只去掉明显的冗余表达
+  // 移除明显的冗余开头（但保留对骂的完整性）
+  const redundantPrefixes = [
+    /^好的，/i,
+    /^好的/i,
+    /^我觉得，/i,
+    /^我认为，/i,
+  ];
+
+  for (const prefix of redundantPrefixes) {
+    processed = processed.replace(prefix, '');
+  }
+
+  // 只移除明显的格式化问题（如多余空格）
+  processed = processed.replace(/\s+/g, ' ').trim();
+
+  // 只选择第一句话（按句号、问号、感叹号分割），保持语义完整
+  const sentenceEnders = /([。！？])/;
+  const sentences = processed.split(sentenceEnders);
+  if (sentences.length >= 2) {
+    processed = sentences[0] + (sentences[1] || '');
+  }
+
+  // 极端情况保护：如果内容过长（超过150字），才进行截断
+  if (maxLength && processed.length > maxLength && processed.length > 150) {
+    processed = processed.substring(0, maxLength);
+    if (/[\u4e00-\u9fa5]/.test(processed[processed.length - 1])) {
+      processed = processed.substring(0, processed.length - 1);
+    }
+  }
+
+  return processed.trim();
+}
+
+/**
+ * 默认内容清理（去掉冗余，保持语义完整）
+ */
+function processContentCleanup(text: string, maxLength?: number): string {
+  let processed = text.trim();
+
+  // 移除冗余开头
+  const redundantPrefixes = [
+    /^好的，/i,
+    /^好的/i,
+    /^我觉得，/i,
+    /^我觉得/i,
+    /^我认为，/i,
+    /^我认为/i,
+    /^说实话，/i,
+    /^说实话/i,
+  ];
+
+  for (const prefix of redundantPrefixes) {
+    processed = processed.replace(prefix, '');
+  }
+
+  // 移除冗余结尾
+  const redundantSuffixes = [
+    /，对吧$/,
+    /，是吧$/,
+    /，对不对$/,
+    /，是不是$/,
+  ];
+
+  for (const suffix of redundantSuffixes) {
+    processed = processed.replace(suffix, '');
+  }
+
+  // 只选择第一句话，保持语义完整
+  const sentenceEnders = /([。！？])/;
+  const sentences = processed.split(sentenceEnders);
+  if (sentences.length >= 2) {
+    processed = sentences[0] + (sentences[1] || '');
+  }
+
+  // 清理多余空格
+  processed = processed.replace(/\s+/g, ' ').trim();
+
+  // 极端情况保护
+  if (maxLength && processed.length > maxLength && processed.length > 100) {
+    processed = processed.substring(0, maxLength);
+    if (/[\u4e00-\u9fa5]/.test(processed[processed.length - 1])) {
+      processed = processed.substring(0, processed.length - 1);
+    }
+  }
+
+  return processed.trim();
 }
 

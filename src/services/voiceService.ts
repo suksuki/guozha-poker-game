@@ -16,28 +16,66 @@ export function isSpeechSupported(): boolean {
   return 'speechSynthesis' in window;
 }
 
+// 语音播放事件回调接口
+export interface SpeechPlaybackEvents {
+  onStart?: () => void;      // 语音开始播放
+  onEnd?: () => void;        // 语音播放完成
+  onError?: (error: Error) => void;  // 播放出错
+  estimatedDuration?: number; // 预估播放时长（毫秒，只读）
+}
+
 // 语音服务类（多声道服务的包装器）
 class VoiceService {
+  /**
+   * 计算语音播放时长（基于文本长度和语速）
+   */
+  private calculateDuration(text: string, voiceConfig?: VoiceConfig): number {
+    const rate = voiceConfig?.rate || 1.0;
+    // 中文：约0.3秒/字，英文：约0.15秒/字
+    const isChinese = /[\u4e00-\u9fa5]/.test(text);
+    const charsPerSecond = isChinese ? 3.3 : 6.7;
+    const baseDuration = (text.length / charsPerSecond) * 1000;
+    return Math.ceil(baseDuration / rate);
+  }
+
   /**
    * 播放语音（聊天等）
    * @param text 要播放的文本
    * @param voiceConfig 语音配置
    * @param _priority 优先级（已废弃，保留用于兼容）
    * @param playerId 玩家ID，用于分配声道
+   * @param events 播放事件回调（新增）
    */
   speak(
     text: string, 
     voiceConfig?: VoiceConfig, 
-    _priority: number = 0, 
-    playerId?: number
+    priority: number = 1, // 优先级：3=对骂，2=事件，1=随机，4=报牌（最高）
+    playerId?: number,
+    events?: SpeechPlaybackEvents
   ): Promise<void> {
+    // 计算预估时长
+    const estimatedDuration = this.calculateDuration(text, voiceConfig);
+    if (events) {
+      events.estimatedDuration = estimatedDuration;
+    }
+
     if (playerId !== undefined) {
       // 有玩家ID，使用多声道服务
       const channel = getPlayerChannel(playerId);
-      return multiChannelVoiceService.speak(text, voiceConfig, channel);
+      return multiChannelVoiceService.speak(text, voiceConfig, channel, {
+        onStart: events?.onStart,
+        onEnd: events?.onEnd,
+        onError: events?.onError,
+        estimatedDuration
+      }, priority);
     } else {
       // 没有玩家ID，使用默认声道（玩家0）
-      return multiChannelVoiceService.speak(text, voiceConfig, ChannelType.PLAYER_0);
+      return multiChannelVoiceService.speak(text, voiceConfig, ChannelType.PLAYER_0, {
+        onStart: events?.onStart,
+        onEnd: events?.onEnd,
+        onError: events?.onError,
+        estimatedDuration
+      }, priority);
     }
   }
 
@@ -47,7 +85,7 @@ class VoiceService {
    * @param voiceConfig 语音配置
    */
   speakImmediate(text: string, voiceConfig?: VoiceConfig): Promise<void> {
-    return multiChannelVoiceService.speakImmediate(text, voiceConfig);
+    return multiChannelVoiceService.speak(text, voiceConfig, ChannelType.ANNOUNCEMENT, undefined, 4); // 报牌优先级最高
   }
 
   /**
@@ -73,9 +111,10 @@ export function speakText(
   text: string, 
   voiceConfig?: VoiceConfig, 
   priority?: number, 
-  playerId?: number
+  playerId?: number,
+  events?: SpeechPlaybackEvents
 ): Promise<void> {
-  return voiceService.speak(text, voiceConfig, priority, playerId);
+  return voiceService.speak(text, voiceConfig, priority, playerId, events);
 }
 
 export function stopSpeech(): void {

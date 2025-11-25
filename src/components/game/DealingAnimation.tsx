@@ -11,7 +11,7 @@ import { dealCardsWithAlgorithm, DealingConfig, DealingAlgorithm } from '../../u
 import { triggerDealingReaction, chatService, getChatMessages } from '../../services/chatService';
 import { voiceService } from '../../services/voiceService';
 import { sortCards, SortOrder, groupCardsByRank } from '../../utils/cardSorting';
-import { PlayerHandGrouped } from './PlayerHandGrouped';
+import { CompactHandCards } from './CompactHandCards';
 import { ChatBubble } from '../ChatBubble';
 import { ChatMessage } from '../../types/chat';
 import { AIPlayerAvatar } from './AIPlayerAvatar';
@@ -189,9 +189,16 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
               });
               
               // 播放语音（发牌阶段需要直接播放，因为 useChatBubbles 可能无法检测到）
+              // 注意：发牌阶段的语音不需要同步气泡，因为气泡已经显示
               if (currentPlayer.voiceConfig) {
                 console.log('[DealingAnimation] 播放发牌聊天语音:', latestMessage.content, '玩家:', currentPlayer.name);
-                voiceService.speak(latestMessage.content, currentPlayer.voiceConfig, 0, currentPlayer.id).catch(err => {
+                voiceService.speak(
+                  latestMessage.content, 
+                  currentPlayer.voiceConfig, 
+                  0, 
+                  currentPlayer.id
+                  // 不传递events，因为发牌阶段的气泡由DealingAnimation自己管理
+                ).catch(err => {
                   console.warn('[DealingAnimation] 播放发牌聊天语音失败:', err);
                 });
               }
@@ -230,9 +237,16 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
               });
               
               // 播放语音（发牌阶段需要直接播放，因为 useChatBubbles 可能无法检测到）
+              // 注意：理牌阶段的语音不需要同步气泡，因为气泡已经显示
               if (humanPlayer.voiceConfig) {
                 console.log('[DealingAnimation] 播放理牌聊天语音:', latestMessage.content, '玩家:', humanPlayer.name);
-                voiceService.speak(latestMessage.content, humanPlayer.voiceConfig, 0, humanPlayer.id).catch(err => {
+                voiceService.speak(
+                  latestMessage.content, 
+                  humanPlayer.voiceConfig, 
+                  0, 
+                  humanPlayer.id
+                  // 不传递events，因为理牌阶段的气泡由DealingAnimation自己管理
+                ).catch(err => {
                   console.warn('[DealingAnimation] 播放理牌聊天语音失败:', err);
                 });
               }
@@ -485,10 +499,9 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
           </div>
         </div>
         <div className="human-player-hand-content">
-          <PlayerHandGrouped
+          <CompactHandCards
             groupedHand={humanPlayerGroupedHand}
             selectedCards={[]}
-            expandedRanks={expandedRanks}
             onCardClick={handleCardClick}
             onToggleExpand={handleToggleExpand}
           />

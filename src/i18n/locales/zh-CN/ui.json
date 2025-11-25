@@ -107,5 +107,39 @@
     "drawCard": "🎴 抓牌",
     "you": "你",
     "cardsUnit": "张"
+  },
+  "configGroups": {
+    "basic": "🎮 基础配置",
+    "ai": "🤖 AI配置",
+    "chat": "💬 聊天配置",
+    "dealing": "🃏 发牌配置"
+  },
+  "llm": {
+    "service": "大模型服务",
+    "refreshModels": "刷新模型列表",
+    "checking": "🔄 检测中...",
+    "connected": "✅ Ollama 已连接",
+    "disconnected": "❌ Ollama 未连接",
+    "model": "聊天大模型",
+    "loading": "加载中...",
+    "currentSelection": "当前选择:",
+    "availableModels": "可用模型: {{count}} 个",
+    "recommendedModels": "（推荐聊天模型: {{models}}）",
+    "allAvailableModels": "所有可用模型:",
+    "clickToSelect": "点击选择此模型",
+    "enterModelName": "输入模型名称，如: qwen2:0.5b",
+    "cannotGetModels": "无法获取模型列表，请手动输入模型名称（当前使用: {{model}}）",
+    "apiUrl": "API地址",
+    "apiUrlHint": "Ollama API 地址（默认: http://localhost:11434/api/chat）",
+    "test": {
+      "title": "🧪 测试大模型",
+      "inputPlaceholder": "输入测试消息，如：你好，介绍一下自己",
+      "connectFirst": "请先连接 Ollama 服务",
+      "sendMessage": "发送测试消息",
+      "testing": "⏳ 测试中...",
+      "send": "📤 发送",
+      "error": "❌ 错误:",
+      "response": "🤖 模型回应:"
+    }
   }
 }

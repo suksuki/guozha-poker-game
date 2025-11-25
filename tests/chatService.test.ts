@@ -7,7 +7,6 @@ import { Player, PlayerType } from '../src/types/card';
 import { ChatEventType } from '../src/types/chat';
 import { chatService, addChatMessage, getChatMessages, clearChatMessages, createChatMessage, triggerRandomChat, triggerEventChat, triggerBigDunReaction, triggerScoreStolenReaction, triggerGoodPlayReaction, triggerTaunt, triggerBadLuckReaction, triggerWinningReaction, triggerLosingReaction, triggerFinishFirstReaction, triggerFinishLastReaction } from '../src/services/chatService';
 import { Card, Suit, Rank } from '../src/types/card';
-import { ChatEventType } from '../src/types/chat';
 
 // Mock voiceService
 vi.mock('../src/services/voiceService', () => ({
@@ -29,31 +28,68 @@ vi.mock('../src/utils/chatContent', () => ({
 
 // Mock chat strategy
 vi.mock('../src/chat/strategy', () => ({
-  getChatStrategy: vi.fn(() => ({
-    generateRandomChat: vi.fn(async (player) => ({
-      playerId: player.id,
-      playerName: player.name,
-      content: '随机闲聊',
-      type: 'random',
-      timestamp: Date.now()
-    })),
-    generateEventChat: vi.fn(async (player, eventType) => ({
-      playerId: player.id,
-      playerName: player.name,
-      content: '事件聊天',
-      type: 'event',
-      timestamp: Date.now()
-    })),
-    generateTaunt: vi.fn(async (player) => ({
-      playerId: player.id,
-      playerName: player.name,
-      content: '对骂内容',
-      type: 'taunt',
-      timestamp: Date.now()
-    })),
-    name: 'rule-based',
-    description: 'Mock strategy'
-  }))
+  getChatStrategy: vi.fn((strategy, config, bigDunConfig, tauntConfig, llmConfig) => {
+    // 根据策略类型返回不同的 mock
+    if (strategy === 'llm') {
+      // LLM 策略 mock
+      return {
+        generateRandomChat: vi.fn(async (player) => ({
+          playerId: player.id,
+          playerName: player.name,
+          content: '随机闲聊',
+          type: 'random',
+          timestamp: Date.now()
+        })),
+        generateEventChat: vi.fn(async (player, eventType) => {
+          // SCORE_STOLEN 返回 taunt 类型（这是设计行为）
+          const isTaunt = eventType === ChatEventType.SCORE_STOLEN || eventType === ChatEventType.SCORE_EATEN_CURSE;
+          return {
+            playerId: player.id,
+            playerName: player.name,
+            content: isTaunt ? '对骂内容' : '事件聊天',
+            type: isTaunt ? 'taunt' : 'event',
+            timestamp: Date.now()
+          };
+        }),
+        generateTaunt: vi.fn(async (player, targetPlayer) => ({
+          playerId: player.id,
+          playerName: player.name,
+          content: '对骂内容',
+          type: 'taunt',
+          timestamp: Date.now()
+        })),
+        name: 'llm',
+        description: 'Mock LLM strategy'
+      };
+    } else {
+      // 规则策略 mock（作为回退）
+      return {
+        generateRandomChat: vi.fn(async (player) => ({
+          playerId: player.id,
+          playerName: player.name,
+          content: '随机闲聊',
+          type: 'random',
+          timestamp: Date.now()
+        })),
+        generateEventChat: vi.fn(async (player, eventType) => ({
+          playerId: player.id,
+          playerName: player.name,
+          content: '事件聊天',
+          type: 'event',
+          timestamp: Date.now()
+        })),
+        generateTaunt: vi.fn(async (player, targetPlayer) => ({
+          playerId: player.id,
+          playerName: player.name,
+          content: '对骂内容',
+          type: 'taunt',
+          timestamp: Date.now()
+        })),
+        name: 'rule-based',
+        description: 'Mock rule-based strategy'
+      };
+    }
+  })
 }));
 
 describe('聊天服务', () => {
@@ -179,8 +215,8 @@ describe('聊天服务', () => {
       
       const message = await triggerEventChat(mockPlayer, ChatEventType.SCORE_STOLEN);
       expect(message).not.toBeNull();
-      // 注意：SCORE_STOLEN 事件在策略中会返回 'taunt' 类型（这是设计行为）
-      expect(['event', 'taunt']).toContain(message?.type);
+      // 注意：SCORE_STOLEN 事件在策略中会返回 'taunt' 类型（这是设计行为，分牌被捡走会触发对骂）
+      expect(message?.type).toBe('taunt');
       
       Math.random = originalRandom;
     });

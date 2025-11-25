@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Player, PlayerType, Card, Suit, Rank, CardType, Play } from '../src/types/card';
 import { ChatEventType } from '../src/types/chat';
-import { generateRandomVoiceConfig } from '../src/utils/speechUtils';
+import { generateRandomVoiceConfig } from '../src/services/voiceConfigService';
 import { playToSpeechText } from '../src/utils/speechUtils';
 import {
   clearChatMessages,
@@ -16,12 +16,20 @@ import {
   triggerBigDunReaction
 } from '../src/services/chatService';
 import { getChatContent, getRandomChat, getTaunt } from '../src/utils/chatContent';
+import i18n from '../src/i18n';
 
 // @async - 异步调用测试，平时可以跳过
 describe('聊天和语音系统回归测试', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     clearChatMessages();
     vi.clearAllMocks();
+
+    // 设置 i18n 为中文，确保 playToSpeechText 返回中文
+    if (!i18n.isInitialized) {
+      await i18n.init();
+    }
+    await i18n.changeLanguage('zh-CN');
+    await new Promise(resolve => setTimeout(resolve, 20));
   });
 
   describe('语音功能回归', () => {
@@ -156,7 +164,7 @@ describe('聊天和语音系统回归测试', () => {
       const originalRandom = Math.random;
       Math.random = vi.fn(() => 0.3);
 
-      triggerBigDunReaction(players, 0, 8);
+      await triggerBigDunReaction(players, 0, 8);
 
       const messages = getChatMessages();
       expect(messages.length).toBeGreaterThan(0);
@@ -196,7 +204,7 @@ describe('聊天和语音系统回归测试', () => {
   });
 
   describe('集成回归', () => {
-    it('应该能够同时使用语音和聊天功能', () => {
+    it('应该能够同时使用语音和聊天功能', async () => {
       const player: Player = {
         id: 0,
         name: '测试玩家',
@@ -209,13 +217,13 @@ describe('聊天和语音系统回归测试', () => {
       expect(player.voiceConfig).toBeDefined();
       expect(player.voiceConfig?.gender).toBe('female');
 
-      // 测试聊天功能
-      const message = triggerRandomChat(player, 1.0);
+      // 测试聊天功能（triggerRandomChat 返回 Promise）
+      const message = await triggerRandomChat(player, 1.0);
       expect(message).not.toBeNull();
       expect(message?.playerId).toBe(0);
     });
 
-    it('应该能够处理多个玩家的聊天', () => {
+    it('应该能够处理多个玩家的聊天', async () => {
       const players: Player[] = [
         {
           id: 0,
@@ -245,12 +253,12 @@ describe('聊天和语音系统回归测试', () => {
       expect(players[1].voiceConfig?.voiceIndex).toBe(1);
       expect(players[2].voiceConfig?.voiceIndex).toBe(2);
 
-      // 每个玩家都能触发聊天
-      players.forEach(player => {
-        const message = triggerRandomChat(player, 1.0);
+      // 每个玩家都能触发聊天（triggerRandomChat 返回 Promise）
+      for (const player of players) {
+        const message = await triggerRandomChat(player, 1.0);
         expect(message).not.toBeNull();
         expect(message?.playerId).toBe(player.id);
-      });
+      }
 
       const messages = getChatMessages();
       expect(messages.length).toBe(3);

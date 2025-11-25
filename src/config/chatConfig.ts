@@ -3,7 +3,7 @@
  * 管理所有聊天相关的配置
  */
 
-import { ChatEventType } from '../types/chat';
+import { ChatEventType, ChatScene } from '../types/chat';
 
 // 聊天服务配置
 export interface ChatServiceConfig {
@@ -115,6 +115,48 @@ export const DEFAULT_LLM_CHAT_CONFIG: LLMChatConfig = {
 - 要不起
 - 等等我
 - 出得好`
+};
+
+// 场景配置接口
+export interface ChatSceneConfig {
+  maxLength: number; // 最大长度（字符数）
+  removeFormal: boolean; // 是否移除正式表达
+  includeFullGameState: boolean; // 是否包含完整游戏状态
+  includeDetailedEventInfo: boolean; // 是否包含详细事件信息
+  historyLength: number; // 聊天历史长度
+  promptTemplate?: string; // 自定义提示词模板（可选）
+}
+
+// 场景配置映射
+export interface ChatSceneConfigMap {
+  [ChatScene.SPONTANEOUS]: ChatSceneConfig;
+  [ChatScene.EVENT_DRIVEN]: ChatSceneConfig;
+  [ChatScene.TAUNT]: ChatSceneConfig;
+}
+
+// 默认场景配置
+export const DEFAULT_CHAT_SCENE_CONFIG: ChatSceneConfigMap = {
+  [ChatScene.SPONTANEOUS]: {
+    maxLength: 20, // 自发聊天可以稍长
+    removeFormal: true,
+    includeFullGameState: false, // 不需要完整游戏状态
+    includeDetailedEventInfo: false,
+    historyLength: 5, // 只需要最近5条历史
+  },
+  [ChatScene.EVENT_DRIVEN]: {
+    maxLength: 15, // 事件触发更精准，更短
+    removeFormal: true,
+    includeFullGameState: true, // 需要完整游戏状态
+    includeDetailedEventInfo: true, // 需要详细事件信息
+    historyLength: 3, // 只需要最近3条历史
+  },
+  [ChatScene.TAUNT]: {
+    maxLength: 20, // 对骂保留原始性，允许稍长以保留完整表达（APP主打对骂）
+    removeFormal: false, // 不严格处理，保留对骂的原始性和完整性
+    includeFullGameState: false, // 对骂不需要完整状态
+    includeDetailedEventInfo: false,
+    historyLength: 2, // 只需要最近2条历史
+  },
 };
 
 /**

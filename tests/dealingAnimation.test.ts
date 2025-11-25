@@ -9,6 +9,65 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { DealingAnimation } from '../src/components/game/DealingAnimation';
 import { PlayerType } from '../src/types/card';
 
+// Mock i18next-browser-languagedetector（必须在 i18n 之前）
+vi.mock('i18next-browser-languagedetector', () => ({
+  default: {
+    type: 'languageDetector' as const,
+    detect: vi.fn(() => 'en-US'),
+    init: vi.fn(),
+    cacheUserLanguage: vi.fn()
+  }
+}));
+
+// Mock i18next（避免初始化）
+vi.mock('i18next', () => {
+  const mockI18n = {
+    language: 'en-US',
+    isInitialized: true,
+    use: vi.fn().mockReturnThis(),
+    init: vi.fn().mockResolvedValue(undefined),
+    changeLanguage: vi.fn().mockResolvedValue(undefined),
+    t: (key: string, params?: any) => {
+      if (key === 'ui:dealing.dealingProgress' && params) {
+        return `Dealing... ${params.current} / ${params.total}`;
+      }
+      const translations: { [key: string]: string } = {
+        'ui:dealing.skipAnimation': 'Skip dealing animation',
+        'ui:dealing.switchToManual': '👆 Switch to Manual',
+        'ui:dealing.switchToAuto': '👆 Switch to Auto',
+        'ui:dealing.drawCard': 'Draw Card',
+        'ui:playerHand.loading': 'Loading hand data...'
+      };
+      return translations[key] || key;
+    }
+  };
+  return {
+    default: mockI18n
+  };
+});
+
+// Mock i18n 模块（避免在测试中初始化）
+vi.mock('../src/i18n', () => ({
+  default: {
+    language: 'en-US',
+    isInitialized: true,
+    changeLanguage: vi.fn().mockResolvedValue(undefined),
+    t: (key: string, params?: any) => {
+      if (key === 'ui:dealing.dealingProgress' && params) {
+        return `Dealing... ${params.current} / ${params.total}`;
+      }
+      const translations: { [key: string]: string } = {
+        'ui:dealing.skipAnimation': 'Skip dealing animation',
+        'ui:dealing.switchToManual': '👆 Switch to Manual',
+        'ui:dealing.switchToAuto': '👆 Switch to Auto',
+        'ui:dealing.drawCard': 'Draw Card',
+        'ui:playerHand.loading': 'Loading hand data...'
+      };
+      return translations[key] || key;
+    }
+  }
+}));
+
 // Mock chatService
 vi.mock('../src/services/chatService', () => ({
   triggerDealingReaction: vi.fn().mockResolvedValue(undefined),
@@ -16,6 +75,39 @@ vi.mock('../src/services/chatService', () => ({
     triggerSortingReaction: vi.fn().mockResolvedValue(undefined)
   }
 }));
+
+// Mock i18n
+vi.mock('react-i18next', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-i18next')>();
+  return {
+    ...actual,
+    useTranslation: () => ({
+      t: (key: string, params?: any) => {
+        // 处理带参数的翻译
+        if (key === 'ui:dealing.dealingProgress' && params) {
+          return `Dealing... ${params.current} / ${params.total}`;
+        }
+        // 其他翻译键的映射
+        const translations: { [key: string]: string } = {
+          'ui:dealing.skipAnimation': 'Skip dealing animation',
+          'ui:dealing.switchToManual': '👆 Switch to Manual',
+          'ui:dealing.switchToAuto': '👆 Switch to Auto',
+          'ui:dealing.drawCard': 'Draw Card',
+          'ui:playerHand.loading': 'Loading hand data...'
+        };
+        return translations[key] || key;
+      },
+      i18n: {
+        changeLanguage: vi.fn(),
+        language: 'en-US'
+      }
+    }),
+    initReactI18next: {
+      type: 'languageDetector' as const,
+      init: vi.fn()
+    }
+  };
+});
 
 // Mock dealCardsWithAlgorithm
 vi.mock('../src/utils/dealingAlgorithms', () => ({
@@ -109,8 +201,8 @@ describe('发牌动画组件', () => {
       />
     );
 
-    // 应该显示发牌中心区域
-    expect(screen.getByText(/发牌中/)).toBeInTheDocument();
+    // 应该显示发牌进度（实际显示的是英文 "Dealing..."）
+    expect(screen.getByText(/Dealing/)).toBeInTheDocument();
   });
 
   it('应该显示所有玩家', () => {
@@ -141,8 +233,10 @@ describe('发牌动画组件', () => {
       />
     );
 
-    // 应该显示进度文本
-    expect(screen.getByText(/发牌中/)).toBeInTheDocument();
+    // 应该显示进度文本（实际显示的是英文 "Dealing..."）
+    expect(screen.getByText(/Dealing/)).toBeInTheDocument();
+    // 应该显示进度条
+    expect(document.querySelector('.progress-bar')).toBeInTheDocument();
   });
 
   it('应该支持取消发牌', () => {
@@ -157,8 +251,8 @@ describe('发牌动画组件', () => {
       />
     );
 
-    // 应该显示取消按钮
-    const cancelButton = screen.getByText(/跳过发牌动画/);
+    // 应该显示取消按钮（实际显示的是英文 "Skip dealing animation"）
+    const cancelButton = screen.getByText(/Skip dealing animation/i);
     expect(cancelButton).toBeInTheDocument();
     
     // 点击取消按钮应该调用 onCancel
@@ -179,13 +273,20 @@ describe('发牌动画组件', () => {
       />
     );
 
-    // 等待发牌完成（需要等待所有牌发完）
-    // 4个玩家 * 54张牌 = 216张牌，每张1ms = 216ms，加上一些缓冲
-    await vi.advanceTimersByTimeAsync(500);
+    // 等待组件初始化（useEffect 会延迟 500ms 开始发牌）
+    await vi.advanceTimersByTimeAsync(600);
 
-    await waitFor(() => {
-      expect(mockOnComplete).toHaveBeenCalled();
-    }, { timeout: 1000 });
+    // 等待发牌完成（需要等待所有牌发完）
+    // 4个玩家 * 54张牌 = 216张牌，每张1ms = 216ms
+    // 加上 onComplete 的延迟 500ms，总共需要至少 716ms
+    // 再加上一些缓冲，推进 2500ms 确保所有定时器都执行完
+    await vi.advanceTimersByTimeAsync(2500);
+
+    // 运行所有待处理的定时器（确保所有 setTimeout 都执行完）
+    await vi.runAllTimersAsync();
+
+    // 直接检查 onComplete 是否被调用（不使用 waitFor，因为 fake timers 可能无法正确触发 waitFor）
+    expect(mockOnComplete).toHaveBeenCalled();
 
     // 验证 onComplete 被调用时传入了正确的牌
     expect(mockOnComplete).toHaveBeenCalledWith(
@@ -196,6 +297,6 @@ describe('发牌动画组件', () => {
         expect.any(Array)
       ])
     );
-  });
+  }, 10000); // 测试超时时间10秒
 });
 

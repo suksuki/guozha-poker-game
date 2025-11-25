@@ -4,15 +4,17 @@
  */
 
 export type VoiceGender = 'male' | 'female';
-export type VoiceDialect = 'mandarin' | 'cantonese';
+export type VoiceDialect = 'mandarin' | 'cantonese' | 'nanchang';
 
 // 支持的方言列表
-export const SUPPORTED_DIALECTS: VoiceDialect[] = ['mandarin', 'cantonese'];
+export const SUPPORTED_DIALECTS: VoiceDialect[] = ['mandarin', 'cantonese', 'nanchang'];
 
 // 方言到语言代码的映射
+// 注意：南昌话使用普通话TTS，因为TTS不支持南昌话
 export const DIALECT_LANG_MAP: Record<VoiceDialect, string> = {
   mandarin: 'zh-CN',
-  cantonese: 'zh-HK'
+  cantonese: 'zh-HK',
+  nanchang: 'zh-CN' // 南昌话使用普通话TTS，文本会通过映射转换为南昌话
 };
 
 // 语音参数范围配置
@@ -52,8 +54,8 @@ export interface VoiceServiceConfig {
 
 // 默认语音服务配置
 export const DEFAULT_VOICE_SERVICE_CONFIG: VoiceServiceConfig = {
-  maxQueueSize: 100,
-  deduplicationWindow: 2000, // 2秒
+  maxQueueSize: 10, // 串行播放，减少队列长度（从20降到10），提高响应速度
+  deduplicationWindow: 3000, // 3秒（从2秒增加到3秒，减少报牌频繁中断）
   defaultTimeout: 5000 // 5秒
 };
 

@@ -3,53 +3,96 @@
  * 调用大模型API生成智能聊天内容
  */
 
-import { ChatMessage, ChatEventType } from '../../types/chat';
+import { ChatMessage, ChatEventType, ChatScene } from '../../types/chat';
 import { Player, Card, Suit, Rank, Play } from '../../types/card';
 import { IChatStrategy, ChatContext } from './IChatStrategy';
-import { LLMChatConfig } from '../../config/chatConfig';
+import { LLMChatConfig, DEFAULT_CHAT_SCENE_CONFIG, ChatSceneConfig } from '../../config/chatConfig';
 import { getCardType, isScoreCard, calculateCardsScore } from '../../utils/cardUtils';
 import { processContent } from '../../services/contentProcessor';
+import { convertToNanchangDialect } from '../../utils/nanchangDialectMapper';
 import { trainingDataCollector } from '../../services/trainingDataCollector';
 import { MultiPlayerGameState } from '../../utils/gameStateUtils';
+import { ChatSceneProcessorFactory } from '../scene/ChatSceneProcessorFactory';
 
 export class LLMChatStrategy implements IChatStrategy {
   readonly name = 'llm';
   readonly description = '基于大语言模型的智能聊天策略';
 
-  constructor(private config: LLMChatConfig) {}
+  // LLM请求队列和并发控制
+  private llmRequestQueue: Array<{
+    prompt: string;
+    resolve: (value: string) => void;
+    reject: (error: Error) => void;
+    priority: number; // 优先级：对骂>事件>随机
+  }> = [];
+  private isProcessingQueue = false;
+  private activeLLMRequests = 0;
+  private readonly MAX_CONCURRENT_LLM_REQUESTS = 2; // 最多同时2个LLM请求
+  private readonly LLM_REQUEST_TIMEOUT = 20000; // 20秒超时（从60秒降到20秒）
+  
+  // 请求去重（避免相同prompt重复请求）
+  private pendingPrompts = new Set<string>();
+  private promptCache = new Map<string, { result: string; timestamp: number }>();
+  private readonly CACHE_TTL = 5000; // 缓存5秒
+
+  private sceneConfigs: typeof DEFAULT_CHAT_SCENE_CONFIG;
+
+  constructor(private config: LLMChatConfig) {
+    // 初始化场景配置
+    this.sceneConfigs = DEFAULT_CHAT_SCENE_CONFIG;
+  }
 
   async generateRandomChat(
     player: Player,
     context?: ChatContext
   ): Promise<ChatMessage | null> {
     console.log('[LLMChatStrategy] 🎲 生成随机闲聊，玩家:', player.name);
-    const prompt = this.buildPrompt(player, ChatEventType.RANDOM, context);
+    
+    // 使用场景处理器系统
+    const scene = ChatScene.SPONTANEOUS;
+    const processor = ChatSceneProcessorFactory.getProcessor(scene);
+    const sceneConfig = this.sceneConfigs[scene];
+    
+    const prompt = processor.buildPrompt(player, ChatEventType.RANDOM, context, sceneConfig);
     console.log('[LLMChatStrategy] 📝 生成的Prompt长度:', prompt.length, '字符');
-    let content = await this.callLLMAPI(prompt);
+    let content = await this.callLLMAPI(prompt, 1); // 优先级：1（最低）
     if (!content) {
       console.warn('[LLMChatStrategy] ⚠️ 大模型返回空内容，可能API调用失败');
       return null;
     }
     
-    // 处理内容：精简和优化（只选择一句话，最多15个字）
+    // 使用场景处理器处理内容
     const originalContent = content;
-    content = processContent(content, { maxLength: 15, removeFormal: true });
+    let processedContent = processor.processContent(content, sceneConfig);
     
-    if (content !== originalContent) {
-      console.log('[LLMChatStrategy] 📝 内容已精简:', {
+    // 如果玩家是南昌话，转换为南昌话文本（使用映射表）
+    if (player.voiceConfig?.dialect === 'nanchang') {
+      const beforeDialect = processedContent;
+      processedContent = convertToNanchangDialect(processedContent);
+      if (beforeDialect !== processedContent) {
+        console.log('[LLMChatStrategy] 🗣️ 南昌话转换:', {
+          原文: beforeDialect,
+          转换后: processedContent
+        });
+      }
+    }
+    
+    if (processedContent !== originalContent) {
+      console.log('[LLMChatStrategy] 📝 内容已处理:', {
         原文: originalContent,
-        精简后: content,
-        长度: `${originalContent.length} → ${content.length}`
+        处理后: processedContent,
+        长度: `${originalContent.length} → ${processedContent.length}`
       });
     }
     
-    console.log('[LLMChatStrategy] ✅ 成功生成聊天内容:', content);
+    console.log('[LLMChatStrategy] ✅ 成功生成聊天内容:', processedContent);
     return {
       playerId: player.id,
       playerName: player.name,
-      content,
+      content: processedContent,
       timestamp: Date.now(),
-      type: 'random'
+      type: 'random',
+      scene: scene // 标记场景类型
     };
   }
 
@@ -59,17 +102,35 @@ export class LLMChatStrategy implements IChatStrategy {
     context?: ChatContext
   ): Promise<ChatMessage | null> {
     console.log('[LLMChatStrategy] 生成事件聊天，玩家:', player.name, '事件:', eventType);
-    const prompt = this.buildPrompt(player, eventType, context);
+    
+    // 根据事件类型确定场景
+    const scene = ChatSceneProcessorFactory.getSceneByEventType(eventType);
+    const processor = ChatSceneProcessorFactory.getProcessor(scene);
+    const sceneConfig = this.sceneConfigs[scene];
+    
+    const prompt = processor.buildPrompt(player, eventType, context, sceneConfig);
     console.log('[LLMChatStrategy] 生成的Prompt长度:', prompt.length);
-    let content = await this.callLLMAPI(prompt);
+    let content = await this.callLLMAPI(prompt, 2); // 优先级：2（中等）
     if (!content) {
       console.warn('[LLMChatStrategy] 大模型返回空内容，可能API调用失败');
       return null;
     }
     
-    // 处理内容：精简和优化
+    // 使用场景处理器处理内容
     const originalContent = content;
-    const processedContent = processContent(content, { maxLength: 30, removeFormal: true });
+    let processedContent = processor.processContent(content, sceneConfig);
+    
+    // 如果玩家是南昌话，转换为南昌话文本（使用映射表）
+    if (player.voiceConfig?.dialect === 'nanchang') {
+      const beforeDialect = processedContent;
+      processedContent = convertToNanchangDialect(processedContent);
+      if (beforeDialect !== processedContent) {
+        console.log('[LLMChatStrategy] 🗣️ 南昌话转换:', {
+          原文: beforeDialect,
+          转换后: processedContent
+        });
+      }
+    }
     
     // 收集训练数据
     const reduction = originalContent.length - processedContent.length;
@@ -81,7 +142,7 @@ export class LLMChatStrategy implements IChatStrategy {
       playerId: player.id,
       playerName: player.name,
       eventType: eventType,
-      prompt: this.buildPrompt(player, eventType, context),
+      prompt: prompt,
       originalContent,
       processedContent,
       processingStats: {
@@ -98,9 +159,9 @@ export class LLMChatStrategy implements IChatStrategy {
     });
     
     if (processedContent !== originalContent) {
-      console.log('[LLMChatStrategy] 📝 内容已精简:', {
+      console.log('[LLMChatStrategy] 📝 内容已处理:', {
         原文: originalContent,
-        精简后: processedContent,
+        处理后: processedContent,
         长度: `${originalContent.length} → ${processedContent.length} (减少 ${reduction} 字符, ${reductionPercent.toFixed(1)}%)`
       });
     }
@@ -111,7 +172,9 @@ export class LLMChatStrategy implements IChatStrategy {
       playerName: player.name,
       content: processedContent,
       timestamp: Date.now(),
-      type: 'event'
+      type: 'event',
+      scene: scene, // 标记场景类型
+      eventType: eventType // 记录事件类型
     };
   }
 
@@ -121,50 +184,40 @@ export class LLMChatStrategy implements IChatStrategy {
     context?: ChatContext
   ): Promise<ChatMessage | null> {
     console.log('[LLMChatStrategy] 生成对骂，玩家:', player.name, '目标:', targetPlayer?.name);
-    const prompt = this.buildTauntPrompt(player, targetPlayer, context);
-    const originalContent = await this.callLLMAPI(prompt);
-    if (!originalContent) {
-      console.warn('[LLMChatStrategy] ⚠️ 大模型返回空内容，可能API调用失败');
+    
+    // 使用场景处理器系统
+    const scene = ChatScene.TAUNT;
+    const processor = ChatSceneProcessorFactory.getProcessor(scene);
+    const sceneConfig = this.sceneConfigs[scene];
+    
+    // 将目标玩家添加到上下文
+    const tauntContext: ChatContext = {
+      ...context,
+      targetPlayer: targetPlayer
+    };
+    
+    const prompt = processor.buildPrompt(player, undefined, tauntContext, sceneConfig);
+    console.log('[LLMChatStrategy] 生成的Prompt长度:', prompt.length);
+    let content = await this.callLLMAPI(prompt, 3); // 优先级：3（最高，对骂优先）
+    if (!content) {
+      console.warn('[LLMChatStrategy] 大模型返回空内容，可能API调用失败');
       return null;
     }
     
-    // 处理内容：精简和优化（对骂也最多15个字）
-    const processedContent = processContent(originalContent, { maxLength: 15, removeFormal: true });
+    // 使用场景处理器处理内容
+    const originalContent = content;
+    let processedContent = processor.processContent(content, sceneConfig);
     
-    // 收集训练数据
-    const reduction = originalContent.length - processedContent.length;
-    const reductionPercent = originalContent.length > 0 
-      ? (reduction / originalContent.length) * 100 
-      : 0;
-    
-    trainingDataCollector.collectSample({
-      playerId: player.id,
-      playerName: player.name,
-      eventType: 'taunt',
-      prompt,
-      originalContent,
-      processedContent,
-      processingStats: {
-        originalLength: originalContent.length,
-        processedLength: processedContent.length,
-        reduction,
-        reductionPercent
-      },
-      context: context ? {
-        gameState: context.gameState,
-        targetPlayer: targetPlayer ? {
-          id: targetPlayer.id,
-          name: targetPlayer.name
-        } : undefined
-      } : undefined
-    });
-    
-    if (processedContent !== originalContent) {
-      console.log('[LLMChatStrategy] 📝 对骂内容已精简:', {
-        原文: originalContent,
-        精简后: processedContent,
-        长度: `${originalContent.length} → ${processedContent.length} (减少 ${reduction} 字符, ${reductionPercent.toFixed(1)}%)`
-      });
+    // 如果玩家是南昌话，转换为南昌话文本（使用映射表，包括脏话映射）
+    if (player.voiceConfig?.dialect === 'nanchang') {
+      const beforeDialect = processedContent;
+      processedContent = convertToNanchangDialect(processedContent);
+      if (beforeDialect !== processedContent) {
+        console.log('[LLMChatStrategy] 🗣️ 南昌话转换（对骂）:', {
+          原文: beforeDialect,
+          转换后: processedContent
+        });
+      }
     }
     
     console.log('[LLMChatStrategy] ✅ 成功生成对骂内容:', processedContent);
@@ -173,7 +226,106 @@ export class LLMChatStrategy implements IChatStrategy {
       playerName: player.name,
       content: processedContent,
       timestamp: Date.now(),
-      type: 'taunt'
+      type: 'taunt',
+      scene: scene // 标记场景类型
+    };
+  }
+
+  async generateReply(
+    player: Player,
+    originalMessage: ChatMessage,
+    context?: ChatContext
+  ): Promise<ChatMessage | null> {
+    console.log('[LLMChatStrategy] 生成回复，玩家:', player.name, '回复:', originalMessage.content);
+    
+    // 使用自发聊天场景处理器（回复也是自发聊天的一种）
+    const scene = ChatScene.SPONTANEOUS;
+    const processor = ChatSceneProcessorFactory.getProcessor(scene);
+    const sceneConfig = this.sceneConfigs[scene];
+    
+    // 构建回复提示词
+    const gameInfo = this.buildGameInfo(player, context);
+    const playerInfo = this.buildPlayerInfo(player, context);
+    const originalPlayer = context?.allPlayers?.find(p => p.id === originalMessage.playerId);
+    const originalPlayerInfo = originalPlayer ? this.buildPlayerInfo(originalPlayer, context) : '';
+    
+    const prompt = `${this.config.systemPrompt || ''}
+
+## 游戏信息
+${gameInfo}
+
+## 当前玩家信息（回复者）
+${playerInfo}
+
+${originalPlayerInfo ? `## 原消息发送者信息\n${originalPlayerInfo}\n` : ''}
+
+## 原消息内容
+${originalMessage.playerName}说："${originalMessage.content}"
+
+## 任务
+根据原消息内容，生成一句自然、简洁的回复。
+
+重要要求：
+1. 只返回一句话（不要多句）
+2. 简洁自然，口语化表达，但保持语义完整
+3. 要符合对话场景，是对原消息的回应
+4. 不要重复原消息的内容
+5. 符合玩家的性格和方言特色
+6. 只返回要说的话，不要添加任何解释或标记
+
+回复示例：
+- 原消息："好牌！" → 回复："确实不错"
+- 原消息："这手不错" → 回复："还行吧"
+- 原消息："要不起" → 回复："我也要不起"
+- 原消息："等等我" → 回复："不急，慢慢来"
+
+回复内容：`;
+    
+    console.log('[LLMChatStrategy] 📝 生成的回复Prompt长度:', prompt.length, '字符');
+    let content = await this.callLLMAPI(prompt, 2); // 优先级：2（中等，回复比随机聊天重要）
+    if (!content) {
+      console.warn('[LLMChatStrategy] ⚠️ 大模型返回空内容，可能API调用失败');
+      return null;
+    }
+    
+    // 使用场景处理器处理内容
+    const originalContent = content;
+    let processedContent = processor.processContent(content, sceneConfig);
+    
+    // 如果玩家是南昌话，转换为南昌话文本
+    if (player.voiceConfig?.dialect === 'nanchang') {
+      const beforeDialect = processedContent;
+      processedContent = convertToNanchangDialect(processedContent);
+      if (beforeDialect !== processedContent) {
+        console.log('[LLMChatStrategy] 🗣️ 南昌话转换（回复）:', {
+          原文: beforeDialect,
+          转换后: processedContent
+        });
+      }
+    }
+    
+    if (processedContent !== originalContent) {
+      console.log('[LLMChatStrategy] 📝 回复内容已处理:', {
+        原文: originalContent,
+        处理后: processedContent,
+        长度: `${originalContent.length} → ${processedContent.length}`
+      });
+    }
+    
+    console.log('[LLMChatStrategy] ✅ 成功生成回复内容:', processedContent);
+    return {
+      playerId: player.id,
+      playerName: player.name,
+      content: processedContent,
+      timestamp: Date.now(),
+      type: 'random',
+      scene: scene,
+      replyTo: {
+        playerId: originalMessage.playerId,
+        playerName: originalMessage.playerName,
+        content: originalMessage.content,
+        timestamp: originalMessage.timestamp
+      }
     };
   }
 
@@ -481,9 +633,122 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
     return [];
   }
 
-  private async callLLMAPI(prompt: string): Promise<string> {
+  /**
+   * 调用LLM API（公共方法，带优先级和队列管理）
+   */
+  private async callLLMAPI(prompt: string, priority: number = 1): Promise<string> {
+    // 检查是否已有相同的prompt正在处理
+    const cacheKey = prompt.substring(0, 100);
+    const cached = this.promptCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
+      console.log('[LLMChatStrategy] 使用缓存结果');
+      return cached.result;
+    }
+
+    // 如果prompt正在处理中，等待结果
+    if (this.pendingPrompts.has(cacheKey)) {
+      // 等待一段时间后重试
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const cachedAfterWait = this.promptCache.get(cacheKey);
+      if (cachedAfterWait && (Date.now() - cachedAfterWait.timestamp) < this.CACHE_TTL) {
+        return cachedAfterWait.result;
+      }
+    }
+
+    // 创建Promise并加入队列
+    return new Promise<string>((resolve, reject) => {
+      this.llmRequestQueue.push({
+        prompt,
+        resolve,
+        reject,
+        priority
+      });
+
+      // 标记prompt为处理中
+      this.pendingPrompts.add(cacheKey);
+
+      // 触发队列处理
+      this.processLLMQueue().catch(err => {
+        console.error('[LLMChatStrategy] 队列处理错误:', err);
+        this.pendingPrompts.delete(cacheKey);
+        reject(err);
+      });
+    });
+  }
+
+  /**
+   * 处理LLM请求队列
+   */
+  private async processLLMQueue(): Promise<void> {
+    if (this.isProcessingQueue) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+
+    while (this.llmRequestQueue.length > 0) {
+      // 等待并发数降低
+      while (this.activeLLMRequests >= this.MAX_CONCURRENT_LLM_REQUESTS) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // 按优先级排序（对骂>事件>随机）
+      this.llmRequestQueue.sort((a, b) => b.priority - a.priority);
+      
+      const request = this.llmRequestQueue.shift();
+      if (!request) {
+        break;
+      }
+
+      // 检查缓存
+      const cacheKey = request.prompt.substring(0, 100); // 使用prompt前100字符作为key
+      const cached = this.promptCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
+        console.log('[LLMChatStrategy] 使用缓存结果');
+        request.resolve(cached.result);
+        continue;
+      }
+
+      // 执行请求
+      this.activeLLMRequests++;
+      this.executeLLMRequest(request.prompt, request.resolve, request.reject)
+        .finally(() => {
+          this.activeLLMRequests--;
+        });
+    }
+
+    this.isProcessingQueue = false;
+  }
+
+  /**
+   * 执行LLM请求
+   */
+  private async executeLLMRequest(
+    prompt: string,
+    resolve: (value: string) => void,
+    reject: (error: Error) => void
+  ): Promise<void> {
+    const cacheKey = prompt.substring(0, 100);
+    try {
+      const result = await this.callLLMAPIInternal(prompt);
+      // 缓存结果
+      this.promptCache.set(cacheKey, { result, timestamp: Date.now() });
+      // 清除pending标记
+      this.pendingPrompts.delete(cacheKey);
+      resolve(result);
+    } catch (error) {
+      // 清除pending标记
+      this.pendingPrompts.delete(cacheKey);
+      reject(error as Error);
+    }
+  }
+
+  /**
+   * 调用LLM API（内部实现）
+   */
+  private async callLLMAPIInternal(prompt: string): Promise<string> {
     const apiUrl = this.config.apiUrl || 'http://localhost:11434/api/chat';
-    const timeout = this.config.timeout || 60000; // 默认60秒超时
+    const timeout = this.LLM_REQUEST_TIMEOUT; // 使用较短的超时时间
     
     // 如果模型找不到，先检查可用模型
     const availableModels = await this.checkAvailableModels();
@@ -562,7 +827,13 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
       
       clearTimeout(timeoutId);
       
-      console.log('[LLMChatStrategy] API响应时间:', endTime - startTime, 'ms');
+      const responseTime = endTime - startTime;
+      console.log('[LLMChatStrategy] API响应时间:', responseTime, 'ms');
+      
+      // 如果响应时间过长，记录警告
+      if (responseTime > 15000) {
+        console.warn('[LLMChatStrategy] ⚠️ LLM响应时间过长:', responseTime, 'ms，可能导致阻塞');
+      }
       
       if (!response.ok) {
         const errorText = await response.text();

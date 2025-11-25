@@ -539,12 +539,15 @@
 
 .human-player-hand-content {
   flex: 1;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 10px;
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end; /* 内容靠底部对齐 */
+  flex-direction: row;
+  justify-content: flex-start; /* 内容靠左对齐，一行排列 */
+  align-items: center; /* 垂直居中对齐 */
   min-height: 200px;
+  width: 100%;
 }
 
 .human-player-hand-content::-webkit-scrollbar {

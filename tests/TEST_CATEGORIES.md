@@ -17,6 +17,7 @@
 |---------|------|---------|
 | `dealingAnimation.test.ts` | 发牌动画组件 | ✅ 已优化（30s → <1s） |
 | `useChatBubbles.test.ts` | 聊天气泡 Hook | ✅ 正常 |
+| `compactHandCards.test.tsx` | 紧凑型手牌组件 | ✅ 新增 |
 
 ### 异步调用测试 (@async)
 
@@ -27,6 +28,14 @@
 | `chatAndVoiceRegression.test.ts` | 聊天和语音回归测试 | ✅ 正常 |
 | `chatServiceRegression.test.ts` | 聊天服务回归测试 | ✅ 正常 |
 | `i18n.test.ts` | 多语言功能测试 | ✅ 已优化（减少等待时间） |
+| `serialVoicePlayback.test.ts` | 串行播放单元测试 | ✅ 新增 |
+| `serialVoicePlaybackRegression.test.ts` | 串行播放回归测试 | ✅ 新增 |
+| `voiceServiceCleanup.test.ts` | 清理后功能验证测试 | ✅ 新增 |
+| `chatSceneProcessors.test.ts` | 聊天场景处理器单元测试 | ✅ 新增 |
+| `chatSceneFactory.test.ts` | 聊天场景工厂测试 | ✅ 新增 |
+| `chatSceneRegression.test.ts` | 聊天场景化系统回归测试 | ✅ 新增 |
+| `chatReply.test.ts` | 聊天回复功能单元测试 | ✅ 新增 |
+| `chatReplyRegression.test.ts` | 聊天回复功能回归测试 | ✅ 新增 |
 
 ### 慢测试 (@slow)
 
@@ -138,4 +147,21 @@ npm run test:realtime
 4. **调试异步**：使用 `npm run test:async-only` 专注异步测试
 5. **MCTS 微调**：使用 `npm run test:slow-only` 运行 MCTS 相关测试（需要较长时间）
 6. **⚠️ 注意**：`runQuickTuning.test.ts` 需要 30-40 分钟，平时必须跳过
+
+## 📖 测试最佳实践
+
+### 异步和超时测试
+
+如果遇到异步操作或超时问题，请参考：
+
+- **`ASYNC_TIMEOUT_TESTING_GUIDE.md`** - 异步和超时测试完整指南
+  - ✅ 使用 `vi.useFakeTimers()` 和 `vi.advanceTimersByTimeAsync()`
+  - ✅ 使用 `findBy*` 替代 `getBy*` + `waitFor`
+  - ✅ 使用 `act()` 包装状态更新
+  - ✅ Mock 复杂的异步依赖
+  - ❌ 避免使用 `vi.runAllTimersAsync()`（可能导致无限循环）
+
+### UI 测试
+
+参考 `UI_TESTING_GUIDE.md` 了解 UI 组件测试的最佳实践。
 

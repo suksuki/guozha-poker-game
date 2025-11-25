@@ -5,6 +5,9 @@
  * 
  * 注意：由于浏览器限制，无法直接捕获 speechSynthesis 的输出
  * 此实现使用声像定位来模拟多声道效果
+ * 
+ * @deprecated 此文件目前未被使用，已改用串行播放策略（multiChannelVoiceService.ts）
+ * 保留此文件仅作为未来可能的参考实现
  */
 
 import { VoiceConfig } from '../types/card';

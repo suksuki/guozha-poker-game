@@ -107,6 +107,40 @@
     "drawCard": "🎴 カードを引く",
     "you": "あなた",
     "cardsUnit": "枚"
+  },
+  "configGroups": {
+    "basic": "🎮 基本設定",
+    "ai": "🤖 AI設定",
+    "chat": "💬 チャット設定",
+    "dealing": "🃏 カード配り設定"
+  },
+  "llm": {
+    "service": "大規模モデルサービス",
+    "refreshModels": "モデルリストを更新",
+    "checking": "🔄 確認中...",
+    "connected": "✅ Ollama接続済み",
+    "disconnected": "❌ Ollama未接続",
+    "model": "チャット大規模モデル",
+    "loading": "読み込み中...",
+    "currentSelection": "現在の選択:",
+    "availableModels": "利用可能なモデル: {{count}}個",
+    "recommendedModels": "（推奨チャットモデル: {{models}}）",
+    "allAvailableModels": "すべての利用可能なモデル:",
+    "clickToSelect": "このモデルを選択するにはクリック",
+    "enterModelName": "モデル名を入力、例: qwen2:0.5b",
+    "cannotGetModels": "モデルリストを取得できません。モデル名を手動で入力してください（現在使用: {{model}}）",
+    "apiUrl": "APIアドレス",
+    "apiUrlHint": "Ollama APIアドレス（デフォルト: http://localhost:11434/api/chat）",
+    "test": {
+      "title": "🧪 大規模モデルテスト",
+      "inputPlaceholder": "テストメッセージを入力、例: こんにちは、自己紹介してください",
+      "connectFirst": "まずOllamaサービスに接続してください",
+      "sendMessage": "テストメッセージを送信",
+      "testing": "⏳ テスト中...",
+      "send": "📤 送信",
+      "error": "❌ エラー:",
+      "response": "🤖 モデル応答:"
+    }
   }
 }
 

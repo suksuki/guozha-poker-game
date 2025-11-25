@@ -1,0 +1,408 @@
+/**
+ * 紧凑型手牌样式
+ * 卡通风格，节省空间，易于选择
+ */
+
+.compact-hand-container {
+  width: 100%;
+  max-width: 100%;
+  padding: 10px 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.compact-hand-scroll {
+  display: flex;
+  align-items: center; /* 垂直居中对齐，确保所有卡片组在同一水平线上 */
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 10px 5px;
+  scroll-behavior: smooth;
+  /* 隐藏滚动条但保持滚动功能 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.compact-hand-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.compact-hand-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.compact-hand-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+.compact-hand-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* 卡片组 */
+.compact-card-group {
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  display: flex;
+  align-items: center; /* 垂直居中对齐 */
+  justify-content: center;
+}
+
+.compact-card-group.hovered {
+  transform: translateY(-5px);
+}
+
+.compact-card-group.has-selected {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 15px rgba(76, 175, 80, 0.8));
+  }
+}
+
+/* 紧凑叠放模式（每个墩纵向叠放，向下延伸） */
+.compact-card-stack {
+  position: relative;
+  width: 70px; /* 从50px增加到70px，适应medium尺寸卡牌（60px宽） */
+  height: calc(var(--stack-height, 90px) + 20px); /* 从60px增加到90px，适应medium尺寸卡牌（84px高） */
+  min-height: 100px; /* 从70px增加到100px */
+  display: flex;
+  align-items: flex-start; /* 顶部对齐，向下延伸 */
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 确保所有叠放组有统一的对齐基准 */
+  vertical-align: top;
+}
+
+.compact-card-group.hovered .compact-card-stack {
+  transform: scale(1.15);
+}
+
+.compact-card-item-stacked {
+  position: absolute;
+  top: 0; /* 从顶部开始 */
+  left: 50%;
+  transform: translateX(-50%) translateY(var(--offset, 0px));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.compact-card-item-stacked:hover {
+  transform: translateX(-50%) translateY(calc(var(--offset, 0px) - 15px)) scale(1.2);
+  z-index: 1000 !important;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
+}
+
+.compact-card-item-stacked.selected {
+  transform: translateX(-50%) translateY(calc(var(--offset, 0px) - 20px)) scale(1.15);
+  z-index: 999 !important;
+  filter: drop-shadow(0 0 20px rgba(76, 175, 80, 0.8));
+  animation: selected-bounce-stacked 0.5s ease-out;
+}
+
+@keyframes selected-bounce-stacked {
+  0%, 100% {
+    transform: translateX(-50%) translateY(calc(var(--offset, 0px) - 20px)) scale(1.15);
+  }
+  50% {
+    transform: translateX(-50%) translateY(calc(var(--offset, 0px) - 25px)) scale(1.2);
+  }
+}
+
+@keyframes selected-bounce {
+  0%, 100% {
+    transform: translateX(-50%) translateY(calc(var(--offset, 0px) - 20px)) scale(1.15);
+  }
+  50% {
+    transform: translateX(-50%) translateY(calc(var(--offset, 0px) - 25px)) scale(1.2);
+  }
+}
+
+/* 数量徽章（叠放模式） */
+.compact-count-badge-stacked {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  border: 2px solid white;
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+/* 数量徽章（叠放模式，保留用于展开模式） */
+.compact-count-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  border: 2px solid white;
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* 分数徽章（叠放模式） */
+.compact-score-badge-stacked {
+  position: absolute;
+  bottom: -5px;
+  left: -5px;
+  background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  border: 1px solid white;
+  white-space: nowrap;
+}
+
+/* 分数徽章（叠放模式，保留用于展开模式） */
+.compact-score-badge {
+  position: absolute;
+  bottom: -5px;
+  left: -5px;
+  background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  border: 1px solid white;
+  white-space: nowrap;
+}
+
+/* 展开模式 */
+.compact-card-expanded {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  padding: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  min-width: 200px;
+  max-width: 400px;
+  animation: expand-slide 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes expand-slide {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.expanded-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+.rank-label {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  flex: 1;
+}
+
+.count-label {
+  font-size: 12px;
+  color: #666;
+  background: rgba(102, 126, 234, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.selected-label {
+  font-size: 12px;
+  color: #4CAF50;
+  font-weight: bold;
+  background: rgba(76, 175, 80, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.collapse-btn {
+  background: rgba(102, 126, 234, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  color: #666;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.collapse-btn:hover {
+  background: rgba(102, 126, 234, 0.4);
+  transform: rotate(90deg);
+}
+
+.expanded-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.expanded-card-item {
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.expanded-card-item:hover {
+  transform: translateY(-8px) scale(1.1);
+  z-index: 100;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
+}
+
+.expanded-card-item.selected {
+  transform: translateY(-12px) scale(1.15);
+  z-index: 99;
+  filter: drop-shadow(0 0 20px rgba(76, 175, 80, 0.8));
+  animation: selected-bounce 0.5s ease-out;
+}
+
+.expanded-score-badge {
+  position: absolute;
+  bottom: -5px;
+  left: -5px;
+  background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  border: 1px solid white;
+  white-space: nowrap;
+}
+
+/* 选中指示器 */
+.selected-indicator {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.5);
+  z-index: 20;
+  border: 2px solid white;
+  animation: indicator-bounce 1s ease-in-out infinite;
+}
+
+@keyframes indicator-bounce {
+  0%, 100% {
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    transform: scale(1.1) translateY(-3px);
+  }
+}
+
+/* 空状态 */
+.compact-hand-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 10px;
+  opacity: 0.5;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.empty-text {
+  font-size: 16px;
+  text-align: center;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .compact-card-stack {
+    width: 45px;
+  }
+
+  .compact-card-expanded {
+    min-width: 180px;
+    max-width: 300px;
+  }
+}
+

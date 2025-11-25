@@ -107,6 +107,40 @@
     "drawCard": "🎴 Draw Card",
     "you": "You",
     "cardsUnit": "cards"
+  },
+  "configGroups": {
+    "basic": "🎮 Basic Settings",
+    "ai": "🤖 AI Settings",
+    "chat": "💬 Chat Settings",
+    "dealing": "🃏 Dealing Settings"
+  },
+  "llm": {
+    "service": "LLM Service",
+    "refreshModels": "Refresh Model List",
+    "checking": "🔄 Checking...",
+    "connected": "✅ Ollama Connected",
+    "disconnected": "❌ Ollama Not Connected",
+    "model": "Chat LLM Model",
+    "loading": "Loading...",
+    "currentSelection": "Current Selection:",
+    "availableModels": "Available Models: {{count}}",
+    "recommendedModels": "(Recommended Chat Models: {{models}})",
+    "allAvailableModels": "All Available Models:",
+    "clickToSelect": "Click to select this model",
+    "enterModelName": "Enter model name, e.g.: qwen2:0.5b",
+    "cannotGetModels": "Cannot get model list, please enter model name manually (Current: {{model}})",
+    "apiUrl": "API URL",
+    "apiUrlHint": "Ollama API URL (Default: http://localhost:11434/api/chat)",
+    "test": {
+      "title": "🧪 Test LLM",
+      "inputPlaceholder": "Enter test message, e.g.: Hello, introduce yourself",
+      "connectFirst": "Please connect Ollama service first",
+      "sendMessage": "Send test message",
+      "testing": "⏳ Testing...",
+      "send": "📤 Send",
+      "error": "❌ Error:",
+      "response": "🤖 Model Response:"
+    }
   }
 }
 

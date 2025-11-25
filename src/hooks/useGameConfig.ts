@@ -6,6 +6,7 @@
 import { useState, useCallback } from 'react';
 import { AIConfig } from '../utils/aiPlayer';
 import { TrainingConfig } from '../components/game/TrainingConfigPanel';
+import { updateChatLLMConfig } from '../services/chatService';
 
 export type GameMode = 'game' | 'training';
 
@@ -37,6 +38,10 @@ export function useGameConfig() {
   const [dealingSpeed, setDealingSpeed] = useState(150); // 发牌速度（毫秒/张）
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'grouped'>('grouped'); // 排序规则
   
+  // LLM聊天配置
+  const [llmModel, setLlmModel] = useState<string>('qwen2:0.5b'); // 当前选择的LLM模型
+  const [llmApiUrl, setLlmApiUrl] = useState<string>('http://localhost:11434/api/chat'); // LLM API地址
+  
   // 训练模式配置
   const [trainingConfig, setTrainingConfig] = useState<TrainingConfig>({
     gameCount: 1000,
@@ -49,6 +54,13 @@ export function useGameConfig() {
   });
 
   const handleStartGame = useCallback((startGame: (config: GameStartConfig) => void) => {
+    // 更新聊天服务的LLM配置
+    updateChatLLMConfig({
+      model: llmModel,
+      apiUrl: llmApiUrl
+    });
+    console.log('[useGameConfig] 更新聊天LLM配置:', { model: llmModel, apiUrl: llmApiUrl });
+
     // 为每个AI玩家创建配置（使用本地算法，不需要API Key）
     const aiConfigs = Array.from({ length: playerCount }, (_, i) => ({
       apiKey: '', // 不需要API Key
@@ -65,7 +77,7 @@ export function useGameConfig() {
       dealingSpeed,
       sortOrder
     });
-  }, [playerCount, humanPlayerIndex, strategy, algorithm, dealingAlgorithm, skipDealingAnimation, dealingSpeed, sortOrder]);
+  }, [playerCount, humanPlayerIndex, strategy, algorithm, dealingAlgorithm, skipDealingAnimation, dealingSpeed, sortOrder, llmModel, llmApiUrl]);
 
   const [isTraining, setIsTraining] = useState(false);
 
@@ -111,6 +123,10 @@ export function useGameConfig() {
     setDealingSpeed,
     sortOrder,
     setSortOrder,
+    llmModel,
+    setLlmModel,
+    llmApiUrl,
+    setLlmApiUrl,
     trainingConfig,
     setTrainingConfig,
     handleStartGame,

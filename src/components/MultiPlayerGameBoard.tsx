@@ -26,7 +26,7 @@ import { PlayArea } from './game/PlayArea';
 import { ActionButtons } from './game/ActionButtons';
 import { RoundPlaysPanel } from './game/RoundPlaysPanel';
 import { PlayerInfo } from './game/PlayerInfo';
-import { PlayerHandGrouped } from './game/PlayerHandGrouped';
+import { CompactHandCards } from './game/CompactHandCards';
 import './MultiPlayerGameBoard.css';
 import './game/DealingAnimation.css'; // 导入AI玩家头像样式
 
@@ -186,12 +186,16 @@ export const MultiPlayerGameBoard: React.FC = () => {
         algorithm={gameConfig.algorithm}
         dealingAlgorithm={gameConfig.dealingAlgorithm}
         skipDealingAnimation={gameConfig.skipDealingAnimation}
+        llmModel={gameConfig.llmModel}
+        llmApiUrl={gameConfig.llmApiUrl}
         onPlayerCountChange={gameConfig.setPlayerCount}
         onHumanPlayerIndexChange={gameConfig.setHumanPlayerIndex}
         onStrategyChange={gameConfig.setStrategy}
         onAlgorithmChange={gameConfig.setAlgorithm}
         onDealingAlgorithmChange={gameConfig.setDealingAlgorithm}
         onSkipDealingAnimationChange={gameConfig.setSkipDealingAnimation}
+        onLlmModelChange={gameConfig.setLlmModel}
+        onLlmApiUrlChange={gameConfig.setLlmApiUrl}
         onStartGame={() => gameConfig.handleStartGame(startGame)}
         onStartTraining={() => gameConfig.setMode('training')}
       />
@@ -238,6 +242,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
       {/* 聊天气泡 */}
       <ChatBubblesContainer
         activeChatBubbles={chatBubbles.activeChatBubbles}
+        speakingStates={chatBubbles.speakingStates}
         getPlayerBubblePosition={chatBubbles.getPlayerBubblePosition}
         onBubbleComplete={chatBubbles.removeChatBubble}
       />
@@ -331,10 +336,9 @@ export const MultiPlayerGameBoard: React.FC = () => {
               player={humanPlayer}
               isPlayerTurn={gameActions.isPlayerTurn}
             />
-            <PlayerHandGrouped
+            <CompactHandCards
               groupedHand={playerHand.groupedHand}
               selectedCards={playerHand.selectedCards}
-              expandedRanks={playerHand.expandedRanks}
               onCardClick={playerHand.handleCardClick}
               onToggleExpand={playerHand.toggleExpand}
             />
