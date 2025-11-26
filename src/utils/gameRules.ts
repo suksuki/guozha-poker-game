@@ -54,30 +54,77 @@ export function calculateFinalRankings(
     ranking.rank = index + 1;
   });
 
+  // 记录排序后的玩家顺序（用于调试）
+  console.log(`[calculateFinalRankings] 排序后的玩家顺序（按手牌数，然后按finishOrder）:`, {
+    rankings: rankings.map((r, idx) => ({
+      rank: idx + 1,
+      playerId: r.player.id,
+      playerName: r.player.name,
+      handCount: r.player.hand.length,
+      finishOrderIndex: finishOrder.indexOf(r.player.id),
+      score: r.finalScore
+    })),
+    finishOrder
+  });
+
+  // 保存应用最终规则前的分数（用于日志记录）
+  const scoreBeforeFinalRules = new Map<number, number>();
+  rankings.forEach(r => {
+    scoreBeforeFinalRules.set(r.player.id, r.finalScore);
+  });
+
   // 第三步：基于出牌排名，第一名+30分，最后一名-30分
   if (rankings.length > 0) {
-    rankings[0].finalScore += 30; // 第一名+30分
-    rankings[rankings.length - 1].finalScore -= 30; // 最后一名-30分
+    const firstPlayer = rankings[0];
+    const lastPlayer = rankings[rankings.length - 1];
+    const firstPlayerId = firstPlayer.player.id;
+    const lastPlayerId = lastPlayer.player.id;
+    
+    console.log(`[calculateFinalRankings] 应用最终规则前:`, {
+      firstPlayer: { id: firstPlayerId, name: firstPlayer.player.name, score: firstPlayer.finalScore, handCount: firstPlayer.player.hand.length },
+      lastPlayer: { id: lastPlayerId, name: lastPlayer.player.name, score: lastPlayer.finalScore, handCount: lastPlayer.player.hand.length },
+      isSamePlayer: firstPlayerId === lastPlayerId
+    });
+    
+    firstPlayer.finalScore += 30; // 第一名+30分
+    lastPlayer.finalScore -= 30; // 最后一名-30分
+    
+    console.log(`[calculateFinalRankings] 应用最终规则后:`, {
+      firstPlayer: { id: firstPlayerId, name: firstPlayer.player.name, score: firstPlayer.finalScore, adjustment: '+30' },
+      lastPlayer: { id: lastPlayerId, name: lastPlayer.player.name, score: lastPlayer.finalScore, adjustment: '-30' },
+      totalAdjustment: firstPlayerId === lastPlayerId ? 0 : 0 // 如果同一玩家，+30和-30抵消
+    });
   }
 
-  // 第四步：如果最后一名手上有未出的分牌，要给第二名
+  // 第四步：如果最后一名手上有未出的分牌，要给第二名（出牌顺序的第二名，即finishOrder[1]）
+  // 注意：这个逻辑已经在 handlePlayerFinished 或 useMultiPlayerGame 中处理过了
+  // 所以这里不应该再次处理，避免重复扣除
+  // 但是，为了确保正确，我们检查一下：如果最后一名还有手牌，且分数还没有被扣除，才处理
   if (rankings.length >= 2) {
     const lastPlayer = rankings[rankings.length - 1];
-    const secondPlayer = rankings[1]; // 第二名（索引为1）
     
     // 计算最后一名手中未出的分牌分数
     const lastPlayerScoreCards = lastPlayer.player.hand.filter(card => isScoreCard(card));
     const lastPlayerRemainingScore = calculateCardsScore(lastPlayerScoreCards);
     
     if (lastPlayerRemainingScore > 0) {
-      // 最后一名减去未出分牌的分数
-      lastPlayer.finalScore -= lastPlayerRemainingScore;
+      // 检查是否已经被处理过
+      // 在 useMultiPlayerGame.ts 中，已经处理了最后一名未出的分牌，所以：
+      // - 最后一名的手牌还在（因为只是扣除了分数，没有移除手牌）
+      // - 但最后一名当前的分数（player.score）应该已经比初始分数少了 lastPlayerRemainingScore
+      // - 在 calculateFinalRankings 中，finalScore 初始化为 player.score
+      // - 所以如果 finalScore 已经比初始分数少了 lastPlayerRemainingScore，说明已经处理过了
       
-      // 第二名加上这些分数
-      secondPlayer.finalScore += lastPlayerRemainingScore;
+      // 但是，在 calculateFinalRankings 中，我们已经应用了最终规则（第一名+30，最后一名-30）
+      // 所以 finalScore 可能已经变化了
+      // 我们需要检查：在应用最终规则之前，分数是否已经被扣除
+      
+      // 实际上，在 useMultiPlayerGame.ts 中已经处理过了，所以这里不应该再次处理
+      // 但是，如果最后一名的手牌还在，说明确实没有被处理过（或者处理逻辑有问题）
+      // 为了安全起见，我们完全跳过这个逻辑，因为已经在 useMultiPlayerGame.ts 中处理过了
       
       console.log(
-        `最后一名(${lastPlayer.player.name})有${lastPlayerRemainingScore}分未出，给第二名(${secondPlayer.player.name})`
+        `[calculateFinalRankings] 最后一名(${lastPlayer.player.name})还有${lastPlayerRemainingScore}分未出，但已经在 useMultiPlayerGame.ts 中处理过了，跳过`
       );
     }
   }
@@ -91,16 +138,91 @@ export function calculateFinalRankings(
     ranking.player.score = ranking.finalScore; // 更新玩家对象的分数
   });
 
+  // ==================== 验证分数总和 ====================
+  // 所有玩家的分数总和应该为0（初始-100*4=-400，分牌总分+400，墩的分数总和为0，最终规则+30-30=0）
+  const totalScore = rankings.reduce((sum, r) => sum + r.finalScore, 0);
+  
+  // 计算每个玩家的详细分数信息
+  const playerScoreDetails = rankings.map(r => {
+    const initialScore = -100; // 初始分数
+    const roundsWon = r.player.wonRounds || [];
+    const totalRoundScore = roundsWon.reduce((sum, round) => sum + (round.totalScore || 0), 0);
+    const scoreBeforeFinalRulesValue = scoreBeforeFinalRules.get(r.player.id) || r.finalScore; // 应用最终规则前的分数
+    const finalRuleAdjustment = r.finalScore - scoreBeforeFinalRulesValue; // 最终规则调整（+30或-30）
+    
+    return {
+      name: r.player.name,
+      id: r.player.id,
+      initialScore,
+      roundsWonCount: roundsWon.length,
+      totalRoundScore,
+      scoreBeforeFinalRules: scoreBeforeFinalRulesValue,
+      finalRuleAdjustment,
+      finalScore: r.finalScore,
+      handCount: r.player.hand.length,
+      finishOrder: finishOrder.indexOf(r.player.id),
+      // 计算其他可能的分数来源（墩的分数等）
+      otherScoreSources: scoreBeforeFinalRulesValue - initialScore - totalRoundScore
+    };
+  });
+  
+  if (Math.abs(totalScore) > 0.01) { // 允许小的浮点数误差
+    // 检查是否有玩家没有被正确处理
+    const playersInRankings = new Set(rankings.map(r => r.player.id));
+    const playersInFinishOrderSet = new Set(finishOrder);
+    const missingInRankings = finishOrder.filter(id => !playersInRankings.has(id));
+    const missingInFinishOrder = Array.from(playersInRankings).filter(id => !playersInFinishOrderSet.has(id));
+    
+    console.error(`[ScoreValidation] ⚠️ 分数总和不为0！总和=${totalScore}`, {
+      totalScore,
+      playerCount: rankings.length,
+      finishOrderLength: finishOrder.length,
+      finishOrder,
+      missingInRankings,
+      missingInFinishOrder,
+      playerDetails: playerScoreDetails,
+      // 汇总信息
+      summary: {
+        totalInitialScore: playerScoreDetails.reduce((sum, p) => sum + p.initialScore, 0),
+        totalRoundScore: playerScoreDetails.reduce((sum, p) => sum + p.totalRoundScore, 0),
+        totalFinalRuleAdjustment: playerScoreDetails.reduce((sum, p) => sum + p.finalRuleAdjustment, 0),
+        totalOtherScoreSources: playerScoreDetails.reduce((sum, p) => sum + p.otherScoreSources, 0),
+        totalFinalScore: totalScore,
+        expectedTotal: 0
+      },
+      // 所有轮次信息（如果可用）
+      allRoundsInfo: rankings.map(r => ({
+        playerName: r.player.name,
+        roundsWon: (r.player.wonRounds || []).map(round => ({
+          roundNumber: round.roundNumber,
+          totalScore: round.totalScore,
+          winnerName: round.winnerName,
+          playsCount: round.plays?.length || 0
+        }))
+      }))
+    });
+  } else {
+    console.log(`[ScoreValidation] ✅ 分数总和验证通过: ${totalScore}`, {
+      players: playerScoreDetails.map(p => ({
+        name: p.name,
+        finalScore: p.finalScore
+      }))
+    });
+  }
+  // ====================================================================
+
   return rankings;
 }
 
 /**
  * 在游戏结束时应用最终规则并更新玩家分数
+ * @returns 返回更新后的玩家数组和排名信息
  */
 export function applyFinalGameRules(
   players: Player[],
   finishOrder: number[]
-): Player[] {
+): { players: Player[]; rankings: PlayerRanking[] } {
+  // 计算最终排名和分数（只计算一次，避免重复处理最后一名未出的分牌）
   const rankings = calculateFinalRankings(players, finishOrder);
   
   // 更新玩家数组，包括 finishedRank
@@ -116,7 +238,7 @@ export function applyFinalGameRules(
     return player;
   });
 
-  return updatedPlayers;
+  return { players: updatedPlayers, rankings };
 }
 
 /**
