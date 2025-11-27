@@ -42,6 +42,18 @@ export function useGameConfig() {
   const [llmModel, setLlmModel] = useState<string>('qwen2:0.5b'); // 当前选择的LLM模型
   const [llmApiUrl, setLlmApiUrl] = useState<string>('http://localhost:11434/api/chat'); // LLM API地址
   
+  // 想法生成开关（从 localStorage 读取，默认开启）
+  const [ideaGenerationEnabled, setIdeaGenerationEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('ideaGenerationEnabled');
+    return saved !== null ? saved === 'true' : true; // 默认开启
+  });
+  
+  // 更新想法生成开关并保存到 localStorage
+  const updateIdeaGenerationEnabled = useCallback((enabled: boolean) => {
+    setIdeaGenerationEnabled(enabled);
+    localStorage.setItem('ideaGenerationEnabled', enabled.toString());
+  }, []);
+  
   // 训练模式配置
   const [trainingConfig, setTrainingConfig] = useState<TrainingConfig>({
     gameCount: 1000,
@@ -62,7 +74,7 @@ export function useGameConfig() {
     console.log('[useGameConfig] 更新聊天LLM配置:', { model: llmModel, apiUrl: llmApiUrl });
 
     // 为每个AI玩家创建配置（使用本地算法，不需要API Key）
-    const aiConfigs = Array.from({ length: playerCount }, (_, i) => ({
+    const aiConfigs = Array.from({ length: playerCount }, () => ({
       apiKey: '', // 不需要API Key
       strategy: strategy,
       algorithm: algorithm || 'mcts' // 使用MCTS或智能策略
@@ -127,6 +139,8 @@ export function useGameConfig() {
     setLlmModel,
     llmApiUrl,
     setLlmApiUrl,
+    ideaGenerationEnabled,
+    setIdeaGenerationEnabled: updateIdeaGenerationEnabled,
     trainingConfig,
     setTrainingConfig,
     handleStartGame,

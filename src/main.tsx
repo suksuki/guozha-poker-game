@@ -4,6 +4,7 @@ import App from './App'
 import './index.css'
 // 确保i18n在React渲染前初始化
 import './i18n' // 导入i18n配置（会自动查找index.ts）
+import { GameConfigProvider } from './contexts/GameConfigContext'
 import { isSpeechSupported, listAvailableVoices } from './services/voiceService'
 import { checkChatStrategy } from './services/chatService'
 import './utils/testLLMChat' // 导入测试函数
@@ -54,7 +55,9 @@ document.addEventListener('touchstart', activateVoice, { once: true });
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Suspense fallback={<div>Loading...</div>}>
-      <App />
+      <GameConfigProvider>
+        <App />
+      </GameConfigProvider>
     </Suspense>
   </React.StrictMode>,
 )

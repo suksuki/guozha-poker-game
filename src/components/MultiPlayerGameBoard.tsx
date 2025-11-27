@@ -7,11 +7,13 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GameStatus, PlayerType } from '../types/card';
 import { useMultiPlayerGame } from '../hooks/useMultiPlayerGame';
-import { useGameConfig, GameMode } from '../hooks/useGameConfig';
+import { useGameConfigContext } from '../contexts/GameConfigContext';
+import { GameMode } from '../hooks/useGameConfig';
 import { useChatBubbles } from '../hooks/useChatBubbles';
 import { usePlayerHand } from '../hooks/usePlayerHand';
 import { useGameActions } from '../hooks/useGameActions';
 import { useUrgePlay } from '../hooks/useUrgePlay';
+import { useGameAudio } from '../hooks/useGameAudio';
 import { soundService } from '../services/soundService';
 import { GameConfigPanel } from './game/GameConfigPanel';
 import { TrainingConfigPanel } from './game/TrainingConfigPanel';
@@ -27,6 +29,7 @@ import { ActionButtons } from './game/ActionButtons';
 import { RoundPlaysPanel } from './game/RoundPlaysPanel';
 import { PlayerInfo } from './game/PlayerInfo';
 import { CompactHandCards } from './game/CompactHandCards';
+import { IdeaGenerationToggle } from './game/IdeaGenerationToggle';
 import './MultiPlayerGameBoard.css';
 import './game/DealingAnimation.css'; // 导入AI玩家头像样式
 
@@ -87,9 +90,22 @@ export const MultiPlayerGameBoard: React.FC = () => {
   }, []);
   
   // 使用自定义 hooks
-  const gameConfig = useGameConfig();
-  const chatBubbles = useChatBubbles(gameState);
+  const gameConfig = useGameConfigContext();
+  const gameAudio = useGameAudio({
+    enableAudio: true,
+    maxConcurrent: 2,
+    enableDucking: true,
+    preloadCommon: true,
+  });
+  const chatBubbles = useChatBubbles(gameState, gameAudio);
   const playerHand = usePlayerHand(gameState);
+  
+  // 配置角色声线（当游戏开始时）
+  useEffect(() => {
+    if (gameState.status === GameStatus.PLAYING && gameState.players.length > 0) {
+      gameAudio.setupSpeakers(gameState.players);
+    }
+  }, [gameState.status, gameState.players, gameAudio]);
   
   // 催促出牌检测（当人类玩家等待时间过长时，AI会催促）
   useUrgePlay({ gameState, urgeDelay: 5000 }); // 5秒后催促
@@ -188,6 +204,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
         skipDealingAnimation={gameConfig.skipDealingAnimation}
         llmModel={gameConfig.llmModel}
         llmApiUrl={gameConfig.llmApiUrl}
+        ideaGenerationEnabled={gameConfig.ideaGenerationEnabled}
         onPlayerCountChange={gameConfig.setPlayerCount}
         onHumanPlayerIndexChange={gameConfig.setHumanPlayerIndex}
         onStrategyChange={gameConfig.setStrategy}
@@ -196,6 +213,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
         onSkipDealingAnimationChange={gameConfig.setSkipDealingAnimation}
         onLlmModelChange={gameConfig.setLlmModel}
         onLlmApiUrlChange={gameConfig.setLlmApiUrl}
+        onIdeaGenerationEnabledChange={gameConfig.setIdeaGenerationEnabled}
         onStartGame={() => gameConfig.handleStartGame(startGame)}
         onStartTraining={() => gameConfig.setMode('training')}
       />
@@ -238,6 +256,14 @@ export const MultiPlayerGameBoard: React.FC = () => {
     <div className="game-container">
       {/* 动画容器 */}
       <AnimationContainer />
+
+      {/* 想法生成开关 - 游戏进行中显示 */}
+      {gameState.status === GameStatus.PLAYING && (
+        <IdeaGenerationToggle
+          enabled={gameConfig.ideaGenerationEnabled}
+          onChange={gameConfig.setIdeaGenerationEnabled}
+        />
+      )}
 
       {/* 聊天气泡 */}
       <ChatBubblesContainer

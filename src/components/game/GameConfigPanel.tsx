@@ -27,6 +27,7 @@ interface GameConfigPanelProps {
   sortOrder?: 'asc' | 'desc' | 'grouped';
   llmModel?: string;
   llmApiUrl?: string;
+  ideaGenerationEnabled?: boolean;
   onPlayerCountChange: (count: number) => void;
   onHumanPlayerIndexChange: (index: number) => void;
   onStrategyChange: (strategy: 'aggressive' | 'conservative' | 'balanced') => void;
@@ -37,6 +38,7 @@ interface GameConfigPanelProps {
   onSortOrderChange?: (order: 'asc' | 'desc' | 'grouped') => void;
   onLlmModelChange?: (model: string) => void;
   onLlmApiUrlChange?: (url: string) => void;
+  onIdeaGenerationEnabledChange?: (enabled: boolean) => void;
   onStartGame: () => void;
   onStartTraining?: () => void;
 }
@@ -54,6 +56,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   sortOrder = 'grouped',
   llmModel = 'qwen2:0.5b',
   llmApiUrl = 'http://localhost:11434/api/chat',
+  ideaGenerationEnabled = true,
   onPlayerCountChange,
   onHumanPlayerIndexChange,
   onStrategyChange,
@@ -64,6 +67,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   onSortOrderChange,
   onLlmModelChange,
   onLlmApiUrlChange,
+  onIdeaGenerationEnabledChange,
   onStartGame,
   onStartTraining
 }) => {
@@ -357,6 +361,24 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* 其他设置组 */}
+              <div className="config-group">
+                <h2 className="config-group-title">{t('ui:configGroups.other') || '其他设置'}</h2>
+                {onIdeaGenerationEnabledChange && (
+                  <div className="config-item">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={ideaGenerationEnabled}
+                        onChange={(e) => onIdeaGenerationEnabledChange(e.target.checked)}
+                      />
+                      {t('ui:config.ideaGenerationEnabled') || '启用想法建议'}
+                    </label>
+                    <small>{t('ui:ideaGenerationEnabledHint') || '游戏过程中自动生成优化建议，可能会影响游戏体验'}</small>
+                  </div>
+                )}
               </div>
 
               {/* 发牌配置组 */}
