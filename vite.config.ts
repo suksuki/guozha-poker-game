@@ -2,15 +2,41 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import fs from 'fs'
+import { codeReviewPlugin } from './vite-plugins/codeReviewPlugin'
+import { testManagementPlugin } from './vite-plugins/testManagementPlugin'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   plugins: [
     react(),
+    codeReviewPlugin(),
+    testManagementPlugin(),
     {
       name: 'utf8-headers',
       configureServer(server) {
+        // 提供项目根目录和 docs 目录的 MD 文件
+        server.middlewares.use((req, res, next) => {
+          if (req.url && req.url.match(/\.md$/)) {
+            // 处理 Markdown 文件请求
+            const filePath = path.resolve(__dirname, req.url.startsWith('/') ? req.url.substring(1) : req.url);
+            
+            // 检查文件是否存在
+            if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+              try {
+                const content = fs.readFileSync(filePath, 'utf-8');
+                res.setHeader('Content-Type', 'text/markdown; charset=UTF-8');
+                res.end(content);
+                return;
+              } catch (error) {
+                // 如果读取失败，继续到下一个中间件
+              }
+            }
+          }
+          next();
+        });
+        
         server.middlewares.use((req, res, next) => {
           // 确保所有文本类型文件都包含UTF-8编码
           if (req.url) {
@@ -33,8 +59,12 @@ export default defineConfig({
               return;
             }
             
+            // Markdown 文件
+            if (req.url.endsWith('.md')) {
+              res.setHeader('Content-Type', 'text/markdown; charset=UTF-8');
+            }
             // JSON文件
-            if (req.url.endsWith('.json') || req.url.includes('/locales/')) {
+            else if (req.url.endsWith('.json') || req.url.includes('/locales/')) {
               res.setHeader('Content-Type', 'application/json; charset=UTF-8');
             }
             // JavaScript/TypeScript文件

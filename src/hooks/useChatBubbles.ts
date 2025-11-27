@@ -14,7 +14,10 @@ import i18n from '../i18n';
 
 import { MultiPlayerGameState } from '../utils/gameStateUtils';
 
-export function useChatBubbles(gameState: MultiPlayerGameState | { status: GameStatus; players: Player[]; currentPlayerIndex: number }) {
+export function useChatBubbles(
+  gameState: MultiPlayerGameState | { status: GameStatus; players: Player[]; currentPlayerIndex: number },
+  gameAudio?: ReturnType<typeof useGameAudio>  // 可选的游戏音频系统
+) {
   const [activeChatBubbles, setActiveChatBubbles] = useState<Map<number, ChatMessage>>(new Map());
   const [speakingStates, setSpeakingStates] = useState<Map<number, boolean>>(new Map());
   const lastMessageIdRef = useRef<string | null>(null);
@@ -77,7 +80,14 @@ export function useChatBubbles(gameState: MultiPlayerGameState | { status: GameS
             
             console.log('[useChatBubbles] 播放聊天语音:', translatedContent, '玩家:', player.name, 'playerId:', translatedMessage.playerId, '类型:', translatedMessage.type, '音量:', voiceConfigForTaunt.volume);
             
-            // 播放语音，传入事件回调
+            // 同时使用多声道音频系统（如果提供）
+            if (gameAudio?.isEnabled) {
+              gameAudio.handleChatMessage(translatedMessage).catch((error) => {
+                console.warn('[useChatBubbles] 多声道音频播放失败，回退到传统语音:', error);
+              });
+            }
+            
+            // 播放语音，传入事件回调（传统方式，作为回退）
             // 注意：不在调用前设置状态，而是在onStart回调中设置，确保状态和实际播放同步
             // 根据消息类型确定优先级：3=对骂，2=事件，1=随机
             const priority = translatedMessage.type === 'taunt' ? 3 : 
