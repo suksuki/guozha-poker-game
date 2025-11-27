@@ -13,6 +13,7 @@ import { translateText } from '../services/translationService';
 import i18n from '../i18n';
 
 import { MultiPlayerGameState } from '../utils/gameStateUtils';
+import { useGameAudio } from './useGameAudio';
 
 export function useChatBubbles(
   gameState: MultiPlayerGameState | { status: GameStatus; players: Player[]; currentPlayerIndex: number },

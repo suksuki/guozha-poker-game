@@ -127,6 +127,15 @@ class ChatService {
     });
   }
 
+  // 获取当前策略信息
+  getCurrentStrategy(): { name: string; description: string; isLLM: boolean } {
+    return {
+      name: this.strategy.name,
+      description: this.strategy.description,
+      isLLM: this.strategy.name === 'llm'
+    };
+  }
+
   // 添加聊天消息
   addMessage(message: ChatMessage): void {
     this.messages.push(message);
@@ -340,6 +349,7 @@ class ChatService {
     fullGameState?: MultiPlayerGameState
   ): Promise<void> {
     await this.triggerEventChat(player, ChatEventType.GOOD_PLAY, context, fullGameState);
+<<<<<<< Updated upstream
   }
 
   // 触发回复
@@ -405,6 +415,8 @@ class ChatService {
     }
     
     return message;
+=======
+>>>>>>> Stashed changes
   }
 
   // 触发对骂

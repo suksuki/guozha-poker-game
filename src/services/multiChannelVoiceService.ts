@@ -497,7 +497,18 @@ class MultiChannelVoiceService {
           if (this.channelItems.get(channel) === item) {
             const errorObj = error as any;
             const errorMessage = errorObj.error || errorObj.message || '未知错误';
-            console.error(`[${channelConfig.name}] 播放出错:`, errorMessage);
+            console.error(`[${channelConfig.name}] 播放出错:`, {
+              text,
+              error,
+              errorMessage,
+              utterance: {
+                lang: utterance.lang,
+                voice: utterance.voice?.name,
+                rate: utterance.rate,
+                pitch: utterance.pitch,
+                volume: utterance.volume
+              }
+            });
             // 调用事件回调（优先使用 item.events，如果没有则使用参数中的 events）
             (item.events || events)?.onError?.(new Error(errorMessage));
             cleanup();
@@ -556,7 +567,6 @@ class MultiChannelVoiceService {
         // 立即播放聊天
         this.isPlayingChat = true;
         this.playUtterance(utterance, item, channel);
-        
       } catch (error) {
         console.error(`[${CHANNEL_CONFIGS[channel].name}] 播放语音时出错:`, {
           error,
