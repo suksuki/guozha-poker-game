@@ -16,7 +16,7 @@
  */
 
 import { VoiceConfig } from '../types/card';
-import { ChannelType } from './multiChannelVoiceService';
+import { ChannelType } from '../types/channel';
 
 // 声道配置
 interface ChannelConfig {
@@ -28,8 +28,12 @@ interface ChannelConfig {
 const CHANNEL_CONFIGS: Record<ChannelType, ChannelConfig> = {
   [ChannelType.PLAYER_0]: { pan: -0.7, volume: 1.0, name: '玩家0（左）' },
   [ChannelType.PLAYER_1]: { pan: 0.7, volume: 1.0, name: '玩家1（右）' },
-  [ChannelType.PLAYER_2]: { pan: -0.3, volume: 1.0, name: '玩家2（左中）' },
-  [ChannelType.PLAYER_3]: { pan: 0.3, volume: 1.0, name: '玩家3（右中）' },
+  [ChannelType.PLAYER_2]: { pan: -0.5, volume: 1.0, name: '玩家2（左中）' },
+  [ChannelType.PLAYER_3]: { pan: 0.5, volume: 1.0, name: '玩家3（右中）' },
+  [ChannelType.PLAYER_4]: { pan: -0.3, volume: 1.0, name: '玩家4（左环绕）' },
+  [ChannelType.PLAYER_5]: { pan: 0.3, volume: 1.0, name: '玩家5（右环绕）' },
+  [ChannelType.PLAYER_6]: { pan: -0.15, volume: 1.0, name: '玩家6（左后）' },
+  [ChannelType.PLAYER_7]: { pan: 0.15, volume: 1.0, name: '玩家7（右后）' },
   [ChannelType.ANNOUNCEMENT]: { pan: 0.0, volume: 1.2, name: '报牌（中央）' }
 };
 

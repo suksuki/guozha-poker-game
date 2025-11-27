@@ -9,8 +9,9 @@ import { LocalTTSAPIClient } from './localTTSClient';
 import { EdgeTTSClient } from './localTTSClient';
 import { GPTSoVITSClient } from './gptSoVITSClient';
 import { CoquiTTSClient } from './coquiTTSClient';
+import { PiperTTSClient } from './piperTTSClient';
 
-export type TTSProvider = 'browser' | 'local' | 'edge' | 'gpt_sovits' | 'coqui';
+export type TTSProvider = 'browser' | 'local' | 'edge' | 'gpt_sovits' | 'coqui' | 'piper';
 
 export interface TTSProviderConfig {
   provider: TTSProvider;
@@ -51,13 +52,18 @@ export class TTSServiceManager {
     // Coqui TTS
     this.providers.set('coqui', new CoquiTTSClient());
 
+    // Piper TTS（轻量级本地TTS，推荐用于训练场景）
+    this.providers.set('piper', new PiperTTSClient());
+
     // 默认配置（按优先级排序）
+    // 注意：Piper TTS 设置为最高优先级，因为它是轻量级本地服务，适合训练场景
     this.providerConfigs = [
-      { provider: 'gpt_sovits', priority: 1, enabled: true },
-      { provider: 'coqui', priority: 2, enabled: true },
-      { provider: 'edge', priority: 3, enabled: true },
-      { provider: 'local', priority: 4, enabled: true },
-      { provider: 'browser', priority: 5, enabled: true },  // 总是启用作为后备
+      { provider: 'piper', priority: 1, enabled: true },  // 最高优先级（轻量级本地TTS）
+      { provider: 'gpt_sovits', priority: 2, enabled: true },
+      { provider: 'coqui', priority: 3, enabled: true },
+      { provider: 'edge', priority: 4, enabled: true },
+      { provider: 'local', priority: 5, enabled: true },
+      { provider: 'browser', priority: 6, enabled: true },  // 总是启用作为后备
     ];
 
     // 初始化健康状态

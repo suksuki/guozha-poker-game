@@ -86,6 +86,7 @@ export function calculateFinalRankings(
       isSamePlayer: firstPlayerId === lastPlayerId
     });
     
+    // 最终规则：头名加30分，末游减30分
     firstPlayer.finalScore += 30; // 第一名+30分
     lastPlayer.finalScore -= 30; // 最后一名-30分
     
@@ -96,35 +97,24 @@ export function calculateFinalRankings(
     });
   }
 
-  // 第四步：如果最后一名手上有未出的分牌，要给第二名（出牌顺序的第二名，即finishOrder[1]）
-  // 注意：这个逻辑已经在 handlePlayerFinished 或 useMultiPlayerGame 中处理过了
+  // 第四步：末游最后手牌的分牌分数处理
+  // 注意：这个逻辑已经在 handleGameEnd 中处理过了（在调用 applyFinalGameRules 之前）
+  // handleGameEnd 会：
+  // 1. 计算末游剩余分牌分数（5=5分，10=10分，K=10分）
+  // 2. 末游减去这个分数
+  // 3. 第二名加上这个分数
   // 所以这里不应该再次处理，避免重复扣除
-  // 但是，为了确保正确，我们检查一下：如果最后一名还有手牌，且分数还没有被扣除，才处理
   if (rankings.length >= 2) {
     const lastPlayer = rankings[rankings.length - 1];
     
-    // 计算最后一名手中未出的分牌分数
+    // 计算最后一名手中未出的分牌分数（仅用于日志记录）
     const lastPlayerScoreCards = lastPlayer.player.hand.filter(card => isScoreCard(card));
     const lastPlayerRemainingScore = calculateCardsScore(lastPlayerScoreCards);
     
     if (lastPlayerRemainingScore > 0) {
-      // 检查是否已经被处理过
-      // 在 useMultiPlayerGame.ts 中，已经处理了最后一名未出的分牌，所以：
-      // - 最后一名的手牌还在（因为只是扣除了分数，没有移除手牌）
-      // - 但最后一名当前的分数（player.score）应该已经比初始分数少了 lastPlayerRemainingScore
-      // - 在 calculateFinalRankings 中，finalScore 初始化为 player.score
-      // - 所以如果 finalScore 已经比初始分数少了 lastPlayerRemainingScore，说明已经处理过了
-      
-      // 但是，在 calculateFinalRankings 中，我们已经应用了最终规则（第一名+30，最后一名-30）
-      // 所以 finalScore 可能已经变化了
-      // 我们需要检查：在应用最终规则之前，分数是否已经被扣除
-      
-      // 实际上，在 useMultiPlayerGame.ts 中已经处理过了，所以这里不应该再次处理
-      // 但是，如果最后一名的手牌还在，说明确实没有被处理过（或者处理逻辑有问题）
-      // 为了安全起见，我们完全跳过这个逻辑，因为已经在 useMultiPlayerGame.ts 中处理过了
-      
+      // 这个分数已经在 handleGameEnd 中处理过了，这里只记录日志
       console.log(
-        `[calculateFinalRankings] 最后一名(${lastPlayer.player.name})还有${lastPlayerRemainingScore}分未出，但已经在 useMultiPlayerGame.ts 中处理过了，跳过`
+        `[calculateFinalRankings] 最后一名(${lastPlayer.player.name})还有${lastPlayerRemainingScore}分未出，但已经在 handleGameEnd 中处理过了（已转移给第二名），跳过`
       );
     }
   }

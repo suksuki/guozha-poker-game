@@ -5,10 +5,10 @@
  */
 
 import { VoiceConfig } from '../types/card';
+import { ChannelType } from '../types/channel';
 import { 
   multiChannelVoiceService, 
-  getPlayerChannel,
-  ChannelType
+  getPlayerChannel
 } from './multiChannelVoiceService';
 
 // 检查浏览器是否支持语音合成
@@ -83,9 +83,26 @@ class VoiceService {
    * 立即播放高优先级语音（报牌专用）
    * @param text 要播放的文本
    * @param voiceConfig 语音配置
+   * @param events 播放事件回调（用于同步动画）
    */
-  speakImmediate(text: string, voiceConfig?: VoiceConfig): Promise<void> {
-    return multiChannelVoiceService.speak(text, voiceConfig, ChannelType.ANNOUNCEMENT, undefined, 4); // 报牌优先级最高
+  speakImmediate(
+    text: string, 
+    voiceConfig?: VoiceConfig,
+    events?: SpeechPlaybackEvents
+  ): Promise<void> {
+    // 计算预估时长
+    const estimatedDuration = this.calculateDuration(text, voiceConfig);
+    if (events) {
+      events.estimatedDuration = estimatedDuration;
+    }
+    
+    return multiChannelVoiceService.speak(
+      text, 
+      voiceConfig, 
+      ChannelType.ANNOUNCEMENT, 
+      events,
+      4 // 报牌优先级最高
+    );
   }
 
   /**

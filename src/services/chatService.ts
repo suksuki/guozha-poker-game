@@ -349,7 +349,6 @@ class ChatService {
     fullGameState?: MultiPlayerGameState
   ): Promise<void> {
     await this.triggerEventChat(player, ChatEventType.GOOD_PLAY, context, fullGameState);
-<<<<<<< Updated upstream
   }
 
   // 触发回复
@@ -415,8 +414,6 @@ class ChatService {
     }
     
     return message;
-=======
->>>>>>> Stashed changes
   }
 
   // 触发对骂

@@ -1,4 +1,30 @@
-/* 轮次出牌记录 - 直接放在牌桌上，无背景面板 */
+/* 轮次出牌记录 - 横向排列容器（在AI玩家面板下面） */
+.round-plays-horizontal-container {
+  width: 100%;
+  padding: 10px 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  align-items: center;
+  min-height: 100px;
+  max-height: 120px;
+}
+
+.round-plays-horizontal-container .round-plays-table {
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  z-index: 50;
+  display: flex;
+  flex-direction: row; /* 改为横向排列 */
+  gap: 20px; /* 每个出牌记录之间的间距 */
+  align-items: center;
+  flex-wrap: nowrap; /* 不换行，允许横向滚动 */
+  padding: 10px 0;
+}
+
+/* 轮次出牌记录 - 直接放在牌桌上，无背景面板（保留旧样式作为备用） */
 .round-plays-table {
   position: fixed;
   left: 60px; /* 离左边有padding距离 */
@@ -10,7 +36,16 @@
   gap: 15px; /* 每行固定距离 */
 }
 
-/* 每一行 */
+/* 每一行（横向排列时，每行就是一个出牌记录） */
+.round-plays-horizontal-container .round-play-row {
+  position: relative;
+  height: 90px; /* 固定行高 */
+  min-width: 120px; /* 最小宽度 */
+  flex-shrink: 0; /* 不收缩 */
+  align-items: flex-start;
+}
+
+/* 每一行（纵向排列时） */
 .round-play-row {
   position: relative;
   height: 80px; /* 固定行高 */
@@ -25,6 +60,15 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+}
+
+/* 横向排列时的出牌记录项 */
+.round-plays-horizontal-container .round-play-item-inline {
+  position: relative;
+  top: auto;
+  left: auto;
+  flex-shrink: 0;
+  min-width: 100px;
 }
 
 .round-play-player-inline {

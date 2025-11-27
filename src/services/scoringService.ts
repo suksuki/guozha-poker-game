@@ -1,4 +1,4 @@
-import { Player, Card, RoundRecord, RoundPlayRecord } from '../types/card';
+import { Player, Card, RoundRecord, RoundPlayRecord, Rank } from '../types/card';
 
 /**
  * 验证 allRounds 的牌数完整性（每次更新 allRounds 时调用）
@@ -141,7 +141,7 @@ export function validateAllRoundsOnUpdate(
       context
     });
   } else {
-    console.log(`[AllRoundsValidation] ✅ ${context || 'allRounds 更新'}时验证通过`, {
+    console.log(`[AllRoundsValidation] ✅ ${context || 'allRounds 更新'}时卡牌验证通过`, {
       expected: totalCardsExpected,
       found: totalCardsFound,
       allRoundsCount: allRounds.length,
@@ -149,6 +149,79 @@ export function validateAllRoundsOnUpdate(
       currentRoundPlaysCount: currentRoundPlays?.length || 0,
       currentRoundCardsCount: currentRoundCards.length,
       playerHandsCount,
+      context
+    });
+  }
+
+  // ==================== 验证分数总和 ====================
+  // 所有玩家的分数总和应该为0（初始-100*玩家数，分牌总分+对应分数，最终规则调整总和为0）
+  const totalScore = players.reduce((sum, player) => sum + (player.score || 0), 0);
+  
+  // 计算初始分数总和（每个玩家-100）
+  const initialTotalScore = -100 * players.length;
+  
+  // 计算分牌总分（从初始手牌中计算）
+  let totalScoreCards = 0;
+  if (initialHands) {
+    initialHands.forEach(hand => {
+      hand.forEach(card => {
+        if (card.rank === Rank.FIVE) {
+          totalScoreCards += 5;
+        } else if (card.rank === Rank.TEN || card.rank === Rank.KING) {
+          totalScoreCards += 10;
+        }
+      });
+    });
+  }
+  
+  // 验证分数总和是否为0（允许小的浮点数误差）
+  if (Math.abs(totalScore) > 0.01) {
+    const errorMessage = `分数总和不为0！当前总和=${totalScore}，期望=0`;
+    
+    // 触发自定义事件
+    window.dispatchEvent(new CustomEvent('scoreValidationError', { 
+      detail: {
+        message: errorMessage,
+        details: {
+          totalScore,
+          expectedTotal: 0,
+          playerCount: players.length,
+          initialTotalScore,
+          totalScoreCards,
+          playerScores: players.map(p => ({
+            id: p.id,
+            name: p.name,
+            score: p.score || 0
+          })),
+          context
+        }
+      }
+    }));
+    
+    console.error(`[ScoreValidation] ⚠️ ${context || '分数校验'}失败！${errorMessage}`, {
+      totalScore,
+      expectedTotal: 0,
+      playerCount: players.length,
+      initialTotalScore,
+      totalScoreCards,
+      playerScores: players.map(p => ({
+        id: p.id,
+        name: p.name,
+        score: p.score || 0
+      })),
+      context
+    });
+  } else {
+    console.log(`[ScoreValidation] ✅ ${context || '分数校验'}通过：分数总和=${totalScore}`, {
+      totalScore,
+      playerCount: players.length,
+      initialTotalScore,
+      totalScoreCards,
+      playerScores: players.map(p => ({
+        id: p.id,
+        name: p.name,
+        score: p.score || 0
+      })),
       context
     });
   }
@@ -248,7 +321,7 @@ export function validateCardIntegritySimple(
   // 如果需要按玩家统计，需要从 allRounds 中获取
   
   // 添加详细调试信息
-  console.log('[CardValidation] 简化验证信息:', {
+  const detailedLog = {
     expectedTotal,
     actualTotal,
     missingCards,
@@ -256,8 +329,23 @@ export function validateCardIntegritySimple(
     playerHandsCount,
     initialHandsTotal: initialHands ? initialHands.reduce((sum, hand) => sum + hand.length, 0) : 'N/A',
     initialHandsByPlayer: initialHands ? initialHands.map((hand, i) => ({ player: i, count: hand.length })) : 'N/A',
-    playerHandsByPlayer
-  });
+    playerHandsByPlayer,
+    allRoundsCount: allRounds?.length || 0,
+    currentRoundPlaysCount: currentRoundPlays?.length || 0,
+    allRoundsDetails: allRounds?.map((round, idx) => ({
+      roundNumber: round.roundNumber,
+      playsCount: round.plays?.length || 0,
+      cardsInRound: round.plays?.reduce((sum: number, p: any) => sum + (p.cards?.length || 0), 0) || 0
+    })) || [],
+    currentRoundPlaysDetails: currentRoundPlays?.map((play, idx) => ({
+      index: idx,
+      playerId: play.playerId,
+      playerName: play.playerName,
+      cardsCount: play.cards?.length || 0
+    })) || []
+  };
+  
+  console.log('[CardValidation] 📊 详细验证信息:', detailedLog);
   
   // 检查是否完整
   // 如果游戏刚开始（没有出牌）且牌数差异较小（<=10张），可能是发牌算法的正常差异
@@ -356,7 +444,7 @@ export function validateCardIntegrity(
   const missingCards = totalCardsExpected - totalCardsFound;
   
   // 添加详细调试信息
-  console.log('[CardValidation] 详细验证信息:', {
+  const detailedLog = {
     totalCardsExpected,
     totalCardsFound,
     missingCards,
@@ -364,17 +452,34 @@ export function validateCardIntegrity(
     allRoundsPlayedCardsCount,
     currentRoundPlaysCount: currentRoundPlays.length,
     currentRoundCardsCount,
-    currentRoundPlaysDetail: currentRoundPlays.map(play => ({
+    currentRoundPlaysDetail: currentRoundPlays.map((play, idx) => ({
+      index: idx,
       playerId: play.playerId,
       playerName: play.playerName,
-      cardsCount: play.cards?.length || 0
+      cardsCount: play.cards?.length || 0,
+      cards: play.cards?.map(c => `${c.suit}-${c.rank}`).slice(0, 5) || [] // 只显示前5张，避免日志过长
     })),
     playerHandsCount,
     initialHandsTotal: initialHands ? initialHands.reduce((sum, hand) => sum + hand.length, 0) : 'N/A',
-    initialHandsByPlayer: initialHands ? initialHands.map((hand, i) => ({ player: i, count: hand.length })) : 'N/A',
-    playerHandsByPlayer,
-    playedCardsByRound
-  });
+    initialHandsByPlayer: initialHands ? initialHands.map((hand, i) => ({ 
+      player: i, 
+      count: hand.length,
+      sampleCards: hand.slice(0, 3).map(c => `${c.suit}-${c.rank}`) // 显示前3张作为样本
+    })) : 'N/A',
+    playerHandsByPlayer: playerHandsByPlayer.map(p => ({
+      ...p,
+      sampleCards: players.find(pl => pl.id === p.playerId)?.hand.slice(0, 3).map(c => `${c.suit}-${c.rank}`) || []
+    })),
+    playedCardsByRound,
+    breakdown: {
+      allRoundsCards: allRoundsPlayedCardsCount,
+      currentRoundCards: currentRoundCardsCount,
+      playerHandsCards: playerHandsCount,
+      sum: allRoundsPlayedCardsCount + currentRoundCardsCount + playerHandsCount
+    }
+  };
+  
+  console.log('[CardValidation] 📊 详细验证信息:', detailedLog);
   
   // 检查是否完整
   // 如果 initialHands 存在但牌数不匹配，可能是发牌时的问题

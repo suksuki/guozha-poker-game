@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getTTSServiceManager, TTSProvider } from '../tts';
+import { setTTSProvider } from '../services/multiChannelVoiceService';
 import './TTSStatusMonitor.css';
 
 export const TTSStatusMonitor: React.FC = () => {
@@ -55,6 +56,22 @@ export const TTSStatusMonitor: React.FC = () => {
     }
   };
 
+  // 切换到指定的TTS提供者
+  const handleSelectProvider = (provider: TTSProvider) => {
+    if (!status[provider]?.healthy) {
+      alert(`无法选择 ${providerNames[provider]}：服务不健康`);
+      return;
+    }
+    
+    try {
+      setTTSProvider(provider);
+      alert(`✅ 已切换到 ${providerNames[provider]}`);
+      updateStatus();
+    } catch (error) {
+      alert(`切换失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   if (!isOpen) {
     return (
       <button
@@ -73,6 +90,7 @@ export const TTSStatusMonitor: React.FC = () => {
     edge: 'Edge TTS',
     gpt_sovits: 'GPT-SoVITS',
     coqui: 'Coqui TTS',
+    piper: 'Piper TTS',
   };
 
   const providerIcons: Record<TTSProvider, string> = {
@@ -81,6 +99,7 @@ export const TTSStatusMonitor: React.FC = () => {
     edge: '🌍',
     gpt_sovits: '🤖',
     coqui: '🎙️',
+    piper: '🎯',
   };
 
   return (
@@ -120,10 +139,20 @@ export const TTSStatusMonitor: React.FC = () => {
                   </span>
                 </div>
                 <div className="status-item-actions">
+                  {state.healthy && state.enabled && (
+                    <button
+                      className="btn-select"
+                      onClick={() => handleSelectProvider(provider as TTSProvider)}
+                      title={`切换到 ${providerNames[provider as TTSProvider]}`}
+                    >
+                      ✅ 选择
+                    </button>
+                  )}
                   <button
                     className="btn-test"
                     onClick={() => handleTestTTS(provider as TTSProvider)}
                     disabled={!state.enabled}
+                    title="测试TTS合成"
                   >
                     🧪 测试
                   </button>

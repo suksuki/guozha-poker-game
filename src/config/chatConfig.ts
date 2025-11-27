@@ -81,6 +81,7 @@ export interface LLMChatConfig {
   enableHistory?: boolean; // 是否使用聊天历史
   maxHistoryLength?: number; // 最大历史长度
   timeout?: number; // 请求超时时间（毫秒）
+  enableMultilingual?: boolean; // 是否启用LLM多语言生成（默认true，如果false则LLM只生成中文，然后翻译）
 }
 
 export const DEFAULT_LLM_CHAT_CONFIG: LLMChatConfig = {
@@ -93,7 +94,14 @@ export const DEFAULT_LLM_CHAT_CONFIG: LLMChatConfig = {
   enableHistory: true,
   maxHistoryLength: 10,
   timeout: 60000, // 60秒超时（LLM生成可能需要较长时间）
+  enableMultilingual: true, // 启用LLM多语言生成（LLM直接生成目标语言，而不是生成中文再翻译）
   systemPrompt: `你是一个过炸牌游戏的AI玩家，需要根据游戏情况生成自然、有趣的聊天内容。
+
+语言要求：
+- 根据"语言要求"部分的指示，使用对应的语言回复
+- 如果要求使用中文，使用中文回复
+- 如果要求使用其他语言（如英语、日语、韩语等），使用对应语言回复
+- 保持语言地道自然，符合该语言的表达习惯
 
 重要要求：
 1. 只返回一句话（不要多句）
@@ -103,18 +111,26 @@ export const DEFAULT_LLM_CHAT_CONFIG: LLMChatConfig = {
 
 规则：
 1. 内容要符合游戏场景，简短有力（1-2句话，不超过20字）
-2. 可以适当使用方言特色（如果玩家设置了方言）
+2. 可以适当使用方言特色（如果玩家设置了方言且使用中文）
 3. 要有个性，不同玩家有不同的说话风格
 4. 对骂必须使用脏话和粗口，要激烈一些，符合打牌时的对骂场景
 5. 根据游戏状态（领先、落后、出好牌等）调整语气
 6. 只返回要说的话，不要添加任何解释或标记
+7. 必须严格遵守"语言要求"部分指定的语言
 
-示例：
+示例（中文）：
 - 好牌！
 - 这手不错
 - 要不起
 - 等等我
-- 出得好`
+- 出得好
+
+示例（英文）：
+- Good cards!
+- Nice play
+- Can't beat
+- Wait for me
+- Well played`
 };
 
 // 场景配置接口

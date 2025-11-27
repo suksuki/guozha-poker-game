@@ -17,7 +17,7 @@ export const LanguageSwitcher: React.FC = () => {
     <div style={{
       position: 'fixed',
       top: '10px',
-      right: '10px',
+      left: '10px',
       zIndex: 1000,
       display: 'flex',
       gap: '5px',

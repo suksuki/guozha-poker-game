@@ -10,22 +10,18 @@
  */
 
 import { VoiceConfig } from '../types/card';
+import { ChannelType } from '../types/channel';
 import {
   DIALECT_LANG_MAP,
   VoiceServiceConfig,
-  DEFAULT_VOICE_SERVICE_CONFIG
+  DEFAULT_VOICE_SERVICE_CONFIG,
+  MultiChannelConfig,
+  DEFAULT_MULTI_CHANNEL_CONFIG,
+  TTSProvider
 } from '../config/voiceConfig';
 import i18n from '../i18n';
 import { detectLanguage } from '../utils/languageDetection';
-
-// 声道类型
-export enum ChannelType {
-  PLAYER_0 = 0,  // 玩家0：左声道
-  PLAYER_1 = 1,  // 玩家1：右声道
-  PLAYER_2 = 2,  // 玩家2：左环绕
-  PLAYER_3 = 3,  // 玩家3：右环绕
-  ANNOUNCEMENT = 4  // 报牌：中央声道
-}
+import { ttsAudioService } from './ttsAudioService';
 
 // 声道配置
 interface ChannelConfig {
@@ -34,12 +30,16 @@ interface ChannelConfig {
   name: string;  // 声道名称
 }
 
-// 默认声道配置
+// 默认声道配置（支持8个玩家）
 const CHANNEL_CONFIGS: Record<ChannelType, ChannelConfig> = {
   [ChannelType.PLAYER_0]: { pan: -0.7, volume: 1.0, name: '玩家0（左）' },
   [ChannelType.PLAYER_1]: { pan: 0.7, volume: 1.0, name: '玩家1（右）' },
-  [ChannelType.PLAYER_2]: { pan: -0.3, volume: 1.0, name: '玩家2（左中）' },
-  [ChannelType.PLAYER_3]: { pan: 0.3, volume: 1.0, name: '玩家3（右中）' },
+  [ChannelType.PLAYER_2]: { pan: -0.5, volume: 1.0, name: '玩家2（左中）' },
+  [ChannelType.PLAYER_3]: { pan: 0.5, volume: 1.0, name: '玩家3（右中）' },
+  [ChannelType.PLAYER_4]: { pan: -0.3, volume: 1.0, name: '玩家4（左环绕）' },
+  [ChannelType.PLAYER_5]: { pan: 0.3, volume: 1.0, name: '玩家5（右环绕）' },
+  [ChannelType.PLAYER_6]: { pan: -0.15, volume: 1.0, name: '玩家6（左后）' },
+  [ChannelType.PLAYER_7]: { pan: 0.15, volume: 1.0, name: '玩家7（右后）' },
   [ChannelType.ANNOUNCEMENT]: { pan: 0.0, volume: 1.2, name: '报牌（中央）' }
 };
 
@@ -63,6 +63,7 @@ interface SpeechItem {
 // 多声道语音服务类
 class MultiChannelVoiceService {
   private config: VoiceServiceConfig;
+  private multiChannelConfig: MultiChannelConfig;
   private voicesReady: boolean = false;
   private voicesLoadPromise: Promise<SpeechSynthesisVoice[]> | null = null;
   
@@ -83,9 +84,94 @@ class MultiChannelVoiceService {
   // 正在处理的请求（防止并发调用）
   private pendingRequests: Map<ChannelType, Set<string>> = new Map();
 
-  constructor(config: VoiceServiceConfig = DEFAULT_VOICE_SERVICE_CONFIG) {
+  constructor(
+    config: VoiceServiceConfig = DEFAULT_VOICE_SERVICE_CONFIG,
+    multiChannelConfig: MultiChannelConfig = DEFAULT_MULTI_CHANNEL_CONFIG
+  ) {
     this.config = config;
+    this.multiChannelConfig = multiChannelConfig;
     this.preloadVoices();
+    
+    // 如果启用多声道，同步配置到ttsAudioService
+    if (this.multiChannelConfig.enabled) {
+      this.syncConfigToTTSAudioService();
+    }
+  }
+
+  /**
+   * 同步配置到ttsAudioService
+   */
+  private syncConfigToTTSAudioService(): void {
+    ttsAudioService.updateConfig({
+      enabled: true,
+      maxConcurrentSpeakers: this.multiChannelConfig.maxConcurrentSpeakers,
+      useTTS: this.multiChannelConfig.useTTS,
+      enableDucking: this.multiChannelConfig.enableDucking ?? true,
+      duckingLevel: this.multiChannelConfig.duckingLevel ?? 0.25,
+      enableAudioCache: this.multiChannelConfig.enableAudioCache ?? true,
+      cacheSize: this.multiChannelConfig.cacheSize ?? 100,
+      ttsProvider: this.multiChannelConfig.ttsProvider || 'auto'
+    });
+  }
+
+  /**
+   * 更新多声道配置
+   */
+  updateMultiChannelConfig(config: Partial<MultiChannelConfig>): void {
+    this.multiChannelConfig = { ...this.multiChannelConfig, ...config };
+    
+    // 同步配置到ttsAudioService
+    if (this.multiChannelConfig.enabled) {
+      this.syncConfigToTTSAudioService();
+    } else {
+      ttsAudioService.updateConfig({ enabled: false });
+    }
+    
+    console.log('[MultiChannelVoiceService] 多声道配置已更新:', this.multiChannelConfig);
+  }
+
+  /**
+   * 获取多声道配置
+   */
+  getMultiChannelConfig(): MultiChannelConfig {
+    return { ...this.multiChannelConfig };
+  }
+
+  /**
+   * 获取TTS服务商状态
+   */
+  async getTTSProviderStatus(): Promise<Record<string, { enabled: boolean; healthy: boolean }>> {
+    if (!this.multiChannelConfig.enabled || !this.multiChannelConfig.useTTS) {
+      return {};
+    }
+    
+    try {
+      const { getTTSServiceManager } = await import('../tts/ttsServiceManager');
+      const ttsManager = getTTSServiceManager();
+      return ttsManager.getProviderStatus();
+    } catch (error) {
+      console.error('[MultiChannelVoiceService] 获取TTS服务商状态失败:', error);
+      return {};
+    }
+  }
+
+  /**
+   * 设置TTS服务商（便捷方法）
+   */
+  setTTSProvider(provider: TTSProvider): void {
+    this.updateMultiChannelConfig({
+      ttsProvider: provider
+    });
+    console.log(`[MultiChannelVoiceService] TTS服务商已设置为: ${provider}`);
+  }
+
+  /**
+   * 恢复AudioContext（如果被暂停）
+   */
+  async resumeAudioContext(): Promise<void> {
+    if (this.multiChannelConfig.enabled) {
+      await ttsAudioService.resumeAudioContext();
+    }
   }
 
   // 预加载语音
@@ -257,6 +343,25 @@ class MultiChannelVoiceService {
     },
     priority: number = 1 // 优先级：3=对骂，2=事件，1=随机，4=报牌（最高）
   ): Promise<void> {
+    // 如果启用多声道，使用TTS Audio Service（只使用TTS API，不使用speechSynthesis）
+    if (this.multiChannelConfig.enabled) {
+      try {
+        console.log(`[MultiChannelVoiceService] 使用多声道播放（TTS API服务）: ${text.substring(0, 30)}... (channel: ${channel})`);
+        return await ttsAudioService.speak(text, voiceConfig, channel, events, priority);
+      } catch (error) {
+        console.error('[MultiChannelVoiceService] 多声道播放失败（TTS服务不可用）:', error);
+        // TTS服务失败，直接失败（不使用speechSynthesis）
+        if (events?.onError) {
+          events.onError(error as Error);
+        }
+        throw error;
+      }
+    }
+    
+    // 使用串行播放（speechSynthesis）
+    console.log(`[MultiChannelVoiceService] 使用串行播放（speechSynthesis）: ${text.substring(0, 30)}... (channel: ${channel})`);
+    
+    // 使用串行播放（speechSynthesis）
     return new Promise(async (resolve, reject) => {
       // 检查是否有相同的请求正在处理（防止重复调用）
       // 使用同步检查，确保原子性
@@ -763,6 +868,11 @@ class MultiChannelVoiceService {
 
   // 停止所有语音
   stop(): void {
+    // 如果启用多声道，也停止多声道播放
+    if (this.multiChannelConfig.enabled) {
+      ttsAudioService.stop();
+    }
+    
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
@@ -771,6 +881,11 @@ class MultiChannelVoiceService {
 
   // 停止指定声道的语音
   stopChannel(channel: ChannelType): void {
+    // 如果启用多声道，也停止该声道的多声道播放
+    if (this.multiChannelConfig.enabled) {
+      ttsAudioService.stopChannel(channel);
+    }
+    
     const item = this.channelItems.get(channel);
     if (item) {
       window.speechSynthesis.cancel();
@@ -780,6 +895,15 @@ class MultiChannelVoiceService {
 
   // 检查是否正在播放
   isCurrentlySpeaking(channel?: ChannelType): boolean {
+    // 如果启用多声道，也检查多声道播放状态
+    if (this.multiChannelConfig.enabled) {
+      const status = ttsAudioService.getStatus();
+      if (channel !== undefined) {
+        return status.activeChannels.includes(channel) || this.channelItems.has(channel);
+      }
+      return status.currentConcurrent > 0 || this.channelItems.size > 0;
+    }
+    
     if (channel !== undefined) {
       return this.channelItems.has(channel);
     }
@@ -788,8 +912,8 @@ class MultiChannelVoiceService {
 
   // 获取玩家对应的声道
   getPlayerChannel(playerId: number): ChannelType {
-    // 玩家ID映射到声道（0-3对应PLAYER_0到PLAYER_3）
-    const channelIndex = playerId % 4;
+    // 玩家ID映射到声道（0-7对应PLAYER_0到PLAYER_7，支持8人）
+    const channelIndex = playerId % 8;
     return channelIndex as ChannelType;
   }
 
@@ -807,6 +931,13 @@ class MultiChannelVoiceService {
       isIdle: !this.isPlayingChat && this.chatQueue.length <= 1 // 空闲：未播放且队列≤1
     };
   }
+
+  /**
+   * 获取多声道配置
+   */
+  getMultiChannelConfig(): MultiChannelConfig {
+    return { ...this.multiChannelConfig };
+  }
 }
 
 // 创建全局多声道语音服务实例
@@ -815,4 +946,14 @@ export const multiChannelVoiceService = new MultiChannelVoiceService();
 // 导出获取玩家声道的函数
 export function getPlayerChannel(playerId: number): ChannelType {
   return multiChannelVoiceService.getPlayerChannel(playerId);
+}
+
+// 导出便捷函数：设置TTS服务商
+export function setTTSProvider(provider: TTSProvider): void {
+  multiChannelVoiceService.setTTSProvider(provider);
+}
+
+// 导出便捷函数：恢复AudioContext
+export async function resumeAudioContext(): Promise<void> {
+  await multiChannelVoiceService.resumeAudioContext();
 }

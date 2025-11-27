@@ -79,65 +79,62 @@ export const RoundPlaysPanel: React.FC<RoundPlaysPanelProps> = ({
     return columnPositions;
   };
 
-  const columnPositions = useMemo(() => calculateColumnPositions(playsByRow), [playsByRow]);
-
+  // 横向排列：将所有出牌记录放在一行中
   return (
     <div className="round-plays-table">
-      {playsByRow.map((row, rowIndex) => (
-        <div key={rowIndex} className="round-play-row">
-          {row.map((playRecord, colIndex) => {
-            if (!playRecord) return null;
-            const leftPosition = columnPositions[rowIndex][colIndex];
-            
-            // 计算卡牌叠放区域的宽度（分数徽章在卡牌内部，不影响宽度）
-            const cardWidth = 40;
-            const stackOffset = (playRecord.cards.length - 1) * 20;
-            const cardsContainerWidth = stackOffset + cardWidth;
-            
-            return (
+      {/* 横向排列：所有出牌记录在一行中 */}
+      <div className="round-play-row" style={{ display: 'flex', flexDirection: 'row', gap: '20px', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+        {roundPlays.map((playRecord, index) => {
+          if (!playRecord) return null;
+          
+          // 计算卡牌叠放区域的宽度（分数徽章在卡牌内部，不影响宽度）
+          const cardWidth = 40;
+          const stackOffset = (playRecord.cards.length - 1) * 20;
+          const cardsContainerWidth = stackOffset + cardWidth;
+          
+          return (
+            <div 
+              key={index} 
+              className="round-play-item-inline"
+              style={{ position: 'relative', left: 'auto', top: 'auto' }}
+            >
+              <div className="round-play-player-inline">{playRecord.playerName}:</div>
+              {/* 卡牌叠放容器 - 一行横着叠放，所有卡牌纵坐标相同 */}
               <div 
-                key={`${rowIndex}-${colIndex}`} 
-                className="round-play-item-inline"
-                style={{ left: `${leftPosition}px` }}
+                className="round-play-cards-stacked"
+                style={{
+                  width: `${cardsContainerWidth}px`
+                }}
               >
-                <div className="round-play-player-inline">{playRecord.playerName}:</div>
-                {/* 卡牌叠放容器 - 一行横着叠放，所有卡牌纵坐标相同 */}
-                <div 
-                  className="round-play-cards-stacked"
-                  style={{
-                    width: `${cardsContainerWidth}px`
-                  }}
-                >
-                  {playRecord.cards.map((card, cardIndex) => {
-                    const isScore = isScoreCard(card);
-                    const score = isScore ? getCardScore(card) : 0;
-                    const stackOffset = cardIndex * 20; // 第一张横坐标为0，第二张为20，第三张为40...
-                    return (
-                      <div
-                        key={card.id}
-                        className={`round-play-card-stack-item ${isScore ? 'score-card-wrapper' : ''}`}
-                        style={{
-                          transform: `translateX(${stackOffset}px)`, // 只改变横坐标，纵坐标保持0
-                          zIndex: cardIndex + 1
-                        }}
-                      >
-                        <CardComponent card={card} size="small" />
-                        {/* 分数徽章放在卡牌上方（顶部居中），不影响水平布局 */}
-                        {isScore && (
-                          <div className="card-score-badge-small-top">{score}</div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {playRecord.score > 0 && (
-                  <div className="round-play-score-inline">+{playRecord.score}</div>
-                )}
+                {playRecord.cards.map((card, cardIndex) => {
+                  const isScore = isScoreCard(card);
+                  const score = isScore ? getCardScore(card) : 0;
+                  const cardStackOffset = cardIndex * 20; // 第一张横坐标为0，第二张为20，第三张为40...
+                  return (
+                    <div
+                      key={card.id}
+                      className={`round-play-card-stack-item ${isScore ? 'score-card-wrapper' : ''}`}
+                      style={{
+                        transform: `translateX(${cardStackOffset}px)`, // 只改变横坐标，纵坐标保持0
+                        zIndex: cardIndex + 1
+                      }}
+                    >
+                      <CardComponent card={card} size="small" />
+                      {/* 分数徽章放在卡牌上方（顶部居中），不影响水平布局 */}
+                      {isScore && (
+                        <div className="card-score-badge-small-top">{score}</div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      ))}
+              {playRecord.score > 0 && (
+                <div className="round-play-score-inline">+{playRecord.score}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

@@ -8,6 +8,7 @@ import { GameConfigProvider } from './contexts/GameConfigContext'
 import { isSpeechSupported, listAvailableVoices } from './services/voiceService'
 import { checkChatStrategy } from './services/chatService'
 import './utils/testLLMChat' // 导入测试函数
+import { exposeLocalTTSChecker } from './utils/checkLocalTTSServices'
 
 // 检查聊天策略
 const strategyInfo = checkChatStrategy();
@@ -51,6 +52,9 @@ const activateVoice = () => {
 document.addEventListener('click', activateVoice, { once: true });
 document.addEventListener('keydown', activateVoice, { once: true });
 document.addEventListener('touchstart', activateVoice, { once: true });
+
+// 暴露本地TTS检查工具到浏览器控制台
+exposeLocalTTSChecker();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

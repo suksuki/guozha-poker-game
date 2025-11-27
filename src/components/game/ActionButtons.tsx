@@ -12,9 +12,11 @@ interface ActionButtonsProps {
   selectedCardsCount: number;
   isSuggesting: boolean;
   lastPlay: any;
+  isAutoPlay?: boolean;
   onSuggest: () => void;
   onPlay: () => void;
   onPass: () => void;
+  onToggleAutoPlay?: () => void;
 }
 
 export const ActionButtons: React.FC<ActionButtonsProps> = ({
@@ -23,9 +25,11 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   selectedCardsCount,
   isSuggesting,
   lastPlay,
+  isAutoPlay = false,
   onSuggest,
   onPlay,
-  onPass
+  onPass,
+  onToggleAutoPlay
 }) => {
   const { t } = useTranslation(['game']);
 
@@ -65,6 +69,16 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           <span className="btn-icon">{isSuggesting ? '🤔' : '💡'}</span>
           <span className="btn-text">{isSuggesting ? '思考中' : 'AI建议'}</span>
         </button>
+        {onToggleAutoPlay && (
+          <button
+            className={`btn-action-compact btn-auto-play ${isAutoPlay ? 'active' : ''}`}
+            onClick={onToggleAutoPlay}
+            title={isAutoPlay ? '关闭托管' : '开启托管'}
+          >
+            <span className="btn-icon">{isAutoPlay ? '🤖' : '⏸️'}</span>
+            <span className="btn-text">{isAutoPlay ? '托管中' : '托管'}</span>
+          </button>
+        )}
       </div>
     </div>
   );

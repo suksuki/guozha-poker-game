@@ -102,6 +102,25 @@ export default defineConfig({
     open: false, // 不自动打开浏览器
     hmr: {
       host: 'localhost' // HMR 使用 localhost
+    },
+    // Edge TTS 代理（解决CORS限制）
+    proxy: {
+      '/api/edge-tts': {
+        target: 'https://speech.platform.bing.com',
+        changeOrigin: true,
+        rewrite: (path) => {
+          // 将 /api/edge-tts 重写为 Edge TTS API 路径
+          // 注意：这是一个简化的代理，实际可能需要更复杂的处理
+          // 如果这个代理不工作，请使用独立的 Node.js 后端服务（见 scripts/edge-tts-proxy.js）
+          return path.replace(/^\/api\/edge-tts/, '');
+        },
+        configure: (proxy, options) => {
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            // 设置必要的请求头
+            proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+          });
+        }
+      }
     }
   },
   // 确保构建输出使用UTF-8

@@ -9,12 +9,55 @@ import { IChatStrategy, ChatContext } from './IChatStrategy';
 import { LLMChatConfig } from '../../config/chatConfig';
 import { getCardType, isScoreCard, calculateCardsScore } from '../../utils/cardUtils';
 import { MultiPlayerGameState } from '../../utils/gameStateUtils';
+import i18n from '../../i18n';
 
 export class LLMChatStrategy implements IChatStrategy {
   readonly name = 'llm';
   readonly description = '基于大语言模型的智能聊天策略';
 
   constructor(private config: LLMChatConfig) {}
+
+  /**
+   * 获取当前语言要求（用于Prompt）
+   */
+  private getLanguageRequirement(): string {
+    // 如果未启用多语言，LLM只生成中文
+    if (this.config.enableMultilingual === false) {
+      return '使用中文回复';
+    }
+    
+    const currentLang = i18n.language || 'zh-CN';
+    
+    // 如果当前语言是中文，使用中文
+    if (currentLang.startsWith('zh')) {
+      return '使用中文回复';
+    }
+    
+    // 根据语言代码返回对应的语言要求
+    const langMap: Record<string, string> = {
+      'en': 'Use English to reply',
+      'en-US': 'Use English to reply',
+      'en-GB': 'Use English to reply',
+      'ja': '日本語で返信してください',
+      'ja-JP': '日本語で返信してください',
+      'ko': '한국어로 답변하세요',
+      'ko-KR': '한국어로 답변하세요',
+    };
+    
+    // 尝试精确匹配
+    if (langMap[currentLang]) {
+      return langMap[currentLang];
+    }
+    
+    // 尝试语言代码前缀匹配
+    const langPrefix = currentLang.split('-')[0];
+    if (langMap[langPrefix]) {
+      return langMap[langPrefix];
+    }
+    
+    // 默认使用英文
+    return `Use ${currentLang} language to reply`;
+  }
 
   async generateRandomChat(
     player: Player,
@@ -92,8 +135,12 @@ export class LLMChatStrategy implements IChatStrategy {
     const gameInfo = this.buildGameInfo(player, context);
     const eventInfo = this.buildEventInfo(eventType, context);
     const playerInfo = this.buildPlayerInfo(player, context);
+    const langRequirement = this.getLanguageRequirement();
     
     return `${this.config.systemPrompt || ''}
+
+## 语言要求
+${langRequirement}
 
 ## 游戏信息
 ${gameInfo}
@@ -110,6 +157,7 @@ ${eventInfo}
 2. 符合玩家的性格和方言特色
 3. 符合当前游戏状态和事件
 4. 只返回要说的话，不要添加任何解释或标记
+5. 必须严格遵守"语言要求"部分指定的语言
 
 聊天内容：`;
   }
@@ -125,8 +173,12 @@ ${eventInfo}
     const gameInfo = this.buildGameInfo(player, context);
     const playerInfo = this.buildPlayerInfo(player, context);
     const targetInfo = targetPlayer ? this.buildPlayerInfo(targetPlayer, context) : '';
+    const langRequirement = this.getLanguageRequirement();
     
     return `${this.config.systemPrompt || ''}
+
+## 语言要求
+${langRequirement}
 
 ## 游戏信息
 ${gameInfo}
@@ -142,6 +194,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
 2. 适度，不能过于激烈或低俗
 3. 符合玩家的性格和方言特色
 4. 只返回要说的话，不要添加任何解释或标记
+5. 必须严格遵守"语言要求"部分指定的语言
 
 对骂内容：`;
   }

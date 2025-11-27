@@ -175,6 +175,7 @@ ${userPrompt}`;
 
   /**
    * 解析 LLM 返回的 JSON
+   * 增强容错性：支持多种格式的响应
    */
   parseLLMResponse(response: string): BeatsStructure | null {
     try {
@@ -184,12 +185,34 @@ ${userPrompt}`;
       // 移除 markdown 代码块标记
       if (jsonStr.startsWith('```')) {
         const lines = jsonStr.split('\n');
-        jsonStr = lines.slice(1, -1).join('\n').trim();
+        // 找到第一个 ``` 和最后一个 ```
+        const firstIndex = lines.findIndex(line => line.trim().startsWith('```'));
+        const lastIndex = lines.findIndex((line, idx) => 
+          idx > firstIndex && line.trim().startsWith('```')
+        );
+        
+        if (firstIndex >= 0 && lastIndex > firstIndex) {
+          jsonStr = lines.slice(firstIndex + 1, lastIndex).join('\n').trim();
+        } else if (firstIndex >= 0) {
+          // 只有开始的 ```，移除它
+          jsonStr = lines.slice(firstIndex + 1).join('\n').trim();
+        }
       }
       
-      // 移除可能的 json 标记
-      if (jsonStr.startsWith('json')) {
+      // 移除可能的 json 标记（json, jsonc等）
+      if (jsonStr.toLowerCase().startsWith('json')) {
         jsonStr = jsonStr.substring(4).trim();
+        // 移除可能的冒号
+        if (jsonStr.startsWith(':')) {
+          jsonStr = jsonStr.substring(1).trim();
+        }
+      }
+      
+      // 尝试找到 JSON 对象的开始和结束
+      const firstBrace = jsonStr.indexOf('{');
+      const lastBrace = jsonStr.lastIndexOf('}');
+      if (firstBrace >= 0 && lastBrace > firstBrace) {
+        jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
       }
       
       const parsed = JSON.parse(jsonStr);
@@ -200,15 +223,62 @@ ${userPrompt}`;
         return null;
       }
       
+      // 验证并清理 segments
+      let segments: Array<{ beat_index: number; text: string }> = [];
+      if (parsed.segments && Array.isArray(parsed.segments)) {
+        segments = parsed.segments
+          .filter((seg: any) => 
+            seg && 
+            typeof seg === 'object' && 
+            typeof seg.text === 'string' && 
+            seg.text.trim().length > 0 &&
+            typeof seg.beat_index === 'number'
+          )
+          .map((seg: any) => ({
+            beat_index: seg.beat_index,
+            text: seg.text.trim()
+          }));
+      }
+      
       return {
         beats: parsed.beats,
-        segments: parsed.segments || [],
+        segments: segments,
       };
     } catch (error) {
       console.error('[BeatsGenerator] JSON 解析失败:', error);
-      console.error('[BeatsGenerator] 原始响应:', response);
-      return null;
+      console.error('[BeatsGenerator] 原始响应:', response.substring(0, 500));
+      
+      // 尝试从文本中提取可能的segments（最后的容错）
+      return this.tryExtractSegmentsFromText(response);
     }
+  }
+
+  /**
+   * 从文本中尝试提取segments（容错方法）
+   */
+  private tryExtractSegmentsFromText(text: string): BeatsStructure | null {
+    try {
+      // 尝试找到类似 "第一段台词"、"第二段台词" 的模式
+      const segmentPattern = /["']([^"']{5,50})["']/g;
+      const matches = Array.from(text.matchAll(segmentPattern));
+      
+      if (matches.length >= 2) {
+        const segments = matches.map((match, index) => ({
+          beat_index: index,
+          text: match[1]
+        }));
+        
+        console.log('[BeatsGenerator] 使用容错方法提取到segments:', segments.length);
+        return {
+          beats: [], // 无法提取beats结构
+          segments: segments
+        };
+      }
+    } catch (error) {
+      console.error('[BeatsGenerator] 容错提取也失败:', error);
+    }
+    
+    return null;
   }
 }
 

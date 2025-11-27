@@ -30,12 +30,15 @@ import { RoundPlaysPanel } from './game/RoundPlaysPanel';
 import { PlayerInfo } from './game/PlayerInfo';
 import { CompactHandCards } from './game/CompactHandCards';
 import { IdeaGenerationToggle } from './game/IdeaGenerationToggle';
+import { CardTrackerPanel } from './game/CardTrackerPanel';
+import { CardValidationAlert } from './game/CardValidationAlert';
 import './MultiPlayerGameBoard.css';
 import './game/DealingAnimation.css'; // 导入AI玩家头像样式
 
 export const MultiPlayerGameBoard: React.FC = () => {
   const { t } = useTranslation(['game']);
   const [showRankings, setShowRankings] = useState(false);
+  const [validationError, setValidationError] = useState<any>(null);
   
   const { 
     gameState, 
@@ -47,7 +50,9 @@ export const MultiPlayerGameBoard: React.FC = () => {
     isDealing,
     pendingGameConfig,
     handleDealingComplete,
-    handleDealingCancel
+    handleDealingCancel,
+    isAutoPlay,
+    toggleAutoPlay
   } = useMultiPlayerGame();
   
   // 当游戏重新开始时，重置显示排名状态
@@ -56,6 +61,20 @@ export const MultiPlayerGameBoard: React.FC = () => {
       setShowRankings(false);
     }
   }, [gameState.status]);
+
+  // 监听卡牌验证错误事件
+  useEffect(() => {
+    const handleValidationError = (event: CustomEvent) => {
+      console.log('[MultiPlayerGameBoard] 收到卡牌验证错误事件:', event.detail);
+      setValidationError(event.detail);
+    };
+
+    window.addEventListener('cardValidationError', handleValidationError as EventListener);
+    
+    return () => {
+      window.removeEventListener('cardValidationError', handleValidationError as EventListener);
+    };
+  }, []);
   
   // 初始化音效服务（在组件挂载时）
   useEffect(() => {
@@ -136,7 +155,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
       name: index === pendingGameConfig.humanPlayerIndex ? '你' : `玩家${index + 1}`,
       type: index === pendingGameConfig.humanPlayerIndex ? PlayerType.HUMAN : PlayerType.AI,
       isHuman: index === pendingGameConfig.humanPlayerIndex,
-      score: 0,
+      score: -100, // 初始分数为-100（每个人基本分100，所以初始扣除100）
       aiConfig: index === pendingGameConfig.humanPlayerIndex ? undefined : pendingGameConfig.aiConfigs[index],
       voiceConfig: {} as any
     }));
@@ -254,6 +273,12 @@ export const MultiPlayerGameBoard: React.FC = () => {
 
   return (
     <div className="game-container">
+      {/* 卡牌验证错误提示 */}
+      <CardValidationAlert
+        error={validationError}
+        onClose={() => setValidationError(null)}
+      />
+
       {/* 动画容器 */}
       <AnimationContainer />
 
@@ -282,6 +307,17 @@ export const MultiPlayerGameBoard: React.FC = () => {
           lastPlayPlayerIndex={gameState.lastPlayPlayerIndex}
         />
 
+        {/* 当前轮次出牌记录 - 放在AI玩家面板下面，横向排列 */}
+        {gameState.status === GameStatus.PLAYING && (
+          <div className="round-plays-horizontal-container">
+            <RoundPlaysPanel
+              roundNumber={gameState.roundNumber}
+              roundPlays={gameState.currentRoundPlays || []}
+              roundScore={gameState.roundScore}
+            />
+          </div>
+        )}
+
         {/* 出牌区域 - 放在最上层，避免被遮挡 */}
         <div style={{ position: 'relative', zIndex: 2000 }}>
           <PlayArea
@@ -299,9 +335,11 @@ export const MultiPlayerGameBoard: React.FC = () => {
             selectedCardsCount={playerHand.selectedCards.length}
             isSuggesting={gameActions.isSuggesting}
             lastPlay={gameState.lastPlay}
+            isAutoPlay={isAutoPlay}
             onSuggest={handleSuggestPlay}
             onPlay={gameActions.handlePlay}
             onPass={gameActions.handlePass}
+            onToggleAutoPlay={toggleAutoPlay}
           />
         )}
         
@@ -341,12 +379,17 @@ export const MultiPlayerGameBoard: React.FC = () => {
         )}
       </div>
 
-      {/* 当前轮次出牌记录 - 可拖拽面板 */}
-      <RoundPlaysPanel
-        roundNumber={gameState.roundNumber}
-        roundPlays={gameState.currentRoundPlays || []}
-        roundScore={gameState.roundScore}
-      />
+      {/* 记牌器面板 */}
+      {gameState.status === GameStatus.PLAYING && (
+        <CardTrackerPanel
+          players={gameState.players}
+          currentRoundNumber={gameState.roundNumber}
+          gameStatus={gameState.status}
+          currentRoundPlays={gameState.currentRoundPlays || []}
+          currentRoundScore={gameState.roundScore}
+          allRoundsFromGameState={gameState.allRounds}
+        />
+      )}
 
       {/* 玩家手牌区域 */}
       <div className="player-area">

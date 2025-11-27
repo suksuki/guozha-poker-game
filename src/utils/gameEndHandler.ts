@@ -163,6 +163,8 @@ export function handleGameEnd(params: GameEndParams): GameEndResult {
   }
 
   // 3. 计算最后一名手中的分牌分数
+  // 分牌规则：5=5分，10=10分，K=10分（8不是分牌，不计分）
+  // 例如：末游手上有一个10，一个K，两个8，那么这20分（10+10）应该给第二名
   const lastPlayerScoreCards = lastPlayer.hand.filter(card => isScoreCard(card));
   const lastPlayerRemainingScore = calculateCardsScore(lastPlayerScoreCards);
 
@@ -185,6 +187,7 @@ export function handleGameEnd(params: GameEndParams): GameEndResult {
   };
 
   // 5. 找到第二名并加上最后一名未出的分牌分数
+  // 规则：末游最后手牌的分牌分数，加给第二名（出牌顺序的第二名，即finishOrder[1]）
   if (newFinishOrder.length >= 2) {
     const secondPlayerIndex = newFinishOrder[1];
     const secondPlayer = newPlayers[secondPlayerIndex];
