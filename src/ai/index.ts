@@ -5,6 +5,20 @@
 
 // 导出AI配置和主函数
 export { aiChoosePlay } from '../utils/aiPlayer';
+
+export {
+  BeatsGenerator,
+  getBeatsGenerator,
+  type Beat,
+  type BeatsStructure,
+  type BeatsGenerationContext,
+} from './beatsGenerator';
+
+export {
+  QuarrelService,
+  getQuarrelService,
+  type QuarrelConfig,
+} from './quarrelService';
 export type { AIConfig } from './types';
 
 // 导出策略接口和实现
