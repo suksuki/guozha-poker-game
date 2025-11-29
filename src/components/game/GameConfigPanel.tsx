@@ -10,6 +10,7 @@ import { GameStartConfig, GameMode } from '../../hooks/useGameConfig';
 import { getAvailableOllamaModels, checkOllamaService, filterChatModels } from '../../utils/llmModelService';
 import { LLMChatStrategy } from '../../chat/strategy/LLMChatStrategy';
 import { LLMChatConfig } from '../../config/chatConfig';
+import { useSystemConfig } from '../../hooks/useSystemConfig';
 import './GameConfigPanel.css';
 
 export type { GameMode };
@@ -28,6 +29,10 @@ interface GameConfigPanelProps {
   llmModel?: string;
   llmApiUrl?: string;
   ideaGenerationEnabled?: boolean;
+  cardTrackerEnabled?: boolean;
+  cardTrackerPanelVisible?: boolean;
+  playTimeout?: number;
+  announcementDelay?: number;
   onPlayerCountChange: (count: number) => void;
   onHumanPlayerIndexChange: (index: number) => void;
   onStrategyChange: (strategy: 'aggressive' | 'conservative' | 'balanced') => void;
@@ -39,9 +44,87 @@ interface GameConfigPanelProps {
   onLlmModelChange?: (model: string) => void;
   onLlmApiUrlChange?: (url: string) => void;
   onIdeaGenerationEnabledChange?: (enabled: boolean) => void;
+  onCardTrackerEnabledChange?: (enabled: boolean) => void;
+  onCardTrackerPanelVisibleChange?: (visible: boolean) => void;
+  onPlayTimeoutChange?: (timeout: number) => void;
+  onAnnouncementDelayChange?: (delay: number) => void;
   onStartGame: () => void;
   onStartTraining?: () => void;
 }
+
+// 系统配置部分组件
+const SystemConfigSection: React.FC = () => {
+  const {
+    validationEnabled,
+    validateOnRoundEnd,
+    validateOnGameEnd,
+    detectDuplicates,
+    setValidationEnabled,
+    setValidateOnRoundEnd,
+    setValidateOnGameEnd,
+    setDetectDuplicates,
+    isReady,
+    isLoading,
+  } = useSystemConfig();
+
+  if (isLoading || !isReady) {
+    return null; // 系统未初始化时隐藏配置
+  }
+
+  return (
+    <div className="config-group">
+      <h2 className="config-group-title">系统设置</h2>
+      <div className="config-item">
+        <label>
+          <input
+            type="checkbox"
+            checked={validationEnabled}
+            onChange={(e) => setValidationEnabled(e.target.checked)}
+          />
+          启用验证模块
+        </label>
+        <small>自动检测牌数完整性和分数完整性（推荐开启）</small>
+      </div>
+      {validationEnabled && (
+        <>
+          <div className="config-item">
+            <label>
+              <input
+                type="checkbox"
+                checked={validateOnRoundEnd}
+                onChange={(e) => setValidateOnRoundEnd(e.target.checked)}
+              />
+              轮次结束时验证
+            </label>
+            <small>每轮结束后自动验证牌数完整性</small>
+          </div>
+          <div className="config-item">
+            <label>
+              <input
+                type="checkbox"
+                checked={validateOnGameEnd}
+                onChange={(e) => setValidateOnGameEnd(e.target.checked)}
+              />
+              游戏结束时验证
+            </label>
+            <small>游戏结束后自动验证牌数和分数完整性</small>
+          </div>
+          <div className="config-item">
+            <label>
+              <input
+                type="checkbox"
+                checked={detectDuplicates}
+                onChange={(e) => setDetectDuplicates(e.target.checked)}
+              />
+              检测重复牌
+            </label>
+            <small>检测是否有重复的牌（多副牌模式下）</small>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   mode = 'game',
@@ -57,6 +140,10 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   llmModel = 'qwen2:0.5b',
   llmApiUrl = 'http://localhost:11434/api/chat',
   ideaGenerationEnabled = true,
+  cardTrackerEnabled = false,
+  cardTrackerPanelVisible = false,
+  playTimeout = 30000,
+  announcementDelay = 1000,
   onPlayerCountChange,
   onHumanPlayerIndexChange,
   onStrategyChange,
@@ -68,6 +155,10 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   onLlmModelChange,
   onLlmApiUrlChange,
   onIdeaGenerationEnabledChange,
+  onCardTrackerEnabledChange,
+  onCardTrackerPanelVisibleChange,
+  onPlayTimeoutChange,
+  onAnnouncementDelayChange,
   onStartGame,
   onStartTraining
 }) => {
@@ -363,9 +454,52 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                 </div>
               </div>
 
+              {/* 系统设置组 */}
+              <SystemConfigSection />
+
               {/* 其他设置组 */}
               <div className="config-group">
                 <h2 className="config-group-title">{t('ui:configGroups.other') || '其他设置'}</h2>
+                {onPlayTimeoutChange && (
+                  <div className="config-item">
+                    <label>{t('ui:config.playTimeout') || '出牌超时时间（秒）'}</label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="300"
+                      step="5"
+                      value={Math.floor(playTimeout / 1000)}
+                      onChange={(e) => {
+                        const seconds = parseInt(e.target.value) || 30;
+                        onPlayTimeoutChange(Math.max(5000, seconds * 1000));
+                      }}
+                    />
+                    <small>{t('ui:playTimeoutHint') || '玩家出牌超时时间，超过此时间未出牌将自动要不起（默认30秒）'}</small>
+                    <div style={{ marginTop: '5px', color: '#999', fontSize: '12px' }}>
+                      {t('ui:config.currentValue') || '当前值'}: {Math.floor(playTimeout / 1000)} 秒 ({playTimeout} 毫秒)
+                    </div>
+                  </div>
+                )}
+                {onAnnouncementDelayChange && (
+                  <div className="config-item">
+                    <label>{t('ui:config.announcementDelay') || '报牌后延迟时间（毫秒）'}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="5000"
+                      step="100"
+                      value={announcementDelay}
+                      onChange={(e) => {
+                        const delay = parseInt(e.target.value) || 1000;
+                        onAnnouncementDelayChange(Math.max(0, delay));
+                      }}
+                    />
+                    <small>{t('ui:announcementDelayHint') || '玩家出牌并报牌完成后，等待此时间再继续游戏（默认1000毫秒）'}</small>
+                    <div style={{ marginTop: '5px', color: '#999', fontSize: '12px' }}>
+                      {t('ui:config.currentValue') || '当前值'}: {announcementDelay} 毫秒 ({Math.floor(announcementDelay / 1000)} 秒)
+                    </div>
+                  </div>
+                )}
                 {onIdeaGenerationEnabledChange && (
                   <div className="config-item">
                     <label>
@@ -377,6 +511,32 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                       {t('ui:config.ideaGenerationEnabled') || '启用想法建议'}
                     </label>
                     <small>{t('ui:ideaGenerationEnabledHint') || '游戏过程中自动生成优化建议，可能会影响游戏体验'}</small>
+                  </div>
+                )}
+                {onCardTrackerEnabledChange && (
+                  <div className="config-item">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={cardTrackerEnabled}
+                        onChange={(e) => onCardTrackerEnabledChange(e.target.checked)}
+                      />
+                      {t('ui:config.cardTrackerEnabled') || '启用计分器'}
+                    </label>
+                    <small>{t('ui:cardTrackerEnabledHint') || '记录每轮出牌详情和分数统计，默认关闭'}</small>
+                  </div>
+                )}
+                {onCardTrackerPanelVisibleChange && (
+                  <div className="config-item">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={cardTrackerPanelVisible}
+                        onChange={(e) => onCardTrackerPanelVisibleChange(e.target.checked)}
+                      />
+                      {t('ui:config.cardTrackerPanelVisible') || '显示记牌器面板'}
+                    </label>
+                    <small>{t('ui:cardTrackerPanelVisibleHint') || '在游戏界面显示记牌器面板，默认关闭'}</small>
                   </div>
                 )}
               </div>

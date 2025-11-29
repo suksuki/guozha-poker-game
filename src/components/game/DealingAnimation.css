@@ -237,13 +237,67 @@
   box-shadow: 0 2px 8px rgba(192, 192, 192, 0.5);
 }
 
+/* 最后一名灰色奖杯 */
+.status-value.rank-badge.last-place,
+.player-rank-badge.last-place {
+  background: linear-gradient(45deg, #808080 0%, #505050 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(128, 128, 128, 0.5);
+}
+
 .trophy-icon {
   font-size: 14px;
   display: inline-block;
 }
 
+/* 奖杯图标颜色控制 */
+.trophy-icon.trophy-gold {
+  filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.8));
+}
+
+.trophy-icon.trophy-silver {
+  filter: drop-shadow(0 0 2px rgba(192, 192, 192, 0.8));
+}
+
+.trophy-icon.trophy-gray {
+  filter: grayscale(0.8) brightness(0.7);
+  opacity: 0.8;
+}
+
 .rank-item {
   margin-top: 3px;
+}
+
+/* PlayerInfo 和 AIPlayerCard 的名次徽章样式 */
+.player-rank-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.player-rank-badge.rank-1 {
+  background: linear-gradient(45deg, #FFD700 0%, #FFA500 100%);
+  color: #333;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.5);
+}
+
+.player-rank-badge.rank-2 {
+  background: linear-gradient(45deg, #C0C0C0 0%, #808080 100%);
+  color: #333;
+  box-shadow: 0 2px 8px rgba(192, 192, 192, 0.5);
+}
+
+.player-rank-badge.last-place {
+  background: linear-gradient(45deg, #808080 0%, #505050 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(128, 128, 128, 0.5);
 }
 
 /* 卡通大头像 */

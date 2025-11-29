@@ -229,10 +229,7 @@ export class EdgeTTSClient implements ITTSClient {
       };
     } catch (error) {
       // 静默失败，让 TTS 服务管理器自动降级
-      // 只在调试模式下输出错误
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[EdgeTTSClient] Edge TTS 不可用，将使用其他提供者:', error);
-      }
+      // 不输出错误日志，避免噪音（健康检查时会静默处理）
       throw error;
     }
   }

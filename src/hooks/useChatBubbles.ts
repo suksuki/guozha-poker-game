@@ -12,11 +12,11 @@ import { waitForVoices, listAvailableVoices, voiceService } from '../services/vo
 import { translateText } from '../services/translationService';
 import i18n from '../i18n';
 
-import { MultiPlayerGameState } from '../utils/gameStateUtils';
+import { Game } from '../utils/Game';
 import { useGameAudio } from './useGameAudio';
 
 export function useChatBubbles(
-  gameState: MultiPlayerGameState | { status: GameStatus; players: Player[]; currentPlayerIndex: number },
+  game: Game,
   gameAudio?: ReturnType<typeof useGameAudio>  // 可选的游戏音频系统
 ) {
   const [activeChatBubbles, setActiveChatBubbles] = useState<Map<number, ChatMessage>>(new Map());
@@ -58,7 +58,7 @@ export function useChatBubbles(
         
         // 翻译消息内容（如果当前语言不是中文）
         const currentLang = i18n.language || 'zh-CN';
-        const player = gameState.players.find(p => p.id === latestMessage.playerId);
+        const player = game.players.find(p => p.id === latestMessage.playerId);
         
         // 异步翻译并更新消息
         translateText(latestMessage.content, currentLang).then(translatedContent => {
@@ -145,7 +145,7 @@ export function useChatBubbles(
             console.warn('[useChatBubbles] 无法播放语音: 玩家不存在或没有voiceConfig', {
               playerId: translatedMessage.playerId,
               player: player,
-              players: gameState.players.map(p => ({ id: p.id, name: p.name, hasVoiceConfig: !!p.voiceConfig }))
+              players: game.players.map(p => ({ id: p.id, name: p.name, hasVoiceConfig: !!p.voiceConfig }))
             });
             // 没有语音配置，直接显示气泡，2秒后自动隐藏
             setActiveChatBubbles(prev => {
@@ -252,19 +252,31 @@ export function useChatBubbles(
     return () => {
       clearInterval(interval);
     };
-  }, [gameState.players, gameState.currentPlayerIndex]);
+  }, [game.players, game.currentPlayerIndex]);
 
   // 定期触发随机闲聊
   useEffect(() => {
-    if (gameState.status !== GameStatus.PLAYING) return;
+    if (game.status !== GameStatus.PLAYING) return;
 
     const interval = setInterval(() => {
       // 随机选择一个玩家进行闲聊
-      const activePlayers = gameState.players.filter(p => p.hand.length > 0);
+      const activePlayers = game.players.filter(p => p.hand.length > 0);
       if (activePlayers.length > 0 && Math.random() < 0.3) {
         const randomPlayer = activePlayers[Math.floor(Math.random() * activePlayers.length)];
-        // 传递完整的游戏状态给大模型
-        const fullGameState = 'roundNumber' in gameState ? gameState as MultiPlayerGameState : undefined;
+        // 传递完整的游戏状态给大模型（转换为兼容格式）
+        const fullGameState = {
+          status: game.status,
+          players: game.players,
+          currentPlayerIndex: game.currentPlayerIndex,
+          winner: game.winner,
+          playerCount: game.playerCount,
+          finishOrder: game.finishOrder,
+          finalRankings: game.finalRankings,
+          rounds: game.rounds,
+          currentRoundIndex: game.currentRoundIndex,
+          gameRecord: game.gameRecord,
+          initialHands: game.initialHands
+        };
         triggerRandomChat(randomPlayer, 0.5, undefined, fullGameState).then(chatMessage => {
           if (chatMessage) {
             setActiveChatBubbles(prev => {
@@ -280,7 +292,7 @@ export function useChatBubbles(
     }, 8000); // 每8秒检查一次
 
     return () => clearInterval(interval);
-  }, [gameState.status, gameState.players]);
+  }, [game.status, game.players]);
 
   // 移除聊天气泡
   const removeChatBubble = useCallback((playerId: number) => {
@@ -299,7 +311,7 @@ export function useChatBubbles(
   // 计算玩家聊天气泡位置
   const getPlayerBubblePosition = useMemo(() => {
     return (playerId: number): React.CSSProperties => {
-      const humanPlayer = gameState.players.find(p => p.isHuman);
+      const humanPlayer = game.players.find(p => p.isHuman);
       const isHuman = humanPlayer?.id === playerId;
       
       if (isHuman) {
@@ -307,14 +319,14 @@ export function useChatBubbles(
         return { bottom: '450px', left: '10%', transform: 'translateX(0)' };
       } else {
         // AI玩家在上方，根据玩家索引计算位置
-        const aiPlayers = gameState.players.filter(p => !p.isHuman);
+        const aiPlayers = game.players.filter(p => !p.isHuman);
         const playerIndex = aiPlayers.findIndex(p => p.id === playerId);
         const totalAiPlayers = aiPlayers.length;
         const position = (playerIndex + 1) / (totalAiPlayers + 1) * 100;
         return { top: '80px', left: `${position}%`, transform: 'translateX(-50%)' };
       }
     };
-  }, [gameState.players]);
+  }, [game.players]);
 
   return {
     activeChatBubbles,

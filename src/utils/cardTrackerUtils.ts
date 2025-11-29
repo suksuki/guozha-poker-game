@@ -25,7 +25,15 @@ export function ensureRoundInTracker(
       roundRecord.totalScore,
       players
     );
-    console.log(`[CardTracker] ✅ 第${roundNumber}轮已存在，已结束该轮次`);
+    console.warn(`[CardTracker] ⚠️ 第${roundNumber}轮已存在，已结束该轮次`, {
+      roundNumber,
+      winnerId: roundRecord.winnerId,
+      winnerName: roundRecord.winnerName || '未知',
+      totalScore: roundRecord.totalScore,
+      playsCount: roundRecord.plays?.length || 0,
+      allRoundsNumbers: cardTracker.getAllRounds().map(r => r.roundNumber).sort((a, b) => a - b),
+      timestamp: Date.now()
+    });
   } else {
     // 轮次不存在，创建并记录所有出牌
     console.warn(`[CardTracker] ⚠️ 记牌器中没有第${roundNumber}轮，尝试创建并结束`, {
@@ -45,7 +53,12 @@ export function ensureRoundInTracker(
       roundRecord.plays.forEach((play: RoundPlayRecord) => {
         cardTracker.recordPlay(roundNumber, play);
       });
-      console.log(`[CardTracker] ✅ 已为第${roundNumber}轮创建记录并添加${roundRecord.plays.length}条出牌记录`);
+      console.warn(`[CardTracker] ⚠️ 已为第${roundNumber}轮创建记录并添加${roundRecord.plays.length}条出牌记录`, {
+        roundNumber,
+        playsCount: roundRecord.plays.length,
+        allRoundsNumbers: cardTracker.getAllRounds().map(r => r.roundNumber).sort((a, b) => a - b),
+        timestamp: Date.now()
+      });
     }
     
     cardTracker.endRound(
@@ -55,7 +68,6 @@ export function ensureRoundInTracker(
       roundRecord.totalScore,
       players
     );
-    console.log(`[CardTracker] ✅ 第${roundNumber}轮已结束`);
   }
 }
 

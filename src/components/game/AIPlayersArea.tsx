@@ -12,12 +12,14 @@ interface AIPlayersAreaProps {
   players: Player[];
   currentPlayerIndex: number;
   lastPlayPlayerIndex: number | null;
+  playerCount?: number; // 玩家总数（用于判断最后一名）
 }
 
 export const AIPlayersArea: React.FC<AIPlayersAreaProps> = ({
   players,
   currentPlayerIndex,
-  lastPlayPlayerIndex
+  lastPlayPlayerIndex,
+  playerCount
 }) => {
   const aiPlayers = players.filter(player => !player.isHuman);
 
@@ -34,6 +36,7 @@ export const AIPlayersArea: React.FC<AIPlayersAreaProps> = ({
             isCurrent={isCurrent}
             isLastPlay={isLastPlay}
             showPosition={false}
+            playerCount={playerCount}
           />
         );
       })}

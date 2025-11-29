@@ -94,7 +94,9 @@ export interface Player {
   isHuman?: boolean; // 是否是人类玩家（可以手动操作）
   aiConfig?: { apiKey: string; strategy?: 'aggressive' | 'conservative' | 'balanced' };
   voiceConfig?: VoiceConfig; // 语音配置（用于语音提示和将来的聊天功能）
-  finishedRank?: number | null; // 玩家出完牌后的名次（游戏结束时设置）
+  finishedRank?: number | null; // 争上游名次（出完牌的顺序，第一个出完的是第1名，立即显示）
+  scoreRank?: number | null; // 分数名次（按最终分数排序的名次，游戏结束时设置）
+  dunCount?: number; // 玩家出的墩数（7张及以上）
 }
 
 // 游戏状态

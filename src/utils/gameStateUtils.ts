@@ -3,27 +3,58 @@
  * 包含游戏状态相关的辅助函数
  */
 
-import { Player, GameStatus, Card, Play } from '../types/card';
-import { applyFinalGameRules, calculateFinalRankings } from './gameRules';
+import { Player, GameStatus, Card, Play, RoundPlayRecord } from '../types/card';
 import { hasPlayableCards } from './cardUtils';
+import { Round } from './Round';
+import { Game } from './Game';
 
-export interface MultiPlayerGameState {
-  status: GameStatus;
-  players: Player[];
-  currentPlayerIndex: number;
-  lastPlay: any;
-  lastPlayPlayerIndex: number | null;
-  winner: number | null;
-  playerCount: number;
-  totalScore: number;
-  roundScore: number;
-  currentRoundPlays: any[];
-  roundNumber: number;
-  finishOrder: number[];
-  finalRankings?: any[];
-  gameRecord?: any;
-  initialHands?: any[][];
-  allRounds?: any[];
+// ========== 辅助方法：从 Game 实例获取数据 ==========
+
+/**
+ * 获取当前轮次对象
+ */
+export function getCurrentRound(game: Game): Round | undefined {
+  return game.getCurrentRound();
+}
+
+/**
+ * 获取当前轮次的出牌记录
+ */
+export function getCurrentRoundPlays(game: Game): RoundPlayRecord[] {
+  const round = getCurrentRound(game);
+  return round ? Array.from(round.getPlays()) : [];
+}
+
+/**
+ * 获取当前轮次的分数
+ */
+export function getCurrentRoundScore(game: Game): number {
+  const round = getCurrentRound(game);
+  return round ? round.getTotalScore() : 0;
+}
+
+/**
+ * 获取最后出的牌
+ */
+export function getLastPlay(game: Game): Play | null {
+  const round = getCurrentRound(game);
+  return round ? round.getLastPlay() : null;
+}
+
+/**
+ * 获取最后出牌的玩家索引
+ */
+export function getLastPlayPlayerIndex(game: Game): number | null {
+  const round = getCurrentRound(game);
+  return round ? round.getLastPlayPlayerIndex() : null;
+}
+
+/**
+ * 获取当前轮次号
+ */
+export function getCurrentRoundNumber(game: Game): number {
+  const round = getCurrentRound(game);
+  return round ? round.roundNumber : 0;
 }
 
 /**
@@ -50,35 +81,36 @@ export function findNextActivePlayer(
 }
 
 /**
- * 检查游戏是否真正结束（所有玩家都出完牌）并应用最终规则
+ * 检查游戏是否真正结束（所有玩家都出完牌）
+ * 
+ * 新架构下，此函数只负责返回"是否所有玩家都出完牌"的信号，
+ * 不再应用最终规则或修改分数/排名。最终计分和排名统一由 GameController 处理。
  */
 export function checkGameFinished(
-  prevState: MultiPlayerGameState,
+  game: Game,
   newPlayers: Player[],
   finishOrder: number[]
-): MultiPlayerGameState | null {
+): { status: GameStatus; finishOrder: number[] } | null {
   // 检查是否所有玩家都出完牌了
   const allFinished = newPlayers.every(player => player.hand.length === 0);
   
   if (allFinished) {
-    // 所有玩家都出完了，应用最终规则
-    const finalPlayers = applyFinalGameRules(newPlayers, finishOrder);
-    const finalRankings = calculateFinalRankings(finalPlayers, finishOrder);
-    
-    // 找到第一名（分数最高的）
-    const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
-    
+    // 只返回状态为 FINISHED 的信号和最新的 finishOrder，
+    // 真正的计分和排名由外部的 GameController 统一处理
     return {
-      ...prevState,
       status: GameStatus.FINISHED,
-      players: finalPlayers,
-      winner: winner.player.id,
-      finishOrder,
-      finalRankings
+      finishOrder
     };
   }
   
   return null; // 游戏还没结束
+}
+
+/**
+ * 根据轮次号查找轮次在数组中的索引
+ */
+export function findRoundIndex(rounds: Round[], roundNumber: number): number {
+  return rounds.findIndex(r => r.roundNumber === roundNumber);
 }
 
 /**

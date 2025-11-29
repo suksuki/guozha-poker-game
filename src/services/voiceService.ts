@@ -90,6 +90,13 @@ class VoiceService {
     voiceConfig?: VoiceConfig,
     events?: SpeechPlaybackEvents
   ): Promise<void> {
+    console.log('[VoiceService] speakImmediate 被调用（报牌）', {
+      text: text.substring(0, 50),
+      hasVoiceConfig: !!voiceConfig,
+      channel: 'ANNOUNCEMENT',
+      priority: 4
+    });
+    
     // 计算预估时长
     const estimatedDuration = this.calculateDuration(text, voiceConfig);
     if (events) {

@@ -12,11 +12,48 @@ import { useIdeaGeneration } from './hooks/useIdeaGeneration';
 import { useGameConfigContext } from './contexts/GameConfigContext';
 import { getIdeaGenerationService, GameIdea } from './services/ideaGenerationService';
 import { initTTS, getTTSConfigFromEnv } from './tts/initTTS';
+import { SystemApplication } from './services/system';
+import { registerAllModules } from './services/system/modules/registerModules';
 import './App.css';
 
 function App() {
   // 获取游戏配置（包括想法生成开关）
   const gameConfig = useGameConfigContext();
+
+  // 初始化系统应用模块
+  useEffect(() => {
+    let mounted = true;
+    
+    async function initSystemApplication() {
+      try {
+        const systemApp = SystemApplication.getInstance();
+        
+        // 注册所有模块
+        registerAllModules(systemApp);
+        
+        // 初始化系统应用
+        await systemApp.initialize();
+        
+        // 启动系统应用
+        await systemApp.start();
+        
+        if (mounted) {
+          console.log('[App] 系统应用模块初始化完成', systemApp.getStatus());
+        }
+      } catch (error) {
+        console.error('[App] 系统应用模块初始化失败:', error);
+      }
+    }
+    
+    initSystemApplication();
+    
+    // 清理函数：组件卸载时不清理系统应用（因为是单例，其他组件可能在使用）
+    return () => {
+      mounted = false;
+      // 如果需要在应用关闭时清理，可以在这里调用 shutdown
+      // SystemApplication.getInstance().shutdown().catch(console.error);
+    };
+  }, []);
 
   // 初始化 TTS 系统
   useEffect(() => {

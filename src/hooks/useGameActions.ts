@@ -8,36 +8,26 @@ import { useTranslation } from 'react-i18next';
 import { Card, GameStatus, Player } from '../types/card';
 import { Play } from '../types/card';
 import { hasPlayableCards } from '../utils/cardUtils';
-import { AIConfig } from '../utils/aiPlayer';
+import { AIConfig, aiChoosePlay } from '../utils/aiPlayer';
+import { Game } from '../utils/Game';
+import { getLastPlay, getLastPlayPlayerIndex } from '../utils/gameStateUtils';
 
 interface GameActionsParams {
-  gameState: {
-    status: GameStatus;
-    currentPlayerIndex: number;
-    lastPlay: Play | null;
-    lastPlayPlayerIndex: number | null;
-    players: Player[];
-  };
+  game: Game;
   humanPlayer: Player | undefined;
   selectedCards: Card[];
   clearSelectedCards: () => void;
   strategy: 'aggressive' | 'conservative' | 'balanced';
   algorithm: 'simple' | 'mcts';
-  playerPlay: (playerIndex: number, cards: Card[]) => boolean;
-  playerPass: (playerIndex: number) => void;
-  suggestPlay: (playerIndex: number, config: AIConfig) => Promise<Card[] | null>;
 }
 
 export function useGameActions({
-  gameState,
+  game,
   humanPlayer,
   selectedCards,
   clearSelectedCards,
   strategy,
-  algorithm,
-  playerPlay,
-  playerPass,
-  suggestPlay
+  algorithm
 }: GameActionsParams) {
   const { t } = useTranslation(['game']);
   const [isSuggesting, setIsSuggesting] = useState(false);
@@ -48,51 +38,52 @@ export function useGameActions({
     if (!humanPlayer || humanPlayer.hand.length === 0) {
       return false; // 已出完牌，不显示要不起按钮
     }
-    const isPlayerTurn = gameState.currentPlayerIndex === humanPlayer.id;
-    if (!isPlayerTurn || !gameState.lastPlay) {
-      return true; // 没有上家出牌时可以要不起（包括接风情况）
+    const isPlayerTurn = game.currentPlayerIndex === humanPlayer.id;
+    const lastPlay = getLastPlay(game);
+    // 如果没有上家出牌（lastPlay 为 null），说明新轮次开始，可以要不起
+    if (!isPlayerTurn || !lastPlay) {
+      return true;
     }
-    // 如果当前玩家是最后出牌的人（接风），可以自由出牌，可以要不起
-    const isTakingOver = gameState.currentPlayerIndex === gameState.lastPlayPlayerIndex;
-    if (isTakingOver) {
-      return true; // 接风时可以要不起
-    }
-    return !hasPlayableCards(humanPlayer.hand, gameState.lastPlay);
-  }, [gameState.currentPlayerIndex, gameState.lastPlay, gameState.lastPlayPlayerIndex, humanPlayer]);
+    // 如果有上家出牌，检查是否有能打过的牌
+    return !hasPlayableCards(humanPlayer.hand, lastPlay);
+  }, [game.currentPlayerIndex, game, humanPlayer]);
 
   const isPlayerTurn = useMemo(() => {
-    return gameState.currentPlayerIndex === humanPlayer?.id;
-  }, [gameState.currentPlayerIndex, humanPlayer]);
+    return game.currentPlayerIndex === humanPlayer?.id;
+  }, [game.currentPlayerIndex, humanPlayer]);
 
   // 处理出牌
-  const handlePlay = useCallback(() => {
+  const handlePlay = useCallback(async () => {
     if (selectedCards.length === 0 || !humanPlayer) return;
 
-    const success = playerPlay(humanPlayer.id, selectedCards);
+    const success = await game.playCards(humanPlayer.id, selectedCards);
     if (success) {
       clearSelectedCards();
     } else {
       alert('无法出这些牌！请选择合法的牌型。');
     }
-  }, [selectedCards, humanPlayer, playerPlay, clearSelectedCards]);
+  }, [selectedCards, humanPlayer, game, clearSelectedCards]);
 
   // 处理要不起
-  const handlePass = useCallback(() => {
+  const handlePass = useCallback(async () => {
     if (!humanPlayer) return;
-    playerPass(humanPlayer.id);
+    await game.passCards(humanPlayer.id);
     clearSelectedCards();
-  }, [humanPlayer, playerPass, clearSelectedCards]);
+  }, [humanPlayer, game, clearSelectedCards]);
 
   // 使用AI辅助出牌（使用MCTS蒙特卡洛算法）
   const handleSuggestPlay = useCallback(async () => {
-    if (!humanPlayer) return;
+    if (!humanPlayer) return null;
 
     setIsSuggesting(true);
     try {
-      const suggestedCards = await suggestPlay(humanPlayer.id, {
-        apiKey: '',  // 不需要API Key
+      // 获取当前轮次的最后出牌
+      const lastPlay = getLastPlay(game);
+      
+      // 使用AI选择出牌
+      const suggestedCards = await aiChoosePlay(humanPlayer.hand, lastPlay, {
         strategy,
-        algorithm: algorithm || 'mcts', // 使用MCTS或智能策略
+        algorithm: algorithm || 'mcts',
         mctsIterations: 50 // 快速模式：大幅降低迭代次数以提高速度
       });
 
@@ -111,7 +102,7 @@ export function useGameActions({
     } finally {
       setIsSuggesting(false);
     }
-  }, [humanPlayer, strategy, algorithm, suggestPlay]);
+  }, [humanPlayer, strategy, algorithm, game]);
 
   return {
     isSuggesting,

@@ -1,8 +1,12 @@
 import { Player, Card, RoundRecord, RoundPlayRecord, Rank } from '../types/card';
+import { SystemApplication } from './system';
+import { ValidationModule } from './system/modules/validation/ValidationModule';
 
 /**
  * 验证 allRounds 的牌数完整性（每次更新 allRounds 时调用）
  * 从 allRounds 中提取所有牌，加上玩家手牌，验证是否等于初始手牌总数
+ * 
+ * 向后兼容包装：优先使用新的验证模块，如果不可用则使用旧的验证逻辑
  * 
  * @param players 所有玩家
  * @param allRounds 所有轮次的记录
@@ -17,67 +21,64 @@ export function validateAllRoundsOnUpdate(
   initialHands?: Card[][],
   context?: string
 ): void {
-  // 计算期望的总牌数
-  const totalCardsExpected = initialHands 
-    ? initialHands.reduce((sum, hand) => sum + hand.length, 0)
-    : 54 * players.length; // 默认每副牌54张
-
-  // 从 allRounds 中提取所有牌
-  let allRoundsPlayedCards: Card[] = [];
-  
-  allRounds.forEach(round => {
-    round.plays?.forEach((play: RoundPlayRecord) => {
-      if (play.cards && Array.isArray(play.cards)) {
-        allRoundsPlayedCards.push(...play.cards);
-      }
-    });
-  });
-
-  // 从 currentRoundPlays 中提取所有牌（如果提供）
-  let currentRoundCards: Card[] = [];
-  if (currentRoundPlays) {
-    currentRoundPlays.forEach((play: RoundPlayRecord) => {
-      if (play.cards && Array.isArray(play.cards)) {
-        currentRoundCards.push(...play.cards);
-      }
-    });
-  }
-
-  // 统计所有玩家手上的牌
-  const playerHandsCount = players.reduce((sum, player) => sum + (player.hand?.length || 0), 0);
-
-  // 计算实际总数
-  const totalCardsFound = allRoundsPlayedCards.length + currentRoundCards.length + playerHandsCount;
-  
-  // 计算缺失的牌数
-  const missingCards = totalCardsExpected - totalCardsFound;
-
-  // 验证是否完整
-  const isValid = missingCards === 0 || (initialHands && Math.abs(missingCards) <= 10 && allRoundsPlayedCards.length === 0 && currentRoundCards.length === 0);
-
-  if (!isValid) {
-    const errorMessage = `allRounds 更新后牌数不完整！期望: ${totalCardsExpected}张，实际: ${totalCardsFound}张，缺失: ${Math.abs(missingCards)}张`;
+  // 尝试使用新的验证模块
+  try {
+    const systemApp = SystemApplication.getInstance();
+    const validationModule = systemApp.getModule<ValidationModule>('validation');
     
+    if (validationModule && validationModule.isEnabled()) {
+      // 使用新的验证模块
+      const validationContext = {
+        players,
+        allRounds,
+        currentRoundPlays: currentRoundPlays || [],
+        initialHands,
+        trigger: 'roundEnd' as const,
+        context: context || 'allRounds 更新',
+        timestamp: Date.now()
+      };
+      
+      validationModule.validateCardIntegrity(validationContext);
+      return; // 使用新模块后直接返回
+    }
+  } catch (error) {
+    // 新模块不可用，降级到旧方法
+    console.warn('[validateAllRoundsOnUpdate] 新验证模块不可用，使用旧方法', error);
+  }
+  
+  // 降级：使用旧的验证逻辑
+  const result = validateCardIntegrityCore(
+    players,
+    allRounds,
+    currentRoundPlays || [],
+    initialHands,
+    {
+      detectDuplicates: true,
+      logDetails: false, // 自己处理详细日志
+      errorPrefix: 'allRounds 更新后牌数不完整'
+    }
+  );
+
+  if (!result.isValid) {
     // 触发自定义事件
     window.dispatchEvent(new CustomEvent('cardValidationError', { 
       detail: {
-        message: errorMessage,
+        message: result.errorMessage || '验证失败',
         details: {
-          expected: totalCardsExpected,
-          found: totalCardsFound,
-          missing: missingCards,
+          expected: result.totalCardsExpected,
+          found: result.totalCardsFound,
+          missing: result.missingCards,
           allRoundsCount: allRounds.length,
-          allRoundsPlayedCardsCount: allRoundsPlayedCards.length,
-          currentRoundPlaysCount: currentRoundPlays?.length || 0,
-          currentRoundCardsCount: currentRoundCards.length,
-          playerHandsCount,
+          playedCardsCount: result.playedCardsCount,
+          playerHandsCount: result.playerHandsCount,
+          duplicateCardsCount: result.duplicateCards.length,
           context
         }
       }
     }));
     
     // 详细统计每个玩家的手牌数
-    const playerHandsDetail = players.map((player, idx) => ({
+    const playerHandsDetail = players.map((player) => ({
       playerId: player.id,
       playerName: player.name,
       handCount: player.hand?.length || 0,
@@ -85,7 +86,7 @@ export function validateAllRoundsOnUpdate(
     }));
 
     // 详细统计每个轮次的牌数
-    const roundsDetail = allRounds.map((round, idx) => {
+    const roundsDetail = allRounds.map((round) => {
       const roundCards: Card[] = [];
       round.plays?.forEach((play: RoundPlayRecord) => {
         if (play.cards && Array.isArray(play.cards)) {
@@ -95,7 +96,6 @@ export function validateAllRoundsOnUpdate(
       
       return {
         roundNumber: round.roundNumber,
-        roundIndex: idx,
         playsCount: round.plays?.length || 0,
         cardsCount: roundCards.length,
         playsDetail: round.plays?.map((play: RoundPlayRecord, playIdx: number) => ({
@@ -118,113 +118,45 @@ export function validateAllRoundsOnUpdate(
     })) || [];
 
     console.error(`[AllRoundsValidation] ⚠️ ${context || 'allRounds 更新'}时验证失败！`, {
-      error: errorMessage,
-      expected: totalCardsExpected,
-      found: totalCardsFound,
-      missing: missingCards,
+      error: result.errorMessage,
+      expected: result.totalCardsExpected,
+      found: result.totalCardsFound,
+      missing: result.missingCards,
       allRoundsCount: allRounds.length,
-      allRoundsPlayedCardsCount: allRoundsPlayedCards.length,
+      playedCardsCount: result.playedCardsCount,
       currentRoundPlaysCount: currentRoundPlays?.length || 0,
-      currentRoundCardsCount: currentRoundCards.length,
-      playerHandsCount,
-      playerHandsDetail, // 详细显示每个玩家的手牌数
+      playerHandsCount: result.playerHandsCount,
+      duplicateCardsCount: result.duplicateCards.length,
+      duplicateCards: result.duplicateCards.length > 0 ? result.duplicateCards.slice(0, 5) : [], // 只显示前5张重复牌
+      playerHandsDetail,
       breakdown: {
-        allRoundsCards: allRoundsPlayedCards.length,
-        currentRoundCards: currentRoundCards.length,
-        playerHands: playerHandsCount,
-        sum: allRoundsPlayedCards.length + currentRoundCards.length + playerHandsCount
+        allRoundsCards: result.details.playedCardsByRound.reduce((sum, r) => sum + r.count, 0),
+        currentRoundCards: currentRoundPlays?.reduce((sum, p) => sum + (p.cards?.length || 0), 0) || 0,
+        playerHands: result.playerHandsCount,
+        sum: result.totalCardsFound
       },
-      // 每个轮次的详细信息
       roundsDetail,
-      // 当前轮次的详细信息
       currentRoundDetail,
+      // 基于 suit-rank 的近似分析：哪些牌型多了/少了（用于快速定位问题牌型）
+      extraCardsApprox: extraCardsSummary,
+      missingCardsApprox: missingCardsSummary,
       context
     });
   } else {
     console.log(`[AllRoundsValidation] ✅ ${context || 'allRounds 更新'}时卡牌验证通过`, {
-      expected: totalCardsExpected,
-      found: totalCardsFound,
+      expected: result.totalCardsExpected,
+      found: result.totalCardsFound,
       allRoundsCount: allRounds.length,
-      allRoundsPlayedCardsCount: allRoundsPlayedCards.length,
+      playedCardsCount: result.playedCardsCount,
       currentRoundPlaysCount: currentRoundPlays?.length || 0,
-      currentRoundCardsCount: currentRoundCards.length,
-      playerHandsCount,
+      playerHandsCount: result.playerHandsCount,
+      duplicateCardsCount: result.duplicateCards.length,
       context
     });
   }
 
-  // ==================== 验证分数总和 ====================
-  // 所有玩家的分数总和应该为0（初始-100*玩家数，分牌总分+对应分数，最终规则调整总和为0）
-  const totalScore = players.reduce((sum, player) => sum + (player.score || 0), 0);
-  
-  // 计算初始分数总和（每个玩家-100）
-  const initialTotalScore = -100 * players.length;
-  
-  // 计算分牌总分（从初始手牌中计算）
-  let totalScoreCards = 0;
-  if (initialHands) {
-    initialHands.forEach(hand => {
-      hand.forEach(card => {
-        if (card.rank === Rank.FIVE) {
-          totalScoreCards += 5;
-        } else if (card.rank === Rank.TEN || card.rank === Rank.KING) {
-          totalScoreCards += 10;
-        }
-      });
-    });
-  }
-  
-  // 验证分数总和是否为0（允许小的浮点数误差）
-  if (Math.abs(totalScore) > 0.01) {
-    const errorMessage = `分数总和不为0！当前总和=${totalScore}，期望=0`;
-    
-    // 触发自定义事件
-    window.dispatchEvent(new CustomEvent('scoreValidationError', { 
-      detail: {
-        message: errorMessage,
-        details: {
-          totalScore,
-          expectedTotal: 0,
-          playerCount: players.length,
-          initialTotalScore,
-          totalScoreCards,
-          playerScores: players.map(p => ({
-            id: p.id,
-            name: p.name,
-            score: p.score || 0
-          })),
-          context
-        }
-      }
-    }));
-    
-    console.error(`[ScoreValidation] ⚠️ ${context || '分数校验'}失败！${errorMessage}`, {
-      totalScore,
-      expectedTotal: 0,
-      playerCount: players.length,
-      initialTotalScore,
-      totalScoreCards,
-      playerScores: players.map(p => ({
-        id: p.id,
-        name: p.name,
-        score: p.score || 0
-      })),
-      context
-    });
-  } else {
-    console.log(`[ScoreValidation] ✅ ${context || '分数校验'}通过：分数总和=${totalScore}`, {
-      totalScore,
-      playerCount: players.length,
-      initialTotalScore,
-      totalScoreCards,
-      playerScores: players.map(p => ({
-        id: p.id,
-        name: p.name,
-        score: p.score || 0
-      })),
-      context
-    });
-  }
+  // 注意：分数验证已移出此函数
+  // 分数验证应该在游戏结束时单独调用 validateScoreIntegrity
 }
 
 /**
@@ -348,9 +280,13 @@ export function validateCardIntegritySimple(
   console.log('[CardValidation] 📊 详细验证信息:', detailedLog);
   
   // 检查是否完整
-  // 如果游戏刚开始（没有出牌）且牌数差异较小（<=10张），可能是发牌算法的正常差异
-  // 这种情况下，使用实际牌数作为基准
-  const isValid = missingCards === 0 || (playedCardsCount === 0 && Math.abs(missingCards) <= 10);
+  // 如果提供了 initialHands，严格要求牌数必须完全匹配
+  // 如果没有 initialHands 且游戏刚开始（没有出牌），允许小的差异（<=10张）作为容错
+  const isValid = missingCards === 0 || (
+    !initialHands && // 没有初始手牌时才允许容错
+    playedCardsCount === 0 && // 游戏刚开始，没有出牌
+    Math.abs(missingCards) <= 10 // 允许小的差异（可能是发牌算法的正常差异）
+  );
   
   let errorMessage: string | undefined;
   if (!isValid) {
@@ -373,15 +309,7 @@ export function validateCardIntegritySimple(
 }
 
 /**
- * 完整的牌数完整性验证
- * 检查：所有轮次已出牌 + 当前轮次出牌 + 所有玩家手上的牌 = 完整牌组
- * 
- * @param players 所有玩家
- * @param allRounds 所有已完成的轮次记录
- * @param currentRoundPlays 当前轮次的出牌记录
- * @param playerCount 玩家数量
- * @param initialHands 初始手牌（用于计算总牌数）
- * @returns 验证结果
+ * 完整的牌数完整性验证结果
  */
 export interface CardValidationResult {
   isValid: boolean;
@@ -390,7 +318,7 @@ export interface CardValidationResult {
   missingCards: number;
   playedCardsCount: number;
   playerHandsCount: number;
-  duplicateCards?: Array<{ card: Card; locations: string[] }>;
+  duplicateCards: Array<{ card: Card; locations: string[] }>;
   errorMessage?: string;
   details: {
     playedCardsByRound: Array<{ roundNumber: number; count: number }>;
@@ -398,108 +326,260 @@ export interface CardValidationResult {
   };
 }
 
-export function validateCardIntegrity(
+/**
+ * 验证选项
+ */
+interface ValidationOptions {
+  /** 是否检测重复牌 */
+  detectDuplicates?: boolean;
+  /** 是否记录详细日志 */
+  logDetails?: boolean;
+  /** 错误消息前缀 */
+  errorPrefix?: string;
+}
+
+/**
+ * 核心验证函数 - 统一的牌数完整性验证
+ * 检查：所有轮次已出牌 + 当前轮次出牌 + 所有玩家手上的牌 = 完整牌组
+ * 并检测重复牌
+ * 
+ * @param players 所有玩家
+ * @param allRounds 所有已完成的轮次记录
+ * @param currentRoundPlays 当前轮次的出牌记录（可选）
+ * @param initialHands 初始手牌（用于计算总牌数）
+ * @param options 验证选项
+ * @returns 验证结果
+ */
+function validateCardIntegrityCore(
   players: Player[],
   allRounds: RoundRecord[],
-  currentRoundPlays: RoundPlayRecord[],
-  playerCount: number,
-  initialHands?: Card[][]
+  currentRoundPlays: RoundPlayRecord[] = [],
+  initialHands?: Card[][],
+  options: ValidationOptions = {}
 ): CardValidationResult {
+  const { detectDuplicates = true, logDetails = false } = options;
+  
   // 计算期望的总牌数
   const totalCardsExpected = initialHands 
     ? initialHands.reduce((sum, hand) => sum + hand.length, 0)
-    : 54 * playerCount; // 默认每副牌54张
+    : 54 * players.length; // 默认每副牌54张
 
   // 统计所有轮次已出的牌
-  let allRoundsPlayedCardsCount = 0;
+  let allRoundsPlayedCards: Card[] = [];
   const playedCardsByRound: Array<{ roundNumber: number; count: number }> = [];
   
   allRounds.forEach(round => {
-    const roundCardsCount = round.plays?.reduce((sum, play) => sum + (play.cards?.length || 0), 0) || 0;
-    allRoundsPlayedCardsCount += roundCardsCount;
+    const roundCards: Card[] = [];
+    round.plays?.forEach((play: RoundPlayRecord) => {
+      if (play.cards && Array.isArray(play.cards)) {
+        roundCards.push(...play.cards);
+        allRoundsPlayedCards.push(...play.cards);
+      }
+    });
     playedCardsByRound.push({
       roundNumber: round.roundNumber,
-      count: roundCardsCount
+      count: roundCards.length
     });
   });
 
   // 统计当前轮次已出的牌
-  const currentRoundCardsCount = currentRoundPlays.reduce((sum, play) => sum + (play.cards?.length || 0), 0);
+  const currentRoundCards: Card[] = [];
+  currentRoundPlays.forEach((play: RoundPlayRecord) => {
+    if (play.cards && Array.isArray(play.cards)) {
+      currentRoundCards.push(...play.cards);
+    }
+  });
   
   // 统计所有玩家手上的牌
   const playerHandsCount = players.reduce((sum, player) => sum + (player.hand?.length || 0), 0);
   const playerHandsByPlayer: Array<{ playerId: number; playerName: string; count: number }> = [];
+  const allPlayerHandCards: Card[] = [];
+  
   players.forEach(player => {
+    const handCount = player.hand?.length || 0;
     playerHandsByPlayer.push({
       playerId: player.id,
       playerName: player.name,
-      count: player.hand?.length || 0
+      count: handCount
     });
+    if (player.hand) {
+      allPlayerHandCards.push(...player.hand);
+    }
   });
 
   // 计算实际总数
-  const totalCardsFound = allRoundsPlayedCardsCount + currentRoundCardsCount + playerHandsCount;
+  const totalCardsFound = allRoundsPlayedCards.length + currentRoundCards.length + playerHandsCount;
   
-  // 计算缺失的牌数
+  // 计算缺失的牌数（>0 表示少牌，<0 表示多牌）
   const missingCards = totalCardsExpected - totalCardsFound;
-  
-  // 添加详细调试信息
-  const detailedLog = {
-    totalCardsExpected,
-    totalCardsFound,
-    missingCards,
-    allRoundsCount: allRounds.length,
-    allRoundsPlayedCardsCount,
-    currentRoundPlaysCount: currentRoundPlays.length,
-    currentRoundCardsCount,
-    currentRoundPlaysDetail: currentRoundPlays.map((play, idx) => ({
-      index: idx,
-      playerId: play.playerId,
-      playerName: play.playerName,
-      cardsCount: play.cards?.length || 0,
-      cards: play.cards?.map(c => `${c.suit}-${c.rank}`).slice(0, 5) || [] // 只显示前5张，避免日志过长
-    })),
-    playerHandsCount,
-    initialHandsTotal: initialHands ? initialHands.reduce((sum, hand) => sum + hand.length, 0) : 'N/A',
-    initialHandsByPlayer: initialHands ? initialHands.map((hand, i) => ({ 
-      player: i, 
-      count: hand.length,
-      sampleCards: hand.slice(0, 3).map(c => `${c.suit}-${c.rank}`) // 显示前3张作为样本
-    })) : 'N/A',
-    playerHandsByPlayer: playerHandsByPlayer.map(p => ({
-      ...p,
-      sampleCards: players.find(pl => pl.id === p.playerId)?.hand.slice(0, 3).map(c => `${c.suit}-${c.rank}`) || []
-    })),
-    playedCardsByRound,
-    breakdown: {
-      allRoundsCards: allRoundsPlayedCardsCount,
-      currentRoundCards: currentRoundCardsCount,
-      playerHandsCards: playerHandsCount,
-      sum: allRoundsPlayedCardsCount + currentRoundCardsCount + playerHandsCount
-    }
-  };
-  
-  console.log('[CardValidation] 📊 详细验证信息:', detailedLog);
-  
-  // 检查是否完整
-  // 如果 initialHands 存在但牌数不匹配，可能是发牌时的问题
-  // 在这种情况下，如果差异较小（<=10张），可能是正常的发牌差异
-  const isValid = missingCards === 0 || (initialHands && Math.abs(missingCards) <= 10 && allRoundsPlayedCardsCount === 0 && currentRoundCardsCount === 0);
-  
-  // TODO: 检测重复的牌（需要更复杂的逻辑）
+
+  // 检测重复牌（使用 Card.id 而不是 suit-rank，因为多副牌游戏中相同 suit-rank 的牌可以有多个）
   const duplicateCards: Array<{ card: Card; locations: string[] }> = [];
+  if (detectDuplicates) {
+    // 收集所有牌，并记录位置（使用 Card.id 作为唯一标识）
+    const cardMap = new Map<string, { card: Card; locations: string[] }>();
+    
+    // 函数：添加牌并记录位置
+    const addCardWithLocation = (card: Card, location: string) => {
+      // 使用 Card.id 作为唯一标识，而不是 suit-rank
+      // 因为多副牌游戏中，相同的 suit-rank 组合可以有多张（每副牌一张）
+      const key = card.id || `${card.suit}-${card.rank}-${Date.now()}-${Math.random()}`;
+      if (!cardMap.has(key)) {
+        cardMap.set(key, { card, locations: [] });
+      }
+      const entry = cardMap.get(key)!;
+      if (!entry.locations.includes(location)) {
+        entry.locations.push(location);
+      }
+    };
+    
+    // 记录已出轮次中的牌
+    allRounds.forEach((round) => {
+      round.plays?.forEach((play: RoundPlayRecord, playIdx: number) => {
+        if (play.cards && Array.isArray(play.cards)) {
+          play.cards.forEach((card, cardIdx) => {
+            addCardWithLocation(card, `轮次${round.roundNumber}-玩家${play.playerId}(${play.playerName || '未知'})出牌${playIdx}-第${cardIdx + 1}张`);
+          });
+        }
+      });
+    });
+    
+    // 记录当前轮次中的牌
+    currentRoundPlays.forEach((play, playIdx) => {
+      if (play.cards && Array.isArray(play.cards)) {
+        play.cards.forEach((card, cardIdx) => {
+          addCardWithLocation(card, `当前轮次-玩家${play.playerId}(${play.playerName || '未知'})出牌${playIdx}-第${cardIdx + 1}张`);
+        });
+      }
+    });
+    
+    // 记录玩家手牌
+    players.forEach((player) => {
+      if (player.hand) {
+        player.hand.forEach((card, cardIdx) => {
+          addCardWithLocation(card, `玩家${player.id}(${player.name})手牌-第${cardIdx + 1}张`);
+        });
+      }
+    });
+    
+    // 检测重复：标准扑克牌每张牌只应该出现一次（不考虑多副牌的情况）
+    // 对于一副标准扑克牌，每张牌最多出现一次
+    // 如果同一张牌在多个位置出现，说明有重复
+    // 但是需要排除初始手牌可能的重复（如果发牌算法允许的话）
+    // 这里我们简单处理：如果同一张牌出现在2个或更多位置，就认为是重复
+    cardMap.forEach((entry, key) => {
+      if (entry.locations.length > 1) {
+        duplicateCards.push({
+          card: entry.card,
+          locations: entry.locations
+        });
+      }
+    });
+  }
+
+  // ==================== 额外：根据初始手牌推断“多出的牌 / 缺失的牌” ====================
+  // 说明：
+  // - 这里不改变原有 missingCards 逻辑，只在需要详细日志时，给出一个“近似”的排查线索
+  // - 我们使用 suit-rank 组合来做 key（假设当前游戏只使用一副牌），
+  //   这样可以和 initialHands 对齐，帮助定位哪几张牌数量对不上
+  const extraCardsSummary: Array<{ key: string; diff: number }> = [];
+  const missingCardsSummary: Array<{ key: string; diff: number }> = [];
   
+  if (initialHands && options.logDetails && missingCards !== 0) {
+    const getKey = (card: Card) => `${card.suit}-${card.rank}`;
+    
+    const initialCountMap = new Map<string, number>();
+    const foundCountMap = new Map<string, number>();
+    
+    // 初始手牌计数
+    initialHands.forEach(hand => {
+      hand.forEach(card => {
+        const key = getKey(card);
+        initialCountMap.set(key, (initialCountMap.get(key) || 0) + 1);
+      });
+    });
+    
+    // 已出牌 + 当前轮次 + 玩家手牌计数
+    const allFoundCards: Card[] = [
+      ...allRoundsPlayedCards,
+      ...currentRoundCards,
+      ...allPlayerHandCards
+    ];
+    
+    allFoundCards.forEach(card => {
+      const key = getKey(card);
+      foundCountMap.set(key, (foundCountMap.get(key) || 0) + 1);
+    });
+    
+    // 对比差异：found > initial → 多出的牌；initial > found → 缺失的牌
+    const allKeys = new Set<string>([
+      ...Array.from(initialCountMap.keys()),
+      ...Array.from(foundCountMap.keys())
+    ]);
+    
+    allKeys.forEach(key => {
+      const initialCount = initialCountMap.get(key) || 0;
+      const foundCount = foundCountMap.get(key) || 0;
+      const diff = foundCount - initialCount;
+      
+      if (diff > 0) {
+        extraCardsSummary.push({ key, diff });
+      } else if (diff < 0) {
+        missingCardsSummary.push({ key, diff: -diff });
+      }
+    });
+  }
+
+  // 检查是否完整
+  // 如果提供了 initialHands，严格要求牌数必须完全匹配
+  // 如果没有 initialHands 且游戏刚开始（没有出牌），允许小的差异（<=10张）作为容错
+  const isValid = missingCards === 0 || (
+    !initialHands && // 没有初始手牌时才允许容错
+    allRoundsPlayedCards.length === 0 && // 游戏刚开始，没有出牌
+    currentRoundCards.length === 0 && // 当前轮次也没有出牌
+    Math.abs(missingCards) <= 10 // 允许小的差异（可能是发牌算法的正常差异）
+  );
+
+  // 如果有重复牌，即使数量匹配，也应该标记为无效
+  const finalIsValid = isValid && duplicateCards.length === 0;
+
   let errorMessage: string | undefined;
-  if (!isValid) {
-    errorMessage = `牌数不完整！期望: ${totalCardsExpected}张，实际: ${totalCardsFound}张，缺失: ${Math.abs(missingCards)}张`;
+  if (!finalIsValid) {
+    if (duplicateCards.length > 0) {
+      errorMessage = `检测到 ${duplicateCards.length} 张重复牌！`;
+      duplicateCards.forEach(dup => {
+        errorMessage += `\n  牌 ${dup.card.suit}-${dup.card.rank} 出现在: ${dup.locations.join(', ')}`;
+      });
+    } else {
+      errorMessage = `牌数不完整！期望: ${totalCardsExpected}张，实际: ${totalCardsFound}张，缺失: ${Math.abs(missingCards)}张`;
+    }
+  }
+
+  // 详细日志（可选）
+  if (logDetails) {
+    const detailedLog = {
+      totalCardsExpected,
+      totalCardsFound,
+      missingCards,
+      allRoundsCount: allRounds.length,
+      allRoundsPlayedCardsCount: allRoundsPlayedCards.length,
+      currentRoundPlaysCount: currentRoundPlays.length,
+      currentRoundCardsCount: currentRoundCards.length,
+      playerHandsCount,
+      duplicateCardsCount: duplicateCards.length,
+      initialHandsTotal: initialHands ? initialHands.reduce((sum, hand) => sum + hand.length, 0) : 'N/A',
+      playedCardsByRound,
+      playerHandsByPlayer
+    };
+    console.log('[CardValidation] 📊 详细验证信息:', detailedLog);
   }
 
   return {
-    isValid,
+    isValid: finalIsValid,
     totalCardsExpected,
     totalCardsFound,
     missingCards,
-    playedCardsCount: allRoundsPlayedCardsCount + currentRoundCardsCount,
+    playedCardsCount: allRoundsPlayedCards.length + currentRoundCards.length,
     playerHandsCount,
     duplicateCards,
     errorMessage,
@@ -508,6 +588,37 @@ export function validateCardIntegrity(
       playerHandsByPlayer
     }
   };
+}
+
+/**
+ * 完整的牌数完整性验证
+ * 检查：所有轮次已出牌 + 当前轮次出牌 + 所有玩家手上的牌 = 完整牌组
+ * 
+ * @param players 所有玩家
+ * @param allRounds 所有已完成的轮次记录
+ * @param currentRoundPlays 当前轮次的出牌记录
+ * @param playerCount 玩家数量（未使用，保留以保持API兼容性）
+ * @param initialHands 初始手牌（用于计算总牌数）
+ * @returns 验证结果
+ */
+export function validateCardIntegrity(
+  players: Player[],
+  allRounds: RoundRecord[],
+  currentRoundPlays: RoundPlayRecord[],
+  playerCount: number,
+  initialHands?: Card[][]
+): CardValidationResult {
+  return validateCardIntegrityCore(
+    players,
+    allRounds,
+    currentRoundPlays,
+    initialHands,
+    {
+      detectDuplicates: true,
+      logDetails: true,
+      errorPrefix: '牌数不完整'
+    }
+  );
 }
 
 /**
@@ -526,95 +637,128 @@ export function validateAllRoundsIntegrity(
   currentRoundPlays?: RoundPlayRecord[],
   initialHands?: Card[][]
 ): CardValidationResult {
-  // 计算期望的总牌数
-  const totalCardsExpected = initialHands 
-    ? initialHands.reduce((sum, hand) => sum + hand.length, 0)
-    : 54 * players.length; // 默认每副牌54张
-
-  // 从 allRounds 中提取所有牌
-  let allRoundsPlayedCards: Card[] = [];
-  const playedCardsByRound: Array<{ roundNumber: number; count: number }> = [];
-  
-  allRounds.forEach(round => {
-    const roundCards: Card[] = [];
-    round.plays?.forEach((play: RoundPlayRecord) => {
-      if (play.cards && Array.isArray(play.cards)) {
-        roundCards.push(...play.cards);
-        allRoundsPlayedCards.push(...play.cards);
-      }
-    });
-    playedCardsByRound.push({
-      roundNumber: round.roundNumber,
-      count: roundCards.length
-    });
-  });
-
-  // 从 currentRoundPlays 中提取所有牌（如果提供）
-  let currentRoundCards: Card[] = [];
-  if (currentRoundPlays) {
-    currentRoundPlays.forEach((play: RoundPlayRecord) => {
-      if (play.cards && Array.isArray(play.cards)) {
-        currentRoundCards.push(...play.cards);
-      }
-    });
-  }
-
-  // 统计所有玩家手上的牌
-  const playerHandsCount = players.reduce((sum, player) => sum + (player.hand?.length || 0), 0);
-  const playerHandsByPlayer: Array<{ playerId: number; playerName: string; count: number }> = [];
-  players.forEach(player => {
-    playerHandsByPlayer.push({
-      playerId: player.id,
-      playerName: player.name,
-      count: player.hand?.length || 0
-    });
-  });
-
-  // 计算实际总数
-  const totalCardsFound = allRoundsPlayedCards.length + currentRoundCards.length + playerHandsCount;
-  
-  // 计算缺失的牌数
-  const missingCards = totalCardsExpected - totalCardsFound;
-
-  // 添加详细调试信息
-  console.log('[AllRoundsValidation] 验证 allRounds 完整性:', {
-    totalCardsExpected,
-    totalCardsFound,
-    missingCards,
-    allRoundsCount: allRounds.length,
-    allRoundsPlayedCardsCount: allRoundsPlayedCards.length,
-    currentRoundPlaysCount: currentRoundPlays?.length || 0,
-    currentRoundCardsCount: currentRoundCards.length,
-    playerHandsCount,
-    initialHandsTotal: initialHands ? initialHands.reduce((sum, hand) => sum + hand.length, 0) : 'N/A',
-    initialHandsByPlayer: initialHands ? initialHands.map((hand, i) => ({ player: i, count: hand.length })) : 'N/A',
-    playerHandsByPlayer,
-    playedCardsByRound
-  });
-
-  // 检查是否完整
-  const isValid = missingCards === 0 || (initialHands && Math.abs(missingCards) <= 10 && allRoundsPlayedCards.length === 0 && currentRoundCards.length === 0);
-
-  // TODO: 检测重复的牌（需要更复杂的逻辑）
-  const duplicateCards: Array<{ card: Card; locations: string[] }> = [];
-
-  let errorMessage: string | undefined;
-  if (!isValid) {
-    errorMessage = `allRounds 牌数不完整！期望: ${totalCardsExpected}张，实际: ${totalCardsFound}张，缺失: ${Math.abs(missingCards)}张`;
-  }
-
-  return {
-    isValid,
-    totalCardsExpected,
-    totalCardsFound,
-    missingCards,
-    playedCardsCount: allRoundsPlayedCards.length + currentRoundCards.length,
-    playerHandsCount,
-    duplicateCards,
-    errorMessage,
-    details: {
-      playedCardsByRound,
-      playerHandsByPlayer
+  return validateCardIntegrityCore(
+    players,
+    allRounds,
+    currentRoundPlays || [],
+    initialHands,
+    {
+      detectDuplicates: true,
+      logDetails: true,
+      errorPrefix: 'allRounds 牌数不完整'
     }
-  };
+  );
+}
+
+/**
+ * 验证分数完整性（仅在游戏结束时调用）
+ * 所有玩家的分数总和应该为0（初始-100*玩家数，分牌总分+对应分数，最终规则调整总和为0）
+ * 
+ * 向后兼容包装：优先使用新的验证模块，如果不可用则使用旧的验证逻辑
+ * 
+ * @param players 所有玩家
+ * @param initialHands 初始手牌（用于计算分牌总分）
+ * @param context 上下文信息（用于调试）
+ */
+export function validateScoreIntegrity(
+  players: Player[],
+  initialHands?: Card[][],
+  context?: string
+): void {
+  // 尝试使用新的验证模块
+  try {
+    const systemApp = SystemApplication.getInstance();
+    const validationModule = systemApp.getModule<ValidationModule>('validation');
+    
+    if (validationModule && validationModule.isEnabled()) {
+      // 使用新的验证模块
+      const validationContext = {
+        players,
+        allRounds: [],
+        initialHands,
+        trigger: 'gameEnd' as const,
+        context: context || '分数校验',
+        timestamp: Date.now()
+      };
+      
+      validationModule.validateScoreIntegrity(validationContext);
+      return; // 使用新模块后直接返回
+    }
+  } catch (error) {
+    // 新模块不可用，降级到旧方法
+    console.warn('[validateScoreIntegrity] 新验证模块不可用，使用旧方法', error);
+  }
+  
+  // 降级：使用旧的验证逻辑
+  // 所有玩家的分数总和应该为0（初始-100*玩家数，分牌总分+对应分数，最终规则调整总和为0）
+  const totalScore = players.reduce((sum, player) => sum + (player.score || 0), 0);
+  
+  // 计算初始分数总和（每个玩家-100）
+  const initialTotalScore = -100 * players.length;
+  
+  // 计算分牌总分（从初始手牌中计算）
+  let totalScoreCards = 0;
+  if (initialHands) {
+    initialHands.forEach(hand => {
+      hand.forEach(card => {
+        if (card.rank === Rank.FIVE) {
+          totalScoreCards += 5;
+        } else if (card.rank === Rank.TEN || card.rank === Rank.KING) {
+          totalScoreCards += 10;
+        }
+      });
+    });
+  }
+  
+  // 验证分数总和是否为0（允许小的浮点数误差）
+  if (Math.abs(totalScore) > 0.01) {
+    const errorMessage = `分数总和不为0！当前总和=${totalScore}，期望=0`;
+    
+    // 触发自定义事件
+    window.dispatchEvent(new CustomEvent('scoreValidationError', { 
+      detail: {
+        message: errorMessage,
+        details: {
+          totalScore,
+          expectedTotal: 0,
+          playerCount: players.length,
+          initialTotalScore,
+          totalScoreCards,
+          playerScores: players.map(p => ({
+            id: p.id,
+            name: p.name,
+            score: p.score || 0
+          })),
+          context
+        }
+      }
+    }));
+    
+    console.error(`[ScoreValidation] ⚠️ ${context || '分数校验'}失败！${errorMessage}`, {
+      totalScore,
+      expectedTotal: 0,
+      playerCount: players.length,
+      initialTotalScore,
+      totalScoreCards,
+      playerScores: players.map(p => ({
+        id: p.id,
+        name: p.name,
+        score: p.score || 0
+      })),
+      context
+    });
+  } else {
+    console.log(`[ScoreValidation] ✅ ${context || '分数校验'}通过：分数总和=${totalScore}`, {
+      totalScore,
+      playerCount: players.length,
+      initialTotalScore,
+      totalScoreCards,
+      playerScores: players.map(p => ({
+        id: p.id,
+        name: p.name,
+        score: p.score || 0
+      })),
+      context
+    });
+  }
 }

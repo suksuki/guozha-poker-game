@@ -54,6 +54,54 @@ export function useGameConfig() {
     localStorage.setItem('ideaGenerationEnabled', enabled.toString());
   }, []);
   
+  // 计分器开关（从 localStorage 读取，默认关闭）
+  const [cardTrackerEnabled, setCardTrackerEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('cardTrackerEnabled');
+    return saved !== null ? saved === 'true' : false; // 默认关闭
+  });
+  
+  // 更新计分器开关并保存到 localStorage
+  const updateCardTrackerEnabled = useCallback((enabled: boolean) => {
+    setCardTrackerEnabled(enabled);
+    localStorage.setItem('cardTrackerEnabled', enabled.toString());
+  }, []);
+  
+  // 记牌器面板显示开关（从 localStorage 读取，默认关闭）
+  const [cardTrackerPanelVisible, setCardTrackerPanelVisible] = useState<boolean>(() => {
+    const saved = localStorage.getItem('cardTrackerPanelVisible');
+    return saved !== null ? saved === 'true' : false; // 默认关闭
+  });
+  
+  // 更新记牌器面板显示开关并保存到 localStorage
+  const updateCardTrackerPanelVisible = useCallback((visible: boolean) => {
+    setCardTrackerPanelVisible(visible);
+    localStorage.setItem('cardTrackerPanelVisible', visible.toString());
+  }, []);
+
+  // 超时时间（从 localStorage 读取，默认30秒）
+  const [playTimeout, setPlayTimeout] = useState<number>(() => {
+    const saved = localStorage.getItem('playTimeout');
+    return saved !== null ? parseInt(saved, 10) : 30000; // 默认30秒
+  });
+
+  // 更新超时时间并保存到 localStorage
+  const updatePlayTimeout = useCallback((timeout: number) => {
+    setPlayTimeout(timeout);
+    localStorage.setItem('playTimeout', timeout.toString());
+  }, []);
+
+  // 报牌后延迟时间（从 localStorage 读取，默认1000毫秒）
+  const [announcementDelay, setAnnouncementDelay] = useState<number>(() => {
+    const saved = localStorage.getItem('announcementDelay');
+    return saved !== null ? parseInt(saved, 10) : 1000; // 默认1000毫秒
+  });
+
+  // 更新报牌后延迟时间并保存到 localStorage
+  const updateAnnouncementDelay = useCallback((delay: number) => {
+    setAnnouncementDelay(delay);
+    localStorage.setItem('announcementDelay', delay.toString());
+  }, []);
+  
   // 训练模式配置
   const [trainingConfig, setTrainingConfig] = useState<TrainingConfig>({
     gameCount: 1000,
@@ -141,6 +189,14 @@ export function useGameConfig() {
     setLlmApiUrl,
     ideaGenerationEnabled,
     setIdeaGenerationEnabled: updateIdeaGenerationEnabled,
+    cardTrackerEnabled,
+    setCardTrackerEnabled: updateCardTrackerEnabled,
+    cardTrackerPanelVisible,
+    setCardTrackerPanelVisible: updateCardTrackerPanelVisible,
+    playTimeout,
+    setPlayTimeout: updatePlayTimeout,
+    announcementDelay,
+    setAnnouncementDelay: updateAnnouncementDelay,
     trainingConfig,
     setTrainingConfig,
     handleStartGame,

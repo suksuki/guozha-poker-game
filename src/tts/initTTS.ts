@@ -6,6 +6,7 @@
 import { getTTSServiceManager } from './ttsServiceManager';
 import { GPTSoVITSClient } from './gptSoVITSClient';
 import { CoquiTTSClient } from './coquiTTSClient';
+import { PiperTTSClient } from './piperTTSClient';
 
 export interface TTSInitConfig {
   enableGPTSoVITS?: boolean;
@@ -19,6 +20,12 @@ export interface TTSInitConfig {
     baseUrl?: string;
     modelName?: string;
     speakerId?: string;
+  };
+  enablePiper?: boolean;  // Piper TTS（轻量级本地TTS，推荐用于训练场景）
+  piperConfig?: {
+    baseUrl?: string;
+    timeout?: number;
+    retryCount?: number;
   };
   enableEdge?: boolean;
   enableLocal?: boolean;
@@ -79,29 +86,70 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
     }
   }
 
-  // 配置 Edge TTS
-  if (config.enableEdge !== false) {
-    ttsManager.configureProvider('edge', {
-      provider: 'edge',
-      priority: 3,
-      enabled: true,
+  // 配置 Piper TTS（轻量级本地TTS，推荐用于训练场景）
+  if (config.enablePiper !== false) {  // 默认启用
+    const piperBaseUrl = config.piperConfig?.baseUrl || 'http://localhost:5000';
+    console.log(`[initTTS] 正在检查 Piper TTS 服务: ${piperBaseUrl}`);
+    
+    const piperClient = new PiperTTSClient({
+      baseUrl: piperBaseUrl,
+      timeout: config.piperConfig?.timeout || 10000,
+      retryCount: config.piperConfig?.retryCount || 2,
     });
+
+    // 检查服务是否可用
+    try {
+      const isHealthy = await piperClient.checkHealth();
+      console.log(`[initTTS] Piper TTS 健康检查结果: ${isHealthy ? '✅ 可用' : '❌ 不可用'}`);
+      
+      if (isHealthy) {
+        ttsManager.configureProvider('piper', {
+          provider: 'piper',
+          priority: 1,  // 最高优先级（轻量级本地TTS）
+          enabled: true,
+          config: config.piperConfig,
+        });
+        console.log('[initTTS] ✅ Piper TTS 已启用（最高优先级）');
+      } else {
+        console.warn('[initTTS] ⚠️ Piper TTS 服务不可用，已禁用');
+        // 如果 piper 不可用，禁用它
+        ttsManager.configureProvider('piper', {
+          provider: 'piper',
+          enabled: false,
+        });
+      }
+    } catch (error) {
+      console.error('[initTTS] ❌ Piper TTS 健康检查失败:', error);
+      // 即使健康检查失败，也尝试启用（可能服务刚启动，健康检查端点还未就绪）
+      console.warn('[initTTS] ⚠️ Piper TTS 健康检查失败，但仍尝试启用（服务可能正在启动）');
+      ttsManager.configureProvider('piper', {
+        provider: 'piper',
+        priority: 1,
+        enabled: true,
+        config: config.piperConfig,
+      });
+    }
   }
 
-  // 配置本地 TTS API
-  if (config.enableLocal !== false) {
-    ttsManager.configureProvider('local', {
-      provider: 'local',
-      priority: 4,
-      enabled: true,
-    });
-  }
+  // 配置 Edge TTS（禁用，只使用 Piper TTS）
+  ttsManager.configureProvider('edge', {
+    provider: 'edge',
+    priority: 3,
+    enabled: false,  // 禁用 Edge TTS
+  });
 
-  // 浏览器 TTS 总是启用作为后备
+  // 配置本地 TTS API（禁用，只使用 Piper TTS）
+  ttsManager.configureProvider('local', {
+    provider: 'local',
+    priority: 4,
+    enabled: false,  // 禁用本地 TTS API
+  });
+
+  // 浏览器 TTS（禁用，只使用 Piper TTS）
   ttsManager.configureProvider('browser', {
     provider: 'browser',
     priority: 5,
-    enabled: true,
+    enabled: false,  // 禁用浏览器 TTS
   });
 
   // 启动健康检查
@@ -128,6 +176,7 @@ export function getTTSConfigFromEnv(): TTSInitConfig {
   return {
     enableGPTSoVITS: false,  // 默认不启用，需要手动配置
     enableCoqui: false,
+    enablePiper: true,  // 默认启用 Piper TTS（轻量级本地TTS，推荐用于训练场景）
     enableEdge: true,
     enableLocal: true,
     enableBrowser: true,

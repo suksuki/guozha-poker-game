@@ -98,8 +98,8 @@ export function calculateFinalRankings(
   }
 
   // 第四步：末游最后手牌的分牌分数处理
-  // 注意：这个逻辑已经在 handleGameEnd 中处理过了（在调用 applyFinalGameRules 之前）
-  // handleGameEnd 会：
+  // 注意：这个逻辑已经在 GameController.handleLastPlayerRemainingScore 中处理过了
+  // GameController.calculateFinalScoresAndRankings 会先调用 handleLastPlayerRemainingScore：
   // 1. 计算末游剩余分牌分数（5=5分，10=10分，K=10分）
   // 2. 末游减去这个分数
   // 3. 第二名加上这个分数
@@ -112,9 +112,9 @@ export function calculateFinalRankings(
     const lastPlayerRemainingScore = calculateCardsScore(lastPlayerScoreCards);
     
     if (lastPlayerRemainingScore > 0) {
-      // 这个分数已经在 handleGameEnd 中处理过了，这里只记录日志
+      // 这个分数已经在 GameController.handleLastPlayerRemainingScore 中处理过了，这里只记录日志
       console.log(
-        `[calculateFinalRankings] 最后一名(${lastPlayer.player.name})还有${lastPlayerRemainingScore}分未出，但已经在 handleGameEnd 中处理过了（已转移给第二名），跳过`
+        `[calculateFinalRankings] 最后一名(${lastPlayer.player.name})还有${lastPlayerRemainingScore}分未出，但已经在 GameController 中处理过了（已转移给第二名），跳过`
       );
     }
   }
@@ -215,15 +215,18 @@ export function applyFinalGameRules(
   // 计算最终排名和分数（只计算一次，避免重复处理最后一名未出的分牌）
   const rankings = calculateFinalRankings(players, finishOrder);
   
-  // 更新玩家数组，包括 finishedRank
+  // 更新玩家数组，包括 finishedRank（争上游名次）和 scoreRank（分数名次）
+  // finishedRank：出完牌的顺序（第一个出完的是第1名），在玩家出完牌时立即设置
+  // scoreRank：按最终分数排序的名次（分数高的排名靠前），在游戏结束时设置
   const updatedPlayers = players.map(player => {
     const ranking = rankings.find(r => r.player.id === player.id);
     if (ranking) {
       return {
         ...player,
         score: ranking.finalScore,
-        finishedRank: ranking.rank // 添加 finishedRank
-      } as Player & { finishedRank: number };
+        // finishedRank 保持不变（已经在玩家出完牌时设置）
+        scoreRank: ranking.rank // 分数名次（按最终分数排序）
+      } as Player & { finishedRank?: number; scoreRank?: number };
     }
     return player;
   });

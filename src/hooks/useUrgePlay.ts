@@ -6,10 +6,10 @@
 import { useEffect, useRef } from 'react';
 import { GameStatus, Player, PlayerType } from '../types/card';
 import { triggerUrgePlayReaction } from '../services/chatService';
-import { MultiPlayerGameState } from '../utils/gameStateUtils';
+import { Game } from '../utils/Game';
 
 interface UseUrgePlayOptions {
-  gameState: MultiPlayerGameState;
+  game: Game;
   urgeDelay?: number; // 催促延迟时间（毫秒），默认5秒
   checkInterval?: number; // 检查间隔（毫秒），默认1秒
 }
@@ -19,7 +19,7 @@ interface UseUrgePlayOptions {
  * 当人类玩家等待时间过长时，AI玩家会催促
  */
 export function useUrgePlay({ 
-  gameState, 
+  game, 
   urgeDelay = 5000, // 默认5秒
   checkInterval = 1000 // 默认1秒检查一次
 }: UseUrgePlayOptions): void {
@@ -29,7 +29,7 @@ export function useUrgePlay({
 
   useEffect(() => {
     // 只在游戏进行中时启用
-    if (gameState.status !== GameStatus.PLAYING) {
+    if (game.status !== GameStatus.PLAYING) {
       if (urgeTimerRef.current) {
         clearTimeout(urgeTimerRef.current);
         urgeTimerRef.current = null;
@@ -37,14 +37,14 @@ export function useUrgePlay({
       return;
     }
 
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const currentPlayer = game.players[game.currentPlayerIndex];
     if (!currentPlayer) return;
 
     // 如果当前玩家是人类玩家
     if (currentPlayer.type === PlayerType.HUMAN) {
       // 如果玩家切换了，重置计时器
-      if (lastPlayerIndexRef.current !== gameState.currentPlayerIndex) {
-        lastPlayerIndexRef.current = gameState.currentPlayerIndex;
+      if (lastPlayerIndexRef.current !== game.currentPlayerIndex) {
+        lastPlayerIndexRef.current = game.currentPlayerIndex;
         lastActionTimeRef.current = Date.now();
         
         // 清除之前的定时器
@@ -55,10 +55,10 @@ export function useUrgePlay({
         // 设置新的催促定时器
         urgeTimerRef.current = setTimeout(() => {
           // 检查是否还是同一个玩家在等待
-          if (gameState.currentPlayerIndex === lastPlayerIndexRef.current) {
+          if (game.currentPlayerIndex === lastPlayerIndexRef.current) {
             // 找到其他AI玩家，让他们催促
-            gameState.players.forEach((player, idx) => {
-              if (idx !== gameState.currentPlayerIndex && player.type === PlayerType.AI) {
+            game.players.forEach((player, idx) => {
+              if (idx !== game.currentPlayerIndex && player.type === PlayerType.AI) {
                 // 随机选择一些AI玩家催促（避免所有人同时催促）
                 if (Math.random() < 0.4) {
                   triggerUrgePlayReaction(player, currentPlayer).catch(console.error);
@@ -84,6 +84,6 @@ export function useUrgePlay({
         urgeTimerRef.current = null;
       }
     };
-  }, [gameState.status, gameState.currentPlayerIndex, gameState.players, urgeDelay]);
+  }, [game.status, game.currentPlayerIndex, game.players, urgeDelay]);
 }
 

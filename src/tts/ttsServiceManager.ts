@@ -114,6 +114,13 @@ export class TTSServiceManager {
     // 获取可用的提供者列表（按优先级排序）
     const availableProviders = this.getAvailableProviders();
 
+    console.log(`[TTSServiceManager] 可用提供者列表:`, availableProviders.map(p => ({
+      provider: p.provider,
+      priority: p.priority,
+      enabled: p.enabled,
+      healthy: this.healthStatus.get(p.provider)
+    })));
+
     if (availableProviders.length === 0) {
       throw new Error('没有可用的 TTS 提供者');
     }
@@ -126,20 +133,22 @@ export class TTSServiceManager {
       const client = this.providers.get(provider);
 
       if (!client) {
+        console.warn(`[TTSServiceManager] 提供者 ${provider} 的客户端不存在`);
         continue;
       }
 
       try {
-        console.log(`[TTSServiceManager] 使用提供者: ${provider}`);
+        console.log(`[TTSServiceManager] 尝试使用提供者: ${provider} (优先级: ${providerConfig.priority})`);
         const result = await client.synthesize(text, options);
         
         // 标记为健康
         this.healthStatus.set(provider, true);
+        console.log(`[TTSServiceManager] ✅ 提供者 ${provider} 成功生成音频`);
         
         return result;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(`[TTSServiceManager] 提供者 ${provider} 失败:`, lastError);
+        console.warn(`[TTSServiceManager] ❌ 提供者 ${provider} 失败:`, lastError.message);
         
         // 标记为不健康
         this.healthStatus.set(provider, false);
@@ -150,6 +159,7 @@ export class TTSServiceManager {
     }
 
     // 所有提供者都失败了
+    console.error(`[TTSServiceManager] ❌ 所有提供者都失败了，最后错误:`, lastError);
     throw lastError || new Error('所有 TTS 提供者都失败了');
   }
 
@@ -180,26 +190,41 @@ export class TTSServiceManager {
    * 获取可用的提供者列表
    */
   private getAvailableProviders(): TTSProviderConfig[] {
-    return this.providerConfigs.filter(config => {
+    const available = this.providerConfigs.filter(config => {
       // 检查是否启用
       if (!config.enabled) {
+        console.log(`[TTSServiceManager] 提供者 ${config.provider} 未启用`);
         return false;
       }
 
       // 检查健康状态（如果已知不健康，跳过）
       const isHealthy = this.healthStatus.get(config.provider);
       if (isHealthy === false) {
+        console.log(`[TTSServiceManager] 提供者 ${config.provider} 标记为不健康，跳过`);
         return false;
       }
 
       return true;
     });
+    
+    // 按优先级排序
+    available.sort((a, b) => a.priority - b.priority);
+    
+    return available;
   }
 
   /**
    * 检查提供者健康状态
    */
   async checkProviderHealth(provider: TTSProvider): Promise<boolean> {
+    // 只检查已启用的提供者
+    const config = this.providerConfigs.find(c => c.provider === provider);
+    if (!config || !config.enabled) {
+      // 未启用的提供者直接返回 false，不检查
+      this.healthStatus.set(provider, false);
+      return false;
+    }
+
     const client = this.providers.get(provider);
     if (!client) {
       return false;
@@ -212,7 +237,10 @@ export class TTSServiceManager {
         this.healthStatus.set(provider, isHealthy);
         return isHealthy;
       } catch (error) {
-        // 静默失败，不输出错误日志
+        // 静默失败，不输出错误日志（只对启用的提供者输出警告）
+        if (config.enabled) {
+          console.warn(`[TTSServiceManager] 提供者 ${provider} 健康检查失败（已禁用）`);
+        }
         this.healthStatus.set(provider, false);
         return false;
       }
@@ -224,7 +252,10 @@ export class TTSServiceManager {
       this.healthStatus.set(provider, true);
       return true;
     } catch (error) {
-      // 静默失败，不输出错误日志
+      // 静默失败，不输出错误日志（只对启用的提供者输出警告）
+      if (config.enabled) {
+        console.warn(`[TTSServiceManager] 提供者 ${provider} 测试合成失败（已禁用）`);
+      }
       this.healthStatus.set(provider, false);
       return false;
     }
@@ -232,10 +263,15 @@ export class TTSServiceManager {
 
   /**
    * 检查所有提供者健康状态
+   * 只检查已启用的提供者
    */
   async checkAllProvidersHealth(): Promise<void> {
-    const providers = Array.from(this.providers.keys());
-    const healthChecks = providers.map(provider => this.checkProviderHealth(provider));
+    // 只检查已启用的提供者
+    const enabledProviders = this.providerConfigs
+      .filter(config => config.enabled)
+      .map(config => config.provider);
+    
+    const healthChecks = enabledProviders.map(provider => this.checkProviderHealth(provider));
     await Promise.allSettled(healthChecks);
   }
 

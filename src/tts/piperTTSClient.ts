@@ -85,7 +85,9 @@ export class PiperTTSClient implements ITTSClient {
     voiceConfig?: VoiceConfig
   ): Promise<TTSResult> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    // 增加超时时间到 20 秒，避免短文本也超时
+    const timeout = Math.max(this.timeout, 20000);
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
       // Piper TTS API 端点
@@ -158,12 +160,16 @@ export class PiperTTSClient implements ITTSClient {
    */
   async checkHealth(): Promise<boolean> {
     try {
+      console.log(`[PiperTTSClient] 检查健康状态: ${this.baseUrl}/health`);
       const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(3000),
       });
-      return response.ok;
-    } catch {
+      const isOk = response.ok;
+      console.log(`[PiperTTSClient] 健康检查响应: ${response.status} ${response.statusText} (${isOk ? '✅' : '❌'})`);
+      return isOk;
+    } catch (error) {
+      console.warn(`[PiperTTSClient] 健康检查失败:`, error);
       return false;
     }
   }

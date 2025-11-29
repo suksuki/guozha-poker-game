@@ -5,17 +5,19 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { Card, GameStatus, Player } from '../types/card';
+import { Game } from '../utils/Game';
 
 export function usePlayerHand(
-  gameState: { status: GameStatus; currentPlayerIndex: number; players: Player[] }
+  game: Game
 ) {
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [expandedRanks, setExpandedRanks] = useState<Set<number>>(new Set());
 
   // 获取人类玩家
+  // 注意：依赖 game.players.length 和每个玩家的 hand.length，确保手牌变化时重新计算
   const humanPlayer = useMemo(() => {
-    return gameState.players.find(p => p.isHuman);
-  }, [gameState.players]);
+    return game.players.find(p => p.isHuman);
+  }, [game.players, game.players.length, game.players.map(p => p.hand.length).join(',')]);
 
   // 按数字分组手牌（用于叠放显示）
   const groupedHand = useMemo(() => {
@@ -37,8 +39,8 @@ export function usePlayerHand(
 
   // 处理卡片点击
   const handleCardClick = useCallback((card: Card) => {
-    if (gameState.status !== GameStatus.PLAYING) return;
-    if (!humanPlayer || gameState.currentPlayerIndex !== humanPlayer.id) return;
+    if (game.status !== GameStatus.PLAYING) return;
+    if (!humanPlayer || game.currentPlayerIndex !== humanPlayer.id) return;
 
     const index = selectedCards.findIndex(c => c.id === card.id);
     if (index >= 0) {
@@ -46,7 +48,7 @@ export function usePlayerHand(
     } else {
       setSelectedCards([...selectedCards, card]);
     }
-  }, [gameState.status, gameState.currentPlayerIndex, humanPlayer, selectedCards]);
+  }, [game.status, game.currentPlayerIndex, humanPlayer, selectedCards]);
 
   // 切换展开/收起
   const toggleExpand = useCallback((rank: number) => {

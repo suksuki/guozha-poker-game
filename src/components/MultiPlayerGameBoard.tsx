@@ -5,10 +5,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GameStatus, PlayerType } from '../types/card';
+import { GameStatus, PlayerType, Player } from '../types/card';
 import { useMultiPlayerGame } from '../hooks/useMultiPlayerGame';
 import { useGameConfigContext } from '../contexts/GameConfigContext';
-import { GameMode } from '../hooks/useGameConfig';
 import { useChatBubbles } from '../hooks/useChatBubbles';
 import { usePlayerHand } from '../hooks/usePlayerHand';
 import { useGameActions } from '../hooks/useGameActions';
@@ -32,6 +31,7 @@ import { CompactHandCards } from './game/CompactHandCards';
 import { IdeaGenerationToggle } from './game/IdeaGenerationToggle';
 import { CardTrackerPanel } from './game/CardTrackerPanel';
 import { CardValidationAlert } from './game/CardValidationAlert';
+import { getCurrentRoundNumber, getCurrentRoundPlays, getCurrentRoundScore, getLastPlay, getLastPlayPlayerIndex } from '../utils/gameStateUtils';
 import './MultiPlayerGameBoard.css';
 import './game/DealingAnimation.css'; // 导入AI玩家头像样式
 
@@ -41,11 +41,8 @@ export const MultiPlayerGameBoard: React.FC = () => {
   const [validationError, setValidationError] = useState<any>(null);
   
   const { 
-    gameState, 
+    game, 
     startGame, 
-    playerPlay, 
-    playerPass, 
-    suggestPlay, 
     resetGame,
     isDealing,
     pendingGameConfig,
@@ -56,11 +53,14 @@ export const MultiPlayerGameBoard: React.FC = () => {
   } = useMultiPlayerGame();
   
   // 当游戏重新开始时，重置显示排名状态
+  // 注意：游戏结束后不会自动跳转到排名界面，需要用户点击按钮
   useEffect(() => {
-    if (gameState.status !== GameStatus.FINISHED) {
+    if (game.status !== GameStatus.FINISHED) {
       setShowRankings(false);
     }
-  }, [gameState.status]);
+    // 游戏结束时，确保 showRankings 为 false（停留在游戏界面）
+    // 只有当用户点击"查看排名"按钮时，才会设置为 true
+  }, [game.status]);
 
   // 监听卡牌验证错误事件
   useEffect(() => {
@@ -116,28 +116,25 @@ export const MultiPlayerGameBoard: React.FC = () => {
     enableDucking: true,
     preloadCommon: true,
   });
-  const chatBubbles = useChatBubbles(gameState, gameAudio);
-  const playerHand = usePlayerHand(gameState);
+  const chatBubbles = useChatBubbles(game, gameAudio);
+  const playerHand = usePlayerHand(game);
   
   // 配置角色声线（当游戏开始时）
   useEffect(() => {
-    if (gameState.status === GameStatus.PLAYING && gameState.players.length > 0) {
-      gameAudio.setupSpeakers(gameState.players);
+    if (game.status === GameStatus.PLAYING && game.players.length > 0) {
+      gameAudio.setupSpeakers(game.players);
     }
-  }, [gameState.status, gameState.players, gameAudio]);
+  }, [game.status, game.players, gameAudio]);
   
   // 催促出牌检测（当人类玩家等待时间过长时，AI会催促）
-  useUrgePlay({ gameState, urgeDelay: 5000 }); // 5秒后催促
+  useUrgePlay({ game, urgeDelay: 5000 }); // 5秒后催促
   const gameActions = useGameActions({
-    gameState,
+    game,
     humanPlayer: playerHand.humanPlayer,
     selectedCards: playerHand.selectedCards,
     clearSelectedCards: playerHand.clearSelectedCards,
     strategy: gameConfig.strategy,
-    algorithm: gameConfig.algorithm,
-    playerPlay,
-    playerPass,
-    suggestPlay
+    algorithm: gameConfig.algorithm
   });
 
   // 处理AI建议后设置选中的牌
@@ -150,15 +147,19 @@ export const MultiPlayerGameBoard: React.FC = () => {
 
   // 发牌动画状态
   if (isDealing && pendingGameConfig) {
-    const playersWithoutHands = Array(pendingGameConfig.playerCount).fill(null).map((_, index) => ({
-      id: index,
-      name: index === pendingGameConfig.humanPlayerIndex ? '你' : `玩家${index + 1}`,
-      type: index === pendingGameConfig.humanPlayerIndex ? PlayerType.HUMAN : PlayerType.AI,
-      isHuman: index === pendingGameConfig.humanPlayerIndex,
-      score: -100, // 初始分数为-100（每个人基本分100，所以初始扣除100）
-      aiConfig: index === pendingGameConfig.humanPlayerIndex ? undefined : pendingGameConfig.aiConfigs[index],
-      voiceConfig: {} as any
-    }));
+    const playersWithoutHands = Array(pendingGameConfig.playerCount).fill(null).map((_, index) => {
+      const isHuman = index === pendingGameConfig.humanPlayerIndex;
+      const aiConfig = isHuman ? undefined : (pendingGameConfig.aiConfigs[index] || { apiKey: '' });
+      return {
+        id: index,
+        name: isHuman ? '你' : `玩家${index + 1}`,
+        type: isHuman ? PlayerType.HUMAN : PlayerType.AI,
+        isHuman,
+        score: -100, // 初始分数为-100（每个人基本分100，所以初始扣除100）
+        aiConfig,
+        voiceConfig: {} as any
+      };
+    }) as Omit<Player, 'hand'>[];
 
     return (
       <DealingAnimation
@@ -179,7 +180,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
   }
 
   // 等待状态：显示配置面板
-  if (gameState.status === GameStatus.WAITING) {
+  if (game.status === GameStatus.WAITING) {
     // 训练模式：显示训练配置面板或训练运行器
     if (gameConfig.mode === 'training') {
       console.log('MultiPlayerGameBoard: 训练模式, isTraining:', gameConfig.isTraining);
@@ -224,6 +225,10 @@ export const MultiPlayerGameBoard: React.FC = () => {
         llmModel={gameConfig.llmModel}
         llmApiUrl={gameConfig.llmApiUrl}
         ideaGenerationEnabled={gameConfig.ideaGenerationEnabled}
+        cardTrackerEnabled={gameConfig.cardTrackerEnabled}
+        cardTrackerPanelVisible={gameConfig.cardTrackerPanelVisible}
+        playTimeout={gameConfig.playTimeout}
+        announcementDelay={gameConfig.announcementDelay}
         onPlayerCountChange={gameConfig.setPlayerCount}
         onHumanPlayerIndexChange={gameConfig.setHumanPlayerIndex}
         onStrategyChange={gameConfig.setStrategy}
@@ -233,6 +238,10 @@ export const MultiPlayerGameBoard: React.FC = () => {
         onLlmModelChange={gameConfig.setLlmModel}
         onLlmApiUrlChange={gameConfig.setLlmApiUrl}
         onIdeaGenerationEnabledChange={gameConfig.setIdeaGenerationEnabled}
+        onCardTrackerEnabledChange={gameConfig.setCardTrackerEnabled}
+        onCardTrackerPanelVisibleChange={gameConfig.setCardTrackerPanelVisible}
+        onPlayTimeoutChange={gameConfig.setPlayTimeout}
+        onAnnouncementDelayChange={gameConfig.setAnnouncementDelay}
         onStartGame={() => gameConfig.handleStartGame(startGame)}
         onStartTraining={() => gameConfig.setMode('training')}
       />
@@ -240,16 +249,16 @@ export const MultiPlayerGameBoard: React.FC = () => {
   }
 
   // 结束状态：根据 showRankings 决定显示排名界面还是游戏界面
-  if (gameState.status === GameStatus.FINISHED) {
-    const winner = gameState.players[gameState.winner!];
+  if (game.status === GameStatus.FINISHED) {
+    const winner = game.players[game.winner!];
     
     // 如果用户点击了查看排名按钮，显示排名界面
     if (showRankings) {
       return (
         <GameResultScreen
           winner={winner}
-          rankings={gameState.finalRankings || []}
-          gameRecord={gameState.gameRecord}
+          rankings={game.finalRankings || []}
+          gameRecord={game.gameRecord}
           onReset={resetGame}
           onBackToGame={() => setShowRankings(false)}
         />
@@ -261,14 +270,15 @@ export const MultiPlayerGameBoard: React.FC = () => {
   }
 
   // 错误状态：显示错误屏幕
-  if (gameState.status === GameStatus.PLAYING && gameState.players.length === 0) {
+  if (game.status === GameStatus.PLAYING && game.players.length === 0) {
     return <ErrorScreen onReset={resetGame} />;
   }
 
   // 游戏进行中状态
   const humanPlayer = playerHand.humanPlayer;
-  const lastPlayPlayerName = gameState.lastPlayPlayerIndex !== null 
-    ? gameState.players[gameState.lastPlayPlayerIndex]?.name 
+  const lastPlayPlayerIndex = getLastPlayPlayerIndex(game);
+  const lastPlayPlayerName = lastPlayPlayerIndex !== null 
+    ? game.players[lastPlayPlayerIndex]?.name 
     : undefined;
 
   return (
@@ -283,7 +293,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
       <AnimationContainer />
 
       {/* 想法生成开关 - 游戏进行中显示 */}
-      {gameState.status === GameStatus.PLAYING && (
+      {game.status === GameStatus.PLAYING && (
         <IdeaGenerationToggle
           enabled={gameConfig.ideaGenerationEnabled}
           onChange={gameConfig.setIdeaGenerationEnabled}
@@ -302,18 +312,19 @@ export const MultiPlayerGameBoard: React.FC = () => {
       <div className="top-area">
         {/* AI玩家区域 */}
         <AIPlayersArea
-          players={gameState.players}
-          currentPlayerIndex={gameState.currentPlayerIndex}
-          lastPlayPlayerIndex={gameState.lastPlayPlayerIndex}
+          players={game.players}
+          currentPlayerIndex={game.currentPlayerIndex}
+          lastPlayPlayerIndex={lastPlayPlayerIndex}
+          playerCount={game.playerCount}
         />
 
         {/* 当前轮次出牌记录 - 放在AI玩家面板下面，横向排列 */}
-        {gameState.status === GameStatus.PLAYING && (
+        {game.status === GameStatus.PLAYING && (
           <div className="round-plays-horizontal-container">
             <RoundPlaysPanel
-              roundNumber={gameState.roundNumber}
-              roundPlays={gameState.currentRoundPlays || []}
-              roundScore={gameState.roundScore}
+              roundNumber={getCurrentRoundNumber(game)}
+              roundPlays={getCurrentRoundPlays(game)}
+              roundScore={getCurrentRoundScore(game)}
             />
           </div>
         )}
@@ -321,20 +332,20 @@ export const MultiPlayerGameBoard: React.FC = () => {
         {/* 出牌区域 - 放在最上层，避免被遮挡 */}
         <div style={{ position: 'relative', zIndex: 2000 }}>
           <PlayArea
-            lastPlay={gameState.lastPlay}
+            lastPlay={getLastPlay(game)}
             lastPlayPlayerName={lastPlayPlayerName}
-            roundScore={gameState.roundScore}
+            roundScore={getCurrentRoundScore(game)}
           />
         </div>
 
         {/* 操作按钮区域 */}
-        {humanPlayer && gameState.status === GameStatus.PLAYING && (
+        {humanPlayer && game.status === GameStatus.PLAYING && (
           <ActionButtons
             isPlayerTurn={gameActions.isPlayerTurn}
             canPass={gameActions.canPass}
             selectedCardsCount={playerHand.selectedCards.length}
             isSuggesting={gameActions.isSuggesting}
-            lastPlay={gameState.lastPlay}
+            lastPlay={getLastPlay(game)}
             isAutoPlay={isAutoPlay}
             onSuggest={handleSuggestPlay}
             onPlay={gameActions.handlePlay}
@@ -343,8 +354,8 @@ export const MultiPlayerGameBoard: React.FC = () => {
           />
         )}
         
-        {/* 游戏结束后的查看排名按钮 */}
-        {gameState.status === GameStatus.FINISHED && !showRankings && (
+        {/* 游戏结束后的查看排名按钮 - 停留在游戏界面，点击按钮才进入分数牌 */}
+        {game.status === GameStatus.FINISHED && !showRankings && (
           <div className="game-finished-actions" style={{ 
             display: 'flex', 
             flexDirection: 'column', 
@@ -354,7 +365,8 @@ export const MultiPlayerGameBoard: React.FC = () => {
             background: 'rgba(255, 255, 255, 0.1)',
             borderRadius: '15px',
             backdropFilter: 'blur(10px)',
-            marginTop: '20px'
+            marginTop: '20px',
+            zIndex: 1000
           }}>
             <div style={{ 
               color: 'white', 
@@ -370,7 +382,9 @@ export const MultiPlayerGameBoard: React.FC = () => {
               style={{
                 padding: '15px 30px',
                 fontSize: '18px',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
               }}
             >
               {t('game:result.viewRankings')}
@@ -380,14 +394,14 @@ export const MultiPlayerGameBoard: React.FC = () => {
       </div>
 
       {/* 记牌器面板 */}
-      {gameState.status === GameStatus.PLAYING && (
+      {game.status === GameStatus.PLAYING && gameConfig.cardTrackerPanelVisible && (
         <CardTrackerPanel
-          players={gameState.players}
-          currentRoundNumber={gameState.roundNumber}
-          gameStatus={gameState.status}
-          currentRoundPlays={gameState.currentRoundPlays || []}
-          currentRoundScore={gameState.roundScore}
-          allRoundsFromGameState={gameState.allRounds}
+          players={game.players}
+          currentRoundNumber={getCurrentRoundNumber(game)}
+          gameStatus={game.status}
+          currentRoundPlays={getCurrentRoundPlays(game)}
+          currentRoundScore={getCurrentRoundScore(game)}
+          allRoundsFromGameState={game.rounds.map(r => r.toRecord())}
         />
       )}
 
@@ -396,14 +410,15 @@ export const MultiPlayerGameBoard: React.FC = () => {
         {!humanPlayer ? (
           <div className="no-human-player">
             <p>未找到人类玩家数据</p>
-            <p>游戏状态: {gameState.status}</p>
-            <p>玩家数量: {gameState.players.length}</p>
+            <p>游戏状态: {game.status}</p>
+            <p>玩家数量: {game.players.length}</p>
           </div>
         ) : (
           <>
             <PlayerInfo
               player={humanPlayer}
               isPlayerTurn={gameActions.isPlayerTurn}
+              playerCount={game.playerCount}
             />
             <CompactHandCards
               groupedHand={playerHand.groupedHand}

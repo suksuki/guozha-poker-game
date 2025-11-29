@@ -121,7 +121,9 @@ export const TTSStatusMonitor: React.FC = () => {
 
         <div className="tts-status-monitor-content">
           <div className="status-list">
-            {Object.entries(status).map(([provider, state]) => (
+            {Object.entries(status)
+              .filter(([provider]) => provider === 'piper')  // 只显示 Piper TTS
+              .map(([provider, state]) => (
               <div key={provider} className="status-item">
                 <div className="status-item-header">
                   <span className="status-icon">

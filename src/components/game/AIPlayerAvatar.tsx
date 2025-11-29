@@ -15,6 +15,7 @@ export interface AIPlayerAvatarProps {
   isCurrent?: boolean; // 是否是当前玩家（打牌时使用）
   isLastPlay?: boolean; // 是否是最后出牌的玩家（打牌时使用）
   showPosition?: boolean; // 是否显示位置信息（发牌时true，打牌时false）
+  playerCount?: number; // 玩家总数（用于判断最后一名）
 }
 
 export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarProps>(({
@@ -23,26 +24,32 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
   position,
   isCurrent = false,
   isLastPlay = false,
-  showPosition = false
+  showPosition = false,
+  playerCount
 }, ref) => {
   const { t } = useTranslation(['ui']);
   const actualHandCount = handCount !== undefined ? handCount : (player.hand?.length || 0);
   const playerScore = player.score || 0;
   const playerRank = player.finishedRank ?? null;
-  const dunCount = player.wonRounds?.length || 0; // 墩数 = 赢得的轮次数
+  const dunCount = player.dunCount || 0; // 玩家出的墩数（7张及以上）
   
   // 根据玩家ID选择emoji
   const emojis = ['🤖', '👾', '🤖', '👽', '🤖', '👻', '🤖', '🦾'];
   const avatarEmoji = emojis[player.id % 8];
   
-  // 奖杯图标：第一名金色🏆，第二名银色🥈
+  // 奖杯图标：第一名金色🏆，第二名银色🥈，最后一名灰色🏆（使用不同样式）
   const getTrophyIcon = () => {
     if (playerRank === 1) return '🏆'; // 第一名金色奖杯
     if (playerRank === 2) return '🥈'; // 第二名银色奖杯
+    // 判断是否是最后一名：如果有 playerCount 且 finishedRank === playerCount，或者是最后一名
+    if (playerRank !== null && playerCount && playerRank === playerCount) {
+      return '🏆'; // 最后一名灰色奖杯（通过CSS样式控制颜色）
+    }
     return null;
   };
   
   const trophyIcon = getTrophyIcon();
+  const isLastPlace = playerRank !== null && playerCount && playerRank === playerCount;
   
   // 计算样式
   const containerStyle: React.CSSProperties = showPosition && position
@@ -77,8 +84,12 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
         {playerRank !== null && (
           <div className="status-item rank-item">
             <span className="status-label">{t('ui:aiPlayer.rankLabel')}</span>
-            <span className={`status-value rank-badge rank-${playerRank}`}>
-              {trophyIcon && <span className="trophy-icon">{trophyIcon}</span>}
+            <span className={`status-value rank-badge rank-${playerRank} ${isLastPlace ? 'last-place' : ''}`}>
+              {trophyIcon && (
+                <span className={`trophy-icon ${isLastPlace ? 'trophy-gray' : playerRank === 1 ? 'trophy-gold' : playerRank === 2 ? 'trophy-silver' : ''}`}>
+                  {trophyIcon}
+                </span>
+              )}
               {(() => {
                 // 根据语言格式化名次显示
                 const lang = i18n.language || 'zh-CN';

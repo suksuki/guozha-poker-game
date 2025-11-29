@@ -45,53 +45,64 @@ export const CardTrackerPanel: React.FC<CardTrackerPanelProps> = ({
 
   // 合并所有轮次（记牌器中的 + 游戏状态中的 + 当前轮次的实时数据）
   const allRounds = useMemo(() => {
-    // 先复制所有已记录的轮次
-    const rounds = allRoundsFromTracker.map(round => ({ ...round }));
+    // 使用 Map 按轮次号去重，优先使用记牌器中的数据
+    const roundsMap = new Map<number, DetailedRoundRecord>();
     
-    // 如果记牌器中的轮次少于游戏状态中的轮次，从游戏状态补充
-    if (allRoundsFromGameState.length > rounds.length) {
-      console.log('[CardTrackerPanel] 记牌器轮次数少于游戏状态，从游戏状态补充');
-      allRoundsFromGameState.forEach(gameRound => {
-        const existingRound = rounds.find(r => r.roundNumber === gameRound.roundNumber);
-        if (!existingRound) {
-          // 如果记牌器中没有这个轮次，从游戏状态创建
-          const totalCardsPlayed = gameRound.plays?.reduce((sum: number, p: any) => sum + (p.cards?.length || 0), 0) || 0;
-          const scoreCardsPlayed = gameRound.plays?.reduce((sum: number, p: any) => sum + (p.scoreCards?.length || 0), 0) || 0;
-          const dunCount = gameRound.plays?.reduce((sum: number, p: any) => {
-            const count = p.cards?.length || 0;
-            return sum + (count >= 7 ? Math.pow(2, count - 7) : 0);
-          }, 0) || 0;
-          
-          rounds.push({
-            roundNumber: gameRound.roundNumber,
-            plays: gameRound.plays || [],
-            totalScore: gameRound.totalScore || 0,
-            winnerId: gameRound.winnerId || 0,
-            winnerName: gameRound.winnerName || '',
-            startTime: Date.now() - 60000, // 估算开始时间
-            endTime: gameRound.roundNumber < currentRoundNumber ? Date.now() - 30000 : undefined,
-            totalCardsPlayed,
-            scoreCardsPlayed,
-            dunCount
-          } as DetailedRoundRecord);
-        }
-      });
-    }
+    // 1. 先添加记牌器中的所有轮次（优先级最高）
+    allRoundsFromTracker.forEach(round => {
+      roundsMap.set(round.roundNumber, { ...round });
+    });
     
-    // 如果是当前轮次且还在进行中，合并实时出牌数据
-    const currentRoundIndex = rounds.findIndex(r => r.roundNumber === currentRoundNumber && !r.endTime);
-    if (currentRoundIndex >= 0) {
-      const round = rounds[currentRoundIndex];
+    // 2. 从游戏状态补充缺失的轮次（只添加记牌器中没有的）
+    allRoundsFromGameState.forEach(gameRound => {
+      if (!roundsMap.has(gameRound.roundNumber)) {
+        // 如果记牌器中没有这个轮次，从游戏状态创建
+        const totalCardsPlayed = gameRound.plays?.reduce((sum: number, p: any) => sum + (p.cards?.length || 0), 0) || 0;
+        const scoreCardsPlayed = gameRound.plays?.reduce((sum: number, p: any) => sum + (p.scoreCards?.length || 0), 0) || 0;
+        const dunCount = gameRound.plays?.reduce((sum: number, p: any) => {
+          const count = p.cards?.length || 0;
+          return sum + (count >= 7 ? Math.pow(2, count - 7) : 0);
+        }, 0) || 0;
+        
+        // 确保 playerName 正确设置
+        const playsWithNames = (gameRound.plays || []).map((p: any) => ({
+          ...p,
+          playerName: p.playerName || players.find(pl => pl.id === p.playerId)?.name || `玩家${p.playerId + 1}`
+        }));
+        
+        roundsMap.set(gameRound.roundNumber, {
+          roundNumber: gameRound.roundNumber,
+          plays: playsWithNames,
+          totalScore: gameRound.totalScore || 0,
+          winnerId: gameRound.winnerId || 0,
+          winnerName: gameRound.winnerName || players.find(p => p.id === gameRound.winnerId)?.name || '',
+          startTime: Date.now() - 60000, // 估算开始时间
+          endTime: gameRound.roundNumber < currentRoundNumber ? Date.now() - 30000 : undefined,
+          totalCardsPlayed,
+          scoreCardsPlayed,
+          dunCount
+        } as DetailedRoundRecord);
+      }
+    });
+    
+    // 3. 如果是当前轮次且还在进行中，合并实时出牌数据
+    const currentRound = roundsMap.get(currentRoundNumber);
+    if (currentRound && !currentRound.endTime) {
       // 合并记牌器中的记录和实时出牌，避免重复
       const trackerPlayIds = new Set(
-        round.plays.map(p => `${p.playerId}_${p.cards?.[0]?.id || ''}_${p.cards?.length || 0}`)
+        currentRound.plays.map(p => `${p.playerId}_${p.cards?.[0]?.id || ''}_${p.cards?.length || 0}`)
       );
-      const newPlays = currentRoundPlays.filter(p => {
-        const playId = `${p.playerId}_${p.cards?.[0]?.id || ''}_${p.cards?.length || 0}`;
-        return !trackerPlayIds.has(playId);
-      });
+      const newPlays = currentRoundPlays
+        .filter(p => {
+          const playId = `${p.playerId}_${p.cards?.[0]?.id || ''}_${p.cards?.length || 0}`;
+          return !trackerPlayIds.has(playId);
+        })
+        .map(p => ({
+          ...p,
+          playerName: p.playerName || players.find(pl => pl.id === p.playerId)?.name || `玩家${p.playerId + 1}`
+        }));
       
-      const allPlays = [...round.plays, ...newPlays];
+      const allPlays = [...currentRound.plays, ...newPlays];
       const totalCardsPlayed = allPlays.reduce((sum, p) => sum + (p.cards?.length || 0), 0);
       const scoreCardsPlayed = allPlays.reduce((sum, p) => sum + (p.scoreCards?.length || 0), 0);
       const dunCount = allPlays.reduce((sum, p) => {
@@ -99,15 +110,15 @@ export const CardTrackerPanel: React.FC<CardTrackerPanelProps> = ({
         return sum + (count >= 7 ? Math.pow(2, count - 7) : 0);
       }, 0);
       
-      rounds[currentRoundIndex] = {
-        ...round,
+      roundsMap.set(currentRoundNumber, {
+        ...currentRound,
         plays: allPlays,
         totalScore: currentRoundScore,
         totalCardsPlayed,
         scoreCardsPlayed,
         dunCount
-      };
-    } else if (gameStatus === 'playing' && !rounds.find(r => r.roundNumber === currentRoundNumber)) {
+      });
+    } else if (gameStatus === 'playing' && !roundsMap.has(currentRoundNumber)) {
       // 如果记牌器中没有当前轮次，但游戏正在进行，创建一个临时记录
       if (currentRoundPlays.length > 0 || currentRoundNumber > 0) {
         const totalCardsPlayed = currentRoundPlays.reduce((sum, p) => sum + (p.cards?.length || 0), 0);
@@ -117,9 +128,15 @@ export const CardTrackerPanel: React.FC<CardTrackerPanelProps> = ({
           return sum + (count >= 7 ? Math.pow(2, count - 7) : 0);
         }, 0);
         
-        rounds.push({
+        // 确保 playerName 正确设置
+        const playsWithNames = currentRoundPlays.map(p => ({
+          ...p,
+          playerName: p.playerName || players.find(pl => pl.id === p.playerId)?.name || `玩家${p.playerId + 1}`
+        }));
+        
+        roundsMap.set(currentRoundNumber, {
           roundNumber: currentRoundNumber,
-          plays: currentRoundPlays,
+          plays: playsWithNames,
           totalScore: currentRoundScore,
           winnerId: 0,
           winnerName: '',
@@ -131,15 +148,16 @@ export const CardTrackerPanel: React.FC<CardTrackerPanelProps> = ({
       }
     }
 
-    // 按轮次号倒序排序（最新的轮次在最上面）
-    const sortedRounds = rounds.sort((a, b) => b.roundNumber - a.roundNumber);
+    // 转换为数组并按轮次号倒序排序（最新的轮次在最上面）
+    const sortedRounds = Array.from(roundsMap.values()).sort((a, b) => b.roundNumber - a.roundNumber);
     console.log('[CardTrackerPanel] 合并后的所有轮次（倒序）:', sortedRounds.map(r => ({
       roundNumber: r.roundNumber,
       playsCount: r.plays.length,
-      endTime: r.endTime ? '已结束' : '进行中'
+      endTime: r.endTime ? '已结束' : '进行中',
+      winnerName: r.winnerName || '未知'
     })));
     return sortedRounds;
-  }, [allRoundsFromTracker, allRoundsFromGameState, currentRoundNumber, currentRoundPlays, currentRoundScore, gameStatus]);
+  }, [allRoundsFromTracker, allRoundsFromGameState, currentRoundNumber, currentRoundPlays, currentRoundScore, gameStatus, players]);
 
   // 获取已出的牌（从所有轮次汇总）
   // 需要从所有历史轮次（allRoundsFromGameState）和当前轮次汇总

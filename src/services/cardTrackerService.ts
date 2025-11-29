@@ -167,8 +167,34 @@ class CardTracker {
       dunCount: 0
     };
 
+    // 检查是否已存在该轮次
+    const existingRound = this.rounds.find(r => r.roundNumber === roundNumber);
+    if (existingRound) {
+      console.warn(`[CardTracker] ⚠️ 第${roundNumber}轮已存在，将被覆盖`, {
+        roundNumber,
+        existingRoundPlaysCount: existingRound.plays?.length || 0,
+        existingRoundTotalScore: existingRound.totalScore,
+        totalRounds: this.rounds.length,
+        allRoundsNumbers: this.rounds.map(r => r.roundNumber).sort((a, b) => a - b),
+        timestamp: Date.now()
+      });
+      // 移除已存在的轮次
+      this.rounds = this.rounds.filter(r => r.roundNumber !== roundNumber);
+    }
+    
     this.rounds.push(roundRecord);
-    console.log(`[CardTracker] 第${roundNumber}轮开始，当前总轮数: ${this.rounds.length}`);
+    const stackTrace = new Error().stack?.split('\n').slice(2, 8).join('\n') || 'unknown';
+    console.warn(`[CardTracker] ⚠️ 第${roundNumber}轮开始`, {
+      roundNumber,
+      totalRounds: this.rounds.length,
+      playersCount: players.length,
+      players: players.map(p => ({ id: p.id, name: p.name, handCount: p.hand.length })),
+      startTime: this.currentRoundStartTime,
+      allRoundsNumbers: this.rounds.map(r => r.roundNumber).sort((a, b) => a - b),
+      wasExisting: !!existingRound,
+      stackTrace: stackTrace.substring(0, 300),
+      timestamp: Date.now()
+    });
   }
 
   /**
@@ -177,7 +203,14 @@ class CardTracker {
   recordPlay(roundNumber: number, playRecord: RoundPlayRecord): void {
     const round = this.rounds.find(r => r.roundNumber === roundNumber);
     if (!round) {
-      console.warn(`[CardTracker] 找不到第${roundNumber}轮的记录`);
+      console.warn(`[CardTracker] ⚠️ 找不到第${roundNumber}轮的记录`, {
+        roundNumber,
+        playerId: playRecord.playerId,
+        playerName: playRecord.playerName || '未知',
+        cardsCount: playRecord.cards?.length || 0,
+        allRoundsNumbers: this.rounds.map(r => r.roundNumber).sort((a, b) => a - b),
+        timestamp: Date.now()
+      });
       return;
     }
 
@@ -187,6 +220,20 @@ class CardTracker {
 
     // 计算墩数（7张及以上）
     round.dunCount += calculateDunCount(playRecord.cards.length);
+    
+    console.log(`[CardTracker] ✓ 记录出牌`, {
+      roundNumber,
+      playerId: playRecord.playerId,
+      playerName: playRecord.playerName || '未知',
+      cardsCount: playRecord.cards.length,
+      score: playRecord.score,
+      scoreCardsCount: playRecord.scoreCards?.length || 0,
+      totalPlays: round.plays.length,
+      totalCardsPlayed: round.totalCardsPlayed,
+      totalScore: round.totalScore,
+      dunCount: round.dunCount,
+      timestamp: Date.now()
+    });
 
     // 记录所有分牌信息到日志（用于问题分析）
     if (playRecord.scoreCards && playRecord.scoreCards.length > 0) {
@@ -219,7 +266,14 @@ class CardTracker {
   ): void {
     const round = this.rounds.find(r => r.roundNumber === roundNumber);
     if (!round) {
-      console.warn(`[CardTracker] 找不到第${roundNumber}轮的记录`);
+      console.warn(`[CardTracker] ⚠️ 找不到第${roundNumber}轮的记录`, {
+        roundNumber,
+        winnerId,
+        winnerName: winnerName || '未知',
+        totalScore,
+        allRoundsNumbers: this.rounds.map(r => r.roundNumber).sort((a, b) => a - b),
+        timestamp: Date.now()
+      });
       return;
     }
 
@@ -227,6 +281,23 @@ class CardTracker {
     round.winnerId = winnerId;
     round.winnerName = winnerName;
     round.totalScore = totalScore;
+    
+    console.warn(`[CardTracker] ⚠️ 第${roundNumber}轮结束`, {
+      roundNumber,
+      winnerId,
+      winnerName: winnerName || '未知',
+      totalScore,
+      playsCount: round.plays.length,
+      totalCardsPlayed: round.totalCardsPlayed,
+      scoreCardsPlayed: round.scoreCardsPlayed,
+      dunCount: round.dunCount,
+      startTime: round.startTime,
+      endTime: round.endTime,
+      duration: round.endTime - round.startTime,
+      allRoundsCount: this.rounds.length,
+      allRoundsNumbers: this.rounds.map(r => r.roundNumber).sort((a, b) => a - b),
+      timestamp: Date.now()
+    });
 
     // 记录轮次结束时各玩家手牌
     const handsAtEnd: PlayerHandSnapshot[] = players.map(player => ({

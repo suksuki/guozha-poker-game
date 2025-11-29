@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, Play, GameStatus, PlayerType } from '../types/card';
-import { createDeck, shuffleDeck, dealCards, canPlayCards, canBeat } from '../utils/cardUtils';
+import { dealCards, canPlayCards, canBeat } from '../utils/cardUtils';
 import { aiChoosePlay, AIConfig } from '../utils/aiPlayer';
 
 export interface GameState {
@@ -30,71 +30,7 @@ export function useGame() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // 开始新游戏
-  const startGame = useCallback((aiConfig: AIConfig) => {
-    const deck = shuffleDeck(createDeck());
-    const { playerCards, aiCards } = dealCards(deck);
-
-    setGameState({
-      status: GameStatus.PLAYING,
-      playerHand: playerCards,
-      aiHand: aiCards,
-      currentPlayer: PlayerType.HUMAN, // 玩家先出
-      lastPlay: null,
-      winner: null,
-      aiConfig
-    });
-  }, []);
-
-  // 玩家出牌
-  const playerPlay = useCallback((selectedCards: Card[]) => {
-    setGameState(prev => {
-      if (prev.status !== GameStatus.PLAYING) return prev;
-      if (prev.currentPlayer !== PlayerType.HUMAN) return prev;
-
-      const play = canPlayCards(selectedCards);
-      if (!play) return prev;
-
-      if (prev.lastPlay && !canBeat(play, prev.lastPlay)) {
-        return prev; // 不能压过上家的牌
-      }
-
-      // 更新游戏状态
-      const newPlayerHand = prev.playerHand.filter(
-        card => !selectedCards.some(c => c.id === card.id)
-      );
-
-      // 检查是否获胜
-      if (newPlayerHand.length === 0) {
-        return {
-          ...prev,
-          status: GameStatus.FINISHED,
-          winner: PlayerType.HUMAN,
-          playerHand: newPlayerHand,
-          lastPlay: play
-        };
-      }
-
-      // 轮到AI
-      const newState = {
-        ...prev,
-        playerHand: newPlayerHand,
-        currentPlayer: PlayerType.AI,
-        lastPlay: play
-      };
-
-      // AI自动出牌
-      setTimeout(() => {
-        aiPlay();
-      }, 1000);
-
-      return newState;
-    });
-
-    return true;
-  }, [aiPlay]);
-
-  // AI出牌
+  // AI出牌（先定义，避免在 playerPlay 中使用时未定义）
   const aiPlay = useCallback(async () => {
     const currentState = gameStateRef.current;
     if (currentState.status !== GameStatus.PLAYING) return;
@@ -155,6 +91,73 @@ export function useGame() {
       }));
     }
   }, []);
+
+  // 开始新游戏
+  const startGame = useCallback((aiConfig: AIConfig) => {
+    // dealCards 现在只接受 playerCount，返回 Card[][]
+    // 对于2人游戏，返回 [playerCards, aiCards]
+    const hands = dealCards(2);
+    const playerCards = hands[0] || [];
+    const aiCards = hands[1] || [];
+
+    setGameState({
+      status: GameStatus.PLAYING,
+      playerHand: playerCards,
+      aiHand: aiCards,
+      currentPlayer: PlayerType.HUMAN, // 玩家先出
+      lastPlay: null,
+      winner: null,
+      aiConfig
+    });
+  }, []);
+
+  // 玩家出牌
+  const playerPlay = useCallback((selectedCards: Card[]) => {
+    setGameState(prev => {
+      if (prev.status !== GameStatus.PLAYING) return prev;
+      if (prev.currentPlayer !== PlayerType.HUMAN) return prev;
+
+      const play = canPlayCards(selectedCards);
+      if (!play) return prev;
+
+      if (prev.lastPlay && !canBeat(play, prev.lastPlay)) {
+        return prev; // 不能压过上家的牌
+      }
+
+      // 更新游戏状态
+      const newPlayerHand = prev.playerHand.filter(
+        card => !selectedCards.some(c => c.id === card.id)
+      );
+
+      // 检查是否获胜
+      if (newPlayerHand.length === 0) {
+        return {
+          ...prev,
+          status: GameStatus.FINISHED,
+          winner: PlayerType.HUMAN,
+          playerHand: newPlayerHand,
+          lastPlay: play
+        };
+      }
+
+      // 轮到AI
+      const newState = {
+        ...prev,
+        playerHand: newPlayerHand,
+        currentPlayer: PlayerType.AI,
+        lastPlay: play
+      };
+
+      // AI自动出牌
+      setTimeout(() => {
+        aiPlay();
+      }, 1000);
+
+      return newState;
+    });
+
+    return true;
+  }, [aiPlay]);
 
   // 玩家要不起
   const playerPass = useCallback(() => {

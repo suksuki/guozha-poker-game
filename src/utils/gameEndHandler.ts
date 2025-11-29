@@ -1,18 +1,25 @@
 /**
- * 游戏结束处理工具函数
- * 统一处理游戏结束时的逻辑，包括：
+ * 游戏结束处理工具函数（旧版兼容模块）
+ * 
+ * ⚠️ 注意：此模块已被新流程废弃
+ * 新流程统一使用：checkGameFinished + GameController.calculateFinalScoresAndRankings
+ * 
+ * 此模块保留仅用于：
+ * - 旧版代码兼容
+ * - 参考实现（如需了解旧版结束逻辑）
+ * 
+ * 原功能包括：
  * 1. 保存当前轮次记录
  * 2. 处理末游玩家的剩余手牌和分数
- * 3. 创建模拟轮
- * 4. 清空所有玩家手牌
- * 5. 验证牌数完整性
+ * 3. 验证牌数完整性（保留玩家手牌，不清空）
  */
 
 import { Player, RoundRecord, RoundPlayRecord, Card } from '../types/card';
 import { isScoreCard, calculateCardsScore } from './cardUtils';
-import { validateAllRoundsOnUpdate } from '../services/scoringService';
+import { validateAllRoundsOnUpdate, validateScoreIntegrity } from '../services/scoringService';
 import { applyFinalGameRules } from './gameRules';
 import { GameStatus } from '../types/card';
+import { Round } from './Round';
 
 export interface GameEndParams {
   prevState: {
@@ -37,7 +44,8 @@ export interface GameEndResult {
   winner: number;
   finishOrder: number[];
   finalRankings: any[];
-  allRounds: RoundRecord[];
+  rounds: Round[];  // 所有轮次的 Round 对象数组
+  currentRoundIndex: number;  // 当前轮次索引（游戏结束时指向最后一个轮次）
 }
 
 /**
@@ -163,6 +171,9 @@ export function handleGameEnd(params: GameEndParams): GameEndResult {
   }
 
   // 3. 计算最后一名手中的分牌分数
+  // ⚠️ 注意：这个逻辑现在由 GameController.handleLastPlayerRemainingScore 统一处理
+  // 新流程（checkGameFinished + GameController.calculateFinalScoresAndRankings）不会调用 handleGameEnd
+  // 这里的代码保留仅用于旧版兼容，新流程中不会执行到这里
   // 分牌规则：5=5分，10=10分，K=10分（8不是分牌，不计分）
   // 例如：末游手上有一个10，一个K，两个8，那么这20分（10+10）应该给第二名
   const lastPlayerScoreCards = lastPlayer.hand.filter(card => isScoreCard(card));
@@ -233,63 +244,14 @@ export function handleGameEnd(params: GameEndParams): GameEndResult {
     expectedDifference: 0
   });
 
-  // 6. 创建模拟轮（如果末游有剩余手牌）
-  if (lastPlayer.hand.length > 0) {
-    const lastPlayerRemainingCards = [...lastPlayer.hand]; // 复制数组，避免引用问题
-    const lastPlayerScoreCards = lastPlayerRemainingCards.filter(card => isScoreCard(card));
-    
-    // 找到第二名（用于模拟轮的winnerId）
-    const secondPlayerIndex = newFinishOrder.length >= 2 ? newFinishOrder[1] : newFinishOrder[0];
-    const secondPlayer = newPlayers[secondPlayerIndex];
-    
-    const lastPlayerRoundRecord: RoundRecord = {
-      roundNumber: prevState.roundNumber + 1,
-      plays: [{
-        playerId: lastPlayerIndex,
-        playerName: lastPlayer.name,
-        cards: lastPlayerRemainingCards, // 确保所有牌都被记录
-        scoreCards: lastPlayerScoreCards,
-        score: lastPlayerRemainingScore
-      }],
-      totalScore: 0, // 模拟轮没有分数（分数已经在前面处理过了）
-      winnerId: secondPlayerIndex, // 这轮的 winner 是第二名（分数给第二名）
-      winnerName: secondPlayer?.name || `玩家${secondPlayerIndex + 1}`
-    };
-    
-    updatedAllRounds = [...updatedAllRounds, lastPlayerRoundRecord];
-    
-    console.log(`[GameEnd] ${context} - 创建模拟轮（最后一轮）:`, {
-      roundNumber: prevState.roundNumber + 1,
-      lastPlayerId: lastPlayerIndex,
-      lastPlayerName: lastPlayer.name,
-      cardsCount: lastPlayerRemainingCards.length,
-      cardsDetail: lastPlayerRemainingCards.map(c => `${c.suit}-${c.rank}`).slice(0, 10), // 显示前10张
-      scoreCardsCount: lastPlayerScoreCards.length,
-      score: lastPlayerRemainingScore,
-      winnerId: secondPlayerIndex,
-      winnerName: secondPlayer?.name,
-      roundRecordPlaysCount: lastPlayerRoundRecord.plays.length,
-      roundRecordCardsCount: lastPlayerRoundRecord.plays.reduce((sum, p) => sum + (p.cards?.length || 0), 0)
-    });
-  } else {
-    console.log(`[GameEnd] ${context} - 最后一名玩家没有剩余手牌，不需要创建模拟轮`);
-  }
-
-  // 7. 清空所有玩家的手牌（模拟轮后，所有牌都已经记录到 allRounds 中了）
-  newPlayers = newPlayers.map(player => ({
-    ...player,
-    hand: []
-  }));
-  
-  console.log(`[GameEnd] ${context} - 模拟轮后，清空所有玩家的手牌`);
-
-  // 8. 验证牌数完整性（现在所有玩家的手牌都已经是空的了，这是真正的统计点）
+  // 6. 验证牌数完整性（保留所有玩家的手牌，不清空）
+  // 这样验证时能够正确统计所有牌：allRounds中的牌 + 玩家手牌 = 初始总牌数
   validateAllRoundsOnUpdate(
     newPlayers,
     updatedAllRounds,
     [], // 游戏结束，currentRoundPlays 已保存到 allRounds
     prevState.initialHands,
-    `${context} - 模拟轮后统计`
+    `${context} - 游戏结束统计`
   );
 
   // 9. 应用最终规则并结束游戏
@@ -301,15 +263,32 @@ export function handleGameEnd(params: GameEndParams): GameEndResult {
 
   const { players: finalPlayers, rankings: finalRankings } = applyFinalGameRules(newPlayers, newFinishOrder);
 
-  // 验证应用最终规则后的分数总和
-  const totalScoreAfterFinalRules = finalPlayers.reduce((sum, p) => sum + (p.score || 0), 0);
-  console.log(`[GameEnd] ${context} - 应用最终规则后的分数总和: ${totalScoreAfterFinalRules}`, {
-    players: finalPlayers.map(p => ({ id: p.id, name: p.name, score: p.score || 0 })),
-    rankings: finalRankings.map(r => ({ id: r.player.id, name: r.player.name, finalScore: r.finalScore, rank: r.rank }))
-  });
+  // 验证应用最终规则后的分数总和（使用独立的分数验证函数）
+  validateScoreIntegrity(
+    finalPlayers,
+    prevState.initialHands,
+    `${context} - 应用最终规则后`
+  );
 
   // 10. 找到第一名（分数最高的）
   const winner = finalRankings.sort((a, b) => b.finalScore - a.finalScore)[0];
+
+  // 11. 将 RoundRecord[] 转换为 Round[]，适配新的状态结构
+  const rounds: Round[] = updatedAllRounds.map((record, index) => {
+    // 使用 Round.fromRecord 从记录恢复 Round 对象
+    // 对于已结束的轮次，startTime 可以设置为一个估算值（基于轮次号）
+    const estimatedStartTime = Date.now() - (updatedAllRounds.length - index) * 60000; // 假设每轮1分钟
+    return Round.fromRecord(record, estimatedStartTime);
+  });
+
+  // 游戏结束时，currentRoundIndex 指向最后一个轮次
+  const currentRoundIndex = rounds.length > 0 ? rounds.length - 1 : -1;
+
+  console.log(`[GameEnd] ${context} - 转换为新的状态结构:`, {
+    roundsCount: rounds.length,
+    currentRoundIndex,
+    lastRoundNumber: rounds.length > 0 ? rounds[rounds.length - 1].roundNumber : null
+  });
 
   return {
     status: GameStatus.FINISHED,
@@ -317,7 +296,8 @@ export function handleGameEnd(params: GameEndParams): GameEndResult {
     winner: winner.player.id,
     finishOrder: newFinishOrder,
     finalRankings,
-    allRounds: updatedAllRounds
+    rounds,  // 返回 Round[] 而不是 RoundRecord[]
+    currentRoundIndex  // 添加当前轮次索引
   };
 }
 

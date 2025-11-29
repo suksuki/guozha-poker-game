@@ -37,6 +37,12 @@ class SystemAnnouncementService {
     onStart?: () => void
   ): Promise<void> {
     const text = playToSpeechText(play);
+    console.log('[SystemAnnouncement] announcePlay 被调用', {
+      playType: play.type,
+      text,
+      hasVoiceConfig: !!voiceConfig,
+      cardsCount: play.cards?.length || 0
+    });
     const now = Date.now();
     
     // 去重检查1：如果最近刚播放过相同文本，跳过（防止 React StrictMode 导致的重复调用）
