@@ -25,11 +25,13 @@ describe('聊天和语音系统回归测试', () => {
     vi.clearAllMocks();
 
     // 设置 i18n 为中文，确保 playToSpeechText 返回中文
-    if (!i18n.isInitialized) {
+    if (i18n && typeof i18n.isInitialized !== 'undefined' && !i18n.isInitialized) {
       await i18n.init();
     }
-    await i18n.changeLanguage('zh-CN');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    if (i18n && i18n.changeLanguage) {
+      await i18n.changeLanguage('zh-CN');
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
   });
 
   describe('语音功能回归', () => {

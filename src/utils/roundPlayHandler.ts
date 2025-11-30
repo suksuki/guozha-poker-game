@@ -4,7 +4,7 @@
  */
 
 import { Round, PlayProcessResult } from './Round';
-import { Card, Play, RoundPlayRecord, Player } from '../types/card';
+import { Card, RoundPlayRecord, Player } from '../types/card';
 import { canPlayCards, calculateCardsScore, isScoreCard } from './cardUtils';
 import { announcePlay, announcePass } from '../services/systemAnnouncementService';
 import { voiceService } from '../services/voiceService';

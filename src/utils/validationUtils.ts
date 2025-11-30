@@ -3,7 +3,7 @@
  * 统一处理游戏状态验证逻辑
  */
 
-import { Player, MultiPlayerGameState, RoundRecord, Card } from '../types/card';
+import { Player, RoundRecord, Card } from '../types/card';
 import { validateCardIntegrity, validateAllRoundsOnUpdate, CardValidationResult } from '../services/scoringService';
 
 /**

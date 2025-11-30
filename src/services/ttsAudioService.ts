@@ -17,7 +17,7 @@ import { getTTSServiceManager } from '../tts/ttsServiceManager';
 import { TTSOptions, TTSLanguage } from '../tts/ttsClient';
 import { DIALECT_LANG_MAP } from '../config/voiceConfig';
 import { detectLanguage } from '../utils/languageDetection';
-import i18n from '../i18n';
+import { i18n } from '../i18n';
 
 interface ChannelConfig {
   pan: number;  // 声像位置 (-1 到 1)
@@ -209,7 +209,7 @@ class TTSAudioService {
     return new Promise(async (resolve, reject) => {
       try {
         // 生成音频（只使用TTS API服务）
-        const audioBuffer = await this.generateAudio(text, voiceConfig);
+        const audioBuffer = await this.generateAudio(text, voiceConfig, channel);
         
         if (!audioBuffer) {
           // 生成失败，直接失败（不使用speechSynthesis）
@@ -267,18 +267,42 @@ class TTSAudioService {
    */
   private async generateAudio(
     text: string,
-    voiceConfig?: VoiceConfig
+    voiceConfig?: VoiceConfig,
+    channel?: ChannelType
   ): Promise<AudioBuffer | null> {
     if (!this.audioContext) {
       return null;
     }
 
-    // 检查缓存（如果启用）
+    // 根据场景选择TTS提供者（先确定提供者，用于缓存键）
+    let selectedProvider: TTSProvider | 'auto' = this.config.ttsProvider || 'auto';
+    
+    if (selectedProvider === 'auto' || !selectedProvider) {
+      // 从 localStorage 读取场景配置
+      const announcementProvider = typeof window !== 'undefined' 
+        ? (localStorage.getItem('tts_provider_announcement') as TTSProvider | null)
+        : null;
+      const chatProvider = typeof window !== 'undefined'
+        ? (localStorage.getItem('tts_provider_chat') as TTSProvider | null)
+        : null;
+      
+      // 根据声道类型选择提供者
+      if (channel === ChannelType.ANNOUNCEMENT) {
+        selectedProvider = announcementProvider || 'azure';
+        console.log(`[TTSAudioService] 📢 报牌场景，使用TTS提供者: ${selectedProvider} (channel: ${channel})`);
+      } else {
+        // 聊天场景（PLAYER_0 到 PLAYER_7）
+        selectedProvider = chatProvider || 'piper';
+        console.log(`[TTSAudioService] 💬 聊天场景，使用TTS提供者: ${selectedProvider} (channel: ${channel})`);
+      }
+    }
+
+    // 检查缓存（如果启用）- 缓存键需要包含 channel 和 provider 信息
     if (this.config.enableAudioCache !== false) {
-      const cacheKey = this.getCacheKey(text, voiceConfig);
+      const cacheKey = this.getCacheKey(text, voiceConfig, channel, selectedProvider as TTSProvider);
       const cached = this.audioCache.get(cacheKey);
       if (cached) {
-        console.log(`[TTSAudioService] 使用缓存音频: ${text.substring(0, 20)}...`);
+        console.log(`[TTSAudioService] ✅ 使用缓存音频: ${text.substring(0, 20)}... (provider: ${selectedProvider}, channel: ${channel})`);
         return cached;
       }
     }
@@ -301,30 +325,35 @@ class TTSAudioService {
         useCache: true
       };
 
+      // selectedProvider 已经在上面确定了（用于缓存键）
+      
       // 使用TTS服务管理器生成音频
-      console.log(`[TTSAudioService] 开始生成音频: "${text.substring(0, 30)}..." (lang: ${ttsOptions.lang})`);
+      const channelName = channel === ChannelType.ANNOUNCEMENT ? '📢报牌' : '💬聊天';
+      console.log(`[TTSAudioService] 🎯 ${channelName}场景 - 开始生成音频: "${text.substring(0, 30)}..." (lang: ${ttsOptions.lang}, provider: ${selectedProvider}, channel: ${channel})`);
       let result;
-      if (this.config.ttsProvider && this.config.ttsProvider !== 'auto') {
+      if (selectedProvider && selectedProvider !== 'auto') {
         // 使用指定的TTS服务商
-        console.log(`[TTSAudioService] 使用指定TTS服务商: ${this.config.ttsProvider}`);
+        console.log(`[TTSAudioService] ✅ ${channelName}场景 - 使用指定TTS服务商: ${selectedProvider}`);
         result = await this.ttsManager.synthesizeWithProvider(
-          this.config.ttsProvider as any,
+          selectedProvider as any,
           text,
           ttsOptions
         );
+        console.log(`[TTSAudioService] ✅ ${channelName}场景 - TTS服务返回音频: ${(result.audioBuffer.byteLength / 1024).toFixed(2)} KB (provider: ${selectedProvider})`);
       } else {
         // 自动选择最佳TTS服务商
-        console.log(`[TTSAudioService] 自动选择最佳TTS服务商`);
+        console.log(`[TTSAudioService] ⚠️ ${channelName}场景 - 自动选择最佳TTS服务商（未指定provider）`);
         result = await this.ttsManager.synthesize(text, ttsOptions);
+        console.log(`[TTSAudioService] ✅ ${channelName}场景 - TTS服务返回音频: ${(result.audioBuffer.byteLength / 1024).toFixed(2)} KB (auto-selected)`);
       }
       console.log(`[TTSAudioService] TTS服务返回音频: ${(result.audioBuffer.byteLength / 1024).toFixed(2)} KB`);
       
       // 解码音频数据
       const audioBuffer = await this.audioContext.decodeAudioData(result.audioBuffer);
       
-      // 缓存音频（如果启用）
+      // 缓存音频（如果启用）- 使用包含 channel 和 provider 的缓存键
       if (this.config.enableAudioCache !== false) {
-        const cacheKey = this.getCacheKey(text, voiceConfig);
+        const cacheKey = this.getCacheKey(text, voiceConfig, channel, selectedProvider as TTSProvider);
         // 检查缓存大小限制
         if (this.audioCache.size >= (this.config.cacheSize || 100)) {
           // 删除最旧的缓存（FIFO）
@@ -334,6 +363,7 @@ class TTSAudioService {
           }
         }
         this.audioCache.set(cacheKey, audioBuffer);
+        console.log(`[TTSAudioService] 💾 已缓存音频: ${text.substring(0, 20)}... (provider: ${selectedProvider}, channel: ${channel})`);
       }
       
       console.log(`[TTSAudioService] TTS服务音频生成成功: ${text.substring(0, 20)}... (${audioBuffer.duration.toFixed(2)}s)`);
@@ -346,13 +376,16 @@ class TTSAudioService {
 
   /**
    * 生成缓存键
+   * 注意：缓存键需要包含 channel 信息，因为不同场景可能使用不同的 TTS 提供者
    */
-  private getCacheKey(text: string, voiceConfig?: VoiceConfig): string {
+  private getCacheKey(text: string, voiceConfig?: VoiceConfig, channel?: ChannelType, provider?: TTSProvider): string {
     const lang = voiceConfig?.lang || 'zh-CN';
     const dialect = voiceConfig?.dialect || '';
     const rate = voiceConfig?.rate || 1.0;
     const pitch = voiceConfig?.pitch || 1.0;
-    return `${text}|${lang}|${dialect}|${rate}|${pitch}`;
+    const channelStr = channel !== undefined ? `|channel:${channel}` : '';
+    const providerStr = provider ? `|provider:${provider}` : '';
+    return `${text}|${lang}|${dialect}|${rate}|${pitch}${channelStr}${providerStr}`;
   }
 
 
@@ -384,18 +417,36 @@ class TTSAudioService {
    * 添加到播放队列
    * 
    * 多声道并发控制策略：
-   * 1. 报牌（ANNOUNCEMENT）：独占声道，优先级最高，可以中断所有非报牌播放
-   * 2. 玩家聊天（PLAYER_0-PLAYER_7）：每个玩家声道独立，可以同时播放
+   * 1. 报牌（ANNOUNCEMENT）：使用独立专用通道，与玩家聊天通道完全隔离，可以同时播放
+   * 2. 玩家聊天（PLAYER_0-PLAYER_3）：每个玩家声道独立，可以同时播放
    * 3. 每个声道维护独立队列，不共享并发数限制
+   * 4. 报牌和聊天使用不同通道，互不干扰，可以同时播放
    */
   private addToQueue(item: PlayItem): void {
-    // 报牌优先级最高，使用独立的 ANNOUNCEMENT 声道，可以中断其他播放
+    // 报牌使用独立的 ANNOUNCEMENT 声道，与玩家聊天通道完全隔离
+    // 报牌和聊天可以同时播放，不需要中断聊天
     if (item.channel === ChannelType.ANNOUNCEMENT && item.priority === 4) {
-      console.log(`[TTSAudioService] 🎯 报牌请求：中断所有非报牌播放，立即播放报牌`);
-      // 中断所有非报牌播放（聊天等）
-      this.interruptNonAnnouncement();
-      // 立即播放报牌（不检查声道是否忙碌，报牌声道独立）
-      this.playAudio(item);
+      console.log(`[TTSAudioService] 🎯 报牌请求：使用独立报牌通道，与聊天通道隔离`);
+      // 检查报牌通道是否正在播放
+      const isAnnouncementBusy = this.activeSources.has(ChannelType.ANNOUNCEMENT);
+      if (!isAnnouncementBusy) {
+        // 报牌通道空闲，立即播放
+        this.playAudio(item);
+      } else {
+        // 报牌通道正在播放，加入队列（或替换当前播放，根据需求）
+        // 这里选择替换当前播放（后一个报牌替换前一个）
+        const currentSource = this.activeSources.get(ChannelType.ANNOUNCEMENT);
+        if (currentSource) {
+          try {
+            currentSource.stop();
+          } catch (e) {
+            // 忽略已停止的错误
+          }
+          this.activeSources.delete(ChannelType.ANNOUNCEMENT);
+          this.currentConcurrentCount--;
+        }
+        this.playAudio(item);
+      }
       return;
     }
 
@@ -449,11 +500,17 @@ class TTSAudioService {
       }
     }
 
-    // 如果该声道正在播放，先停止
-    // 注意：报牌声道（ANNOUNCEMENT）是独立的，不会被聊天占用
+    // 注意：不同声道可以同时播放（多声道支持）
+    // 只有同一声道的新播放才会停止该声道的旧播放
+    // 报牌声道（ANNOUNCEMENT）是独立的，不会被聊天占用
     if (this.activeSources.has(item.channel)) {
-      console.log(`[TTSAudioService] 声道 ${CHANNEL_CONFIGS[item.channel].name} 正在播放，先停止`);
+      // 同一声道正在播放，停止它（让新播放开始）
+      // 但不同声道可以同时播放，不会互相影响
+      console.log(`[TTSAudioService] 声道 ${CHANNEL_CONFIGS[item.channel].name} 正在播放，停止旧播放（新播放将开始）`);
       this.stopChannel(item.channel);
+    } else {
+      // 声道空闲，可以立即播放（与其他声道并行）
+      console.log(`[TTSAudioService] 声道 ${CHANNEL_CONFIGS[item.channel].name} 空闲，可以与其他声道并行播放`);
     }
 
     try {
@@ -553,7 +610,9 @@ class TTSAudioService {
         // 这里不再调用，避免重复调用
         // 如果需要在播放真正开始时做其他事情，可以在这里添加
 
-        console.log(`[TTSAudioService] ✅ 音频开始播放: ${CHANNEL_CONFIGS[item.channel].name} - "${item.text.substring(0, 20)}..." (并发数: ${this.currentConcurrentCount}, 时长: ${item.audioBuffer.duration.toFixed(2)}s)`);
+        // 显示当前所有正在播放的声道
+        const activeChannels = Array.from(this.activeSources.keys()).map(ch => CHANNEL_CONFIGS[ch].name).join(', ');
+        console.log(`[TTSAudioService] ✅ 音频开始播放: ${CHANNEL_CONFIGS[item.channel].name} - "${item.text.substring(0, 20)}..." (并发数: ${this.currentConcurrentCount}, 时长: ${item.audioBuffer.duration.toFixed(2)}s, 正在播放的声道: [${activeChannels}])`);
       } catch (error) {
         console.error(`[TTSAudioService] ❌ 播放失败:`, error);
         this.currentConcurrentCount--;
@@ -581,6 +640,12 @@ class TTSAudioService {
     const fadeTime = 0.05; // 50ms 淡入淡出时间
 
     this.channelGains.forEach((gain, channel) => {
+      // 检查 setTargetAtTime 方法是否可用（测试环境可能没有）
+      if (!gain.gain.setTargetAtTime) {
+        console.warn('[TTSAudioService] setTargetAtTime 不可用，跳过音量调整');
+        return;
+      }
+
       if (channel !== activeChannel) {
         const targetVolume = this.duckingConfig.otherLevel;
         const currentVolume = gain.gain.value;
@@ -609,6 +674,12 @@ class TTSAudioService {
     const fadeTime = 0.05; // 50ms 淡入淡出时间
 
     this.channelGains.forEach((gain, channel) => {
+      // 检查 setTargetAtTime 方法是否可用（测试环境可能没有）
+      if (!gain.gain.setTargetAtTime) {
+        console.warn('[TTSAudioService] setTargetAtTime 不可用，跳过音量恢复');
+        return;
+      }
+
       const baseVolume = CHANNEL_CONFIGS[channel].volume;
       gain.gain.setTargetAtTime(baseVolume, now, fadeTime);
     });

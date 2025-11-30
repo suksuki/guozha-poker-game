@@ -8,11 +8,9 @@ TTS（Text-to-Speech）系统提供了完整的语音合成功能，支持多种
 
 ### 1. 多种 TTS 后端支持
 
-- **BrowserTTSClient**: 浏览器原生 TTS（speechSynthesis）
-- **LocalTTSAPIClient**: 本地 TTS API 客户端
-- **EdgeTTSClient**: Edge TTS 客户端（在线）
-- **GPTSoVITSClient**: GPT-SoVITS 客户端（本地，支持声音克隆）
-- **CoquiTTSClient**: Coqui TTS 客户端（本地，多语言）
+- **AzureSpeechTTSClient**: Azure Speech Service 客户端（云端，高质量，支持多语言）
+- **PiperTTSClient**: Piper TTS 客户端（本地，轻量级）
+- **BrowserTTSClient**: 浏览器原生 TTS（speechSynthesis，后备）
 
 ### 2. 持久化音频缓存
 
@@ -108,24 +106,21 @@ ttsManager.configureProvider('gpt_sovits', {
 });
 ```
 
-### 配置 Coqui TTS
+### 配置 Piper TTS
 
 ```typescript
-import { CoquiTTSClient, getTTSServiceManager } from './tts';
+import { PiperTTSClient, getTTSServiceManager } from './tts';
 
-// 创建 Coqui TTS 客户端
-const coquiClient = new CoquiTTSClient({
-  baseUrl: 'http://localhost:5002',
-  modelName: 'tts_models/zh-CN/baker/tacotron2-DDC-GST',
-  speakerId: 'speaker_0',
-  language: 'zh',
+// 创建 Piper TTS 客户端
+const piperClient = new PiperTTSClient({
+  baseUrl: 'http://localhost:5000',
 });
 
 // 注册到服务管理器
 const ttsManager = getTTSServiceManager();
-ttsManager.configureProvider('coqui', {
-  provider: 'coqui',
-  priority: 2,
+ttsManager.configureProvider('piper', {
+  provider: 'piper',
+  priority: 3,
   enabled: true,
 });
 ```
@@ -190,14 +185,8 @@ ttsManager.configureProvider('gpt_sovits', {
   enabled: true,
 });
 
-ttsManager.configureProvider('coqui', {
-  provider: 'coqui',
-  priority: 2,
-  enabled: true,
-});
-
-ttsManager.configureProvider('edge', {
-  provider: 'edge',
+ttsManager.configureProvider('piper', {
+  provider: 'piper',
   priority: 3,
   enabled: true,
 });
@@ -252,12 +241,11 @@ const result = await synthesizeSpeech('我跟一手', {
 - **topP**: Top-P 采样（默认: 1.0）
 - **temperature**: 温度参数（默认: 1.0）
 
-### Coqui TTS 配置
+### Piper TTS 配置
 
-- **baseUrl**: Coqui TTS 服务地址（默认: `http://localhost:5002`）
-- **modelName**: 模型名称（默认: `tts_models/zh-CN/baker/tacotron2-DDC-GST`）
-- **speakerId**: 说话人 ID（用于多说话人模型）
-- **language**: 语言代码
+- **baseUrl**: Piper TTS 服务地址（默认: `http://localhost:5000`）
+- **timeout**: 请求超时时间（默认: 10000ms）
+- **retryCount**: 重试次数（默认: 2）
 
 ### 音频缓存配置
 
@@ -281,10 +269,10 @@ const result = await synthesizeSpeech('我跟一手', {
 2. 检查端口是否正确
 3. 检查 CORS 设置
 
-### Coqui TTS 连接失败
+### Piper TTS 连接失败
 
-1. 检查服务是否运行: `curl http://localhost:5002/api/tts`
-2. 检查模型是否已加载
+1. 检查服务是否运行: `curl http://localhost:5000/api/tts`
+2. 检查模型是否已下载
 3. 检查 API 端点是否正确
 
 ### 缓存问题
@@ -303,6 +291,6 @@ const result = await synthesizeSpeech('我跟一手', {
 ## 相关文档
 
 - [GPT-SoVITS 文档](https://github.com/RVC-Boss/GPT-SoVITS)
-- [Coqui TTS 文档](https://github.com/coqui-ai/TTS)
+- [Piper TTS 文档](https://github.com/rhasspy/piper)
 - [Web Audio API 文档](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
 

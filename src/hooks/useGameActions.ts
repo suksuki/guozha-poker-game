@@ -5,12 +5,11 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, GameStatus, Player } from '../types/card';
-import { Play } from '../types/card';
+import { Card, Player } from '../types/card';
 import { hasPlayableCards } from '../utils/cardUtils';
-import { AIConfig, aiChoosePlay } from '../utils/aiPlayer';
+import { aiChoosePlay } from '../utils/aiPlayer';
 import { Game } from '../utils/Game';
-import { getLastPlay, getLastPlayPlayerIndex } from '../utils/gameStateUtils';
+import { getLastPlay } from '../utils/gameStateUtils';
 
 interface GameActionsParams {
   game: Game;

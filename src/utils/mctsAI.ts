@@ -1,5 +1,5 @@
 import { Card, Play, Rank } from '../types/card';
-import { canPlayCards, canBeat, findPlayableCards, createDeck, shuffleDeck, dealCards, isScoreCard, calculateCardsScore, getCardScore } from './cardUtils';
+import { canPlayCards, canBeat, findPlayableCards, isScoreCard, calculateCardsScore } from './cardUtils';
 
 // MCTS节点
 interface MCTSNode {
@@ -41,6 +41,56 @@ interface SimulatedGameState {
   perfectInformation: boolean; // 是否使用完全信息
 }
 
+// ========== 辅助函数 ==========
+
+/**
+ * 统计手牌中每种点数的数量
+ */
+function countRankGroups(hand: Card[]): Map<number, number> {
+  const groups = new Map<number, number>();
+  hand.forEach(card => {
+    const rank = card.rank;
+    groups.set(rank, (groups.get(rank) || 0) + 1);
+  });
+  return groups;
+}
+
+/**
+ * 计算手牌中的分牌信息
+ */
+function calculateScoreCardInfo(hand: Card[]): {
+  scoreCards: Card[];
+  score: number;
+} {
+  const scoreCards = hand.filter(card => isScoreCard(card));
+  return {
+    scoreCards,
+    score: calculateCardsScore(scoreCards)
+  };
+}
+
+/**
+ * 生成所有牌（用于估计对手手牌）
+ */
+function generateAllCards(): Card[] {
+  const allCards: Card[] = [];
+  const suits = ['spades', 'hearts', 'diamonds', 'clubs', 'joker'];
+  const ranks = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+  
+  suits.forEach(suit => {
+    ranks.forEach(rank => {
+      if ((suit === 'joker' && (rank === 16 || rank === 17)) ||
+          (suit !== 'joker' && rank !== 16 && rank !== 17)) {
+        allCards.push({ suit: suit as any, rank: rank as Rank, id: `${suit}-${rank}-gen` });
+      }
+    });
+  });
+  
+  return allCards;
+}
+
+// ========== UCT算法 ==========
+
 // UCT值计算（Upper Confidence Bound for Trees）
 function uctValue(node: MCTSNode, explorationConstant: number): number {
   if (node.visits === 0) {
@@ -61,30 +111,25 @@ function selectBestChild(node: MCTSNode, explorationConstant: number): MCTSNode 
     return node;
   }
   
-  // 如果当前是AI的回合，选择UCT值最高的（AI想赢）
-  // 如果是对手的回合，选择UCT值最低的（对手想赢）
   let bestChild = node.children[0];
   let bestValue = uctValue(node.children[0], explorationConstant);
   
   for (const child of node.children) {
     const value = uctValue(child, explorationConstant);
-    if (node.playerToMove === 'ai') {
-      // AI回合：选择UCT值最高的
-      if (value > bestValue) {
-        bestValue = value;
-        bestChild = child;
-      }
-    } else {
-      // 对手回合：选择UCT值最低的（从AI角度看，对手会选择对AI最不利的）
-      if (value < bestValue) {
-        bestValue = value;
-        bestChild = child;
-      }
+    const isBetter = node.playerToMove === 'ai' 
+      ? value > bestValue  // AI回合：选择UCT值最高的
+      : value < bestValue; // 对手回合：选择UCT值最低的
+    
+    if (isBetter) {
+      bestValue = value;
+      bestChild = child;
     }
   }
   
   return bestChild;
 }
+
+// ========== 节点扩展 ==========
 
 // 扩展节点：添加新的子节点
 function expandNode(node: MCTSNode, allCards: Card[]): MCTSNode | null {
@@ -111,9 +156,6 @@ function expandNode(node: MCTSNode, allCards: Card[]): MCTSNode | null {
     return null; // 不能压过
   }
   
-  // 检查是否获胜
-  const isWinner = newHand.length === 0;
-  
   // 创建新节点
   const newNode: MCTSNode = {
     hand: newHand,
@@ -136,36 +178,25 @@ function generateActions(hand: Card[], lastPlay: Play | null): Card[][] {
   return findPlayableCards(hand, lastPlay);
 }
 
-// 评估动作质量（考虑分牌策略和组合牌型）
-function evaluateActionQuality(
-  action: Card[], 
-  hand: Card[], 
+// ========== 动作质量评估 ==========
+
+/**
+ * 评估牌型策略（是否拆散组合牌型）
+ */
+function evaluateCardTypeStrategy(
+  action: Card[],
+  hand: Card[],
   lastPlay: Play | null,
-  opponentHands: Card[][] = [], // 对手手牌（完全信息模式）
-  currentRoundScore: number = 0, // 当前轮次累计分数
-  perfectInformation: boolean = false // 是否使用完全信息
+  play: Play
 ): number {
-  if (!action || action.length === 0) return -1000;
-  
-  const play = canPlayCards(action);
-  if (!play) return -1000;
-  
   let score = 0;
-  
-  // 统计手牌中每种点数的数量
-  const handRankGroups = new Map<number, number>();
-  hand.forEach(card => {
-    const rank = card.rank;
-    handRankGroups.set(rank, (handRankGroups.get(rank) || 0) + 1);
-  });
-  
+  const handRankGroups = countRankGroups(hand);
   const actionRank = action[0].rank;
   const originalCount = handRankGroups.get(actionRank) || 0;
   const remainingCount = originalCount - action.length;
   
   // 如果没有上家出牌（首发），优先保持组合牌型
   if (!lastPlay) {
-    // 优先出完整的组合牌型（三张、对子），而不是拆散
     if (originalCount === 3 && play.type === 'triple') {
       score += 50; // 出完整三张，加分
     } else if (originalCount === 3 && play.type === 'single') {
@@ -196,19 +227,29 @@ function evaluateActionQuality(
   // 加分项：优先出牌数多的动作
   score += play.type === 'triple' ? 20 : play.type === 'pair' ? 10 : 0;
   
-  // 分牌策略评估（核心策略：保护自己的分牌，引诱对方出分牌）
-  const actionScoreCards = action.filter(card => isScoreCard(card));
-  const actionScore = calculateCardsScore(actionScoreCards);
+  return score;
+}
+
+/**
+ * 评估分牌策略
+ */
+function evaluateScoreCardStrategy(
+  action: Card[],
+  hand: Card[],
+  lastPlay: Play | null,
+  play: Play,
+  currentRoundScore: number
+): number {
+  let score = 0;
+  const actionInfo = calculateScoreCardInfo(action);
   const remainingHand = hand.filter(card => !action.some(c => c.id === card.id));
-  const remainingScoreCards = remainingHand.filter(card => isScoreCard(card));
-  const remainingScore = calculateCardsScore(remainingScoreCards);
+  const remainingInfo = calculateScoreCardInfo(remainingHand);
   
-  // 1. 评估是否保护自己的分牌
-  if (actionScoreCards.length > 0) {
+  // 评估是否保护自己的分牌
+  if (actionInfo.scoreCards.length > 0) {
     // 如果出牌中包含分牌，需要评估是否能拿到分
     if (!lastPlay) {
       // 首发出牌时，如果出分牌，需要确保后面能拿回来
-      // 如果自己还有足够大的牌，可能能拿回来，加分
       const hasBigCards = remainingHand.some(card => {
         const testPlay = canPlayCards([card]);
         return testPlay && testPlay.value >= 10; // 有大牌能压
@@ -220,7 +261,6 @@ function evaluateActionQuality(
       }
     } else {
       // 有上家出牌时，出分牌需要确保自己能拿回来
-      // 如果这轮已经有分，自己能拿到，加分
       if (currentRoundScore > 0 && play.value > lastPlay.value) {
         score += 40; // 能拿到分，出分牌是值得的
       } else {
@@ -229,38 +269,89 @@ function evaluateActionQuality(
     }
   } else {
     // 出牌中没有分牌，这是好的（保护分牌）
-    if (remainingScore > 0) {
+    if (remainingInfo.score > 0) {
       score += 20; // 保护了自己的分牌，加分
     }
   }
   
-  // 2. 在完全信息模式下，引诱对方出分牌
-  if (perfectInformation && opponentHands.length > 0) {
-    // 计算对手手牌中的分牌
-    let opponentTotalScore = 0;
-    opponentHands.forEach(oppHand => {
-      const oppScoreCards = oppHand.filter(card => isScoreCard(card));
-      opponentTotalScore += calculateCardsScore(oppScoreCards);
-    });
-    
-    // 如果对手有很多分牌，引诱他们出分牌是好的
-    if (opponentTotalScore > 20 && !lastPlay) {
-      // 没有上家出牌，可以考虑用小牌引诱对手出分牌
-      if (play.value <= 8 && actionScoreCards.length === 0) {
-        score += 25; // 用小牌引诱对手出分牌
-      }
-    }
-    
-    // 如果对手手上有分牌，自己能压过，优先出能压过的牌
-    if (lastPlay && currentRoundScore > 0) {
-      // 这轮有分，如果能压过，加分
-      if (canBeat(play, lastPlay)) {
-        score += 35; // 能拿到分，优先出
-      }
+  return score;
+}
+
+/**
+ * 评估完全信息模式策略
+ */
+function evaluatePerfectInformationStrategy(
+  action: Card[],
+  hand: Card[],
+  lastPlay: Play | null,
+  play: Play,
+  opponentHands: Card[][],
+  currentRoundScore: number
+): number {
+  let score = 0;
+  
+  if (opponentHands.length === 0) {
+    return score;
+  }
+  
+  // 计算对手手牌中的分牌
+  let opponentTotalScore = 0;
+  opponentHands.forEach(oppHand => {
+    const oppInfo = calculateScoreCardInfo(oppHand);
+    opponentTotalScore += oppInfo.score;
+  });
+  
+  // 如果对手有很多分牌，引诱他们出分牌是好的
+  if (opponentTotalScore > 20 && !lastPlay) {
+    // 没有上家出牌，可以考虑用小牌引诱对手出分牌
+    const actionInfo = calculateScoreCardInfo(action);
+    if (play.value <= 8 && actionInfo.scoreCards.length === 0) {
+      score += 25; // 用小牌引诱对手出分牌
     }
   }
   
-  // 3. 确保自己有大牌能拿分
+  // 如果对手手上有分牌，自己能压过，优先出能压过的牌
+  if (lastPlay && currentRoundScore > 0) {
+    // 这轮有分，如果能压过，加分
+    if (canBeat(play, lastPlay)) {
+      score += 35; // 能拿到分，优先出
+    }
+  }
+  
+  return score;
+}
+
+// 评估动作质量（考虑分牌策略和组合牌型）
+function evaluateActionQuality(
+  action: Card[], 
+  hand: Card[], 
+  lastPlay: Play | null,
+  opponentHands: Card[][] = [],
+  currentRoundScore: number = 0,
+  perfectInformation: boolean = false
+): number {
+  if (!action || action.length === 0) return -1000;
+  
+  const play = canPlayCards(action);
+  if (!play) return -1000;
+  
+  let score = 0;
+  
+  // 评估牌型策略
+  score += evaluateCardTypeStrategy(action, hand, lastPlay, play);
+  
+  // 评估分牌策略
+  score += evaluateScoreCardStrategy(action, hand, lastPlay, play, currentRoundScore);
+  
+  // 评估完全信息模式策略
+  if (perfectInformation) {
+    score += evaluatePerfectInformationStrategy(
+      action, hand, lastPlay, play, opponentHands, currentRoundScore
+    );
+  }
+  
+  // 确保自己有大牌能拿分
+  const remainingHand = hand.filter(card => !action.some(c => c.id === card.id));
   const hasBombOrDun = remainingHand.some(card => {
     const rank = card.rank;
     const count = remainingHand.filter(c => c.rank === rank).length;
@@ -268,7 +359,6 @@ function evaluateActionQuality(
   });
   
   if (hasBombOrDun && currentRoundScore > 0) {
-    // 有大牌且这轮有分，可以考虑不出，等分数更多时再拿
     score += 15; // 保留大牌拿分
   }
   
@@ -292,6 +382,8 @@ function selectBestActionByHeuristic(actions: Card[][], hand: Card[], lastPlay: 
   return scoredActions[0].action;
 }
 
+// ========== 对手手牌估计 ==========
+
 // 估计对手的手牌（基于已出牌和已知信息）
 function estimateOpponentHand(
   aiHand: Card[],
@@ -314,6 +406,215 @@ function estimateOpponentHand(
   return shuffled.slice(0, opponentHandSize);
 }
 
+// ========== 游戏模拟 ==========
+
+/**
+ * 初始化模拟游戏的手牌
+ */
+function initializeSimulationHands(
+  state: SimulatedGameState,
+  perfectInformation: boolean
+): void {
+  const allCards = generateAllCards();
+  
+  if (perfectInformation && state.allHands && state.allHands.length > 0) {
+    // 完全信息模式：使用已知的手牌
+    state.allHands = [...state.allHands];
+  } else {
+    // 估计模式：为所有对手估计手牌
+    const playerCount = state.playerCount || 2;
+    state.allHands = [state.aiHand];
+    
+    let usedCards = new Set(state.aiHand.map(c => `${c.suit}-${c.rank}`));
+    
+    for (let i = 1; i < playerCount; i++) {
+      const allUsedCards = [...state.aiHand, ...state.allHands.slice(1).flat()];
+      const opponentHand = estimateOpponentHand(allUsedCards, allCards, state.aiHand.length);
+      state.allHands.push(opponentHand);
+      opponentHand.forEach(card => usedCards.add(`${card.suit}-${card.rank}`));
+    }
+  }
+  
+  // 如果只有一个对手，兼容旧代码
+  if (!state.opponentHands || state.opponentHands.length === 0) {
+    state.opponentHands = state.allHands.slice(1); // 排除AI（索引0）
+  }
+}
+
+/**
+ * 处理要不起的情况
+ */
+function handlePassTurn(state: SimulatedGameState): void {
+  if (state.lastPlay) {
+    // 清空上家出牌，下一个玩家可以出任意牌
+    state.lastPlay = null;
+    state.lastPlayPlayerIndex = null;
+    state.currentPlayerIndex = (state.currentPlayerIndex + 1) % state.playerCount;
+  } else {
+    // 所有人都要不起，这轮结束，分数给最后出牌的人
+    if (state.lastPlayPlayerIndex !== null) {
+      state.roundScore = 0; // 重置轮次分数（已分配）
+    }
+    state.lastPlay = null;
+    state.lastPlayPlayerIndex = null;
+    state.currentPlayerIndex = (state.lastPlayPlayerIndex !== null 
+      ? (state.lastPlayPlayerIndex + 1) 
+      : (state.currentPlayerIndex + 1)) % state.playerCount;
+  }
+}
+
+/**
+ * 在模拟中选择动作（使用启发式策略）
+ */
+function selectActionInSimulation(
+  playableOptions: Card[][],
+  currentHand: Card[],
+  state: SimulatedGameState,
+  currentPlayerIdx: number
+): Card[] {
+  if (playableOptions.length === 1) {
+    return playableOptions[0];
+  }
+  
+  // 计算每个选项的启发式分数
+  const scoredOptions = playableOptions.map(cards => {
+    const play = canPlayCards(cards);
+    if (!play) return { cards, score: -1000 };
+    
+    let score = 0;
+    
+    // 1. 优先出牌数多的（减少手牌数量）
+    score += cards.length * 10;
+    
+    // 2. 优先出组合牌型（对子、三张）
+    if (play.type === 'pair' || play.type === 'triple') {
+      score += 20;
+    }
+    
+    // 3. 炸弹和墩谨慎使用
+    if (play.type === 'bomb' || play.type === 'dun') {
+      const remainingCount = currentHand.length - cards.length;
+      if (remainingCount <= 5) {
+        score += 30; // 快出完了，可以用炸弹
+      } else {
+        score -= 10; // 手牌还多，谨慎使用炸弹
+      }
+    }
+    
+    // 4. 避免出单张（除非必要）
+    if (play.type === 'single' && currentHand.length > 8) {
+      score -= 5;
+    }
+    
+    // 5. 如果需要压牌，选择最小的能压过的牌
+    if (state.lastPlay && play.value <= state.lastPlay.value + 3) {
+      score += 15; // 优先使用小牌压过
+    }
+    
+    // 6. 检查是否会拆散组合牌型
+    const handRankGroups = countRankGroups(currentHand);
+    const playRank = cards[0].rank;
+    const originalCount = handRankGroups.get(playRank) || 0;
+    const remainingCount = originalCount - cards.length;
+    
+    if (originalCount >= 3 && remainingCount > 0) {
+      if (originalCount === 3 && play.type === 'single') {
+        score -= 80; // 避免拆散三张
+      } else if (originalCount === 3 && play.type === 'pair') {
+        score -= 100; // 避免拆散三张产生死牌
+      } else if (originalCount >= 4 && originalCount < 7 && remainingCount > 0 && remainingCount < 3) {
+        score -= 150; // 避免拆散炸弹
+      } else if (originalCount >= 7 && play.type !== 'dun') {
+        score -= 200; // 严重惩罚拆散墩
+      }
+    }
+    
+    // 7. 分牌策略
+    const actionInfo = calculateScoreCardInfo(cards);
+    const remainingHand = currentHand.filter(card => !cards.some(c => c.id === card.id));
+    const remainingInfo = calculateScoreCardInfo(remainingHand);
+    
+    if (currentPlayerIdx === 0) {
+      // AI的策略：保护自己的分牌
+      if (actionInfo.scoreCards.length > 0) {
+        if (state.roundScore > 0 && state.lastPlay && canBeat(play, state.lastPlay)) {
+          score += 50; // 能拿到分，出分牌值得
+        } else if (!state.lastPlay && remainingHand.some(c => {
+          const testPlay = canPlayCards([c]);
+          return testPlay && testPlay.value >= 12; // 有大牌保护
+        })) {
+          score += 30; // 有大牌保护，可以出分牌引诱
+        } else {
+          score -= 60; // 不能确保拿到分，不要出分牌
+        }
+      } else if (remainingInfo.score > 0) {
+        score += 20; // 保护了自己的分牌
+      }
+    } else {
+      // 对手的策略（模拟）：如果这轮有分且能拿，会出分牌
+      if (state.roundScore > 10 && state.lastPlay && canBeat(play, state.lastPlay)) {
+        score += 40; // 对手会尽量拿分
+      }
+    }
+    
+    return { cards, score };
+  });
+  
+  // 选择得分最高的选项（添加一些随机性）
+  scoredOptions.sort((a, b) => b.score - a.score);
+  const topScore = scoredOptions[0].score;
+  const goodOptions = scoredOptions.filter(opt => opt.score >= topScore - 5);
+  
+  // 从得分相近的选项中随机选择
+  return goodOptions[Math.floor(Math.random() * goodOptions.length)].cards;
+}
+
+/**
+ * 更新游戏状态（出牌后）
+ */
+function updateGameStateAfterPlay(
+  state: SimulatedGameState,
+  selectedAction: Card[],
+  play: Play
+): void {
+  const playerIdx = state.currentPlayerIndex;
+  
+  // 移除已出的牌
+  if (playerIdx === 0) {
+    state.aiHand = state.aiHand.filter(
+      card => !selectedAction.some(c => c.id === card.id)
+    );
+    state.allHands[0] = state.aiHand;
+  } else {
+    state.allHands[playerIdx] = state.allHands[playerIdx].filter(
+      card => !selectedAction.some(c => c.id === card.id)
+    );
+    if (state.allHands[playerIdx].length === 0) {
+      state.isTerminal = true;
+      state.winner = playerIdx;
+      return;
+    }
+  }
+  
+  // 检查AI是否获胜
+  if (state.aiHand.length === 0) {
+    state.isTerminal = true;
+    state.winner = 0;
+    return;
+  }
+  
+  // 更新轮次分数
+  const actionInfo = calculateScoreCardInfo(selectedAction);
+  state.roundScore += actionInfo.score;
+  
+  // 更新最后出牌信息
+  state.lastPlay = play;
+  state.lastPlayPlayerIndex = playerIdx;
+  
+  // 转到下一个玩家
+  state.currentPlayerIndex = (playerIdx + 1) % state.playerCount;
+}
+
 // 快速模拟游戏（从当前状态到游戏结束）- 支持完全信息和分牌策略
 function simulateGame(
   state: SimulatedGameState,
@@ -323,48 +624,8 @@ function simulateGame(
   let currentState: SimulatedGameState = { ...state };
   let depth = 0;
   
-  // 获取所有牌（用于估计对手手牌）
-  const allCards: Card[] = [];
-  const suits = ['spades', 'hearts', 'diamonds', 'clubs', 'joker'];
-  const ranks = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
-  
-  suits.forEach(suit => {
-    ranks.forEach(rank => {
-      if ((suit === 'joker' && (rank === 16 || rank === 17)) ||
-          (suit !== 'joker' && rank !== 16 && rank !== 17)) {
-        allCards.push({ suit: suit as any, rank: rank as Rank, id: `${suit}-${rank}-sim` });
-      }
-    });
-  });
-  
-  // 初始化手牌（完全信息模式 vs 估计模式）
-  if (!currentState.allHands || currentState.allHands.length === 0) {
-    if (perfectInformation && currentState.allHands && currentState.allHands.length > 0) {
-      // 完全信息模式：使用已知的手牌
-      currentState.allHands = [...currentState.allHands];
-    } else {
-      // 估计模式：为所有对手估计手牌
-      const playerCount = currentState.playerCount || 2;
-      currentState.allHands = [currentState.aiHand];
-      
-      let usedCards = new Set(currentState.aiHand.map(c => `${c.suit}-${c.rank}`));
-      
-      for (let i = 1; i < playerCount; i++) {
-        const opponentHand = estimateOpponentHand(
-          [...currentState.aiHand, ...currentState.allHands.slice(1).flat()],
-          allCards,
-          currentState.aiHand.length // 假设对手手牌数量与AI相同
-        );
-        currentState.allHands.push(opponentHand);
-        opponentHand.forEach(card => usedCards.add(`${card.suit}-${card.rank}`));
-      }
-    }
-  }
-  
-  // 如果只有一个对手，兼容旧代码
-  if (!currentState.opponentHands || currentState.opponentHands.length === 0) {
-    currentState.opponentHands = currentState.allHands.slice(1); // 排除AI（索引0）
-  }
+  // 初始化手牌
+  initializeSimulationHands(currentState, perfectInformation);
   
   while (!currentState.isTerminal && depth < maxDepth) {
     // 获取当前玩家的手牌
@@ -377,185 +638,32 @@ function simulateGame(
     const playableOptions = findPlayableCards(currentHand, currentState.lastPlay);
     
     if (playableOptions.length === 0) {
-      // 要不起，轮到下一个玩家
-      if (currentState.lastPlay) {
-        // 清空上家出牌，下一个玩家可以出任意牌
-        currentState.lastPlay = null;
-        currentState.lastPlayPlayerIndex = null;
-        currentState.currentPlayerIndex = (currentState.currentPlayerIndex + 1) % currentState.playerCount;
-      } else {
-        // 所有人都要不起，这轮结束，分数给最后出牌的人
-        // 下一轮从最后出牌的人的下一个开始
-        if (currentState.lastPlayPlayerIndex !== null) {
-          currentState.roundScore = 0; // 重置轮次分数（已分配）
-        }
-        currentState.lastPlay = null;
-        currentState.lastPlayPlayerIndex = null;
-        currentState.currentPlayerIndex = (currentState.lastPlayPlayerIndex !== null 
-          ? (currentState.lastPlayPlayerIndex + 1) 
-          : (currentState.currentPlayerIndex + 1)) % currentState.playerCount;
-      }
+      // 要不起
+      handlePassTurn(currentState);
       depth++;
       continue;
     }
     
-    // 智能选择动作（考虑分牌策略）
-    // 使用启发式策略：优先选择能减少手牌数量或组合度高的牌型，考虑分牌价值
-    let selectedAction = playableOptions[0];
-    
-    if (playableOptions.length > 1) {
-      // 计算每个选项的启发式分数
-      const scoredOptions = playableOptions.map(cards => {
-        const play = canPlayCards(cards);
-        if (!play) return { cards, score: -1000 };
-        
-        let score = 0;
-        
-        // 1. 优先出牌数多的（减少手牌数量）
-        score += cards.length * 10;
-        
-        // 2. 优先出组合牌型（对子、三张）
-        if (play.type === 'pair' || play.type === 'triple') {
-          score += 20;
-        }
-        
-        // 3. 炸弹和墩谨慎使用，但在关键时刻可以使用
-        if (play.type === 'bomb' || play.type === 'dun') {
-          const remainingCount = currentHand.length - cards.length;
-          if (remainingCount <= 5) {
-            score += 30; // 快出完了，可以用炸弹
-          } else {
-            score -= 10; // 手牌还多，谨慎使用炸弹
-          }
-        }
-        
-        // 4. 避免出单张（除非必要）
-        if (play.type === 'single' && currentHand.length > 8) {
-          score -= 5;
-        }
-        
-        // 5. 如果需要压牌，选择最小的能压过的牌（节省大牌）
-        if (currentState.lastPlay && play.value <= currentState.lastPlay.value + 3) {
-          score += 15; // 优先使用小牌压过
-        }
-        
-        // 6. 检查是否会拆散组合牌型（炸弹、三张、对子）
-        const handRankGroups = new Map<number, number>();
-        currentHand.forEach(card => {
-          const rank = card.rank;
-          handRankGroups.set(rank, (handRankGroups.get(rank) || 0) + 1);
-        });
-        
-        const playRank = cards[0].rank;
-        const originalCount = handRankGroups.get(playRank) || 0;
-        const remainingCount = originalCount - cards.length;
-        
-        // 检查是否拆散了有价值的组合牌型
-        if (originalCount >= 3 && remainingCount > 0) {
-          // 如果有3个或以上相同牌，不应该拆散成更小的牌型
-          if (originalCount === 3 && play.type === 'single') {
-            // 3个拆成1个，剩下2个（虽然可以出对子，但失去了三张）
-            score -= 80; // 避免拆散三张
-          } else if (originalCount === 3 && play.type === 'pair') {
-            // 3个拆成2个，剩下1个（产生死牌）
-            score -= 100; // 避免拆散三张产生死牌
-          } else if (originalCount >= 4 && originalCount < 7 && remainingCount > 0 && remainingCount < 3) {
-            // 炸弹（4-6张）拆散后剩余<3张，产生死牌或降低价值
-            score -= 150; // 避免拆散炸弹
-          } else if (originalCount >= 7 && play.type !== 'dun') {
-            // 墩（7张及以上）拆散成更小的牌型
-            score -= 200; // 严重惩罚拆散墩
-          }
-        }
-        
-        // 7. 分牌策略：保护自己的分牌，引诱对手出分牌
-        const actionScoreCards = cards.filter(card => isScoreCard(card));
-        const actionScore = calculateCardsScore(actionScoreCards);
-        const remainingHand = currentHand.filter(card => !cards.some(c => c.id === card.id));
-        const remainingScoreCards = remainingHand.filter(card => isScoreCard(card));
-        const remainingScore = calculateCardsScore(remainingScoreCards);
-        
-        if (currentPlayerIdx === 0) {
-          // AI的策略：保护自己的分牌
-          if (actionScoreCards.length > 0) {
-            // AI出分牌：只有当这轮能拿到分或者有大牌保护时才出
-            if (currentState.roundScore > 0 && currentState.lastPlay && canBeat(play, currentState.lastPlay)) {
-              score += 50; // 能拿到分，出分牌值得
-            } else if (!currentState.lastPlay && remainingHand.some(c => {
-              const testPlay = canPlayCards([c]);
-              return testPlay && testPlay.value >= 12; // 有大牌保护
-            })) {
-              score += 30; // 有大牌保护，可以出分牌引诱
-            } else {
-              score -= 60; // 不能确保拿到分，不要出分牌
-            }
-          } else if (remainingScore > 0) {
-            // 保护了自己的分牌
-            score += 20;
-          }
-        } else {
-          // 对手的策略（模拟）：如果这轮有分且能拿，会出分牌
-          if (currentState.roundScore > 10 && currentState.lastPlay && canBeat(play, currentState.lastPlay)) {
-            score += 40; // 对手会尽量拿分
-          }
-        }
-        
-        return { cards, score };
-      });
-      
-      // 选择得分最高的选项（但添加一些随机性，避免过于确定）
-      scoredOptions.sort((a, b) => b.score - a.score);
-      const topScore = scoredOptions[0].score;
-      const goodOptions = scoredOptions.filter(opt => opt.score >= topScore - 5);
-      
-      // 从得分相近的选项中随机选择（平衡探索和利用）
-      selectedAction = goodOptions[Math.floor(Math.random() * goodOptions.length)].cards;
-    }
+    // 选择动作
+    const selectedAction = selectActionInSimulation(
+      playableOptions,
+      currentHand,
+      currentState,
+      currentPlayerIdx
+    );
     
     const play = canPlayCards(selectedAction);
-    
     if (!play) {
       depth++;
       continue;
     }
     
-    // 更新游戏状态：移除已出的牌
-    const playerIdx = currentState.currentPlayerIndex;
-    if (playerIdx === 0) {
-      // AI出牌
-      currentState.aiHand = currentState.aiHand.filter(
-        card => !selectedAction.some(c => c.id === card.id)
-      );
-      currentState.allHands[0] = currentState.aiHand;
-    } else {
-      // 对手出牌
-      currentState.allHands[playerIdx] = currentState.allHands[playerIdx].filter(
-        card => !selectedAction.some(c => c.id === card.id)
-      );
-      if (currentState.allHands[playerIdx].length === 0) {
-        currentState.isTerminal = true;
-        currentState.winner = playerIdx; // 对手获胜
-        break;
-      }
-    }
+    // 更新游戏状态
+    updateGameStateAfterPlay(currentState, selectedAction, play);
     
-    // 检查AI是否获胜
-    if (currentState.aiHand.length === 0) {
-      currentState.isTerminal = true;
-      currentState.winner = 0; // AI获胜
+    if (currentState.isTerminal) {
       break;
     }
-    
-    // 更新轮次分数（如果有分牌）
-    const actionScore = calculateCardsScore(selectedAction.filter(card => isScoreCard(card)));
-    currentState.roundScore += actionScore;
-    
-    // 更新最后出牌信息
-    currentState.lastPlay = play;
-    currentState.lastPlayPlayerIndex = playerIdx;
-    
-    // 转到下一个玩家
-    currentState.currentPlayerIndex = (playerIdx + 1) % currentState.playerCount;
     
     depth++;
   }
@@ -570,6 +678,8 @@ function simulateGame(
   return currentState.winner !== null ? currentState.winner : 0;
 }
 
+// ========== 反向传播 ==========
+
 // 反向传播：更新节点统计
 function backpropagate(node: MCTSNode | null, winner: number) {
   let currentNode: MCTSNode | null = node;
@@ -578,17 +688,47 @@ function backpropagate(node: MCTSNode | null, winner: number) {
     currentNode.visits++;
     
     // 判断这个节点是否导致AI获胜
-    // winner是获胜者的索引，0表示AI，1+表示对手
     if (winner === 0) {
-      // AI获胜，加分
       currentNode.wins += 1;
-    } else {
-      // 对手获胜，不加分
-      currentNode.wins += 0;
     }
     
     currentNode = currentNode.parent;
   }
+}
+
+// ========== MCTS主算法 ==========
+
+/**
+ * 初始化MCTS模拟的手牌
+ */
+function initializeMCTSHands(
+  node: MCTSNode,
+  config: MCTSConfig,
+  allCards: Card[]
+): Card[][] {
+  const playerCount = config.playerCount || 2;
+  const allHands: Card[][] = [];
+  
+  if (config.perfectInformation && config.allPlayerHands) {
+    // 完全信息模式：使用已知的手牌
+    allHands.push([...node.hand]); // AI手牌
+    config.allPlayerHands.slice(1).forEach(hand => {
+      allHands.push([...hand]); // 复制对手手牌
+    });
+  } else {
+    // 估计模式：需要估计对手手牌
+    allHands.push([...node.hand]); // AI手牌
+    
+    const aiHandSize = node.hand.length;
+    
+    for (let i = 1; i < playerCount; i++) {
+      const allUsedCards = [...node.hand, ...allHands.slice(1).flat()];
+      const opponentHand = estimateOpponentHand(allUsedCards, allCards, aiHandSize);
+      allHands.push(opponentHand);
+    }
+  }
+  
+  return allHands;
 }
 
 // MCTS主算法
@@ -598,19 +738,17 @@ function mcts(
   config: MCTSConfig
 ): Card[] | null {
   // 快速模式：大幅降低默认迭代次数以提高速度
-  const iterations = config.iterations || 50; // 从100降到50，速度提升约2倍
+  const iterations = config.iterations || 50;
   const explorationConstant = config.explorationConstant || 1.414; // √2
-  // 根据手牌数量动态调整模拟深度，但设置更严格的上限
-  const baseDepth = config.simulationDepth || 20; // 从30降到20
-  // 手牌越多，需要更深的模拟，但设置更严格的上限避免过慢
-  const maxDepth = Math.min(50, rootHand.length * 2); // 从*3降到*2，上限50
+  const baseDepth = config.simulationDepth || 20;
+  const maxDepth = Math.min(50, rootHand.length * 2);
   const simulationDepth = Math.max(baseDepth, maxDepth);
   
   // 添加超时保护：如果手牌太多，进一步降低迭代次数
   const adjustedIterations = rootHand.length > 30 
-    ? Math.max(30, Math.floor(iterations * 0.6)) // 手牌多时减少40%
+    ? Math.max(30, Math.floor(iterations * 0.6))
     : rootHand.length > 20
-    ? Math.max(40, Math.floor(iterations * 0.8)) // 手牌较多时减少20%
+    ? Math.max(40, Math.floor(iterations * 0.8))
     : iterations;
   
   // 获取所有可出牌选项
@@ -633,15 +771,19 @@ function mcts(
     untriedActions: [...playableOptions]
   };
   
-  // MCTS主循环（使用调整后的迭代次数）
+  // 生成所有牌（用于估计对手手牌）
+  const allCards = generateAllCards();
+  
+  // MCTS主循环
   const startTime = Date.now();
   const maxTime = 2000; // 最多2秒（快速模式）
   
   for (let i = 0; i < adjustedIterations; i++) {
-    // 超时保护：如果超过2秒，提前结束
+    // 超时保护
     if (Date.now() - startTime > maxTime) {
       break;
     }
+    
     let node = root;
     
     // 1. Selection（选择）：选择最有希望的节点
@@ -651,7 +793,6 @@ function mcts(
     
     // 2. Expansion（扩展）：如果节点可以扩展，添加新节点
     if (node.untriedActions.length > 0) {
-      // 如果是根节点或叶子节点，生成所有可能的动作
       if (node.untriedActions.length === 0) {
         const actions = generateActions(node.hand, node.lastPlay);
         node.untriedActions = actions;
@@ -664,71 +805,25 @@ function mcts(
     }
     
     // 3. Simulation（模拟）：从当前节点模拟游戏
-    // 如果节点已经出完手牌，直接判定为获胜
     if (node.hand.length === 0) {
-      // AI获胜（节点是AI出牌后的状态，如果AI手牌为空，说明AI刚出完）
+      // AI获胜
       backpropagate(node, 0);
       continue;
     }
     
-    // 创建模拟游戏状态
-    const playerCount = config.playerCount || 2;
-    const allHands: Card[][] = [];
-    
     // 初始化所有玩家手牌
-    if (config.perfectInformation && config.allPlayerHands) {
-      // 完全信息模式：使用已知的手牌
-      allHands.push([...node.hand]); // AI手牌
-      // 更新已出牌后的手牌状态（简化：假设其他玩家手牌不变）
-      config.allPlayerHands.slice(1).forEach(hand => {
-        allHands.push([...hand]); // 复制对手手牌
-      });
-    } else {
-      // 估计模式：需要估计对手手牌（支持多人游戏）
-      allHands.push([...node.hand]); // AI手牌
-      
-      // 获取所有牌（用于估计对手手牌）
-      const allCards: Card[] = [];
-      const suits = ['spades', 'hearts', 'diamonds', 'clubs', 'joker'];
-      const ranks = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
-      
-      suits.forEach(suit => {
-        ranks.forEach(rank => {
-          if ((suit === 'joker' && (rank === 16 || rank === 17)) ||
-              (suit !== 'joker' && rank !== 16 && rank !== 17)) {
-            allCards.push({ suit: suit as any, rank: rank as Rank, id: `${suit}-${rank}-mcts` });
-          }
-        });
-      });
-      
-      // 为每个对手估计手牌
-      const aiHandSize = node.hand.length; // 假设所有玩家手牌数量相同
-      
-      for (let i = 1; i < playerCount; i++) {
-        // 计算已使用的牌（AI的手牌 + 已估计的对手手牌）
-        const allUsedCards = [...node.hand, ...allHands.slice(1).flat()];
-        
-        // 估计对手的手牌
-        const opponentHand = estimateOpponentHand(
-          allUsedCards,
-          allCards,
-          aiHandSize // 假设对手手牌数量与AI相同
-        );
-        
-        allHands.push(opponentHand);
-      }
-    }
+    const allHands = initializeMCTSHands(node, config, allCards);
     
     const gameState: SimulatedGameState = {
-      aiHand: [...node.hand], // 复制手牌
-      opponentHands: allHands.slice(1), // 对手手牌
-      allHands: allHands, // 所有玩家手牌
+      aiHand: [...node.hand],
+      opponentHands: allHands.slice(1),
+      allHands: allHands,
       lastPlay: node.lastPlay,
-      lastPlayPlayerIndex: null, // 初始状态未知
-      currentPlayerIndex: node.playerToMove === 'ai' ? 0 : 1, // 0=AI，1+=对手
-      playerCount: playerCount,
-      roundScore: config.currentRoundScore || 0, // 当前轮次分数
-      aiScore: 0, // AI累计分数
+      lastPlayPlayerIndex: null,
+      currentPlayerIndex: node.playerToMove === 'ai' ? 0 : 1,
+      playerCount: config.playerCount || 2,
+      roundScore: config.currentRoundScore || 0,
+      aiScore: 0,
       isTerminal: false,
       winner: null,
       perfectInformation: config.perfectInformation || false
@@ -742,22 +837,23 @@ function mcts(
   
   // 选择最佳动作：结合访问次数和动作质量
   if (root.children.length === 0) {
-    // 如果没有子节点，使用启发式选择最好的动作
-    return selectBestActionByHeuristic(playableOptions, rootHand, root.lastPlay) || playableOptions[0] || null;
+    return selectBestActionByHeuristic(playableOptions, rootHand, root.lastPlay) 
+      || playableOptions[0] 
+      || null;
   }
   
-  // 计算每个子节点的综合分数（访问次数 × 动作质量）
+  // 计算每个子节点的综合分数
   const scoredChildren = root.children.map(child => {
     if (!child.action) return { child, score: 0 };
     
     // 基础分数：访问次数和胜率
     const visitScore = child.visits;
     const winRate = child.visits > 0 ? child.wins / child.visits : 0;
-    const baseScore = visitScore * (0.7 + winRate * 0.3); // 70%权重给访问次数，30%给胜率
+    const baseScore = visitScore * (0.7 + winRate * 0.3);
     
-    // 启发式分数：动作质量（考虑分牌策略和组合牌型）
+    // 启发式分数：动作质量
     const opponentHands = config.perfectInformation && config.allPlayerHands 
-      ? config.allPlayerHands.filter((_, idx) => idx > 0) // 排除AI自己（索引0）
+      ? config.allPlayerHands.filter((_, idx) => idx > 0)
       : [];
     const heuristicScore = evaluateActionQuality(
       child.action, 
@@ -770,7 +866,7 @@ function mcts(
     
     return {
       child,
-      score: baseScore + heuristicScore * 5 // 动作质量占较小权重，但能影响接近的选择
+      score: baseScore + heuristicScore * 5
     };
   });
   
@@ -779,6 +875,8 @@ function mcts(
   
   return scoredChildren[0].child.action;
 }
+
+// ========== 导出函数 ==========
 
 // MCTS AI选择出牌
 export function mctsChoosePlay(
@@ -809,4 +907,3 @@ export function mctsChoosePlay(
     return validPlays[0].cards;
   }
 }
-

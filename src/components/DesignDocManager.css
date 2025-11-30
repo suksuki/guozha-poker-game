@@ -2,7 +2,7 @@
 
 .design-doc-manager-toggle {
   position: fixed;
-  bottom: 90px;
+  bottom: 150px; /* 从90px增加到150px，保持与底部按钮的间距 */
   right: 20px;
   width: 60px;
   height: 60px;
@@ -34,9 +34,10 @@
   background: rgba(0, 0, 0, 0.5);
   z-index: 2000;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 20px;
+  padding: 20px 20px 80px 20px; /* 增加底部padding，确保底部内容可见 */
+  overflow-y: auto;
   animation: fadeIn 0.3s ease;
 }
 
@@ -46,7 +47,8 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 1200px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 120px); /* 增加底部空间：20px顶部 + 80px底部 + 20px安全边距 */
+  margin: 20px auto;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease;
@@ -150,7 +152,9 @@
 .design-doc-manager-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 24px;
+  min-height: 0;
 }
 
 .docs-list,

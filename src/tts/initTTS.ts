@@ -4,31 +4,24 @@
  */
 
 import { getTTSServiceManager } from './ttsServiceManager';
-import { GPTSoVITSClient } from './gptSoVITSClient';
-import { CoquiTTSClient } from './coquiTTSClient';
 import { PiperTTSClient } from './piperTTSClient';
+import { AzureSpeechTTSClient } from './azureSpeechTTSClient';
 
 export interface TTSInitConfig {
-  enableGPTSoVITS?: boolean;
-  gptSoVITSConfig?: {
-    baseUrl?: string;
-    refAudioUrl?: string;
-    refText?: string;
-  };
-  enableCoqui?: boolean;
-  coquiConfig?: {
-    baseUrl?: string;
-    modelName?: string;
-    speakerId?: string;
-  };
-  enablePiper?: boolean;  // Piper TTS（轻量级本地TTS，推荐用于训练场景）
+  enablePiper?: boolean;  // Piper TTS（轻量级本地TTS）
   piperConfig?: {
     baseUrl?: string;
     timeout?: number;
     retryCount?: number;
   };
-  enableEdge?: boolean;
-  enableLocal?: boolean;
+  enableAzure?: boolean;  // Azure Speech Service（云端高质量TTS，支持多语言）
+  azureConfig?: {
+    subscriptionKey?: string;
+    region?: string;
+    voiceName?: string;
+    timeout?: number;
+    retryCount?: number;
+  };
   enableBrowser?: boolean;  // 总是启用作为后备
 }
 
@@ -38,55 +31,78 @@ export interface TTSInitConfig {
 export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
   const ttsManager = getTTSServiceManager();
 
-  // 配置 GPT-SoVITS（如果启用）
-  if (config.enableGPTSoVITS) {
-    const gptSoVITSClient = new GPTSoVITSClient({
-      baseUrl: config.gptSoVITSConfig?.baseUrl || 'http://localhost:9880',
-      refAudioUrl: config.gptSoVITSConfig?.refAudioUrl,
-      refText: config.gptSoVITSConfig?.refText,
-      language: 'zh',
-    });
-
-    // 检查服务是否可用
-    const isHealthy = await gptSoVITSClient.checkHealth();
-    if (isHealthy) {
-      ttsManager.configureProvider('gpt_sovits', {
-        provider: 'gpt_sovits',
-        priority: 1,  // 最高优先级
-        enabled: true,
-        config: config.gptSoVITSConfig,
+  // 配置 Azure Speech Service（如果启用）
+  if (config.enableAzure) {
+    // 确保 Subscription Key 和 Region 被传递，如果没有则尝试从环境变量读取
+    const azureKey = config.azureConfig?.subscriptionKey || 
+                    (import.meta.env?.VITE_AZURE_SPEECH_KEY as string | undefined) ||
+                    (typeof window !== 'undefined' && (window as any).AZURE_SPEECH_KEY) ||
+                    null;
+    
+    const azureRegion = config.azureConfig?.region || 
+                       (import.meta.env?.VITE_AZURE_SPEECH_REGION as string | undefined) ||
+                       (typeof window !== 'undefined' && (window as any).AZURE_SPEECH_REGION) ||
+                       'eastus';
+    
+    if (!azureKey) {
+      console.warn('[initTTS] ⚠️ Azure Speech Service 已启用但未找到 Subscription Key，将跳过初始化');
+      console.warn('[initTTS] 💡 提示：请设置环境变量 VITE_AZURE_SPEECH_KEY 和 VITE_AZURE_SPEECH_REGION');
+      ttsManager.configureProvider('azure', {
+        provider: 'azure',
+        enabled: false,
       });
-      console.log('[initTTS] GPT-SoVITS 已启用');
     } else {
-      console.warn('[initTTS] GPT-SoVITS 服务不可用，已禁用');
+      console.log('[initTTS] 🔑 找到 Azure Speech Service Subscription Key，长度:', azureKey.length);
+      console.log('[initTTS] 🌍 Azure 区域:', azureRegion);
+      
+      // 从 localStorage 读取保存的语音选择
+      const savedVoiceName = typeof window !== 'undefined' 
+        ? localStorage.getItem('azure_voice_name') 
+        : null;
+      
+      const azureClient = new AzureSpeechTTSClient({
+        subscriptionKey: azureKey,
+        region: azureRegion,
+        voiceName: config.azureConfig?.voiceName || savedVoiceName || undefined,
+        timeout: config.azureConfig?.timeout || 30000,
+        retryCount: config.azureConfig?.retryCount || 2,
+      });
+
+      // 检查服务是否可用（需要 Subscription Key）
+      try {
+        console.log('[initTTS] 🔍 开始 Azure Speech Service 健康检查...');
+        const isHealthy = await azureClient.checkHealth();
+        console.log(`[initTTS] Azure Speech Service 健康检查结果: ${isHealthy ? '✅ 可用' : '❌ 不可用'}`);
+        
+        if (isHealthy) {
+          ttsManager.configureProvider('azure', {
+            provider: 'azure',
+            priority: 0,  // 最高优先级（高质量云端TTS，支持多语言）
+            enabled: true,
+            config: { ...config.azureConfig, subscriptionKey: azureKey, region: azureRegion },
+          });
+          console.log('[initTTS] ✅ Azure Speech Service 已启用（最高优先级）');
+        } else {
+          console.warn('[initTTS] ⚠️ Azure Speech Service 服务不可用（可能是 Subscription Key 无效或网络问题），已禁用');
+          console.warn('[initTTS] 💡 提示：请检查 Subscription Key 和 Region 是否正确');
+          ttsManager.configureProvider('azure', {
+            provider: 'azure',
+            enabled: false,
+          });
+        }
+      } catch (error) {
+        console.error('[initTTS] ❌ Azure Speech Service 健康检查失败:', error);
+        console.warn('[initTTS] ⚠️ Azure Speech Service 健康检查失败，已禁用');
+        console.warn('[initTTS] 错误详情:', error instanceof Error ? error.message : String(error));
+        ttsManager.configureProvider('azure', {
+          provider: 'azure',
+          enabled: false,
+        });
+      }
     }
   }
 
-  // 配置 Coqui TTS（如果启用）
-  if (config.enableCoqui) {
-    const coquiClient = new CoquiTTSClient({
-      baseUrl: config.coquiConfig?.baseUrl || 'http://localhost:5002',
-      modelName: config.coquiConfig?.modelName || 'tts_models/zh-CN/baker/tacotron2-DDC-GST',
-      speakerId: config.coquiConfig?.speakerId,
-      language: 'zh',
-    });
-
-    // 检查服务是否可用
-    const isHealthy = await coquiClient.checkHealth();
-    if (isHealthy) {
-      ttsManager.configureProvider('coqui', {
-        provider: 'coqui',
-        priority: 2,
-        enabled: true,
-        config: config.coquiConfig,
-      });
-      console.log('[initTTS] Coqui TTS 已启用');
-    } else {
-      console.warn('[initTTS] Coqui TTS 服务不可用，已禁用');
-    }
-  }
-
-  // 配置 Piper TTS（轻量级本地TTS，推荐用于训练场景）
+  // 配置 Piper TTS（轻量级本地TTS）
   if (config.enablePiper !== false) {  // 默认启用
     const piperBaseUrl = config.piperConfig?.baseUrl || 'http://localhost:5000';
     console.log(`[initTTS] 正在检查 Piper TTS 服务: ${piperBaseUrl}`);
@@ -105,14 +121,13 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
       if (isHealthy) {
         ttsManager.configureProvider('piper', {
           provider: 'piper',
-          priority: 1,  // 最高优先级（轻量级本地TTS）
+          priority: 1,  // 第二优先级（轻量级本地TTS）
           enabled: true,
           config: config.piperConfig,
         });
-        console.log('[initTTS] ✅ Piper TTS 已启用（最高优先级）');
+        console.log('[initTTS] ✅ Piper TTS 已启用');
       } else {
         console.warn('[initTTS] ⚠️ Piper TTS 服务不可用，已禁用');
-        // 如果 piper 不可用，禁用它
         ttsManager.configureProvider('piper', {
           provider: 'piper',
           enabled: false,
@@ -120,7 +135,6 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
       }
     } catch (error) {
       console.error('[initTTS] ❌ Piper TTS 健康检查失败:', error);
-      // 即使健康检查失败，也尝试启用（可能服务刚启动，健康检查端点还未就绪）
       console.warn('[initTTS] ⚠️ Piper TTS 健康检查失败，但仍尝试启用（服务可能正在启动）');
       ttsManager.configureProvider('piper', {
         provider: 'piper',
@@ -131,25 +145,11 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
     }
   }
 
-  // 配置 Edge TTS（禁用，只使用 Piper TTS）
-  ttsManager.configureProvider('edge', {
-    provider: 'edge',
-    priority: 3,
-    enabled: false,  // 禁用 Edge TTS
-  });
-
-  // 配置本地 TTS API（禁用，只使用 Piper TTS）
-  ttsManager.configureProvider('local', {
-    provider: 'local',
-    priority: 4,
-    enabled: false,  // 禁用本地 TTS API
-  });
-
-  // 浏览器 TTS（禁用，只使用 Piper TTS）
+  // 浏览器 TTS（总是启用作为后备）
   ttsManager.configureProvider('browser', {
     provider: 'browser',
-    priority: 5,
-    enabled: false,  // 禁用浏览器 TTS
+    priority: 2,
+    enabled: config.enableBrowser !== false,  // 默认启用
   });
 
   // 启动健康检查
@@ -174,12 +174,9 @@ export function getTTSConfigFromEnv(): TTSInitConfig {
 
   // 默认配置
   return {
-    enableGPTSoVITS: false,  // 默认不启用，需要手动配置
-    enableCoqui: false,
-    enablePiper: true,  // 默认启用 Piper TTS（轻量级本地TTS，推荐用于训练场景）
-    enableEdge: true,
-    enableLocal: true,
-    enableBrowser: true,
+    enableAzure: false,  // 默认不启用，需要配置 Subscription Key
+    enablePiper: true,  // 默认启用 Piper TTS（轻量级本地TTS）
+    enableBrowser: true,  // 默认启用浏览器 TTS（作为后备）
   };
 }
 

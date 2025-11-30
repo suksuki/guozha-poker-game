@@ -3,7 +3,7 @@
  * 提供不同的排序规则用于理牌
  */
 
-import { Card, Rank, Suit } from '../types/card';
+import { Card } from '../types/card';
 
 export type SortOrder = 'asc' | 'desc' | 'grouped';
 

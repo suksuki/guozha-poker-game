@@ -16,7 +16,7 @@ import {
   VoiceServiceConfig,
   DEFAULT_VOICE_SERVICE_CONFIG
 } from '../config/voiceConfig';
-import i18n from '../i18n';
+import { i18n } from '../i18n';
 
 // 声道类型
 export enum ChannelType {

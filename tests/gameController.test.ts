@@ -29,15 +29,35 @@ function createPlayer(id: number, name: string, hand: Card[], score: number = -1
 describe('GameController 类单元测试', () => {
   let controller: GameController;
   let players: Player[];
+  let mockGame: any;
 
   beforeEach(() => {
-    controller = new GameController();
+    // 创建 mock Game 实例
+    mockGame = {
+      players: [],
+      updatePlayer: (index: number, updates: any) => {
+        if (mockGame.players[index]) {
+          Object.assign(mockGame.players[index], updates);
+        }
+      },
+      updateFinishOrder: (order: number[]) => {
+        // Mock implementation
+      },
+      updateFinalRankings: (rankings: any) => {
+        // Mock implementation
+      }
+    };
+    
+    controller = new GameController(mockGame);
     players = [
       createPlayer(0, '玩家1', [createCard(Suit.SPADES, Rank.FIVE)], -100),
       createPlayer(1, '玩家2', [createCard(Suit.HEARTS, Rank.TEN)], -100),
       createPlayer(2, '玩家3', [createCard(Suit.DIAMONDS, Rank.KING)], -100),
       createPlayer(3, '玩家4', [createCard(Suit.CLUBS, Rank.ACE)], -100)
     ];
+    
+    // 初始化 mockGame.players
+    mockGame.players = [...players];
   });
 
   describe('初始化', () => {

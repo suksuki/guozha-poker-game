@@ -1,0 +1,53 @@
+{
+  "title": "过炸扑克游戏（多人版）",
+  "status": {
+    "waiting": "等待开始",
+    "playing": "游戏中",
+    "finished": "游戏结束",
+    "yourTurn": "你的回合",
+    "waitingOthers": "等待其他玩家"
+  },
+  "actions": {
+    "play": "出牌",
+    "playWithCount": "出牌 ({{count}})",
+    "pass": "要不起",
+    "mustPlay": "必须出牌",
+    "aiSuggest": "🤖 AI建议",
+    "aiThinking": "AI思考中...",
+    "startGame": "开始游戏"
+  },
+  "hints": {
+    "mustPlay": "你有能打过的牌，必须出牌！",
+    "mustPlayTitle": "你有能打过的牌，必须出牌！"
+  },
+  "result": {
+    "winner": "获胜者",
+    "rank": "第{{rank}}名",
+    "gameOver": "游戏结束",
+    "finalScore": "最终得分",
+    "youWon": "🎉 你赢了！",
+    "playerWon": "😢 {{name}}赢了",
+    "finalRankings": "最终排名",
+    "score": "{{score}} 分",
+    "ranking": "排名: {{rank}}",
+    "you": "(你)",
+    "playAgain": "再来一局",
+    "downloadRecord": "下载游戏记录",
+    "viewRankings": "查看排名",
+    "backToGame": "返回查看牌面"
+  },
+  "error": {
+    "title": "游戏状态错误",
+    "message": "玩家数据未正确加载，请重新开始游戏",
+    "backToStart": "返回开始界面"
+  },
+  "modes": {
+    "game": "🎮 游戏模式",
+    "training": "🏋️ 训练模式"
+  },
+  "playArea": {
+    "playerPlayed": "{{name}} 出牌:",
+    "roundScore": "本轮分数: {{score}} 分",
+    "noPlay": "可以出任意合法牌型"
+  }
+}

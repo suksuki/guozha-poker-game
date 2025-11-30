@@ -7,9 +7,7 @@ import { ChatMessage, ChatEventType } from '../../types/chat';
 import { Player, Card, Suit, Rank, Play } from '../../types/card';
 import { IChatStrategy, ChatContext } from './IChatStrategy';
 import { LLMChatConfig } from '../../config/chatConfig';
-import { getCardType, isScoreCard, calculateCardsScore } from '../../utils/cardUtils';
-import { MultiPlayerGameState } from '../../utils/gameStateUtils';
-import i18n from '../../i18n';
+import { i18n } from '../../i18n';
 
 export class LLMChatStrategy implements IChatStrategy {
   readonly name = 'llm';
@@ -152,12 +150,14 @@ ${playerInfo}
 ${eventInfo}
 
 ## 任务
-根据以上信息，生成一句符合当前游戏场景的聊天内容。要求：
-1. 简短有力（1-2句话，不超过20字）
-2. 符合玩家的性格和方言特色
-3. 符合当前游戏状态和事件
-4. 只返回要说的话，不要添加任何解释或标记
-5. 必须严格遵守"语言要求"部分指定的语言
+根据以上信息，生成符合当前游戏场景的聊天内容。要求：
+1. 简短有力（1-2句话，总长度不超过20字）
+2. 每句话不超过15字，使用标点符号断句（句号、问号、感叹号、逗号）
+3. 如果内容较长，必须分段，每段之间用标点符号分隔
+4. 符合玩家的性格和方言特色
+5. 符合当前游戏状态和事件
+6. 只返回要说的话，不要添加任何解释或标记
+7. 必须严格遵守"语言要求"部分指定的语言
 
 聊天内容：`;
   }
@@ -189,12 +189,14 @@ ${playerInfo}
 ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
 
 ## 任务
-生成一句对目标玩家的对骂/挑衅内容。要求：
-1. 简短有力（1句话，不超过15字）
-2. 适度，不能过于激烈或低俗
-3. 符合玩家的性格和方言特色
-4. 只返回要说的话，不要添加任何解释或标记
-5. 必须严格遵守"语言要求"部分指定的语言
+生成对目标玩家的对骂/挑衅内容。要求：
+1. 简短有力（1-2句话，总长度不超过15字）
+2. 每句话不超过12字，使用标点符号断句（句号、问号、感叹号、逗号）
+3. 如果内容较长，必须分段，每段之间用标点符号分隔
+4. 适度，不能过于激烈或低俗
+5. 符合玩家的性格和方言特色
+6. 只返回要说的话，不要添加任何解释或标记
+7. 必须严格遵守"语言要求"部分指定的语言
 
 对骂内容：`;
   }
@@ -558,7 +560,37 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
     content = content.replace(/^["'「」『』【】]\s*/, '');
     content = content.replace(/\s*["'「」『』【】]$/, '');
     
-    return content.trim();
+    content = content.trim();
+    
+    // 强制长度限制：最多20字（严格遵守）
+    if (content.length > 20) {
+      // 尝试在标点符号处截断
+      let bestBreak = 20;
+      for (let i = 20; i >= 15; i--) {
+        if (/[。！？，；、]/.test(content[i])) {
+          bestBreak = i + 1;
+          break;
+        }
+      }
+      content = content.substring(0, bestBreak);
+      // 如果截断后最后是逗号、分号，替换为句号
+      if (/[，；、]$/.test(content)) {
+        content = content.slice(0, -1) + '。';
+      }
+    }
+    
+    // 确保文本有合适的标点符号（如果超过一定长度）
+    if (content.length > 10 && !/[。！？]$/.test(content)) {
+      // 如果最后是逗号、分号，替换为句号
+      if (/[，；、]$/.test(content)) {
+        content = content.slice(0, -1) + '。';
+      } else {
+        // 如果没有标点符号，添加句号
+        content = content + '。';
+      }
+    }
+    
+    return content;
   }
 
   /**

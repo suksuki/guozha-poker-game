@@ -1,0 +1,124 @@
+/* 语言切换器容器 */
+.language-switcher-container {
+  position: relative;
+}
+
+/* 语言切换器按钮（右侧固定按钮） */
+.language-switcher-toggle {
+  position: fixed;
+  bottom: 500px; /* 放在最顶部，在SelfIterationManager之上 */
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(68, 160, 141, 0.4);
+  z-index: 1000;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.language-switcher-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(68, 160, 141, 0.6);
+}
+
+.language-switcher-toggle .language-flag {
+  font-size: 28px;
+  line-height: 1;
+}
+
+/* 语言选择菜单 */
+.language-switcher-menu {
+  position: fixed;
+  bottom: 570px; /* 在按钮上方 */
+  right: 20px;
+  width: 200px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 2000;
+  animation: slideDown 0.3s ease;
+  overflow: hidden;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.language-menu-header {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.language-menu-list {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+
+.language-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #333;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+  position: relative;
+}
+
+.language-menu-item:hover {
+  background: rgba(78, 205, 196, 0.1);
+}
+
+.language-menu-item.active {
+  background: linear-gradient(135deg, rgba(78, 205, 196, 0.2) 0%, rgba(68, 160, 141, 0.2) 100%);
+  color: #44a08d;
+  font-weight: 600;
+}
+
+.language-menu-item .language-flag {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.language-menu-item .language-name {
+  font-size: 14px;
+  line-height: 1;
+  flex: 1;
+}
+
+.language-menu-item .language-check {
+  font-size: 16px;
+  color: #44a08d;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+

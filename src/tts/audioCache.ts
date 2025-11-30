@@ -394,6 +394,12 @@ export class AudioCache {
       return;
     }
 
+    // 检查 IDBKeyRange 是否可用（测试环境可能没有）
+    if (typeof IDBKeyRange === 'undefined') {
+      console.warn('[AudioCache] IDBKeyRange 不可用，跳过清理过期条目');
+      return;
+    }
+
     try {
       const transaction = this.db.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);

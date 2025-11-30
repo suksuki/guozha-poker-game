@@ -3,7 +3,7 @@
  * 处理轮次结束、分数分配等逻辑
  */
 
-import { Player, RoundRecord, RoundPlayRecord } from '../types/card';
+import { Player, RoundRecord } from '../types/card';
 import { MultiPlayerGameState } from './gameStateUtils';
 import { findNextActivePlayer } from './gameStateUtils';
 

@@ -2,7 +2,7 @@
  * MCTS游戏模拟
  */
 
-import { Card, Play, Rank } from '../../types/card';
+import { Card, Rank } from '../../types/card';
 import { SimulatedGameState } from '../types';
 import { findPlayableCards, canPlayCards, canBeat, isScoreCard, calculateCardsScore } from '../../utils/cardUtils';
 

@@ -5,13 +5,10 @@
 
 import { type ITTSClient, type TTSOptions, type TTSResult } from './ttsClient';
 import { BrowserTTSClient } from './ttsClient';
-import { LocalTTSAPIClient } from './localTTSClient';
-import { EdgeTTSClient } from './localTTSClient';
-import { GPTSoVITSClient } from './gptSoVITSClient';
-import { CoquiTTSClient } from './coquiTTSClient';
 import { PiperTTSClient } from './piperTTSClient';
+import { AzureSpeechTTSClient } from './azureSpeechTTSClient';
 
-export type TTSProvider = 'browser' | 'local' | 'edge' | 'gpt_sovits' | 'coqui' | 'piper';
+export type TTSProvider = 'browser' | 'piper' | 'azure';
 
 export interface TTSProviderConfig {
   provider: TTSProvider;
@@ -40,30 +37,17 @@ export class TTSServiceManager {
     // 浏览器 TTS（最低优先级，作为后备）
     this.providers.set('browser', new BrowserTTSClient());
 
-    // 本地 TTS API
-    this.providers.set('local', new LocalTTSAPIClient());
-
-    // Edge TTS
-    this.providers.set('edge', new EdgeTTSClient());
-
-    // GPT-SoVITS
-    this.providers.set('gpt_sovits', new GPTSoVITSClient());
-
-    // Coqui TTS
-    this.providers.set('coqui', new CoquiTTSClient());
-
-    // Piper TTS（轻量级本地TTS，推荐用于训练场景）
+    // Piper TTS（轻量级本地TTS）
     this.providers.set('piper', new PiperTTSClient());
 
+    // Azure Speech Service（云端高质量TTS，支持多语言）
+    this.providers.set('azure', new AzureSpeechTTSClient());
+
     // 默认配置（按优先级排序）
-    // 注意：Piper TTS 设置为最高优先级，因为它是轻量级本地服务，适合训练场景
     this.providerConfigs = [
-      { provider: 'piper', priority: 1, enabled: true },  // 最高优先级（轻量级本地TTS）
-      { provider: 'gpt_sovits', priority: 2, enabled: true },
-      { provider: 'coqui', priority: 3, enabled: true },
-      { provider: 'edge', priority: 4, enabled: true },
-      { provider: 'local', priority: 5, enabled: true },
-      { provider: 'browser', priority: 6, enabled: true },  // 总是启用作为后备
+      { provider: 'azure', priority: 0, enabled: false },  // 最高优先级（需要 API Key，默认禁用）
+      { provider: 'piper', priority: 1, enabled: true },  // 第二优先级（轻量级本地TTS）
+      { provider: 'browser', priority: 2, enabled: true },  // 总是启用作为后备
     ];
 
     // 初始化健康状态
@@ -176,12 +160,26 @@ export class TTSServiceManager {
       throw new Error(`TTS 提供者 ${provider} 不存在`);
     }
 
+    // 检查提供者是否启用
+    const config = this.providerConfigs.find(c => c.provider === provider);
+    if (config && !config.enabled) {
+      console.warn(`[TTSServiceManager] ⚠️ 提供者 ${provider} 未启用，尝试强制使用`);
+      // 如果指定了提供者但未启用，仍然尝试使用（可能是临时禁用）
+    }
+
+    console.log(`[TTSServiceManager] 🎯 使用指定提供者 ${provider} 生成语音: "${text.substring(0, 30)}..."`);
+    
     try {
       const result = await client.synthesize(text, options);
       this.healthStatus.set(provider, true);
+      console.log(`[TTSServiceManager] ✅ 提供者 ${provider} 成功生成音频: ${(result.audioBuffer.byteLength / 1024).toFixed(2)} KB`);
       return result;
     } catch (error) {
       this.healthStatus.set(provider, false);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[TTSServiceManager] ❌ 提供者 ${provider} 生成失败:`, errorMsg);
+      // 如果指定了提供者但失败，直接抛出错误，不要回退到其他提供者
+      // 这样调用者可以知道指定的提供者不可用
       throw error;
     }
   }
@@ -300,6 +298,13 @@ export class TTSServiceManager {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
     }
+  }
+
+  /**
+   * 获取提供者客户端实例
+   */
+  getProvider(provider: TTSProvider): ITTSClient | undefined {
+    return this.providers.get(provider);
   }
 
   /**

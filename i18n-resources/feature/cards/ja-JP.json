@@ -1,0 +1,35 @@
+{
+  "ranks": {
+    "three": "3",
+    "four": "4",
+    "five": "5",
+    "six": "6",
+    "seven": "7",
+    "eight": "8",
+    "nine": "9",
+    "ten": "10",
+    "jack": "J",
+    "queen": "Q",
+    "king": "K",
+    "ace": "A",
+    "two": "2",
+    "jokerSmall": "小さなジョーカー",
+    "jokerBig": "大きなジョーカー",
+    "unknown": "不明"
+  },
+  "types": {
+    "single": "シングル",
+    "pair": "ペア",
+    "triple": "スリーカード",
+    "bomb": "爆弾",
+    "dun": "ドゥン",
+    "unknown": "不明なタイプ"
+  },
+  "speech": {
+    "pair": "{{rank}}のペア",
+    "triple": "{{rank}}のスリーカード",
+    "bomb": "{{rank}} {{count}}枚",
+    "dun": "{{rank}} {{count}}枚",
+    "default": "{{count}}枚"
+  }
+}

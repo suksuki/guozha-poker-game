@@ -36,6 +36,9 @@
 | `chatSceneRegression.test.ts` | 聊天场景化系统回归测试 | ✅ 新增 |
 | `chatReply.test.ts` | 聊天回复功能单元测试 | ✅ 新增 |
 | `chatReplyRegression.test.ts` | 聊天回复功能回归测试 | ✅ 新增 |
+| `useMultiPlayerGame.test.ts` | useMultiPlayerGame Hook 测试 | ✅ 新增（2024重构） |
+| `gameState.test.ts` | 游戏状态管理测试（包含 Game 类方法） | ✅ 已更新（2024重构） |
+| `system/audioModule.test.ts` | 音频模块测试（TTS 服务） | ✅ 正常 |
 
 ### 慢测试 (@slow)
 

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { MultiPlayerGameBoard } from './components/MultiPlayerGameBoard';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { IdeasManager } from './components/IdeasManager';
 import { DesignDocManager } from './components/DesignDocManager';
 import { TTSStatusMonitor } from './components/TTSStatusMonitor';
+import { GameRulesGuide } from './components/GameRulesGuide';
 import { CodeReviewManager } from './components/CodeReviewManager';
 import { TestManagementManager } from './components/TestManagementManager';
 import { SelfIterationManager } from './components/SelfIterationManager';
@@ -12,6 +13,7 @@ import { useIdeaGeneration } from './hooks/useIdeaGeneration';
 import { useGameConfigContext } from './contexts/GameConfigContext';
 import { getIdeaGenerationService, GameIdea } from './services/ideaGenerationService';
 import { initTTS, getTTSConfigFromEnv } from './tts/initTTS';
+import { setTTSProvider } from './services/multiChannelVoiceService';
 import { SystemApplication } from './services/system';
 import { registerAllModules } from './services/system/modules/registerModules';
 import './App.css';
@@ -58,7 +60,46 @@ function App() {
   // 初始化 TTS 系统
   useEffect(() => {
     const config = getTTSConfigFromEnv();
-    initTTS(config).catch((error) => {
+    
+    // 配置 Azure Speech Service（如果提供了 Subscription Key）
+    const azureKey = 
+      import.meta.env.VITE_AZURE_SPEECH_KEY ||
+      (typeof window !== 'undefined' && (window as any).AZURE_SPEECH_KEY) ||
+      null;
+    
+    const azureRegion = 
+      import.meta.env.VITE_AZURE_SPEECH_REGION ||
+      (typeof window !== 'undefined' && (window as any).AZURE_SPEECH_REGION) ||
+      'eastus';
+    
+    if (azureKey) {
+      config.enableAzure = true;
+      config.azureConfig = {
+        subscriptionKey: azureKey,
+        region: azureRegion,
+        timeout: 30000,
+        retryCount: 2,
+      };
+      console.log('[App] ✅ 检测到 Azure Speech Service 配置，已启用 Azure TTS');
+    } else {
+      console.log('[App] ⚠️ 未检测到 Azure Speech Service 配置，Azure TTS 未启用');
+      console.log('[App] 💡 提示：设置环境变量 VITE_AZURE_SPEECH_KEY 和 VITE_AZURE_SPEECH_REGION');
+    }
+    
+    initTTS(config).then(() => {
+      // TTS 初始化完成后，设置默认场景配置
+      // 报牌使用 Azure，聊天使用 Piper（在 TTSStatusMonitor 中配置）
+      if (typeof window !== 'undefined') {
+        if (!localStorage.getItem('tts_provider_announcement')) {
+          localStorage.setItem('tts_provider_announcement', 'azure');
+        }
+        if (!localStorage.getItem('tts_provider_chat')) {
+          localStorage.setItem('tts_provider_chat', 'piper');
+        }
+      }
+      setTTSProvider('auto');  // 使用自动选择（根据场景）
+      console.log('[App] ✅ TTS 系统已初始化，场景配置：报牌=Azure，聊天=Piper');
+    }).catch((error) => {
       console.error('[App] TTS 系统初始化失败:', error);
     });
   }, []);
@@ -100,6 +141,7 @@ function App() {
       <IdeasManager />
       <DesignDocManager />
       <TTSStatusMonitor />
+      <GameRulesGuide />
       <CodeReviewManager />
       <TestManagementManager />
       <SelfIterationManager />

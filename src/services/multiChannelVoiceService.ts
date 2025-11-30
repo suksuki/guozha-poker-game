@@ -19,9 +19,10 @@ import {
   DEFAULT_MULTI_CHANNEL_CONFIG,
   TTSProvider
 } from '../config/voiceConfig';
-import i18n from '../i18n';
+import { i18n } from '../i18n';
 import { detectLanguage } from '../utils/languageDetection';
 import { ttsAudioService } from './ttsAudioService';
+import { ChannelScheduler, PlaybackPriority, PlayRequest } from './channelScheduler';
 
 // 声道配置
 interface ChannelConfig {
@@ -67,6 +68,10 @@ class MultiChannelVoiceService {
   private voicesReady: boolean = false;
   private voicesLoadPromise: Promise<SpeechSynthesisVoice[]> | null = null;
   
+  // 声道调度器（可选，如果启用则使用新的调度逻辑）
+  private channelScheduler?: ChannelScheduler;
+  private useChannelScheduler: boolean = false;
+  
   // 每个声道的当前播放项
   private channelItems: Map<ChannelType, SpeechItem> = new Map();
   
@@ -86,11 +91,19 @@ class MultiChannelVoiceService {
 
   constructor(
     config: VoiceServiceConfig = DEFAULT_VOICE_SERVICE_CONFIG,
-    multiChannelConfig: MultiChannelConfig = DEFAULT_MULTI_CHANNEL_CONFIG
+    multiChannelConfig: MultiChannelConfig = DEFAULT_MULTI_CHANNEL_CONFIG,
+    useChannelScheduler: boolean = true // 默认启用新的调度器
   ) {
     this.config = config;
     this.multiChannelConfig = multiChannelConfig;
+    this.useChannelScheduler = useChannelScheduler;
     this.preloadVoices();
+    
+    // 如果启用新的调度器，创建实例
+    if (this.useChannelScheduler && this.multiChannelConfig.enabled) {
+      this.channelScheduler = new ChannelScheduler();
+      console.log('[MultiChannelVoiceService] 已启用声道调度器');
+    }
     
     // 如果启用多声道，同步配置到ttsAudioService
     if (this.multiChannelConfig.enabled) {
@@ -341,8 +354,56 @@ class MultiChannelVoiceService {
       onError?: (error: Error) => void;
       estimatedDuration?: number;
     },
-    priority: number = 1 // 优先级：3=对骂，2=事件，1=随机，4=报牌（最高）
+    priority: number = 1, // 优先级：3=对骂，2=事件，1=随机，4=报牌（最高）
+    playerId?: number // 玩家ID（用于声道调度）
   ): Promise<void> {
+    // 如果启用了新的调度器，使用调度器
+    if (this.useChannelScheduler && this.channelScheduler && this.multiChannelConfig.enabled) {
+      try {
+        // 确定播放类型和通道
+        const isAnnouncement = channel === ChannelType.ANNOUNCEMENT;
+        const playbackType: 'announcement' | 'chat' = isAnnouncement ? 'announcement' : 'chat';
+        
+        // 如果是聊天但没有提供playerId，尝试从channel推断
+        let finalPlayerId = playerId;
+        if (playbackType === 'chat' && finalPlayerId === undefined) {
+          // 尝试从channel推断playerId（仅当channel是玩家通道时）
+          if (channel >= ChannelType.PLAYER_0 && channel <= ChannelType.PLAYER_3) {
+            finalPlayerId = channel;
+          }
+        }
+        
+        // 映射优先级
+        const playbackPriority = this.mapPriorityToPlaybackPriority(priority);
+        
+        // 如果是聊天，使用调度器分配的通道
+        let finalChannel = channel;
+        if (playbackType === 'chat' && finalPlayerId !== undefined) {
+          finalChannel = this.channelScheduler.getPlayerChannel(finalPlayerId);
+        }
+        
+        // 创建播放请求
+        const request: PlayRequest = {
+          text,
+          voiceConfig,
+          channel: finalChannel,
+          priority: playbackPriority,
+          type: playbackType,
+          playerId: finalPlayerId,
+          events
+        };
+        
+        console.log(`[MultiChannelVoiceService] 使用声道调度器播放: ${text.substring(0, 30)}... (channel: ${finalChannel}, type: ${playbackType})`);
+        return await this.channelScheduler.requestPlay(request);
+      } catch (error) {
+        console.error('[MultiChannelVoiceService] 声道调度器播放失败:', error);
+        if (events?.onError) {
+          events.onError(error as Error);
+        }
+        throw error;
+      }
+    }
+    
     // 如果启用多声道，使用TTS Audio Service（只使用TTS API，不使用speechSynthesis）
     if (this.multiChannelConfig.enabled) {
       try {
@@ -912,9 +973,32 @@ class MultiChannelVoiceService {
 
   // 获取玩家对应的声道
   getPlayerChannel(playerId: number): ChannelType {
-    // 玩家ID映射到声道（0-7对应PLAYER_0到PLAYER_7，支持8人）
+    // 如果使用新的调度器，使用调度器的分配逻辑（4个通道）
+    if (this.useChannelScheduler && this.channelScheduler) {
+      return this.channelScheduler.getPlayerChannel(playerId);
+    }
+    // 否则使用旧的逻辑（8个通道，向后兼容）
     const channelIndex = playerId % 8;
     return channelIndex as ChannelType;
+  }
+
+  /**
+   * 将数字优先级映射为PlaybackPriority
+   * @param priority 数字优先级
+   * @returns PlaybackPriority
+   */
+  private mapPriorityToPlaybackPriority(priority: number): PlaybackPriority {
+    switch (priority) {
+      case 4:
+        return PlaybackPriority.ANNOUNCEMENT;
+      case 3:
+        return PlaybackPriority.QUARREL;
+      case 2:
+        return PlaybackPriority.EVENT;
+      case 1:
+      default:
+        return PlaybackPriority.CHAT;
+    }
   }
 
   // 获取聊天队列状态（用于评估是否应该触发自发聊天）
@@ -957,3 +1041,6 @@ export function setTTSProvider(provider: TTSProvider): void {
 export async function resumeAudioContext(): Promise<void> {
   await multiChannelVoiceService.resumeAudioContext();
 }
+
+// 重新导出 ChannelType（供测试和其他模块使用）
+export { ChannelType } from '../types/channel';

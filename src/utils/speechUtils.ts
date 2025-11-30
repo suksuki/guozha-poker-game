@@ -4,7 +4,7 @@
  */
 
 import { Play, CardType, Rank } from '../types/card';
-import i18n from '../i18n';
+import { i18n } from '../i18n';
 
 // 将牌型转换为语音文本（支持多语言）
 export function playToSpeechText(play: Play): string {

@@ -10,7 +10,7 @@ import { Player } from '../../types/card';
 import { IChatStrategy, ChatContext } from './IChatStrategy';
 import { getChatContent, getRandomChat, getTaunt } from '../../utils/chatContent';
 import { ChatServiceConfig, BigDunConfig, TauntConfig } from '../../config/chatConfig';
-import i18n from '../../i18n';
+import { i18n } from '../../i18n';
 
 export class RuleBasedStrategy implements IChatStrategy {
   readonly name = 'rule-based';

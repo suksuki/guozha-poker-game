@@ -9,7 +9,8 @@ import { Play } from '../types/card';
 import { VoiceConfig } from '../types/card';
 import { playToSpeechText } from '../utils/speechUtils';
 import { voiceService } from './voiceService';
-import i18n from '../i18n';
+import { i18n } from '../i18n';
+import { createVoiceConfig } from './voiceConfigService';
 
 /**
  * 系统报牌服务
@@ -21,6 +22,18 @@ class SystemAnnouncementService {
   private lastAnnounceTime: number = 0;
   private readonly deduplicationWindow = 500; // 500ms 内的重复调用会被忽略
   private isAnnouncing = false; // 防止并发调用
+  
+  // 报牌默认使用男声配置
+  private readonly defaultAnnouncementVoiceConfig: VoiceConfig = createVoiceConfig(
+    -1, // 使用特殊ID表示系统报牌
+    'male', // 男声
+    'mandarin', // 普通话
+    {
+      rate: { min: 1.0, max: 1.0 },
+      pitch: { min: 0.9, max: 0.9 }, // 稍低音调，更符合男声
+      volume: { min: 1.0, max: 1.0 }
+    }
+  );
 
   /**
    * 报牌（出牌时）
@@ -71,9 +84,11 @@ class SystemAnnouncementService {
     try {
       // 立即开始播放（不等待完成）
       // 使用 speakImmediate 确保使用 ANNOUNCEMENT 声道，并传递 onStart 回调
+      // 如果没有传入 voiceConfig，使用默认的男声配置
+      const finalVoiceConfig = voiceConfig || this.defaultAnnouncementVoiceConfig;
       await voiceService.speakImmediate(
         text, 
-        voiceConfig,
+        finalVoiceConfig,
         {
           onStart: () => {
             console.log('[SystemAnnouncement] 报牌语音开始播放:', text);
@@ -136,8 +151,10 @@ class SystemAnnouncementService {
     
     try {
       // 立即播放，不等待完成
-      console.log('[SystemAnnouncement] 播放"要不起":', passText, 'voiceConfig:', voiceConfig);
-      await voiceService.speakImmediate(passText, voiceConfig, {
+      // 如果没有传入 voiceConfig，使用默认的男声配置
+      const finalVoiceConfig = voiceConfig || this.defaultAnnouncementVoiceConfig;
+      console.log('[SystemAnnouncement] 播放"要不起":', passText, 'voiceConfig:', finalVoiceConfig);
+      await voiceService.speakImmediate(passText, finalVoiceConfig, {
         onStart: () => {
           console.log('[SystemAnnouncement] "要不起"语音开始播放:', passText);
           // 调用外部传入的 onStart 回调（用于同步动画）

@@ -1,0 +1,53 @@
+{
+  "title": "Guozha Poker Game (Multi-Player)",
+  "status": {
+    "waiting": "Waiting to Start",
+    "playing": "Playing",
+    "finished": "Game Over",
+    "yourTurn": "Your Turn",
+    "waitingOthers": "Waiting for Others"
+  },
+  "actions": {
+    "play": "Play",
+    "playWithCount": "Play ({{count}})",
+    "pass": "Pass",
+    "mustPlay": "Must Play",
+    "aiSuggest": "🤖 AI Suggest",
+    "aiThinking": "AI Thinking...",
+    "startGame": "Start Game"
+  },
+  "hints": {
+    "mustPlay": "You have playable cards, you must play!",
+    "mustPlayTitle": "You have playable cards, you must play!"
+  },
+  "result": {
+    "winner": "Winner",
+    "rank": "{{rank}}th Place",
+    "gameOver": "Game Over",
+    "finalScore": "Final Score",
+    "youWon": "🎉 You Won!",
+    "playerWon": "😢 {{name}} Won",
+    "finalRankings": "Final Rankings",
+    "score": "{{score}} points",
+    "ranking": "Rank: {{rank}}",
+    "you": "(You)",
+    "playAgain": "Play Again",
+    "downloadRecord": "Download Game Record",
+    "viewRankings": "View Rankings",
+    "backToGame": "Back to Game"
+  },
+  "error": {
+    "title": "Game State Error",
+    "message": "Player data not loaded correctly, please restart the game",
+    "backToStart": "Back to Start"
+  },
+  "modes": {
+    "game": "🎮 Game Mode",
+    "training": "🏋️ Training Mode"
+  },
+  "playArea": {
+    "playerPlayed": "{{name}} played:",
+    "roundScore": "Round Score: {{score}} points",
+    "noPlay": "You can play any valid card type"
+  }
+}

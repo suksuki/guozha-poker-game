@@ -26,32 +26,50 @@ if (updatedPlayer.hand.length === 0) {
 
 ### 2. 接风判断
 
-**触发位置**：`src/utils/roundScheduler.ts:468`
+**触发位置**：`src/utils/roundScheduler.ts:430-443`
 
 **判断条件**：
 ```typescript
-if (nextPlayerIndex !== null && 
-    lastPlayPlayerIndex !== null && 
-    nextPlayerIndex === lastPlayPlayerIndex) {
-  // 轮完一圈，判断接风
+// 正常情况：轮完一圈
+const isNormalTakeover = nextPlayerIndex === lastPlayPlayerIndex;
+
+// 特殊情况：出牌玩家已出完牌，且所有剩余玩家都要不起
+const lastPlayPlayerFinished = lastPlayPlayer && lastPlayPlayer.hand.length === 0;
+const shouldTakeover = latestRound.shouldTakeover(players, nextPlayerIndex);
+const isSpecialTakeover = lastPlayPlayerFinished && shouldTakeover;
+
+// 两种情况都触发接风判断
+if (isNormalTakeover || isSpecialTakeover) {
+  // 接风逻辑
 }
 ```
 
 **判断时机**：
 - 在玩家要不起后（`onPassCompleted`）
-- 当下一个玩家就是最后出牌的玩家时
+- 两种情况：
+  1. **正常情况**：下一个玩家就是最后出牌的玩家（`nextPlayerIndex === lastPlayPlayerIndex`）
+  2. **特殊情况**：出牌玩家已经出完牌，且所有剩余玩家都要不起
 
 **判断逻辑**：
-1. **确认轮完一圈**：`nextPlayerIndex === lastPlayPlayerIndex`
+1. **正常情况（轮完一圈）**：
+   - 条件：`nextPlayerIndex === lastPlayPlayerIndex`
    - 说明从出牌玩家开始，轮询了一圈，所有其他玩家都要不起
-2. **确定接风玩家**：
+   
+2. **特殊情况（出牌玩家已出完牌）**：
+   - 条件：`lastPlayPlayerFinished && shouldTakeover`
+   - 原因：`findNextActivePlayer` 会跳过已出完的玩家，所以 `nextPlayerIndex` 永远不会等于 `lastPlayPlayerIndex`
+   - 使用 `Round.shouldTakeover()` 检查所有剩余玩家是否都要不起
+   - 如果所有剩余玩家都要不起，也应该判断接风
+
+3. **确定接风玩家**：
    - 接风玩家 = 出牌玩家（`lastPlayPlayerIndex`）
    - 检查接风玩家是否已出完牌：
      - 如果还有手牌 → 接风玩家就是出牌玩家
-     - 如果已出完 → 接风玩家 = 下一个还在游戏中的玩家
-3. **执行接风**：
-   - 清空 `lastPlay`（`round.takeover()`）
-   - 结束本轮，开启新轮次
+     - 如果已出完 → 接风玩家 = 下一个还在游戏中的玩家（`findNextActivePlayer`）
+
+4. **执行接风**：
+   - 结束本轮（分配分数给接风玩家）
+   - 开启新轮次（由接风玩家开始）
 
 ---
 
@@ -156,14 +174,17 @@ if (allFinished) {
 计算下一个玩家
   ↓
 调用 onPassCompleted
-  ├─ 检查是否轮完一圈？（nextPlayerIndex === lastPlayPlayerIndex）
+  ├─ 检查是否应该接风？
+  │   ├─ 正常情况：nextPlayerIndex === lastPlayPlayerIndex（轮完一圈）
+  │   ├─ 特殊情况：出牌玩家已出完 && 所有剩余玩家都要不起
+  │   │
   │   ├─ 是 → 判断接风
-  │   │   ├─ 确定接风玩家
+  │   │   ├─ 确定接风玩家（lastPlayPlayerIndex）
   │   │   ├─ 检查接风玩家是否已出完？
-  │   │   │   ├─ 是 → 接风给下一个玩家
+  │   │   │   ├─ 是 → 接风给下一个玩家（findNextActivePlayer）
   │   │   │   └─ 否 → 接风玩家就是出牌玩家
-  │   │   ├─ 执行接风（清空lastPlay）
-  │   │   └─ 结束本轮，开启新轮次
+  │   │   ├─ 结束本轮（分配分数给接风玩家）
+  │   │   └─ 开启新轮次（由接风玩家开始）
   │   └─ 否 → 继续
   ├─ 更新状态
   ├─ 检查轮次是否结束？
@@ -201,9 +222,11 @@ if (allFinished) {
 
 ### 2. 接风判断
 
-**位置**：`roundScheduler.ts:468`
-**判断**：`nextPlayerIndex === lastPlayPlayerIndex`
-**作用**：确认轮完一圈，所有其他玩家都要不起
+**位置**：`roundScheduler.ts:430-443`
+**判断**：
+- 正常情况：`nextPlayerIndex === lastPlayPlayerIndex`（轮完一圈）
+- 特殊情况：`lastPlayPlayerFinished && shouldTakeover`（出牌玩家已出完，且所有剩余玩家都要不起）
+**作用**：确认轮完一圈或特殊情况，所有其他玩家都要不起，触发接风
 
 ### 3. 轮次结束判断
 
@@ -231,6 +254,19 @@ if (allFinished) {
 - **finishOrder**：已在出完牌时记录，接风时不需要再次处理
 - **轮次分数**：在轮次结束时分配给接风玩家（即使已出完）
 - **下一轮开始**：由下一个玩家开始（不是接风玩家）
+
+### 3. 特殊情况：出牌玩家已出完时的接风判断
+
+**问题场景**：
+- 玩家A出完最后一手牌（已出完）
+- 玩家B、C、D都要不起
+- 因为 `findNextActivePlayer` 会跳过已出完的玩家A，所以 `nextPlayerIndex` 永远不会等于 `lastPlayPlayerIndex`（玩家A）
+- 导致正常接风判断无法触发
+
+**解决方案**：
+- 添加特殊情况判断：如果出牌玩家已经出完牌（`lastPlayPlayerFinished`），且所有剩余玩家都要不起（`shouldTakeover`），也应该判断接风
+- 使用 `Round.shouldTakeover()` 方法检查所有剩余玩家是否都要不起
+- 这样可以避免死循环，确保接风逻辑正确执行
 
 ### 3. 轮次分数分配时机
 

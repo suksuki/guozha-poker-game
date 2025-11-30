@@ -13,6 +13,11 @@ import { processPlayAsync } from './asyncPlayHandler';
 import { RoundScheduler } from './roundScheduler';
 import { generateRandomVoiceConfig } from '../services/voiceConfigService';
 import { getGameConfig } from '../config/gameConfig';
+import { announcePass } from '../services/systemAnnouncementService';
+import { voiceService } from '../services/voiceService';
+import { clearChatMessages } from '../services/chatService';
+import { dealCards } from './cardUtils';
+import { cardTracker } from '../services/cardTrackerService';
 
 /**
  * 游戏设置配置（用于初始化游戏）
@@ -84,20 +89,7 @@ export class Game {
   // ========== React 更新回调 ==========
   onUpdateCallback?: (game: Game) => void;
 
-  // ========== 出牌回调（由外部设置） ==========
-  private playCallbacks?: {
-    onPlay: (playerIndex: number, cards: Card[]) => Promise<boolean>;
-    onPass: (playerIndex: number) => Promise<void>;
-    isAutoPlay: () => boolean;
-    checkVoiceSpeaking: () => boolean;
-    waitForVoice: (initialPlayerIndex: number) => Promise<void>;
-  };
-
-  // ========== 外部模块回调（由外部设置） ==========
-  private moduleCallbacks?: {
-    recordTrackingPlay?: (roundNumber: number, playRecord: RoundPlayRecord) => void;
-    announcePlayAudio?: (play: Play, voiceConfig?: any) => Promise<void>;
-  };
+  // ========== 出牌回调（由外部设置，仅保留必要的） ==========
 
   // ========== 游戏配置（由外部设置） ==========
   private gameConfig?: {
@@ -141,6 +133,10 @@ export class Game {
 
     // 创建游戏控制器（传入 this，让 controller 可以调用 Game 的方法）
     this.controller = new GameController(this);
+    
+    // 初始化控制器回调为空（可选，GameController 会检查回调是否存在）
+    // 这样即使没有外部订阅，也不会出错
+    this.controller.subscribe({});
   }
 
   /**
@@ -235,12 +231,11 @@ export class Game {
     // 如果当前玩家是AI或托管模式，自动出牌
     // 注意：只有当索引真正变化且游戏正在进行时才自动出牌
     // skipAutoPlay: 如果为 true，跳过自动出牌（由调度器处理）
-    if (!skipAutoPlay && oldIndex !== index && this.status === GameStatus.PLAYING && this.playCallbacks) {
+    if (!skipAutoPlay && oldIndex !== index && this.status === GameStatus.PLAYING) {
       const currentPlayer = this.players[index];
       if (currentPlayer) {
-        const isAutoPlayValue = this.playCallbacks.isAutoPlay();
         const shouldAutoPlay = currentPlayer.type === PlayerType.AI || 
-                              (currentPlayer.isHuman && isAutoPlayValue);
+                              (currentPlayer.isHuman && this.isAutoPlay);
         
         if (shouldAutoPlay) {
           // 延迟执行，确保状态已更新
@@ -318,6 +313,79 @@ export class Game {
   }
 
   /**
+   * 创建并开始新游戏（完整的游戏初始化逻辑）
+   * 这个方法处理所有游戏初始化逻辑，包括创建玩家、创建第一轮等
+   * @param config 游戏配置
+   * @param hands 玩家手牌
+   * @param previousAutoPlayState 之前的托管状态（用于保持托管状态）
+   * @returns 新的 Game 实例
+   */
+  static createAndStartNewGame(
+    config: Game['config'],
+    hands: Card[][],
+    previousAutoPlayState: boolean = false
+  ): Game {
+    // 创建新的 Game 实例
+    const newGame = new Game(config);
+    
+    // 设置托管状态（在开始游戏前设置，这样 Game 类可以正确初始化调度器）
+    newGame.setAutoPlay(previousAutoPlayState);
+    
+    // 调用 Game 类的方法开始游戏（所有游戏逻辑都在 Game 类中处理，包括自动出牌）
+    newGame.startNewGame(hands);
+    
+    // 初始化追踪模块（如果启用）
+    newGame.initializeTracking(hands);
+    
+    return newGame;
+  }
+
+  /**
+   * 处理发牌完成（从发牌动画回调）
+   * 使用指定的手牌创建并开始新游戏
+   * @param config 游戏配置
+   * @param hands 玩家手牌（从发牌动画获得）
+   * @param previousAutoPlayState 之前的托管状态（用于保持托管状态）
+   * @returns 新的 Game 实例
+   */
+  static handleDealingComplete(
+    config: Game['config'],
+    hands: Card[][],
+    previousAutoPlayState: boolean = false
+  ): Game {
+    // 使用 Game 类的静态方法创建并开始新游戏
+    return Game.createAndStartNewGame(config, hands, previousAutoPlayState);
+  }
+
+  /**
+   * 处理发牌取消（从发牌动画回调）
+   * 这是一个占位方法，实际的 React 状态管理需要在 hook 中处理
+   * 此方法主要用于保持 API 一致性
+   */
+  static handleDealingCancel(): void {
+    // 发牌取消不需要游戏逻辑，只需要清空 UI 状态
+    // React 状态管理（setPendingGameConfig, setIsDealing）在 hook 中处理
+  }
+
+  /**
+   * 开始新游戏（自动发牌）
+   * 这个方法会自动发牌，然后创建并开始新游戏
+   * @param config 游戏配置
+   * @param previousAutoPlayState 之前的托管状态（用于保持托管状态）
+   * @returns 新的 Game 实例
+   */
+  static startGameWithDealing(
+    config: Game['config'],
+    previousAutoPlayState: boolean = false
+  ): Game {
+    // 自动发牌
+    const hands = dealCards(config.playerCount);
+    
+    // 创建并开始新游戏
+    return Game.createAndStartNewGame(config, hands, previousAutoPlayState);
+  }
+
+  /**
    * 开始新游戏（完整的游戏初始化逻辑）
    * 这个方法处理所有游戏初始化逻辑，包括创建玩家、创建第一轮等
    */
@@ -384,9 +452,35 @@ export class Game {
   }
 
   /**
+   * 初始化追踪模块
+   * @param hands 玩家手牌
+   */
+  private initializeTracking(hands: Card[][]): void {
+    // 从配置或 localStorage 读取计分器开关配置（默认关闭）
+    const cardTrackerEnabled = this.config?.cardTrackerEnabled ?? (() => {
+      const saved = localStorage.getItem('cardTrackerEnabled');
+      return saved !== null ? saved === 'true' : false;
+    })();
+    
+    if (cardTrackerEnabled) {
+      try {
+        cardTracker.initialize(hands, Date.now());
+        cardTracker.startRound(1, this.players);
+      } catch (error) {
+        console.error('[Game] 追踪模块初始化失败:', error);
+      }
+    }
+  }
+
+  /**
    * 重置游戏
+   * 清空所有游戏状态，包括聊天消息
    */
   reset(): void {
+    // 清空聊天消息
+    clearChatMessages();
+    
+    // 重置游戏状态
     this.status = GameStatus.WAITING;
     this.players = [];
     this.currentPlayerIndex = 0;
@@ -399,6 +493,9 @@ export class Game {
     this.gameRecord = undefined;
     this.initialHands = undefined;
     this.controller.reset();
+    
+    // 触发更新回调
+    this.triggerUpdate();
   }
 
   /**
@@ -408,18 +505,6 @@ export class Game {
     this.controller.subscribe(callbacks);
   }
 
-  /**
-   * 设置出牌回调
-   */
-  setPlayCallbacks(callbacks: {
-    onPlay: (playerIndex: number, cards: Card[]) => Promise<boolean>;
-    onPass: (playerIndex: number) => Promise<void>;
-    isAutoPlay: () => boolean;
-    checkVoiceSpeaking: () => boolean;
-    waitForVoice: (initialPlayerIndex: number) => Promise<void>;
-  }): void {
-    this.playCallbacks = callbacks;
-  }
 
   /**
    * 设置轮次调度器（已废弃，现在由 Game 类内部管理）
@@ -499,6 +584,28 @@ export class Game {
   }
 
   /**
+   * 切换托管状态
+   * @returns 新的托管状态
+   */
+  toggleAutoPlay(): boolean {
+    const newValue = !this.isAutoPlay;
+    this.setAutoPlay(newValue);
+    
+    // 如果开启托管，且当前轮到人类玩家，立即触发自动出牌
+    if (newValue && this.status === GameStatus.PLAYING) {
+      const currentPlayer = this.players[this.currentPlayerIndex];
+      if (currentPlayer && currentPlayer.isHuman) {
+        // 延迟触发，确保状态已更新（setAutoPlay 会先执行）
+        setTimeout(() => {
+          this.triggerAutoPlay();
+        }, 300);
+      }
+    }
+    
+    return newValue;
+  }
+
+  /**
    * 触发当前玩家自动出牌（用于托管模式）
    */
   triggerAutoPlay(): void {
@@ -512,9 +619,8 @@ export class Game {
       return;
     }
 
-    const isAutoPlayValue = this.playCallbacks?.isAutoPlay() ?? false;
     const shouldAutoPlay = currentPlayer.type === PlayerType.AI || 
-                          (currentPlayer.isHuman && isAutoPlayValue);
+                          (currentPlayer.isHuman && this.isAutoPlay);
 
 
     if (!shouldAutoPlay) {
@@ -530,13 +636,14 @@ export class Game {
   }
 
   /**
-   * 设置外部模块回调
+   * 设置外部模块回调（已废弃，现在直接使用服务）
+   * @deprecated 不再需要，所有服务都已直接导入
    */
-  setModuleCallbacks(callbacks: {
+  setModuleCallbacks(_callbacks: {
     recordTrackingPlay?: (roundNumber: number, playRecord: RoundPlayRecord) => void;
     announcePlayAudio?: (play: Play, voiceConfig?: any) => Promise<void>;
   }): void {
-    this.moduleCallbacks = callbacks;
+    // 不再需要，所有服务都已直接导入
   }
 
   /**
@@ -560,10 +667,6 @@ export class Game {
       return;
     }
 
-    if (!this.playCallbacks) {
-      return;
-    }
-
     const playerIndex = targetPlayerIndex !== undefined ? targetPlayerIndex : this.currentPlayerIndex;
     const currentPlayer = this.players[playerIndex];
     
@@ -573,9 +676,8 @@ export class Game {
     }
     
     // 检查是否应该自动出牌：只有AI玩家或托管模式下的人类玩家才自动出牌
-    const isAutoPlayValue = this.playCallbacks.isAutoPlay();
     const shouldAutoPlay = currentPlayer.type === PlayerType.AI || 
-                          (currentPlayer.isHuman && isAutoPlayValue);
+                          (currentPlayer.isHuman && this.isAutoPlay);
     
     
     if (!shouldAutoPlay) {
@@ -584,12 +686,19 @@ export class Game {
 
     // 检查是否正在播放语音（添加超时保护）
     try {
-      const isVoiceSpeaking = this.playCallbacks.checkVoiceSpeaking();
+      const isVoiceSpeaking = voiceService.isCurrentlySpeaking();
       if (isVoiceSpeaking) {
         const initialPlayerIndex = this.currentPlayerIndex;
         // 添加超时保护，避免无限等待
         await Promise.race([
-          this.playCallbacks.waitForVoice(initialPlayerIndex),
+          new Promise<void>((resolve) => {
+            const checkInterval = setInterval(() => {
+              if (!voiceService.isCurrentlySpeaking() || this.currentPlayerIndex !== initialPlayerIndex) {
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 100);
+          }),
           new Promise(resolve => setTimeout(resolve, 5000)) // 5秒超时
         ]);
       }
@@ -727,8 +836,7 @@ export class Game {
           players: this.players,
           currentRoundIndex: this.currentRoundIndex,
           status: this.status
-        } as any),
-        this.moduleCallbacks
+        } as any)
       );
 
       if (result.status === 'completed') {
@@ -880,6 +988,17 @@ export class Game {
       // 继续执行，不中断流程
     }
 
+    // 播放"要不起"语音
+    const player = this.players[playerIndex];
+    if (player) {
+      try {
+        await announcePass(player.voiceConfig);
+      } catch (error) {
+        // 语音播放失败不应该阻止游戏继续
+        console.error('[Game] "要不起"语音播放失败:', error);
+      }
+    }
+
     // 交给 RoundScheduler 处理要不起后的调度逻辑
     this.initializeScheduler(); // 确保调度器已初始化
     if (this.scheduler) {
@@ -964,6 +1083,34 @@ export class Game {
             //   }
             // });
             this.updateRound(this.currentRoundIndex, endedRound);
+            
+            // 调用记牌器结束轮次（重要：确保记牌器中的轮次状态正确更新）
+            const roundRecord = endedRound.toRecord();
+            const cardTrackerEnabled = this.config?.cardTrackerEnabled ?? (() => {
+              const saved = localStorage.getItem('cardTrackerEnabled');
+              return saved !== null ? saved === 'true' : false;
+            })();
+            
+            if (cardTrackerEnabled && endResult.winnerIndex !== null) {
+              try {
+                const winner = this.players[endResult.winnerIndex];
+                cardTracker.endRound(
+                  endedRound.roundNumber,
+                  winner?.id ?? endResult.winnerIndex,
+                  winner?.name ?? roundRecord.winnerName ?? '未知',
+                  endResult.roundScore,
+                  this.players
+                );
+                console.log(`[Game] 记牌器：第${endedRound.roundNumber}轮已结束`, {
+                  roundNumber: endedRound.roundNumber,
+                  winnerId: winner?.id ?? endResult.winnerIndex,
+                  winnerName: winner?.name ?? roundRecord.winnerName,
+                  totalScore: endResult.roundScore
+                });
+              } catch (error) {
+                console.error(`[Game] 记牌器结束轮次失败:`, error);
+              }
+            }
           }
           
           // 如果还有下一个玩家，创建新轮次
@@ -979,6 +1126,21 @@ export class Game {
             // 更新调度器的轮次号
             if (this.scheduler) {
               this.scheduler.updateRoundNumber(newRoundNumber);
+            }
+            
+            // 记牌器：开始新轮次
+            const cardTrackerEnabled = this.config?.cardTrackerEnabled ?? (() => {
+              const saved = localStorage.getItem('cardTrackerEnabled');
+              return saved !== null ? saved === 'true' : false;
+            })();
+            
+            if (cardTrackerEnabled) {
+              try {
+                cardTracker.startRound(newRoundNumber, this.players);
+                console.log(`[Game] 记牌器：第${newRoundNumber}轮已开始`);
+              } catch (error) {
+                console.error(`[Game] 记牌器开始新轮次失败:`, error);
+              }
             }
             
             // 如果下一个玩家是AI或托管模式，自动出牌

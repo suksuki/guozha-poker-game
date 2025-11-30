@@ -3,7 +3,7 @@
  * 优化 QUICK_JAB 在长吵架中的插入机制
  */
 
-import { Utter, Priority } from './DialogueScheduler';
+import { Utter } from './DialogueScheduler';
 import { SegmentedPlayback } from './SegmentedPlayback';
 
 export interface InterruptionConfig {

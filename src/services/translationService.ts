@@ -3,7 +3,7 @@
  * 用于将聊天内容翻译成目标语言
  */
 
-import i18n from '../i18n';
+import { i18n } from '../i18n';
 import { detectLanguage } from '../utils/languageDetection';
 
 /**

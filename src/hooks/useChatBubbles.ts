@@ -5,12 +5,12 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import * as React from 'react';
-import { GameStatus, Player } from '../types/card';
+import { GameStatus } from '../types/card';
 import { ChatMessage } from '../types/chat';
-import { getChatMessages, triggerRandomChat, chatService } from '../services/chatService';
+import { getChatMessages, triggerRandomChat } from '../services/chatService';
 import { waitForVoices, listAvailableVoices, voiceService } from '../services/voiceService';
 import { translateText } from '../services/translationService';
-import i18n from '../i18n';
+import { i18n } from '../i18n';
 
 import { Game } from '../utils/Game';
 import { useGameAudio } from './useGameAudio';
@@ -57,8 +57,8 @@ export function useChatBubbles(
         lastMessageIdRef.current = messageId;
         
         // 翻译消息内容（如果当前语言不是中文）
-        const currentLang = i18n.language || 'zh-CN';
-        const player = game.players.find(p => p.id === latestMessage.playerId);
+        const currentLang = i18n?.language || 'zh-CN';
+        const player = game?.players?.find(p => p.id === latestMessage.playerId);
         
         // 异步翻译并更新消息
         translateText(latestMessage.content, currentLang).then(translatedContent => {
@@ -81,15 +81,8 @@ export function useChatBubbles(
             
             console.log('[useChatBubbles] 播放聊天语音:', translatedContent, '玩家:', player.name, 'playerId:', translatedMessage.playerId, '类型:', translatedMessage.type, '音量:', voiceConfigForTaunt.volume);
             
-            // 同时使用多声道音频系统（如果提供）
-            if (gameAudio?.isEnabled) {
-              gameAudio.handleChatMessage(translatedMessage).catch((error) => {
-                console.warn('[useChatBubbles] 多声道音频播放失败，回退到传统语音:', error);
-              });
-            }
-            
-            // 播放语音，传入事件回调（传统方式，作为回退）
-            // 注意：不在调用前设置状态，而是在onStart回调中设置，确保状态和实际播放同步
+            // 使用 voiceService 播放语音（它内部使用 ttsAudioService，支持多声道）
+            // 注意：不再同时调用 gameAudio.handleChatMessage，避免重复播放
             // 根据消息类型确定优先级：3=对骂，2=事件，1=随机
             const priority = translatedMessage.type === 'taunt' ? 3 : 
                            translatedMessage.type === 'event' ? 2 : 1;

@@ -4,7 +4,6 @@
  */
 
 import { CardType, Player } from '../types/card';
-import React from 'react';
 
 // 获取牌型名称
 export function getCardTypeName(type: CardType): string {

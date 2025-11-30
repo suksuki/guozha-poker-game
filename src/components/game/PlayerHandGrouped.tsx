@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 import { Card } from '../../types/card';
 import { CardComponent } from '../CardComponent';
 import { isScoreCard, getCardScore } from '../../utils/cardUtils';
-import { getRankDisplay } from '../../utils/gameUtils';
 
 interface PlayerHandGroupedProps {
   groupedHand: Map<number, Card[]>;

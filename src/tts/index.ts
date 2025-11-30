@@ -4,7 +4,6 @@
 
 export {
   BrowserTTSClient,
-  LocalTTSClient,
   synthesizeSpeech,
   setDefaultTTSClient,
   getDefaultTTSClient,
@@ -22,20 +21,14 @@ export {
 } from './speakers';
 
 export {
-  LocalTTSAPIClient,
-  EdgeTTSClient,
-  type LocalTTSConfig,
-} from './localTTSClient';
+  PiperTTSClient,
+  type PiperTTSConfig,
+} from './piperTTSClient';
 
 export {
-  GPTSoVITSClient,
-  type GPTSoVITSConfig,
-} from './gptSoVITSClient';
-
-export {
-  CoquiTTSClient,
-  type CoquiTTSConfig,
-} from './coquiTTSClient';
+  AzureSpeechTTSClient,
+  type AzureSpeechTTSConfig,
+} from './azureSpeechTTSClient';
 
 export {
   AudioCache,

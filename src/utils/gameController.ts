@@ -50,6 +50,10 @@ export class GameController {
    * 初始化游戏（设置初始玩家和分数）
    */
   initializeGame(players: Player[], initialScore: number = -100): void {
+    // 确保 game 和 game.players 已初始化
+    if (!this.game || !this.game.players) {
+      return;
+    }
     // 确保 game.players 已经设置（应该在 Game.initialize 中已经设置）
     if (this.game.players.length !== players.length) {
       return;

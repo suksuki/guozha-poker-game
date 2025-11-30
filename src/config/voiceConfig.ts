@@ -83,7 +83,7 @@ export const DEFAULT_MULTI_CHANNEL_CONFIG: MultiChannelConfig = {
   enabled: true,  // 默认启用多声道（通过TTS API服务 + Web Audio API实现）
   maxConcurrentSpeakers: 2,  // 最多2个同时播放（符合设计文档）
   useTTS: true,  // 必须使用TTS API服务（不使用speechSynthesis）
-  ttsProvider: 'auto',  // 自动选择最佳TTS服务商
+  ttsProvider: 'auto',  // 自动选择（根据场景：报牌用Azure，聊天用Piper）
   enableDucking: true,  // 启用ducking
   duckingLevel: 0.25,  // ducking时其他角色音量降低到25%
   enableAudioCache: true,  // 启用音频缓存

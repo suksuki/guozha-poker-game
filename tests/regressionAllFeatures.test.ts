@@ -18,11 +18,13 @@ import i18n from '../src/i18n';
 describe('所有新功能回归测试', () => {
   beforeEach(async () => {
     // 确保使用中文进行测试（因为测试期望中文输出）
-    if (!i18n.isInitialized) {
+    if (i18n && typeof i18n.isInitialized !== 'undefined' && !i18n.isInitialized) {
       await i18n.init();
     }
-    await i18n.changeLanguage('zh-CN');
-    await new Promise(resolve => setTimeout(resolve, 20)); // 从50ms减少到20ms
+    if (i18n && i18n.changeLanguage) {
+      await i18n.changeLanguage('zh-CN');
+      await new Promise(resolve => setTimeout(resolve, 20)); // 从50ms减少到20ms
+    }
   });
 
   describe('回归测试：墩的计分规则', () => {

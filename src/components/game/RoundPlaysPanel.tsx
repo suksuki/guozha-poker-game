@@ -5,7 +5,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { RoundPlayRecord } from '../../types/card';
+import { RoundPlayRecord, Player } from '../../types/card';
 import { CardComponent } from '../CardComponent';
 import { isScoreCard, getCardScore } from '../../utils/cardUtils';
 import './RoundPlaysPanel.css';
@@ -14,13 +14,21 @@ interface RoundPlaysPanelProps {
   roundNumber: number;
   roundPlays: RoundPlayRecord[];
   roundScore: number;
+  players?: Player[];
 }
 
 export const RoundPlaysPanel: React.FC<RoundPlaysPanelProps> = ({
   roundNumber,
   roundPlays,
-  roundScore
+  roundScore,
+  players = []
 }) => {
+  // 获取玩家头像emoji（和AIPlayerAvatar中的逻辑一致）
+  const getPlayerAvatar = (playerId: number | null | undefined): string => {
+    if (playerId === null || playerId === undefined) return '🤖';
+    const emojis = ['🤖', '👾', '🤖', '👽', '🤖', '👻', '🤖', '🦾'];
+    return emojis[playerId % 8];
+  };
   if (!roundPlays || roundPlays.length === 0) {
     return null;
   }
@@ -98,7 +106,9 @@ export const RoundPlaysPanel: React.FC<RoundPlaysPanelProps> = ({
               className="round-play-item-inline"
               style={{ position: 'relative', left: 'auto', top: 'auto' }}
             >
-              <div className="round-play-player-inline">{playRecord.playerName}:</div>
+              <div className="round-play-player-inline">
+                <span className="round-play-player-avatar">{getPlayerAvatar(playRecord.playerId)}</span>
+              </div>
               {/* 卡牌叠放容器 - 一行横着叠放，所有卡牌纵坐标相同 */}
               <div 
                 className="round-play-cards-stacked"

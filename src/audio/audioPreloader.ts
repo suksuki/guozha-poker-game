@@ -3,7 +3,7 @@
  * 预加载常用音频，提高播放响应速度
  */
 
-import { getTTSServiceManager, TTSOptions } from '../tts';
+import { getTTSServiceManager } from '../tts';
 import { defaultSpeakerManager } from '../tts/speakers';
 
 export interface PreloadItem {

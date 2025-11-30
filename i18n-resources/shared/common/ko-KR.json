@@ -1,0 +1,25 @@
+{
+  "buttons": {
+    "confirm": "확인",
+    "cancel": "취소",
+    "back": "뒤로",
+    "start": "시작",
+    "pause": "일시정지",
+    "continue": "계속",
+    "restart": "다시 시작",
+    "close": "닫기"
+  },
+  "status": {
+    "loading": "로딩 중...",
+    "error": "오류",
+    "success": "성공",
+    "failed": "실패",
+    "waiting": "대기 중..."
+  },
+  "messages": {
+    "confirm": "확인",
+    "warning": "경고",
+    "info": "정보",
+    "error": "오류"
+  }
+}

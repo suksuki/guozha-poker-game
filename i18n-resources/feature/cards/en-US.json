@@ -1,0 +1,35 @@
+{
+  "ranks": {
+    "three": "3",
+    "four": "4",
+    "five": "5",
+    "six": "6",
+    "seven": "7",
+    "eight": "8",
+    "nine": "9",
+    "ten": "10",
+    "jack": "J",
+    "queen": "Q",
+    "king": "K",
+    "ace": "A",
+    "two": "2",
+    "jokerSmall": "Small Joker",
+    "jokerBig": "Big Joker",
+    "unknown": "Unknown"
+  },
+  "types": {
+    "single": "Single",
+    "pair": "Pair",
+    "triple": "Three of a Kind",
+    "bomb": "Bomb",
+    "dun": "Dun",
+    "unknown": "Unknown Type"
+  },
+  "speech": {
+    "pair": "Pair of {{rank}}",
+    "triple": "Three {{rank}}s",
+    "bomb": "{{count}} {{rank}}s",
+    "dun": "{{count}} {{rank}}s",
+    "default": "{{count}} cards"
+  }
+}

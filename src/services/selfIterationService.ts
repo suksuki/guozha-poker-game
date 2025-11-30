@@ -4,7 +4,7 @@
  */
 
 import { getCodeReviewService, CodeReviewResult, CodeIssue } from './codeReviewService';
-import { getTestManagementService, TestAnalysis, TestFile } from './testManagementService';
+import { getTestManagementService, TestAnalysis } from './testManagementService';
 import { getCursorPromptService, CursorPrompt } from './cursorPromptService';
 
 const ISSUE_TYPE_LABELS: Record<CodeIssue['type'], string> = {
@@ -113,9 +113,74 @@ export class SelfIterationService {
   }
 
   /**
+   * 合并多个改进计划为一个综合计划
+   */
+  mergeImprovementPlans(plans: ImprovementPlan[], title?: string): ImprovementPlan {
+    if (plans.length === 0) {
+      throw new Error('无法合并空计划列表');
+    }
+
+    if (plans.length === 1) {
+      return plans[0];
+    }
+
+    // 合并所有文件
+    const allFiles = [...new Set(plans.flatMap(p => p.targetFiles))];
+    
+    // 合并所有描述
+    const mergedDescription = plans
+      .map(p => `- ${p.title}: ${p.description}`)
+      .join('\n');
+    
+    // 确定最高优先级
+    const priorityOrder = { high: 3, medium: 2, low: 1 };
+    const highestPriority = plans.reduce((max, p) => 
+      priorityOrder[p.priority] > priorityOrder[max.priority] ? p : max
+    );
+
+    // 确定类型（如果所有计划类型相同则使用该类型，否则使用 refactor）
+    const types = [...new Set(plans.map(p => p.type))];
+    const mergedType = types.length === 1 ? types[0] : 'refactor';
+
+    // 合并提示词
+    const promptObjects = plans
+      .map(p => p.cursorPromptObj)
+      .filter((p): p is CursorPrompt => p !== undefined);
+    
+    let mergedPromptObj: CursorPrompt | undefined;
+    if (promptObjects.length > 0) {
+      mergedPromptObj = this.cursorPromptService.mergePrompts(
+        promptObjects,
+        title || `批量处理: ${plans.length} 个改进`
+      );
+    }
+
+    // 生成合并后的提示词文本
+    const mergedPromptText = mergedPromptObj?.content || plans
+      .map(p => `## ${p.title}\n\n${p.cursorPrompt}`)
+      .join('\n\n---\n\n');
+
+    return {
+      id: `merged-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: mergedType,
+      priority: highestPriority.priority,
+      title: title || `批量处理: ${plans.length} 个改进`,
+      description: `合并了 ${plans.length} 个相关改进计划：\n\n${mergedDescription}`,
+      targetFiles: allFiles,
+      estimatedImpact: `综合影响：${plans.map(p => p.estimatedImpact).join('; ')}`,
+      estimatedEffort: plans.some(p => p.estimatedEffort === '高') ? '高' : 
+                      plans.some(p => p.estimatedEffort === '中') ? '中' : '低',
+      cursorPrompt: mergedPromptText,
+      cursorPromptObj: mergedPromptObj,
+      canAutoApply: false, // 合并后的计划通常不能自动应用
+      autoApplyAction: undefined,
+    };
+  }
+
+  /**
    * 生成改进计划
    */
-  private generateImprovementPlans(
+private generateImprovementPlans(
     codeReview: CodeReviewResult,
     testAnalysis: TestAnalysis
   ): ImprovementPlan[] {

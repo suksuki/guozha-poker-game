@@ -16,7 +16,6 @@ import {
 } from '../config/chatConfig';
 import type { IChatStrategy, ChatContext } from '../chat/strategy';
 import { getChatStrategy } from '../chat/strategy';
-import { getCardType } from '../utils/cardUtils';
 import { groupCardsByRank } from '../utils/cardSorting';
 import { evaluateHandValue } from '../ai/simpleStrategy';
 import { MultiPlayerGameState } from '../utils/gameStateUtils';

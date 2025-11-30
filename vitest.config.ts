@@ -62,9 +62,9 @@ export default defineConfig({
     // 实时输出配置：使用 verbose 报告器可以显示详细的实时测试输出
     // 在命令行中使用 --reporter=verbose 可以覆盖此设置
     reporters: process.env.CI ? ['default'] : ['verbose', SimpleProgressReporter],
-    // 测试超时设置
-    testTimeout: 30000,
-    hookTimeout: 30000,
+    // 测试超时设置（5秒）
+    testTimeout: 5000,
+    hookTimeout: 5000,
     // 并发测试（提高速度）
     pool: 'threads',
     poolOptions: {

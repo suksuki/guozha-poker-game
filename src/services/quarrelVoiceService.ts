@@ -18,6 +18,7 @@ import { VoiceConfig } from '../types/card';
 import { BeatsGenerator, BeatsGenerationContext } from '../ai/beatsGenerator';
 import { LLMChatStrategy } from '../chat/strategy/LLMChatStrategy';
 import { DEFAULT_LLM_CHAT_CONFIG } from '../config/chatConfig';
+import { segmentText } from '../utils/textSegmenter';
 
 // QUICK_JAB最大时长（秒）
 const QUICK_JAB_MAX_DURATION = 1.5;
@@ -305,9 +306,20 @@ class QuarrelVoiceService {
       const segments = await this.generateSegmentsWithLLM(utter, beatsStructure, context);
       if (segments && segments.length > 0) {
         for (const segmentText of segments) {
+          // 对每段文本进行加工：确保有合适的标点符号
+          let processedText = segmentText.trim();
+          // 如果文本较长且没有句号、问号、感叹号结尾，添加句号
+          if (processedText.length > 10 && !/[。！？]$/.test(processedText)) {
+            if (/[，；、]$/.test(processedText)) {
+              processedText = processedText.slice(0, -1) + '。';
+            } else {
+              processedText = processedText + '。';
+            }
+          }
+          
           const segmentUtter: Utter = {
             ...utter,
-            text: segmentText.trim(),
+            text: processedText,
             priority: utter.priority,
           };
           this.scheduler.submit(segmentUtter);
@@ -319,9 +331,20 @@ class QuarrelVoiceService {
       const fallbackSegments = this.splitByPunctuation(utter.text);
       if (fallbackSegments.length > 0) {
         for (const segmentText of fallbackSegments) {
+          // 对每段文本进行加工：确保有合适的标点符号
+          let processedText = segmentText.trim();
+          // 如果文本较长且没有句号、问号、感叹号结尾，添加句号
+          if (processedText.length > 10 && !/[。！？]$/.test(processedText)) {
+            if (/[，；、]$/.test(processedText)) {
+              processedText = processedText.slice(0, -1) + '。';
+            } else {
+              processedText = processedText + '。';
+            }
+          }
+          
           const segmentUtter: Utter = {
             ...utter,
-            text: segmentText.trim(),
+            text: processedText,
             priority: utter.priority,
           };
           this.scheduler.submit(segmentUtter);
@@ -393,11 +416,23 @@ class QuarrelVoiceService {
   }
 
   /**
-   * 按标点符号分段（简单实现）
+   * 按标点符号分段（改进版：使用智能断句工具）
    */
   private splitByPunctuation(text: string): string[] {
-    // 按句号、问号、感叹号分段
-    const segments = text.split(/[。！？]/).filter(s => s.trim().length > 0);
+    // 使用智能断句工具，支持多种标点符号和长句强制分段
+    const segments = segmentText(text, {
+      maxSegmentLength: 30,  // 每段最大30字（比默认的15字宽松，因为这是长吵架）
+      maxTotalLength: 100,    // 总长度限制100字
+      preservePunctuation: true,
+      forceSegment: true      // 强制分段，即使没有标点符号
+    });
+    
+    // 如果分段失败，回退到简单分段
+    if (segments.length === 0) {
+      const fallbackSegments = text.split(/[。！？]/).filter(s => s.trim().length > 0);
+      return fallbackSegments.length > 0 ? fallbackSegments : [text.trim()];
+    }
+    
     return segments;
   }
 

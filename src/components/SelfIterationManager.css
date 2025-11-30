@@ -2,7 +2,7 @@
 
 .self-iteration-manager-toggle {
   position: fixed;
-  bottom: 370px;
+  bottom: 430px; /* 从370px增加到430px，保持与底部按钮的间距 */
   right: 20px;
   width: 60px;
   height: 60px;
@@ -34,9 +34,10 @@
   background: rgba(0, 0, 0, 0.5);
   z-index: 2000;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 20px;
+  padding: 20px 20px 80px 20px; /* 增加底部padding，确保底部内容可见 */
+  overflow-y: auto;
   animation: fadeIn 0.3s ease;
 }
 
@@ -46,8 +47,8 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 1400px;
   width: 100%;
-  height: 90vh;
-  max-height: 90vh;
+  max-height: calc(100vh - 120px); /* 增加底部空间：20px顶部 + 80px底部 + 20px安全边距 */
+  margin: 20px auto;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease;
@@ -61,6 +62,32 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.self-iteration-manager-header .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.auto-run-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.auto-run-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.auto-run-toggle:hover {
+  color: white;
 }
 
 .self-iteration-manager-header h2 {
@@ -119,29 +146,131 @@
   min-height: 0;
 }
 
-.improvement-plans-section h3 {
-  margin: 0 0 16px 0;
+.plans-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.plans-section-header h3 {
+  margin: 0;
   font-size: 18px;
   color: #212529;
 }
 
-.improvement-plans-list {
+.plans-header-actions {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
+}
+
+.select-all-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  color: #495057;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.select-all-toggle:hover {
+  background: #f8f9fa;
+  color: #212529;
+}
+
+.select-all-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #f5576c;
+}
+
+.improvement-plans-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .improvement-plans-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .improvement-plan-card {
   background: white;
   border: 2px solid #e9ecef;
-  border-radius: 12px;
-  padding: 20px;
-  transition: all 0.2s ease;
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.improvement-plan-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  transform: scaleY(0);
+  transition: transform 0.3s ease;
 }
 
 .improvement-plan-card:hover {
   border-color: #f5576c;
-  box-shadow: 0 4px 12px rgba(245, 87, 108, 0.15);
+  box-shadow: 0 8px 24px rgba(245, 87, 108, 0.2);
+  transform: translateY(-4px);
+}
+
+.improvement-plan-card:hover::before {
+  transform: scaleY(1);
+}
+
+.improvement-plan-card.selected {
+  border: 2px solid #f5576c;
+  background: linear-gradient(135deg, #fff5f7 0%, #ffeef0 100%);
+  box-shadow: 0 8px 24px rgba(245, 87, 108, 0.3);
+  transform: translateY(-2px);
+}
+
+.improvement-plan-card.selected::before {
+  transform: scaleY(1);
+  width: 6px;
+}
+
+.improvement-plan-card:focus-within {
+  outline: 2px solid #f5576c;
+  outline-offset: 2px;
+}
+
+.plan-checkbox {
+  width: 20px;
+  height: 20px;
+  margin-right: 12px;
+  cursor: pointer;
+  accent-color: #f5576c;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.plan-checkbox:hover {
+  transform: scale(1.1);
+}
+
+.plan-checkbox:focus {
+  outline: 2px solid #f5576c;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .plan-header {
@@ -161,18 +290,34 @@
 
 .plan-type-badge,
 .plan-priority-badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
   color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.plan-type-badge:hover,
+.plan-priority-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .plan-title-section h4 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: #212529;
+  line-height: 1.4;
+  transition: color 0.2s ease;
+}
+
+.improvement-plan-card:hover .plan-title-section h4 {
+  color: #f5576c;
 }
 
 .plan-actions {
@@ -182,40 +327,89 @@
 
 .btn-copy-prompt,
 .btn-execute {
-  padding: 6px 12px;
-  border: 1px solid #f5576c;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border: 2px solid #f5576c;
+  border-radius: 8px;
   background: white;
   color: #f5576c;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
   transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-copy-prompt::before,
+.btn-execute::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(245, 87, 108, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
 }
 
 .btn-copy-prompt:hover,
 .btn-execute:hover {
   background: #f5576c;
   color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 87, 108, 0.3);
+}
+
+.btn-copy-prompt:active,
+.btn-execute:active {
+  transform: translateY(0);
+}
+
+.btn-copy-prompt:focus,
+.btn-execute:focus {
+  outline: 2px solid #f5576c;
+  outline-offset: 2px;
 }
 
 .plan-description {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   color: #495057;
   font-size: 14px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .plan-meta {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid #e9ecef;
 }
 
 .meta-item {
   font-size: 12px;
   color: #6c757d;
-  padding: 4px 8px;
-  background: #f8f9fa;
-  border-radius: 4px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.meta-item:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .iteration-history-section {

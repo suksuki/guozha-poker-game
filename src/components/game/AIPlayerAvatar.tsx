@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import i18n from '../../i18n';
+import { i18n } from '../../i18n';
 import { Player } from '../../types/card';
 
 export interface AIPlayerAvatarProps {
@@ -71,20 +71,12 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
       className={`ai-player-avatar-container ${isCurrent ? 'current-player' : ''} ${isLastPlay ? 'last-play-player' : ''}`}
       style={containerStyle}
     >
-      {/* 状态信息面板 */}
-      <div className="ai-player-status-panel">
-        <div className="status-item">
-          <span className="status-label">{t('ui:aiPlayer.scoreLabel')}</span>
-          <span className="status-value">{playerScore}</span>
-        </div>
-        <div className="status-item">
-          <span className="status-label">{t('ui:aiPlayer.dunCountLabel')}</span>
-          <span className="status-value">{dunCount}</span>
-        </div>
+      {/* 卡通大头像 */}
+      <div className="ai-player-avatar">
+        {/* 名次信息 - 绝对定位在头像上方 */}
         {playerRank !== null && (
-          <div className="status-item rank-item">
-            <span className="status-label">{t('ui:aiPlayer.rankLabel')}</span>
-            <span className={`status-value rank-badge rank-${playerRank} ${isLastPlace ? 'last-place' : ''}`}>
+          <div className="avatar-rank-badge">
+            <span className={`rank-badge rank-${playerRank} ${isLastPlace ? 'last-place' : ''}`}>
               {trophyIcon && (
                 <span className={`trophy-icon ${isLastPlace ? 'trophy-gray' : playerRank === 1 ? 'trophy-gold' : playerRank === 2 ? 'trophy-silver' : ''}`}>
                   {trophyIcon}
@@ -104,23 +96,25 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
             </span>
           </div>
         )}
-        <div className="status-item">
-          <span className="status-label">{t('ui:aiPlayer.handLabel')}</span>
-          <span className="status-value">{t('ui:aiPlayer.cards', { count: actualHandCount })}</span>
-        </div>
-        {isCurrent && (
-          <div className="status-item current-indicator">
-            <span className="status-value">{t('ui:aiPlayer.thinking')}</span>
-          </div>
-        )}
-      </div>
-      
-      {/* 卡通大头像 */}
-      <div className="ai-player-avatar">
         <div className="avatar-emoji">
           {avatarEmoji}
         </div>
         <div className="avatar-name">{player.name}</div>
+      </div>
+      
+      {/* 状态信息面板 */}
+      <div className="ai-player-status-panel">
+        <div className="status-item status-item-compact">
+          <span className="status-value">{playerScore}分，{dunCount}墩</span>
+        </div>
+        <div className="status-item">
+          <span className="status-label">{t('ui:aiPlayer.handLabel')}</span>
+          <span className="status-value">{t('ui:aiPlayer.cards', { count: actualHandCount })}</span>
+        </div>
+        {/* 思考中提示 - 放在信息面板下面 */}
+        <div className={`avatar-thinking ${isCurrent ? 'visible' : 'hidden'}`}>
+          {t('ui:aiPlayer.thinking')}
+        </div>
       </div>
     </div>
   );

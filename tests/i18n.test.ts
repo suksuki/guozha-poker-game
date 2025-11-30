@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import i18n from '../src/i18n';
+import { i18n } from '../src/i18n';
 import { playToSpeechText } from '../src/utils/speechUtils';
 import { Play, CardType, Rank, Suit } from '../src/types/card';
 
@@ -37,12 +37,14 @@ describe('多语言功能测试', () => {
     localStorage.removeItem('i18nextLng');
     
     // 确保 i18n 已初始化
-    if (!i18n.isInitialized) {
+    if (i18n && typeof i18n.isInitialized !== 'undefined' && !i18n.isInitialized) {
       await i18n.init();
     }
     
     // 强制重置为默认语言（使用同步方法）
-    i18n.changeLanguage('zh-CN');
+    if (i18n && i18n.changeLanguage) {
+      await i18n.changeLanguage('zh-CN');
+    }
     // 等待一小段时间让语言切换生效（优化：减少等待时间）
     await new Promise(resolve => setTimeout(resolve, 20)); // 从100ms减少到20ms
   });

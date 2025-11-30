@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useGameConfig, GameMode } from '../hooks/useGameConfig';
+import { useGameConfig } from '../hooks/useGameConfig';
 
 interface GameConfigContextType extends ReturnType<typeof useGameConfig> {}
 

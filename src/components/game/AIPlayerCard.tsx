@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import i18n from '../../i18n';
+import { i18n } from '../../i18n';
 import { Player } from '../../types/card';
 import { CardComponent } from '../CardComponent';
 
@@ -84,7 +84,7 @@ export const AIPlayerCard: React.FC<AIPlayerCardProps> = ({
           <CardComponent key={i} card={player.hand[0]} faceDown size="small" />
         ))}
       </div>
-      {isCurrent && <div className="turn-indicator">{t('ui:aiPlayer.thinking')}</div>}
+      <div className={`turn-indicator ${isCurrent ? 'visible' : 'hidden'}`}>{t('ui:aiPlayer.thinking')}</div>
     </div>
   );
 };

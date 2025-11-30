@@ -1,5 +1,7 @@
 /**
  * 音频模块单元测试
+ * 
+ * @async - 测试涉及异步操作（TTS 服务调用）
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';

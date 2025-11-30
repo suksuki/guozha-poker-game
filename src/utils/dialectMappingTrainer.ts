@@ -3,7 +3,7 @@
  * 使用LLM批量生成方言映射对，扩展映射表
  */
 
-import { LLMChatConfig, DEFAULT_LLM_CHAT_CONFIG } from '../config/chatConfig';
+import { LLMChatConfig } from '../config/chatConfig';
 import { trainMappingWithLLM, addMappings, getMappingTable } from './nanchangDialectMapper';
 
 export interface MappingTrainingResult {

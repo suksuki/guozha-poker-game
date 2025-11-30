@@ -199,10 +199,7 @@ export class RoundScheduler {
       return;
     }
 
-    // 更新最后处理的玩家索引
-    this.lastProcessedPlayerIndex = playerIndex;
-
-    // 等待正在处理的出牌完成
+    // 等待正在处理的出牌完成（在更新 lastProcessedPlayerIndex 之前）
     const currentRound = this.getCurrentRound(state);
     if (currentRound?.hasProcessingPlay()) {
       try {
@@ -212,9 +209,31 @@ export class RoundScheduler {
       }
     }
 
+    // 再次检查状态，确保轮次号仍然匹配（防止在等待期间轮次已切换）
+    const latestState = this.config.getGameState();
+    const latestRound = this.getCurrentRound(latestState);
+    if (latestState.status !== 'playing' || 
+        latestState.roundNumber !== task.roundNumber ||
+        latestRound?.roundNumber !== task.roundNumber) {
+      console.log(`[RoundScheduler] 任务已过期，跳过处理 (轮次号: ${task.roundNumber} -> ${latestState.roundNumber})`);
+      return;
+    }
+
+    // 检查该玩家是否已经出过牌（防止重复出牌）
+    if (latestRound && latestRound.getPlays().length > 0) {
+      const lastPlay = latestRound.getPlays()[latestRound.getPlays().length - 1];
+      if (lastPlay.playerId === playerIndex) {
+        console.log(`[RoundScheduler] 玩家 ${playerIndex} 刚刚出过牌，跳过重复调度`);
+        return;
+      }
+    }
+
+    // 更新最后处理的玩家索引（在验证通过后）
+    this.lastProcessedPlayerIndex = playerIndex;
+
     // 触发回调
     if (this.onNextTurnCallback) {
-      await this.onNextTurnCallback(playerIndex, state);
+      await this.onNextTurnCallback(playerIndex, latestState);
     }
   }
 
@@ -333,28 +352,10 @@ export class RoundScheduler {
       };
     });
     
-    // 5. 检查是否轮次结束（在接风检查之后）
-    // 注意：如果接风了，不应该检查轮次结束，因为接风后应该继续游戏
-    if (!didTakeover && nextPlayerIndex !== null && latestRound.getPlayCount() > 0) {
-      const shouldEndRound = latestRound.shouldEnd(nextPlayerIndex);
-      
-      if (shouldEndRound) {
-        // 等待正在处理的出牌完成
-        if (latestRound.hasProcessingPlay()) {
-          try {
-            await latestRound.waitForPlayProcess(10000);
-          } catch (error) {
-            // 超时或错误，继续执行
-          }
-        }
-        
-        // 调用轮次结束回调
-        if (onRoundEnd) {
-          await onRoundEnd(latestRound, players, nextPlayerIndex);
-        }
-        return;
-      }
-    }
+    // 5. 不在 onPlayCompleted 中检查轮次结束！
+    // 原因：玩家刚出完牌时，其他玩家还没有机会要不起，此时不应该判断轮次结束
+    // 轮次结束判断应该在 onPassCompleted 中进行，确保所有玩家都被轮询过
+    // 如果在这里检查，可能会因为状态不一致而错误地提前结束轮次
     
     // 5. 继续下一家：如果下一个玩家是AI或托管模式下的真实玩家，自动继续
     const nextPlayer = nextPlayerIndex !== null ? players[nextPlayerIndex] : null;
@@ -402,31 +403,26 @@ export class RoundScheduler {
     const lastPlayPlayerIndex = latestRound.getLastPlayPlayerIndex();
     
     // 2. 关键逻辑：判断是否应该接风
-    // 接风条件：所有剩余玩家都要不起最后一手牌
-    // 每次玩家要不起后，都应该检查是否所有剩余玩家都要不起
+    // 接风条件：轮完一圈，所有剩余玩家都要不起最后一手牌
+    // 重要：必须轮完一圈后（nextPlayerIndex === lastPlayPlayerIndex）才判断接风
+    // 不能提前判断，否则会跳过其他玩家的轮询
     let didTakeover = false;
     let takeoverPlayerIndex: number | null = null; // 接风后应该轮到出牌的玩家
     
-    // ========== 接风判断：检查是否所有剩余玩家都要不起 ==========
-    // 重要：每次玩家要不起后，都应该检查是否所有剩余玩家都要不起
-    // 如果所有剩余玩家都要不起，立即接风，不需要等到轮完一圈
+    // ========== 接风判断：只在轮完一圈后判断 ==========
+    // 接风判断：只有当轮完一圈（nextPlayerIndex === lastPlayPlayerIndex）时才判断接风
+    // 这样可以确保所有玩家都被轮询到，每个玩家都有机会说"要不起"
     const lastPlayPlayer = lastPlayPlayerIndex !== null ? players[lastPlayPlayerIndex] : null;
-    const lastPlayPlayerFinished = lastPlayPlayer && lastPlayPlayer.hand.length === 0;
-    
-    // 检查是否所有剩余玩家都要不起
-    // 传入 nextPlayerIndex 作为 currentPlayerIndex，因为下一个玩家是当前要判断的玩家
-    const shouldTakeover = latestRound.shouldTakeover(players, nextPlayerIndex !== null ? nextPlayerIndex : playerIndex);
-    
-    // 接风判断：如果所有剩余玩家都要不起，立即接风
-    // 情况1：正常接风 - 轮完一圈（nextPlayerIndex === lastPlayPlayerIndex）
-    // 情况2：特殊接风 - 最后出牌玩家已出完，且所有剩余玩家都要不起
-    // 情况3：所有剩余玩家都要不起（无论是否轮完一圈）
     const isNormalTakeover = nextPlayerIndex !== null && lastPlayPlayerIndex !== null && nextPlayerIndex === lastPlayPlayerIndex;
-    const isSpecialTakeover = lastPlayPlayerFinished && lastPlayPlayerIndex !== null && shouldTakeover;
-    const shouldTakeoverNow = shouldTakeover; // 所有剩余玩家都要不起，立即接风
     
-    // 如果所有剩余玩家都要不起，立即接风
-    if (shouldTakeoverNow || isNormalTakeover || isSpecialTakeover) {
+    // 特殊情况：如果出牌玩家已经出完牌，且所有剩余玩家都要不起，也应该判断接风
+    // 因为 findNextActivePlayer 会跳过已出完的玩家，所以 nextPlayerIndex 永远不会等于 lastPlayPlayerIndex
+    const lastPlayPlayerFinished = lastPlayPlayer && lastPlayPlayer.hand.length === 0;
+    const shouldTakeover = lastPlayPlayerIndex !== null && latestRound.shouldTakeover(players, nextPlayerIndex !== null ? nextPlayerIndex : playerIndex);
+    const isSpecialTakeover = lastPlayPlayerFinished && shouldTakeover;
+    
+    // 判断接风：正常情况（轮完一圈）或特殊情况（出牌玩家已出完且所有剩余玩家都要不起）
+    if (isNormalTakeover || isSpecialTakeover) {
       
       // ========== 确定接风玩家 ==========
       // 接风玩家 = 出牌玩家（lastPlayPlayerIndex）

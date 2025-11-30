@@ -11,7 +11,7 @@
  * - 管理异步出牌处理流程
  */
 
-import { Card, Play, RoundPlayRecord, RoundRecord, Player } from '../types/card';
+import { Play, RoundPlayRecord, RoundRecord, Player } from '../types/card';
 import { hasPlayableCards } from './cardUtils';
 import { findNextActivePlayer } from './gameStateUtils';
 

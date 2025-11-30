@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { getSelfIterationService, SelfIterationReport, ImprovementPlan, IterationHistory } from '../services/selfIterationService';
+import { getSelfIterationService, SelfIterationReport, ImprovementPlan } from '../services/selfIterationService';
 import { getCursorPromptService, CursorPrompt } from '../services/cursorPromptService';
 import { getIdeaGenerationService, DesignDocument } from '../services/ideaGenerationService';
 import './SelfIterationManager.css';
@@ -31,6 +31,7 @@ export const SelfIterationManager: React.FC = () => {
   const [report, setReport] = useState<SelfIterationReport | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<ImprovementPlan | null>(null);
+  const [selectedPlans, setSelectedPlans] = useState<Set<string>>(new Set());
   const [selectedPrompts, setSelectedPrompts] = useState<Set<string>>(new Set());
   const [promptSearchQuery, setPromptSearchQuery] = useState('');
   const [promptHistory, setPromptHistory] = useState<CursorPrompt[]>([]);
@@ -72,6 +73,13 @@ export const SelfIterationManager: React.FC = () => {
     if (isOpen) {
       loadPromptHistory();
       loadDesignQueue();
+      
+      // 如果开启了自动运行且还没有报告，自动开始分析
+      const autoRun = localStorage.getItem('self-iteration-auto-run') === 'true';
+      if (autoRun && !report && !isAnalyzing) {
+        console.log('[SelfIterationManager] 自动运行分析...');
+        handleAnalyze();
+      }
     }
   }, [isOpen]);
 
@@ -135,6 +143,72 @@ export const SelfIterationManager: React.FC = () => {
     }
   };
 
+  // 批量合并改进计划
+  const handleMergePlans = () => {
+    if (selectedPlans.size === 0) {
+      alert('请先选择要合并的改进计划');
+      return;
+    }
+
+    if (!report) {
+      alert('没有可用的改进计划');
+      return;
+    }
+
+    const plansToMerge = report.improvementPlans.filter(p => selectedPlans.has(p.id));
+    if (plansToMerge.length === 0) {
+      alert('未找到选中的改进计划');
+      return;
+    }
+
+    if (plansToMerge.length < 2) {
+      alert('至少需要选择 2 个改进计划才能合并');
+      return;
+    }
+
+    try {
+      const mergedPlan = service.mergeImprovementPlans(plansToMerge);
+      
+      // 复制合并后的提示词
+      const promptText = mergedPlan.cursorPromptObj?.content || mergedPlan.cursorPrompt;
+      copyToClipboard(
+        promptText,
+        `✅ 已合并 ${plansToMerge.length} 个改进计划并复制提示词！`
+      );
+
+      // 保存合并后的提示词到历史
+      if (mergedPlan.cursorPromptObj) {
+        promptService.markAsUsed(mergedPlan.cursorPromptObj.id);
+        loadPromptHistory();
+      }
+
+      // 从报告中移除已合并的计划，添加合并后的计划
+      const remainingPlans = report.improvementPlans.filter(p => !selectedPlans.has(p.id));
+      const updatedReport = {
+        ...report,
+        improvementPlans: [...remainingPlans, mergedPlan],
+      };
+      setReport(updatedReport);
+      setSelectedPlans(new Set());
+
+      alert(`✅ 已成功合并 ${plansToMerge.length} 个改进计划！`);
+    } catch (error) {
+      console.error('[SelfIterationManager] 合并改进计划失败:', error);
+      alert('合并改进计划失败，请检查控制台');
+    }
+  };
+
+  // 切换改进计划选择
+  const togglePlanSelection = (planId: string) => {
+    const newSelection = new Set(selectedPlans);
+    if (newSelection.has(planId)) {
+      newSelection.delete(planId);
+    } else {
+      newSelection.add(planId);
+    }
+    setSelectedPlans(newSelection);
+  };
+
   // 批量合并提示词
   const handleMergePrompts = () => {
     if (selectedPrompts.size === 0) {
@@ -193,7 +267,22 @@ export const SelfIterationManager: React.FC = () => {
       <div className="self-iteration-manager-container" onClick={(e) => e.stopPropagation()}>
         <div className="self-iteration-manager-header">
           <h2>🤖 自我迭代管理器</h2>
-          <button className="close-btn" onClick={() => setIsOpen(false)}>×</button>
+          <div className="header-actions">
+            <label className="auto-run-toggle">
+              <input
+                type="checkbox"
+                checked={localStorage.getItem('self-iteration-auto-run') === 'true'}
+                onChange={(e) => {
+                  localStorage.setItem('self-iteration-auto-run', e.target.checked ? 'true' : 'false');
+                  if (e.target.checked && !report && !isAnalyzing) {
+                    handleAnalyze();
+                  }
+                }}
+              />
+              <span>🚀 自动运行</span>
+            </label>
+            <button className="close-btn" onClick={() => setIsOpen(false)}>×</button>
+          </div>
         </div>
 
         <div className="self-iteration-manager-actions">
@@ -204,12 +293,20 @@ export const SelfIterationManager: React.FC = () => {
           >
             {isAnalyzing ? '分析中...' : '🔄 开始自我分析'}
           </button>
+          {selectedPlans.size > 0 && (
+            <button
+              className="btn-merge"
+              onClick={handleMergePlans}
+            >
+              🔗 合并改进计划 ({selectedPlans.size})
+            </button>
+          )}
           {selectedPrompts.size > 0 && (
             <button
               className="btn-merge"
               onClick={handleMergePrompts}
             >
-              🔗 合并选中 ({selectedPrompts.size})
+              🔗 合并提示词 ({selectedPrompts.size})
             </button>
           )}
         </div>
@@ -270,20 +367,78 @@ export const SelfIterationManager: React.FC = () => {
 
             {/* 改进计划列表 */}
             <div className="improvement-plans-section">
-              <h3>💡 改进计划</h3>
-              <div className="improvement-plans-list">
+              <div className="plans-section-header">
+                <h3>💡 改进计划</h3>
+                {report.improvementPlans.length > 0 && (
+                  <div className="plans-header-actions">
+                    <label className="select-all-toggle">
+                      <input
+                        type="checkbox"
+                        checked={selectedPlans.size === report.improvementPlans.length && report.improvementPlans.length > 0}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            // 全选
+                            setSelectedPlans(new Set(report.improvementPlans.map(p => p.id)));
+                          } else {
+                            // 取消全选
+                            setSelectedPlans(new Set());
+                          }
+                        }}
+                        title={selectedPlans.size === report.improvementPlans.length ? "取消全选" : "全选"}
+                        aria-label={selectedPlans.size === report.improvementPlans.length ? "取消全选所有改进计划" : `全选所有改进计划 (当前已选择 ${selectedPlans.size} 个)`}
+                      />
+                      <span>
+                        {selectedPlans.size === report.improvementPlans.length && report.improvementPlans.length > 0
+                          ? "取消全选"
+                          : `全选 (${selectedPlans.size}/${report.improvementPlans.length})`}
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
+              <div className="improvement-plans-list" role="list" aria-label="改进计划列表">
                 {report.improvementPlans.length === 0 ? (
                   <div className="empty-state">
                     <p>✅ 没有发现需要改进的地方！</p>
                   </div>
                 ) : (
                   report.improvementPlans.map((plan) => (
-                    <div key={plan.id} className="improvement-plan-card">
+                    <div 
+                      key={plan.id} 
+                      className={`improvement-plan-card ${selectedPlans.has(plan.id) ? 'selected' : ''}`}
+                      role="article"
+                      aria-label={`改进计划: ${plan.title}`}
+                      tabIndex={0}
+                      onClick={(e) => {
+                        // 如果点击的是按钮或复选框，不触发卡片选择
+                        if ((e.target as HTMLElement).closest('button, input[type="checkbox"]')) {
+                          return;
+                        }
+                        togglePlanSelection(plan.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          togglePlanSelection(plan.id);
+                        }
+                      }}
+                    >
                       <div className="plan-header">
                         <div className="plan-title-section">
+                          <input
+                            type="checkbox"
+                            checked={selectedPlans.has(plan.id)}
+                            onChange={() => togglePlanSelection(plan.id)}
+                            className="plan-checkbox"
+                            title="选择此计划进行合并"
+                            aria-label={`选择改进计划: ${plan.title}`}
+                            onClick={(e) => e.stopPropagation()}
+                          />
                           <span
                             className="plan-type-badge"
                             style={{ backgroundColor: PRIORITY_COLORS[plan.priority] }}
+                            role="status"
+                            aria-label={`类型: ${PLAN_TYPE_LABELS[plan.type]}`}
                           >
                             {PLAN_TYPE_LABELS[plan.type]}
                           </span>
@@ -293,32 +448,46 @@ export const SelfIterationManager: React.FC = () => {
                               backgroundColor: plan.priority === 'high' ? '#dc3545' : 
                                              plan.priority === 'medium' ? '#ffc107' : '#17a2b8' 
                             }}
+                            role="status"
+                            aria-label={`优先级: ${plan.priority === 'high' ? '高' : plan.priority === 'medium' ? '中' : '低'}`}
                           >
                             {plan.priority === 'high' ? '高' : plan.priority === 'medium' ? '中' : '低'}
                           </span>
-                          <h4>{plan.title}</h4>
+                          <h4 id={`plan-title-${plan.id}`}>{plan.title}</h4>
                         </div>
                         <div className="plan-actions">
                           <button
                             className="btn-copy-prompt"
-                            onClick={() => handleCopyPrompt(plan)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyPrompt(plan);
+                            }}
                             title="复制 Cursor 提示词"
+                            aria-label={`复制改进计划 "${plan.title}" 的提示词`}
                           >
                             📋 复制提示词
                           </button>
                           {plan.canAutoApply ? (
                             <button
                               className="btn-execute"
-                              onClick={() => handleExecutePlan(plan)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleExecutePlan(plan);
+                              }}
                               title="自动执行改进"
+                              aria-label={`自动执行改进计划 "${plan.title}"`}
                             >
                               ⚡ 自动执行
                             </button>
                           ) : (
                             <button
                               className="btn-execute"
-                              onClick={() => setSelectedPlan(plan)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPlan(plan);
+                              }}
                               title="查看详情"
+                              aria-label={`查看改进计划 "${plan.title}" 的详情`}
                             >
                               👁️ 查看详情
                             </button>
@@ -326,12 +495,18 @@ export const SelfIterationManager: React.FC = () => {
                         </div>
                       </div>
                       <div className="plan-description">
-                        <p>{plan.description}</p>
+                        <p aria-describedby={`plan-title-${plan.id}`}>{plan.description}</p>
                       </div>
-                      <div className="plan-meta">
-                        <span className="meta-item">📁 {plan.targetFiles.length} 个文件</span>
-                        <span className="meta-item">💪 {plan.estimatedEffort}</span>
-                        <span className="meta-item">📊 {plan.estimatedImpact}</span>
+                      <div className="plan-meta" role="group" aria-label="计划元信息">
+                        <span className="meta-item" aria-label={`涉及 ${plan.targetFiles.length} 个文件`}>
+                          📁 {plan.targetFiles.length} 个文件
+                        </span>
+                        <span className="meta-item" aria-label={`预估工作量: ${plan.estimatedEffort}`}>
+                          💪 {plan.estimatedEffort}
+                        </span>
+                        <span className="meta-item" aria-label={`预期影响: ${plan.estimatedImpact}`}>
+                          📊 {plan.estimatedImpact}
+                        </span>
                       </div>
                     </div>
                   ))

@@ -5,7 +5,6 @@
 
 import { Round, PlayTimingConfig } from './Round';
 import { MultiPlayerGameState } from './gameStateUtils';
-import { RoundRecord } from '../types/card';
 
 /**
  * 从游戏状态同步创建 Round 对象

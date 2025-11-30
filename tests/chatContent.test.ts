@@ -5,12 +5,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ChatEventType } from '../src/types/chat';
 import { getChatContent, getRandomChat, getTaunt } from '../src/utils/chatContent';
-import i18n from '../src/i18n';
+import { i18n } from '../src/i18n';
 
 describe('聊天内容库', () => {
   beforeEach(async () => {
+    // 确保 i18n 已初始化
+    if (i18n && typeof i18n.isInitialized !== 'undefined' && !i18n.isInitialized) {
+      await i18n.init();
+    }
     // 确保测试使用中文语言
-    await i18n.changeLanguage('zh-CN');
+    if (i18n && i18n.changeLanguage) {
+      await i18n.changeLanguage('zh-CN');
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
   });
   describe('getChatContent', () => {
     it('应该返回普通话的随机闲聊内容', () => {

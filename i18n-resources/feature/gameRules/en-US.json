@@ -1,0 +1,151 @@
+{
+  "title": "Game Rules Guide",
+  "toggle": {
+    "title": "Open Game Rules Guide"
+  },
+  "tabs": {
+    "tutorial": "How to Play",
+    "rules": "Card Rules",
+    "scoring": "Scoring",
+    "tips": "Tips"
+  },
+  "tutorial": {
+    "start": {
+      "title": "Start Game",
+      "step1": {
+        "title": "Configure Game",
+        "desc": "Set player count, your position, AI difficulty in the game config panel"
+      },
+      "step2": {
+        "title": "Click Start",
+        "desc": "Click the \"Start Game\" button, cards will be dealt automatically"
+      },
+      "step3": {
+        "title": "Wait for Your Turn",
+        "desc": "When it's your turn, the screen will show \"Your Turn\""
+      }
+    },
+    "play": {
+      "title": "How to Play Cards",
+      "step1": {
+        "title": "Select Cards",
+        "desc": "Click cards in your hand to select them. Selected cards will be highlighted",
+        "example": "Example: Click 2 fives to make a pair, click 3 sevens to make a triple"
+      },
+      "step2": {
+        "title": "Click Play",
+        "desc": "After selecting cards, click the \"Play\" button. The system will validate if the card type is legal",
+        "example": "Note: You must beat the previous play, or this is a new round start (接风)"
+      },
+      "step3": {
+        "title": "Wait for Result",
+        "desc": "After playing, the system will play audio, then it's the next player's turn"
+      }
+    },
+    "pass": {
+      "title": "How to Pass",
+      "step1": {
+        "title": "Cannot Beat",
+        "desc": "If you don't have cards that can beat the previous play, you can click the \"Pass\" button"
+      },
+      "step2": {
+        "title": "Must Play",
+        "desc": "Note: If you have cards that can beat, the system will force you to play, you cannot choose \"Pass\""
+      }
+    },
+    "ai": {
+      "title": "AI Assistant",
+      "hint": {
+        "title": "Use AI Suggestion",
+        "desc": "Not sure what to play? Click the \"🤖 AI Suggestion\" button, AI will recommend the best play for you"
+      }
+    },
+    "flow": {
+      "title": "Game Flow",
+      "step1": "Start Game",
+      "step2": "Wait Turn",
+      "step3": "Select & Play",
+      "step4": "Continue"
+    }
+  },
+  "rules": {
+    "cardTypes": {
+      "title": "Card Types",
+      "single": "Single",
+      "singleDesc": "Play 1 card, e.g., play one 3",
+      "pair": "Pair",
+      "pairDesc": "Play 2 cards of the same rank, e.g., play two 5s",
+      "triple": "Triple",
+      "tripleDesc": "Play 3 cards of the same rank, e.g., play three 7s",
+      "bomb": "Bomb",
+      "bombDesc": "Play 4-6 cards of the same rank, e.g., play four Ks",
+      "dun": "Dun",
+      "dunDesc": "Play 7 or more cards of the same rank, e.g., play seven As"
+    },
+    "beating": {
+      "title": "Beating Rules",
+      "dun": "Dun Power",
+      "dunDesc": "Dun can beat any non-dun card type (single, pair, triple, bomb)",
+      "bomb": "Bomb Power",
+      "bombDesc": "Bomb can beat any non-bomb, non-dun card type (single, pair, triple)",
+      "sameType": "Same Type Comparison",
+      "sameTypeDesc": "For the same card type, you need the same count and a higher rank to beat. For dun and bomb, the one with more cards wins; if same count, compare ranks",
+      "pass": "Pass",
+      "passDesc": "If you cannot beat the previous play, you can choose \"Pass\" to let the next player play"
+    }
+  },
+  "scoring": {
+    "initial": {
+      "title": "Initial Score",
+      "desc": "At the start of the game, each player's initial score is -100 points"
+    },
+    "scoreCards": {
+      "title": "Score Cards",
+      "points": "points",
+      "note": "5, 10, and K are score cards. When played, these cards are counted as round score"
+    },
+    "dun": {
+      "title": "Dun Scoring",
+      "cards": "Cards",
+      "cardsUnit": "cards",
+      "duns": "Duns",
+      "dunsUnit": "dun",
+      "example": "Example (5 players)",
+      "example1": "Dun player +120, others -30 each",
+      "example2": "Dun player +240, others -60 each",
+      "example3": "Dun player +480, others -120 each",
+      "example4": "Dun player +960, others -240 each",
+      "note": "Each dun gives you 30 points from each other player. Dun count grows exponentially: 7 cards = 1 dun, 8 cards = 2 duns, 9 cards = 4 duns, 10 cards = 8 duns..."
+    },
+    "final": {
+      "title": "Final Scoring",
+      "first": "First Place Bonus",
+      "firstDesc": "The first player to finish gets +30 points",
+      "last": "Last Place Penalty",
+      "lastDesc": "The last player to finish loses -30 points",
+      "bonus": "Last Player Score Transfer",
+      "bonusDesc": "If the last player has unplayed score cards (5, 10, K), these points transfer to the second place player (by finish order)"
+    }
+  },
+  "tips": {
+    "strategy": {
+      "title": "Strategy Tips",
+      "tip1": "Keep high cards and bombs for critical moments",
+      "tip2": "Observe other players' plays to guess their hands",
+      "tip3": "Be careful with score cards (5, 10, K), avoid letting others take them",
+      "tip4": "Dun is very powerful, but use it at the right time, don't reveal it too early"
+    },
+    "timing": {
+      "title": "Timing",
+      "tip1": "When there's a lot of score in the round, try to win it",
+      "tip2": "If there's little score, consider passing and waiting for better opportunities",
+      "tip3": "After everyone passes (接风), you can play any card type freely - this is a good opportunity"
+    },
+    "cooperation": {
+      "title": "Cooperation",
+      "tip1": "Observe other players' playing habits to understand their strategies",
+      "tip2": "In multiplayer games, sometimes you need to cooperate with others to counter the leading player"
+    }
+  }
+}
+

@@ -17,7 +17,7 @@ import {
   calculateCardsScore
 } from './cardUtils';
 import { mctsChoosePlay } from './mctsAI';
-import { updateProgressBar, clearLine, createProgressBar } from './progressBar';
+import { updateProgressBar, clearLine } from './progressBar';
 
 // MCTS配置接口（从mctsAI.ts导出）
 export interface MCTSConfig {

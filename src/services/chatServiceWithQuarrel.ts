@@ -8,7 +8,7 @@
 
 import { ChatService } from './chatService';
 import { getQuarrelVoiceService, updateMainFightRoles } from './quarrelVoiceService';
-import { submitChatMessageToQuarrel, handleQuarrelScene, getPriorityFromEventType } from '../utils/quarrelVoiceHelper';
+import { submitChatMessageToQuarrel } from '../utils/quarrelVoiceHelper';
 import { ChatMessage, ChatEventType } from '../types/chat';
 import { Player } from '../types/card';
 import { ChatContext } from '../chat/strategy/IChatStrategy';

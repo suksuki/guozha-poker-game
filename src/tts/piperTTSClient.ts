@@ -92,16 +92,16 @@ export class PiperTTSClient implements ITTSClient {
     try {
       // Piper TTS API 端点
       const endpoint = `${this.baseUrl}/api/tts`;
+      console.log(`[PiperTTSClient] 🎯 调用 Piper TTS API: ${endpoint}, 文本: "${text.substring(0, 30)}..."`);
 
       // 构建请求体
       const requestBody: any = {
         text,
       };
 
-      // 注意：Piper TTS 可能不支持直接设置 rate/pitch/volume
-      // 这些参数可能需要通过模型配置或后处理实现
-      if (voiceConfig) {
-        // 可以在这里添加对 voiceConfig 的支持（如果 Piper TTS API 支持）
+      // 传递 gender 参数给 Piper TTS 服务器，用于选择模型（男声/女声）
+      if (voiceConfig?.gender) {
+        requestBody.gender = voiceConfig.gender; // 'male' 或 'female'
       }
 
       const response = await fetch(endpoint, {
@@ -117,14 +117,24 @@ export class PiperTTSClient implements ITTSClient {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`[PiperTTSClient] ❌ API 错误: ${response.status} ${response.statusText} - ${errorText}`);
         throw new Error(`Piper TTS API 错误: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
+      console.log(`[PiperTTSClient] ✅ API 响应成功: ${response.status}, Content-Type: ${response.headers.get('content-type')}`);
+
       // Piper TTS 返回音频数据（WAV格式）
       const arrayBuffer = await response.arrayBuffer();
+      console.log(`[PiperTTSClient] ✅ 收到音频数据: ${(arrayBuffer.byteLength / 1024).toFixed(2)} KB`);
+      
+      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+        console.error(`[PiperTTSClient] ❌ 音频数据为空`);
+        throw new Error('Piper TTS API 返回空音频数据');
+      }
       
       // 估算时长（Piper TTS API 可能不返回时长信息）
       const duration = this.estimateDuration(text);
+      console.log(`[PiperTTSClient] ✅ 音频生成成功: ${text.substring(0, 20)}... (时长: ${duration.toFixed(2)}s, 大小: ${(arrayBuffer.byteLength / 1024).toFixed(2)} KB)`);
 
       return {
         audioBuffer: arrayBuffer,
@@ -152,7 +162,8 @@ export class PiperTTSClient implements ITTSClient {
    * 获取缓存键
    */
   private getCacheKey(text: string, lang: TTSLanguage, voiceConfig?: VoiceConfig): string {
-    return `piper_tts_${text}_${lang}_${voiceConfig?.rate || 1.0}_${voiceConfig?.pitch || 1.0}_${voiceConfig?.volume || 1.0}`;
+    // 包含 gender 在缓存键中，因为不同性别使用不同的模型
+    return `piper_tts_${text}_${lang}_${voiceConfig?.gender || 'female'}_${voiceConfig?.rate || 1.0}_${voiceConfig?.pitch || 1.0}_${voiceConfig?.volume || 1.0}`;
   }
 
   /**

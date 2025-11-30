@@ -8,15 +8,22 @@
   box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
+  margin: 0;
+  position: relative;
 }
 
 /* 上方区域：AI玩家、出牌区域、按钮 */
 .top-area {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   gap: 10px;
   padding-bottom: 10px;
+  max-width: 100%;
+  margin: 0 auto; /* 确保内容居中 */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* 开始界面 */
@@ -27,7 +34,10 @@
   justify-content: flex-start;
   min-height: 100%;
   color: white;
-  padding: 20px;
+  padding: 20px 20px 100px 20px; /* 增加底部padding，确保底部按钮可见 */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .start-screen h1 {
@@ -36,14 +46,8 @@
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.config-panel {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 30px;
-  border-radius: 15px;
-  backdrop-filter: blur(10px);
-  min-width: 300px;
-  max-width: 500px;
-}
+/* 注意：此样式已被 GameConfigPanel.css 中的样式覆盖
+   保留此样式仅用于向后兼容，实际配置面板使用 GameConfigPanel.css 中的样式 */
 
 .config-item {
   margin-bottom: 20px;
@@ -163,21 +167,29 @@
   gap: 10px;
   padding: 10px;
   justify-content: center;
-  max-height: 180px;
-  overflow-y: auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
   z-index: 100;
+  max-width: 100%;
+  margin: 0 auto; /* 确保内容居中 */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* AI玩家头像区域（打牌时使用） */
 .ai-players-avatar-area {
   display: flex;
-  gap: 20px;
+  gap: 24px;
   flex-wrap: wrap;
   justify-content: center;
   align-items: flex-start;
-  padding: 15px;
+  padding: 20px 8px 8px 8px;
   z-index: 100;
-  min-height: 200px;
+  height: auto;
+  min-height: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .player-card {
@@ -259,6 +271,20 @@
   color: #FFD700;
   font-size: 0.8em;
   animation: pulse 1.5s ease-in-out infinite;
+  min-height: 1.2em; /* 固定最小高度，避免布局跳动 */
+  transition: opacity 0.2s ease;
+  box-sizing: border-box;
+}
+
+.turn-indicator.hidden {
+  opacity: 0;
+  visibility: hidden;
+  animation: none;
+}
+
+.turn-indicator.visible {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* 出牌区域 - 放在最上层，避免被其他元素遮挡 */
@@ -272,6 +298,10 @@
   flex-shrink: 0;
   position: relative;
   z-index: 2000; /* 设置很高的 z-index，确保在最上层 */
+  max-width: 100%;
+  margin: 0 auto; /* 确保内容居中 */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* 操作按钮区域（在手牌上方） */
@@ -290,6 +320,27 @@
   margin-top: 5px;
 }
 
+/* 人类玩家控制容器 - 包含信息面板和按钮 */
+.human-player-controls-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* 人类玩家头像容器 - 和AI玩家一样的布局 */
+.human-player-avatar-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  z-index: 150;
+}
+
 /* 操作按钮包装器 */
 .action-buttons-wrapper {
   display: flex;
@@ -298,23 +349,25 @@
   gap: 8px;
   padding: 8px;
   flex-shrink: 0;
+  position: relative; /* 为绝对定位的提示信息提供定位上下文 */
 }
 
 /* 简洁版操作按钮 */
 .action-buttons-compact {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   justify-content: center;
   align-items: center;
   flex-wrap: wrap;
   flex-shrink: 0;
+  padding: 8px;
 }
 
 .btn-action-compact {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 16px;
+  padding: 12px 18px;
   border: none;
   border-radius: 10px;
   font-size: 14px;
@@ -323,6 +376,8 @@
   transition: all 0.3s;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  min-width: fit-content;
+  flex-shrink: 0;
 }
 
 .btn-action-compact:hover:not(:disabled) {
@@ -384,7 +439,7 @@
 .btn-action-compact.btn-suggest {
   background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
   color: white;
-  padding: 10px 14px;
+  padding: 12px 18px;
 }
 
 .btn-action-compact.btn-suggest:hover:not(:disabled) {
@@ -392,17 +447,22 @@
 }
 
 .must-play-hint-compact {
-  width: 100%;
+  position: absolute;
+  top: -40px; /* 放在按钮上方 */
+  left: 50%;
+  transform: translateX(-50%);
   text-align: center;
   color: #ff9800;
   font-size: 12px;
-  margin: 0; /* 移除 margin-top，由 wrapper 的 gap 控制间距 */
   padding: 6px 12px;
   background: rgba(255, 152, 0, 0.15);
   border-radius: 8px;
   font-weight: bold;
   animation: pulse-warning 1.5s ease-in-out infinite;
-  order: -1; /* 确保在按钮上方显示 */
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none; /* 不阻挡按钮点击 */
+  /* 绝对定位，不占用文档流空间，不会增加容器高度 */
 }
 
 @keyframes pulse-warning {
@@ -479,6 +539,48 @@
   font-size: 1.2em;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
   line-height: 1.6; /* 行高1.6，适中 */
+}
+
+/* 出牌区域中的玩家头像 */
+.play-player-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1em !important; /* 重置父元素的字体大小影响 */
+}
+
+/* 出牌区域中的玩家头像 - 大尺寸 */
+.player-avatar-emoji-large-center {
+  font-size: 120px !important;
+  width: 150px !important;
+  height: 150px !important;
+  min-width: 150px !important;
+  min-height: 150px !important;
+  max-width: 150px !important;
+  max-height: 150px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  border: 4px solid rgba(255, 255, 255, 0.8);
+  /* Emoji字体支持 */
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 
+               'Noto Color Emoji', 'EmojiOne Color', 'Twemoji Mozilla',
+               'Android Emoji', 'EmojiSymbols', 'EmojiOne Mozilla',
+               'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Emoji',
+               'Apple Color Emoji', 'Android Emoji', 'EmojiSymbols',
+               'EmojiOne', 'Twemoji', 'Noto Color Emoji', sans-serif !important;
+  font-feature-settings: 'liga', 'kern' !important;
+  text-rendering: optimizeLegibility !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  /* 确保不受父元素影响 */
+  color: inherit !important;
+  text-shadow: none !important;
+  font-weight: normal !important;
 }
 
 .play-icon {
@@ -767,11 +869,55 @@
 /* 玩家区域 */
 .player-area {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
   padding: 20px;
-  min-height: 200px;
+  min-height: 300px;
+  overflow: visible;
+  gap: 20px;
+  width: 100%;
+}
+
+/* 手牌包装器 - 包含信息面板和手牌，统一背景 */
+.player-area .player-hand-wrapper {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 20px !important;
+  width: 100% !important;
+  padding: 15px 20px !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 20px !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+  min-height: 200px !important;
+  border: 2px solid rgba(0, 0, 0, 0.2) !important;
+  box-sizing: border-box !important;
+}
+
+/* 玩家信息侧边栏 */
+.player-info-sidebar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  width: auto;
+  min-width: fit-content;
+}
+
+/* 手牌容器 */
+.player-hand-container {
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  overflow-x: visible;
+  overflow-y: visible;
+  padding-right: 20px;
 }
 
 .player-info {
@@ -806,9 +952,14 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.1);
+  background: transparent; /* 移除背景 */
   border-radius: 12px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: none;
+}
+
+/* 人类玩家状态面板 - 使用和AI玩家相同的样式 */
+.human-player-status-panel {
+  /* 继承 ai-player-status-panel 的所有样式 */
 }
 
 .player-hand-count {
@@ -1104,6 +1255,7 @@
   }
 
   .config-panel {
+    margin: 0 auto; /* 确保在响应式布局中也居中 */
     padding: 20px;
     min-width: 90%;
   }

@@ -4,11 +4,21 @@
  */
 
 import { Round, PlayProcessResult } from './Round';
-import { Card, Play, RoundPlayRecord, Player, MultiPlayerGameState as GameStateType } from '../types/card';
+import { Card, RoundPlayRecord, Player } from '../types/card';
 import { canPlayCards, canBeat, calculateCardsScore, isScoreCard } from './cardUtils';
-import { handleDunScoring, updatePlayerAfterPlay, triggerGoodPlayReactions, createPlayRecord } from './playManager';
+import { handleDunScoring, updatePlayerAfterPlay, triggerGoodPlayReactions } from './playManager';
+import { Round as RoundType } from './Round';
 import { calculatePlayAnimationPosition } from './animationUtils';
 import { triggerTaunt, triggerScoreEatenCurseReaction } from '../services/chatService';
+import { cardTracker } from '../services/cardTrackerService';
+import { announcePlay } from '../services/systemAnnouncementService';
+
+// 定义游戏状态类型
+export interface MultiPlayerGameState {
+  rounds: RoundType[];
+  players: Player[];
+  currentRoundIndex: number;
+}
 
 /**
  * 异步处理玩家出牌
@@ -21,12 +31,8 @@ export async function processPlayAsync(
   playerCount: number,
   humanPlayerIndex: number,
   gameConfig: { timingConfig?: any; cardTrackerEnabled?: boolean; announcementDelay?: number },
-  updateState: (updater: (prev: GameStateType) => GameStateType) => void,
-  getState: () => GameStateType,
-  moduleCallbacks?: {
-    recordTrackingPlay?: (roundNumber: number, playRecord: RoundPlayRecord) => void;
-    announcePlayAudio?: (play: Play, voiceConfig?: any) => Promise<void>;
-  }
+  updateState: (updater: (prev: MultiPlayerGameState) => MultiPlayerGameState) => void,
+  getState: () => MultiPlayerGameState
 ): Promise<PlayProcessResult> {
   // 从配置或 localStorage 读取计分器开关配置（默认关闭）
   const cardTrackerEnabled = gameConfig?.cardTrackerEnabled ?? (() => {
@@ -118,10 +124,11 @@ export async function processPlayAsync(
       round.recordPlay(playRecord, play);
       
       // 同时记录到追踪模块（如果启用）
-      if (cardTrackerEnabled && moduleCallbacks?.recordTrackingPlay) {
+      if (cardTrackerEnabled) {
         try {
-          moduleCallbacks.recordTrackingPlay(round.roundNumber, playRecord);
+          cardTracker.recordPlay(round.roundNumber, playRecord);
         } catch (error) {
+          // 追踪失败不应该阻止游戏继续
         }
       }
     } else {
@@ -133,10 +140,12 @@ export async function processPlayAsync(
     
     const newPlayers = [...playersAfterDun];
     // 合并更新：保留 handleDunScoring 中更新的 dunCount，同时更新手牌和分数
+    const playerAfterDun = playersAfterDun[playerIndex];
+    const dunCount = (playerAfterDun as any)?.dunCount ?? (updatedPlayer as any).dunCount ?? 0;
     newPlayers[playerIndex] = {
       ...updatedPlayer,
-      dunCount: playersAfterDun[playerIndex]?.dunCount ?? updatedPlayer.dunCount ?? 0
-    };
+      ...(dunCount !== undefined ? { dunCount } : {})
+    } as Player;
     
 
     // 5.5 生成TTS并播放语音（等待完成，添加超时保护）
@@ -144,12 +153,8 @@ export async function processPlayAsync(
     if (!round.isEnded()) {
       try {
         // 为 TTS 添加超时保护（10秒）
-        if (!moduleCallbacks?.announcePlayAudio) {
-          throw new Error('音频模块未初始化');
-        }
-        
         await Promise.race([
-          moduleCallbacks.announcePlayAudio(play, player.voiceConfig),
+          announcePlay(play, player.voiceConfig),
           new Promise<void>((_, reject) => {
             setTimeout(() => {
               reject(new Error('TTS 生成或播放超时（10秒）'));
@@ -184,14 +189,14 @@ export async function processPlayAsync(
         // 重要：合并玩家状态，保留原有的 finishedRank 和 scoreRank
         // newPlayers 包含手牌和分数的更新，需要从 prev.players 中保留 finishedRank 和 scoreRank
         
-        const mergedPlayers = prev.players.map((prevPlayer, i) => {
+        const mergedPlayers = prev.players.map((prevPlayer: Player, i: number) => {
           const newPlayer = newPlayers[i];
           if (!newPlayer) {
             return prevPlayer;
           }
           
           // 合并状态：使用 newPlayer 的分数和手牌（已正确更新），保留 finishedRank 和 scoreRank
-          const merged = {
+          const merged: Player = {
             ...newPlayer, // 使用新玩家的所有属性（包括更新后的手牌、分数、wonRounds等）
             // 重要：finishedRank 和 scoreRank 从 prevPlayer 保留（如果存在）
             // 因为这两个属性是由 GameController 通过回调更新的，不应该被覆盖

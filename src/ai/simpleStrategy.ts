@@ -4,7 +4,7 @@
  */
 
 import { Card, Play } from '../types/card';
-import { canPlayCards, canBeat, findPlayableCards, isScoreCard, calculateCardsScore } from '../utils/cardUtils';
+import { canPlayCards, canBeat, findPlayableCards } from '../utils/cardUtils';
 import { HandStructure, PlayOption } from './types';
 
 /**

@@ -3,7 +3,7 @@
  * 包含游戏状态相关的辅助函数
  */
 
-import { Player, GameStatus, Card, Play, RoundPlayRecord } from '../types/card';
+import { Player, GameStatus, Play, RoundPlayRecord } from '../types/card';
 import { hasPlayableCards } from './cardUtils';
 import { Round } from './Round';
 import { Game } from './Game';

@@ -50,7 +50,7 @@ describe('Round 类回归测试', () => {
   beforeEach(() => {
     round = Round.createNew(1, Date.now(), {
       minIntervalBetweenPlays: 50,  // 测试用很短间隔
-      playTimeout: 10000,
+      playTimeout: 5000,
       enabled: true
     });
 

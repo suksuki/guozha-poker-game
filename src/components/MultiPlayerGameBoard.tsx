@@ -325,6 +325,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
               roundNumber={getCurrentRoundNumber(game)}
               roundPlays={getCurrentRoundPlays(game)}
               roundScore={getCurrentRoundScore(game)}
+              players={game.players}
             />
           </div>
         )}
@@ -334,24 +335,28 @@ export const MultiPlayerGameBoard: React.FC = () => {
           <PlayArea
             lastPlay={getLastPlay(game)}
             lastPlayPlayerName={lastPlayPlayerName}
+            lastPlayPlayerIndex={lastPlayPlayerIndex}
+            players={game.players}
             roundScore={getCurrentRoundScore(game)}
           />
         </div>
 
         {/* 操作按钮区域 */}
         {humanPlayer && game.status === GameStatus.PLAYING && (
-          <ActionButtons
-            isPlayerTurn={gameActions.isPlayerTurn}
-            canPass={gameActions.canPass}
-            selectedCardsCount={playerHand.selectedCards.length}
-            isSuggesting={gameActions.isSuggesting}
-            lastPlay={getLastPlay(game)}
-            isAutoPlay={isAutoPlay}
-            onSuggest={handleSuggestPlay}
-            onPlay={gameActions.handlePlay}
-            onPass={gameActions.handlePass}
-            onToggleAutoPlay={toggleAutoPlay}
-          />
+          <div className="human-player-controls-container">
+            <ActionButtons
+              isPlayerTurn={gameActions.isPlayerTurn}
+              canPass={gameActions.canPass}
+              selectedCardsCount={playerHand.selectedCards.length}
+              isSuggesting={gameActions.isSuggesting}
+              lastPlay={getLastPlay(game)}
+              isAutoPlay={isAutoPlay}
+              onSuggest={handleSuggestPlay}
+              onPlay={gameActions.handlePlay}
+              onPass={gameActions.handlePass}
+              onToggleAutoPlay={toggleAutoPlay}
+            />
+          </div>
         )}
         
         {/* 游戏结束后的查看排名按钮 - 停留在游戏界面，点击按钮才进入分数牌 */}
@@ -401,7 +406,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
           gameStatus={game.status}
           currentRoundPlays={getCurrentRoundPlays(game)}
           currentRoundScore={getCurrentRoundScore(game)}
-          allRoundsFromGameState={game.rounds.map(r => r.toRecord())}
+          allRoundsFromGameState={game.rounds.map(r => r.toDetailedRecord())}
         />
       )}
 
@@ -414,19 +419,46 @@ export const MultiPlayerGameBoard: React.FC = () => {
             <p>玩家数量: {game.players.length}</p>
           </div>
         ) : (
-          <>
-            <PlayerInfo
-              player={humanPlayer}
-              isPlayerTurn={gameActions.isPlayerTurn}
-              playerCount={game.playerCount}
-            />
-            <CompactHandCards
-              groupedHand={playerHand.groupedHand}
-              selectedCards={playerHand.selectedCards}
-              onCardClick={playerHand.handleCardClick}
-              onToggleExpand={playerHand.toggleExpand}
-            />
-          </>
+          <div 
+            className="player-hand-wrapper"
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              maxWidth: '100%',
+              padding: '8px 0 8px 30px',
+              background: 'rgba(102, 126, 234, 0.4)',
+              borderRadius: '20px',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+              minHeight: '180px',
+              border: '2px solid rgba(118, 75, 162, 0.5)',
+              boxSizing: 'border-box',
+              overflow: 'visible'
+            }}
+          >
+            {/* 玩家信息面板 - 放在手牌左边 */}
+            {game.status === GameStatus.PLAYING && (
+              <div className="player-info-sidebar">
+                <PlayerInfo
+                  player={humanPlayer}
+                  isPlayerTurn={gameActions.isPlayerTurn}
+                  playerCount={game.playerCount}
+                />
+              </div>
+            )}
+            {/* 手牌 */}
+            <div className="player-hand-container">
+              <CompactHandCards
+                groupedHand={playerHand.groupedHand}
+                selectedCards={playerHand.selectedCards}
+                onCardClick={playerHand.handleCardClick}
+                onToggleExpand={playerHand.toggleExpand}
+              />
+            </div>
+          </div>
         )}
       </div>
     </div>

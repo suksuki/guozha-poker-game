@@ -3,7 +3,7 @@
  * 使用 Canvas 实现粒子效果
  */
 
-import React, { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { DunAnimationConfig } from '../../config/animationConfig';
 
 /**

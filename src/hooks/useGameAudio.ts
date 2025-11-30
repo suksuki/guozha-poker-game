@@ -6,10 +6,10 @@
 import { useEffect, useRef } from 'react';
 import { useAudioRoom } from '../audio';
 import { getGameAudioIntegration } from '../audio/GameAudioIntegration';
-import { getAudioPreloader, preloadCommonAudio } from '../audio/audioPreloader';
+import { preloadCommonAudio } from '../audio/audioPreloader';
 import { getQuarrelService } from '../ai/quarrelService';
 import { defaultSpeakerManager } from '../tts/speakers';
-import { GameStatus, Player } from '../types/card';
+import { Player } from '../types/card';
 import { ChatMessage } from '../types/chat';
 
 export interface UseGameAudioConfig {

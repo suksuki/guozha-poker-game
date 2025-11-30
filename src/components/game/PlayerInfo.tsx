@@ -1,11 +1,9 @@
 /**
  * 玩家信息组件
- * 显示玩家信息（手牌数量、得分、赢得轮次等）
+ * 显示玩家头像和状态信息（类似AI玩家）
  */
 
 import React from 'react';
-import { useTranslation } from 'react-i18next';
-import i18n from '../../i18n';
 import { Player } from '../../types/card';
 
 interface PlayerInfoProps {
@@ -14,47 +12,40 @@ interface PlayerInfoProps {
   playerCount?: number; // 玩家总数（用于判断最后一名）
 }
 
-export const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, isPlayerTurn, playerCount }) => {
-  const { t } = useTranslation(['game', 'ui']);
-  const playerRank = player.finishedRank ?? null;
-  const isLastPlace = playerRank !== null && playerCount && playerRank === playerCount;
-  
-  // 奖杯图标：第一名金色🏆，第二名银色🥈，最后一名灰色🏆
-  const getTrophyIcon = () => {
-    if (playerRank === 1) return '🏆'; // 第一名金色奖杯
-    if (playerRank === 2) return '🥈'; // 第二名银色奖杯
-    if (isLastPlace) return '🏆'; // 最后一名灰色奖杯（通过CSS样式控制颜色）
-    return null;
+export const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, isPlayerTurn }) => {
+  // 获取玩家头像emoji（人类玩家使用特殊的可爱头像）
+  const getPlayerAvatar = (playerId: number): string => {
+    // 人类玩家使用特殊的可爱头像
+    return '🐱'; // 可爱的小猫头像
   };
-  
-  const trophyIcon = getTrophyIcon();
+
+  const avatarEmoji = getPlayerAvatar(player.id);
+  const playerScore = player.score || 0;
+  const dunCount = player.dunCount || 0;
 
   return (
-    <div className="player-info-compact">
-      <div className="player-info-main">
-        <span className="player-hand-count">{player.hand.length} 张</span>
-        <span className="player-score-compact">得分: {player.score || 0}</span>
-        {playerRank !== null && (
-          <span className={`player-rank-badge rank-${playerRank} ${isLastPlace ? 'last-place' : ''}`}>
-            {trophyIcon && (
-              <span className={`trophy-icon ${isLastPlace ? 'trophy-gray' : playerRank === 1 ? 'trophy-gold' : playerRank === 2 ? 'trophy-silver' : ''}`}>
-                {trophyIcon}
-              </span>
-            )}
-            {(() => {
-              // 根据语言格式化名次显示
-              const lang = i18n.language || 'zh-CN';
-              if (lang.startsWith('en')) {
-                // 英文：1st, 2nd, 3rd, 4th...
-                const suffix = playerRank === 1 ? 'st' : playerRank === 2 ? 'nd' : playerRank === 3 ? 'rd' : 'th';
-                return `${playerRank}${suffix}`;
-              }
-              // 中文：第1名、第2名等
-              return `第${playerRank}名`;
-            })()}
-          </span>
-        )}
-        {isPlayerTurn && <span className="your-turn-badge">你的回合</span>}
+    <div className="ai-player-avatar-container human-player-avatar-container">
+      {/* 卡通大头像 */}
+      <div className="ai-player-avatar">
+        <div className="avatar-emoji">
+          {avatarEmoji}
+        </div>
+        <div className="avatar-name">{player.name}</div>
+      </div>
+      
+      {/* 状态信息面板 */}
+      <div className="ai-player-status-panel human-player-status-panel">
+        <div className="status-item status-item-compact">
+          <span className="status-value">{playerScore}分，{dunCount}墩</span>
+        </div>
+        <div className="status-item">
+          <span className="status-label">手牌</span>
+          <span className="status-value">{player.hand.length} 张</span>
+        </div>
+        {/* 你的回合提示 - 放在信息面板下面 */}
+        <div className={`avatar-thinking ${isPlayerTurn ? 'visible' : 'hidden'}`}>
+          你的回合
+        </div>
       </div>
     </div>
   );

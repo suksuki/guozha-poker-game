@@ -2,10 +2,9 @@
  * MCTS节点扩展
  */
 
-import { Card, Play } from '../../types/card';
+import { Card } from '../../types/card';
 import { MCTSNode } from '../types';
 import { canPlayCards, canBeat } from '../../utils/cardUtils';
-import { generateActions } from './actions';
 
 /**
  * 扩展节点：添加新的子节点

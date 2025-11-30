@@ -23,17 +23,32 @@ app = Flask(__name__)
 CORS(app)  # 允许跨域请求
 
 # 全局变量
-voice = None
-MODEL_PATH = None
+voices = {}  # 缓存多个模型：{'male': voice, 'female': voice}
+MODEL_PATHS = {}  # 缓存模型路径：{'male': path, 'female': path}
 
-def find_model_path():
-    """查找可用的模型文件"""
+def find_model_path(gender='female'):
+    """查找可用的模型文件
+    Args:
+        gender: 'male' 或 'female'，用于选择不同的模型
+    """
     model_dir = os.path.join(os.path.dirname(__file__), '..', 'tts-services', 'models')
-    possible_models = [
-        'zh_CN-huayan-medium.onnx',  # 优先使用已下载的模型
-        'xiaoyan-medium.onnx',
-        'zh_CN-xiaoyan-medium.onnx',
-    ]
+    
+    # 根据性别选择模型列表
+    if gender == 'male':
+        # 男声模型（xiaoyi 是男声）
+        possible_models = [
+            'zh_CN-xiaoyi-medium.onnx',
+            'xiaoyi-medium.onnx',
+            'zh_CN-huayan-medium.onnx',  # 备用
+            'xiaoyan-medium.onnx',  # 如果男声模型不存在，使用女声作为备用
+        ]
+    else:
+        # 女声模型（xiaoyan 是女声）
+        possible_models = [
+            'zh_CN-huayan-medium.onnx',  # 优先使用已下载的模型
+            'xiaoyan-medium.onnx',
+            'zh_CN-xiaoyan-medium.onnx',
+        ]
     
     for model_name in possible_models:
         model_path = os.path.join(model_dir, model_name)
@@ -41,10 +56,17 @@ def find_model_path():
             return model_path
     
     # 尝试其他路径
-    other_paths = [
-        os.path.expanduser('~/piper-models/xiaoyan-medium.onnx'),
-        os.path.join(os.getcwd(), 'models', 'xiaoyan-medium.onnx'),
-    ]
+    if gender == 'male':
+        other_paths = [
+            os.path.expanduser('~/piper-models/xiaoyi-medium.onnx'),
+            os.path.join(os.getcwd(), 'models', 'xiaoyi-medium.onnx'),
+            os.path.expanduser('~/piper-models/xiaoyan-medium.onnx'),  # 备用
+        ]
+    else:
+        other_paths = [
+            os.path.expanduser('~/piper-models/xiaoyan-medium.onnx'),
+            os.path.join(os.getcwd(), 'models', 'xiaoyan-medium.onnx'),
+        ]
     
     for path in other_paths:
         if os.path.exists(path) and os.path.getsize(path) > 0:
@@ -96,28 +118,38 @@ def pcm_to_wav(pcm_data, sample_rate=22050, channels=1, sample_width=2):
     # 合并WAV头和PCM数据
     return wav_header + pcm_data
 
-def load_voice():
-    """加载Piper TTS模型"""
-    global voice, MODEL_PATH
+def load_voice(gender='female'):
+    """加载Piper TTS模型
+    Args:
+        gender: 'male' 或 'female'，用于选择不同的模型
+    """
+    global voices, MODEL_PATHS
     
-    if voice is not None:
-        return voice
+    # 如果已经加载过该性别的模型，直接返回
+    if gender in voices and voices[gender] is not None:
+        return voices[gender]
     
     # 先查找模型路径
-    model_path = find_model_path()
+    model_path = find_model_path(gender)
     if not model_path:
-        raise FileNotFoundError('未找到Piper TTS模型文件，请下载模型到 tts-services/models/ 目录')
+        # 如果找不到指定性别的模型，尝试使用另一个性别作为备用
+        fallback_gender = 'female' if gender == 'male' else 'male'
+        model_path = find_model_path(fallback_gender)
+        if not model_path:
+            raise FileNotFoundError(f'未找到Piper TTS模型文件（{gender}），请下载模型到 tts-services/models/ 目录')
+        print(f'[Piper TTS] ⚠️ 未找到{gender}模型，使用{fallback_gender}模型作为备用')
     
-    MODEL_PATH = model_path
+    MODEL_PATHS[gender] = model_path
     
     try:
         # 尝试使用piper-tts Python包
         try:
             from piper import PiperVoice
             
-            print(f'[Piper TTS] 加载模型: {MODEL_PATH}')
-            voice = PiperVoice.load(MODEL_PATH)
-            print(f'[Piper TTS] ✅ 模型加载成功')
+            print(f'[Piper TTS] 加载{gender}模型: {model_path}')
+            voice = PiperVoice.load(model_path)
+            voices[gender] = voice
+            print(f'[Piper TTS] ✅ {gender}模型加载成功')
             return voice
             
         except ImportError:
@@ -143,7 +175,8 @@ def load_voice():
             if piper_cmd:
                 print(f'[Piper TTS] ✅ 找到piper命令行工具: {piper_cmd}')
                 # 使用命令行工具模式（需要修改synthesize方法）
-                voice = {'type': 'command', 'cmd': piper_cmd}
+                voice = {'type': 'command', 'cmd': piper_cmd, 'model_path': model_path}
+                voices[gender] = voice
                 return voice
             else:
                 raise ImportError('未找到piper-tts包或piper命令行工具')
@@ -161,16 +194,27 @@ def load_voice():
 
 @app.route('/api/tts', methods=['POST'])
 def synthesize():
-    """TTS合成接口"""
+    """TTS合成接口
+    支持通过 gender 参数选择模型：
+    {
+        "text": "要合成的文本",
+        "gender": "male" 或 "female" (可选，默认 "female")
+    }
+    """
     try:
         data = request.json
         text = data.get('text', '')
+        gender = data.get('gender', 'female')  # 默认使用女声
         
         if not text:
             return {'error': '缺少 text 参数'}, 400
         
-        # 加载语音模型（如果还没有加载）
-        voice = load_voice()
+        # 验证 gender 参数
+        if gender not in ['male', 'female']:
+            gender = 'female'  # 无效值使用默认值
+        
+        # 加载指定性别的语音模型（如果还没有加载）
+        voice = load_voice(gender)
         
         # 根据voice类型选择合成方式
         if isinstance(voice, dict) and voice.get('type') == 'command':
@@ -179,13 +223,13 @@ def synthesize():
             import tempfile
             
             piper_cmd = voice['cmd']
-            # 使用已找到的模型路径，如果没有则重新查找
-            if not MODEL_PATH:
-                model_path = find_model_path()
+            # 使用已找到的模型路径
+            model_path = voice.get('model_path')
+            if not model_path:
+                model_path = find_model_path(gender)
                 if not model_path:
-                    raise FileNotFoundError('未找到Piper TTS模型文件')
-            else:
-                model_path = MODEL_PATH
+                    raise FileNotFoundError(f'未找到Piper TTS模型文件（{gender}）')
+                voice['model_path'] = model_path
             
             # 创建临时文件
             with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
@@ -274,37 +318,42 @@ def health():
             'zh_CN-xiaoyan-medium.onnx',
         ]
         
-        found_model = None
-        for model_name in possible_models:
-            model_path = os.path.join(model_dir, model_name)
-            if os.path.exists(model_path) and os.path.getsize(model_path) > 0:
-                found_model = model_name
-                break
+        found_models = {}
+        for gender in ['male', 'female']:
+            model_path = find_model_path(gender)
+            if model_path:
+                model_name = os.path.basename(model_path)
+                found_models[gender] = {
+                    'name': model_name,
+                    'path': model_path
+                }
         
-        if found_model:
+        if found_models:
             # 尝试加载模型以检查服务是否正常
             try:
-                load_voice()
+                for gender in found_models.keys():
+                    load_voice(gender)
                 return {
                     'status': 'ok',
                     'service': 'piper-tts',
-                    'model': found_model,
-                    'model_path': MODEL_PATH or '未加载'
+                    'models': found_models,
+                    'loaded_models': list(MODEL_PATHS.keys())
                 }
             except Exception as e:
                 # 即使加载失败，如果模型文件存在，也认为服务可用
                 return {
                     'status': 'ok',
                     'service': 'piper-tts',
-                    'model': found_model,
-                    'warning': f'模型加载失败但文件存在: {str(e)}'
+                    'models': found_models,
+                    'warning': f'部分模型加载失败但文件存在: {str(e)}'
                 }
         else:
             return {
                 'status': 'error',
                 'service': 'piper-tts',
                 'error': '未找到模型文件',
-                'suggested_path': model_dir
+                'suggested_path': model_dir,
+                'note': '请下载模型文件，男声: xiaoyi-medium.onnx, 女声: xiaoyan-medium.onnx'
             }, 500
     except Exception as e:
         return {

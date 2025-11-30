@@ -4,7 +4,7 @@
  */
 
 import { chatService } from '../services/chatService';
-import { Player, PlayerType, Card, Suit, Rank } from '../types/card';
+import { Player, PlayerType } from '../types/card';
 import { ChatEventType } from '../types/chat';
 import { MultiPlayerGameState } from './gameStateUtils';
 import { GameStatus } from '../types/card';

@@ -4,7 +4,7 @@
  */
 
 import { getTTSServiceManager, TTSOptions } from '../tts';
-import { defaultSpeakerManager, SpeakerConfig } from '../tts/speakers';
+import { defaultSpeakerManager } from '../tts/speakers';
 import { Utter, Priority, Language } from './DialogueScheduler';
 import { UseAudioRoomReturn } from './useAudioRoom';
 

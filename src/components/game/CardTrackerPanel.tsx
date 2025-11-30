@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { Player, Rank, Suit, Card } from '../../types/card';
-import { cardTracker, DetailedRoundRecord, GameStatistics, PlayerHandSnapshot } from '../../services/cardTrackerService';
+import { cardTracker, DetailedRoundRecord, PlayerHandSnapshot } from '../../services/cardTrackerService';
 import { CardComponent } from '../CardComponent';
 import { getCardScore } from '../../utils/cardUtils';
 import './CardTrackerPanel.css';
@@ -70,14 +70,22 @@ export const CardTrackerPanel: React.FC<CardTrackerPanelProps> = ({
           playerName: p.playerName || players.find(pl => pl.id === p.playerId)?.name || `玩家${p.playerId + 1}`
         }));
         
+        // 判断轮次是否已结束：优先使用 gameRound 中的 endTime，如果没有则根据轮次号判断
+        // 注意：如果 gameRound 有 endTime，说明轮次已结束；如果没有，且轮次号小于当前轮次号，也说明已结束
+        const isRoundEnded = (gameRound as any).endTime !== undefined || 
+                             (gameRound.roundNumber < currentRoundNumber);
+        const endTime = isRoundEnded 
+          ? ((gameRound as any).endTime || Date.now() - 30000) 
+          : undefined;
+        
         roundsMap.set(gameRound.roundNumber, {
           roundNumber: gameRound.roundNumber,
           plays: playsWithNames,
           totalScore: gameRound.totalScore || 0,
           winnerId: gameRound.winnerId || 0,
           winnerName: gameRound.winnerName || players.find(p => p.id === gameRound.winnerId)?.name || '',
-          startTime: Date.now() - 60000, // 估算开始时间
-          endTime: gameRound.roundNumber < currentRoundNumber ? Date.now() - 30000 : undefined,
+          startTime: (gameRound as any).startTime || (Date.now() - 60000), // 使用 gameRound 中的 startTime，如果没有则估算
+          endTime,
           totalCardsPlayed,
           scoreCardsPlayed,
           dunCount

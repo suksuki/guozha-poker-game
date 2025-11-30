@@ -1,4 +1,4 @@
-import { Card, Player } from '../types/card';
+import { Player } from '../types/card';
 import { calculateCardsScore, isScoreCard } from './cardUtils';
 
 // 玩家排名信息

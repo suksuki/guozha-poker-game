@@ -1,97 +1,71 @@
-# 本地TTS服务指南
+# TTS 服务指南
 
 ## 概述
 
-本文档介绍所有可用的本地TTS服务，以及如何检查和使用它们。
+本文档介绍所有可用的 TTS 服务，以及如何检查和使用它们。
 
-## 可用的本地TTS服务
+## 可用的 TTS 服务
 
-### 1. GPT-SoVITS ⭐（推荐）
+### 1. Azure Speech Service ⭐（推荐）
 
-- **服务商ID**: `gpt_sovits`
-- **默认地址**: `http://localhost:9880`
-- **特点**: 零样本TTS，支持声音克隆，高质量
-- **优先级**: 最高（1）
+- **服务商ID**: `azure`
+- **类型**: 云端服务
+- **特点**: 
+  - 支持 140+ 种语言和方言
+  - 400+ 种神经网络语音
+  - 高质量语音合成
+  - 支持中文、英文、日文、韩文等多种语言
+- **优先级**: 最高（0）
+- **需要配置**: Subscription Key 和 Region
+
+**配置方法**:
+1. 在 Azure Portal 创建语音服务资源
+2. 获取 Subscription Key 和 Region
+3. 在 `.env` 文件中设置：
+   ```bash
+   VITE_AZURE_SPEECH_KEY=你的Subscription-Key
+   VITE_AZURE_SPEECH_REGION=你的区域（如eastus）
+   ```
+
+**定价**:
+- 免费层：每月 500 万字符
+- 标准层：按使用量计费
+
+### 2. Piper TTS
+
+- **服务商ID**: `piper`
+- **类型**: 本地服务
+- **默认地址**: `http://localhost:5000`
+- **特点**: 轻量级本地TTS，速度快，资源占用少
+- **优先级**: 1
 
 **启动方法**:
 ```bash
-# 需要启动GPT-SoVITS服务
-# 默认端口：9880
+# 使用项目提供的脚本
+./scripts/setup-piper-tts.sh
+./start-piper-tts.sh
+
+# 或手动启动
+python scripts/piper-tts-server.py
 ```
 
 **检查健康状态**:
-```typescript
-import { checkAllLocalTTSServices } from './utils/checkLocalTTSServices';
-
-const status = await checkAllLocalTTSServices();
-const gptSoVITS = status.find(s => s.provider === 'gpt_sovits');
-console.log('GPT-SoVITS状态:', gptSoVITS?.status);
-```
-
-### 2. Coqui TTS
-
-- **服务商ID**: `coqui`
-- **默认地址**: `http://localhost:5002`
-- **特点**: 开源多语言TTS，支持声音克隆
-- **优先级**: 2
-
-**启动方法**:
 ```bash
-# 需要启动Coqui TTS服务
-# 默认端口：5002
+curl http://localhost:5000/health
 ```
 
-### 3. 本地TTS API
-
-- **服务商ID**: `local`
-- **默认地址**: `http://localhost:8000`
-- **特点**: 通用本地TTS API服务
-- **优先级**: 4
-
-**启动方法**:
-```bash
-# 需要启动本地TTS API服务
-# 默认端口：8000
-```
-
-### 4. Edge TTS
-
-- **服务商ID**: `edge`
-- **默认地址**: `/api/edge-tts`（需要后端代理）
-- **特点**: Edge TTS，免费，音质好
-- **优先级**: 3
-
-**配置方法**:
-需要配置后端代理 `/api/edge-tts`
-
-### 5. 浏览器TTS
+### 3. 浏览器 TTS
 
 - **服务商ID**: `browser`
-- **默认地址**: `speechSynthesis`（浏览器内置）
+- **类型**: 浏览器内置
 - **特点**: 浏览器原生TTS，单声道，功能受限
-- **优先级**: 最低（5）
+- **优先级**: 最低（2）
 
-**说明**: 不需要启动，浏览器内置支持
+**说明**: 不需要启动，浏览器内置支持，总是可用作为后备
 
 ## 快速检查所有服务状态
 
-### 方法1：使用检查工具
-
-```typescript
-import { printLocalTTSServicesStatus } from './utils/checkLocalTTSServices';
-
-// 打印所有服务状态
-await printLocalTTSServicesStatus();
-```
-
-### 方法2：在浏览器控制台
-
-```javascript
-// 如果已暴露工具
-window.checkLocalTTS.printStatus();
-```
-
-### 方法3：使用TTS服务管理器
+### 方法1：使用TTS服务管理器
 
 ```typescript
 import { getTTSServiceManager } from './tts/ttsServiceManager';
@@ -101,35 +75,27 @@ const status = ttsManager.getProviderStatus();
 console.log('TTS服务商状态:', status);
 ```
 
-## 配置使用特定的本地TTS服务
+### 方法2：在浏览器控制台
 
-### 使用GPT-SoVITS
+打开浏览器开发者工具，在控制台中查看 TTS 服务状态。
+
+## 配置使用特定的 TTS 服务
+
+### 使用 Azure Speech Service
 
 ```typescript
 import { multiChannelVoiceService } from './services/multiChannelVoiceService';
 
-multiChannelVoiceService.setTTSProvider('gpt_sovits');
+multiChannelVoiceService.setTTSProvider('azure');
 ```
 
-### 使用Coqui TTS
+### 使用 Piper TTS
 
 ```typescript
-multiChannelVoiceService.setTTSProvider('coqui');
+multiChannelVoiceService.setTTSProvider('piper');
 ```
 
-### 使用本地TTS API
-
-```typescript
-multiChannelVoiceService.setTTSProvider('local');
-```
-
-### 使用Edge TTS
-
-```typescript
-multiChannelVoiceService.setTTSProvider('edge');
-```
-
-### 使用浏览器TTS
+### 使用浏览器 TTS
 
 ```typescript
 multiChannelVoiceService.setTTSProvider('browser');
@@ -145,113 +111,91 @@ multiChannelVoiceService.setTTSProvider('auto');
 ## 检查服务健康状态
 
 ```typescript
-import { checkAllLocalTTSServices, getAvailableLocalTTSServices } from './utils/checkLocalTTSServices';
+import { getTTSServiceManager } from './tts/ttsServiceManager';
 
-// 检查所有服务
-const allStatus = await checkAllLocalTTSServices();
-allStatus.forEach(service => {
-  console.log(`${service.status} ${service.name}`);
+const ttsManager = getTTSServiceManager();
+const status = ttsManager.getProviderStatus();
+
+// 检查每个服务的状态
+Object.entries(status).forEach(([provider, state]) => {
+  console.log(`${provider}: ${state.enabled ? '✅ 启用' : '❌ 禁用'} ${state.healthy ? '健康' : '不健康'}`);
 });
-
-// 获取可用的服务
-const available = await getAvailableLocalTTSServices();
-console.log('可用的服务:', available.map(s => s.name));
 ```
 
 ## 故障排查
 
-### 问题1：所有本地TTS服务都不健康
+### 问题1：Azure Speech Service 不可用
+
+**检查清单：**
+1. 检查 `.env` 文件中是否设置了 `VITE_AZURE_SPEECH_KEY` 和 `VITE_AZURE_SPEECH_REGION`
+2. 检查 Subscription Key 是否有效
+3. 检查 Region 是否正确
+4. 检查网络连接
+
+**解决方案：**
+```typescript
+// 1. 检查环境变量
+console.log('Azure Key:', import.meta.env.VITE_AZURE_SPEECH_KEY ? '已设置' : '未设置');
+console.log('Azure Region:', import.meta.env.VITE_AZURE_SPEECH_REGION || '未设置');
+
+// 2. 检查服务状态
+const ttsManager = getTTSServiceManager();
+const status = ttsManager.getProviderStatus();
+console.log('Azure状态:', status.azure);
+```
+
+### 问题2：Piper TTS 不可用
 
 **检查清单：**
 1. 检查服务是否启动
-2. 检查端口是否正确
+2. 检查端口是否正确（默认 5000）
 3. 检查防火墙设置
 4. 检查服务日志
 
 **解决方案：**
+```bash
+# 1. 检查服务状态
+curl http://localhost:5000/health
+
+# 2. 如果服务未启动，启动服务
+python scripts/piper-tts-server.py
+```
+
+### 问题3：所有服务都不健康
+
+**说明**：如果所有服务都不可用，系统会自动使用浏览器 TTS 作为后备。
+
+**解决方案：**
 ```typescript
-// 1. 检查服务状态
-await printLocalTTSServicesStatus();
-
-// 2. 尝试手动检查
-const response = await fetch('http://localhost:9880/health');
-console.log('GPT-SoVITS健康检查:', response.ok);
-
-// 3. 如果都不健康，使用浏览器TTS
+// 使用浏览器 TTS（总是可用）
 multiChannelVoiceService.setTTSProvider('browser');
-```
-
-### 问题2：只有Edge TTS可用
-
-**说明**：Edge TTS需要后端代理，如果后端代理配置正确，Edge TTS应该可用。
-
-**检查方法：**
-```typescript
-// 检查Edge TTS后端代理
-try {
-  const response = await fetch('/api/edge-tts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: 'test', voice: 'zh-CN-XiaoxiaoNeural' }),
-  });
-  console.log('Edge TTS代理状态:', response.ok);
-} catch (error) {
-  console.error('Edge TTS代理不可用:', error);
-}
-```
-
-### 问题3：如何启动本地TTS服务
-
-**GPT-SoVITS**:
-```bash
-# 参考 GPT-SoVITS 官方文档
-# https://github.com/RVC-Boss/GPT-SoVITS
-```
-
-**Coqui TTS**:
-```bash
-# 参考 Coqui TTS 官方文档
-# https://github.com/coqui-ai/TTS
-```
-
-**本地TTS API**:
-```bash
-# 需要自己实现或使用第三方服务
-# 默认端口：8000
-# 需要实现 /tts 和 /health 接口
 ```
 
 ## 推荐配置
 
-### 场景1：有GPT-SoVITS服务
+### 场景1：有 Azure Speech Service 配置
 
 ```typescript
-multiChannelVoiceService.setTTSProvider('gpt_sovits');
+// 使用 Azure Speech Service（最高质量）
+multiChannelVoiceService.setTTSProvider('azure');
 // 或使用自动选择
 multiChannelVoiceService.setTTSProvider('auto');
 ```
 
-### 场景2：有Coqui TTS服务
+### 场景2：有 Piper TTS 服务
 
 ```typescript
-multiChannelVoiceService.setTTSProvider('coqui');
+multiChannelVoiceService.setTTSProvider('piper');
 ```
 
-### 场景3：只有Edge TTS后端
+### 场景3：没有任何配置
 
 ```typescript
-multiChannelVoiceService.setTTSProvider('edge');
-```
-
-### 场景4：没有任何本地TTS服务
-
-```typescript
-// 使用浏览器TTS（功能受限，单声道）
+// 使用浏览器 TTS（功能受限，单声道）
 multiChannelVoiceService.setTTSProvider('browser');
 ```
 
 ---
 
 **最后更新**：2025-01-25  
-**状态**：✅ 本地TTS服务指南已完成
-
+**状态**：✅ TTS 服务指南已完成

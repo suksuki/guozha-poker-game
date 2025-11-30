@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next';
 import { Card, Player, Suit, Rank } from '../../types/card';
 import { CardComponent } from '../CardComponent';
-import { dealCardsWithAlgorithm, DealingConfig, DealingAlgorithm } from '../../utils/dealingAlgorithms';
+import { dealCardsWithAlgorithm, DealingConfig } from '../../utils/dealingAlgorithms';
 import { triggerDealingReaction, chatService, getChatMessages } from '../../services/chatService';
 import { voiceService } from '../../services/voiceService';
 import { sortCards, SortOrder, groupCardsByRank } from '../../utils/cardSorting';

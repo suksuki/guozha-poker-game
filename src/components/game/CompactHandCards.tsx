@@ -41,6 +41,26 @@ export const CompactHandCards: React.FC<CompactHandCardsProps> = ({
     onToggleExpand?.(rank);
   }, [onToggleExpand]);
 
+  // 选择/取消选择整个组
+  const toggleSelectGroup = useCallback((cards: Card[]) => {
+    const allSelected = cards.every(card => selectedCards.some(c => c.id === card.id));
+    if (allSelected) {
+      // 如果全部已选中，则取消选择
+      cards.forEach(card => {
+        if (selectedCards.some(c => c.id === card.id)) {
+          onCardClick(card);
+        }
+      });
+    } else {
+      // 如果未全部选中，则选择所有未选中的
+      cards.forEach(card => {
+        if (!selectedCards.some(c => c.id === card.id)) {
+          onCardClick(card);
+        }
+      });
+    }
+  }, [selectedCards, onCardClick]);
+
   // 计算每组的选中数量
   const getSelectedCount = useCallback((cards: Card[]) => {
     return cards.filter(c => selectedCards.some(sc => sc.id === c.id)).length;
@@ -92,11 +112,28 @@ export const CompactHandCards: React.FC<CompactHandCardsProps> = ({
               {!isExpanded && (
                 <div
                   className="compact-card-stack"
-                  onClick={() => toggleExpand(rank)}
+                  onClick={(e) => {
+                    // 延迟处理单击，如果300ms内没有双击，则展开
+                    const clickTimer = setTimeout(() => {
+                      toggleExpand(rank);
+                    }, 300);
+                    (e.currentTarget as any).clickTimer = clickTimer;
+                  }}
+                  onDoubleClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // 清除单击定时器
+                    const clickTimer = (e.currentTarget as any).clickTimer;
+                    if (clickTimer) {
+                      clearTimeout(clickTimer);
+                    }
+                    toggleSelectGroup(cards);
+                  }}
                   style={{
                     '--card-count': cards.length,
                     '--stack-height': `${Math.min(cards.length * 10, 90)}px` // 从8px增加到10px，从60px增加到90px，适应更大的卡牌
                   } as React.CSSProperties}
+                  title="单击展开显示所有卡牌，双击选择/取消选择整个组"
                 >
                   {/* 显示所有牌，纵向叠放（向下延伸） */}
                   {cards.map((card, index) => {
@@ -111,8 +148,9 @@ export const CompactHandCards: React.FC<CompactHandCardsProps> = ({
                         className={`compact-card-item-stacked ${isScore ? 'score-card' : ''} ${isSelected ? 'selected' : ''}`}
                         style={{
                           transform: `translateY(${stackOffset}px)`,
-                          zIndex: index + 1,
-                          '--offset': `${stackOffset}px`
+                          zIndex: index + 100, // 增加z-index，确保上层卡牌可以点击
+                          '--offset': `${stackOffset}px`,
+                          '--z-index': index + 100
                         } as React.CSSProperties}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -155,6 +193,16 @@ export const CompactHandCards: React.FC<CompactHandCardsProps> = ({
                     {hasSelected && (
                       <span className="selected-label">已选{selectedCount}</span>
                     )}
+                    <button
+                      className="select-all-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelectGroup(cards);
+                      }}
+                      title={cards.every(card => selectedCards.some(c => c.id === card.id)) ? "取消全选" : "全选"}
+                    >
+                      {cards.every(card => selectedCards.some(c => c.id === card.id)) ? '取消全选' : '全选'}
+                    </button>
                     <button
                       className="collapse-btn"
                       onClick={() => toggleExpand(rank)}

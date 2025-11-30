@@ -6,24 +6,34 @@
 .compact-hand-container {
   width: 100%;
   max-width: 100%;
-  padding: 10px 5px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 20px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  min-height: auto;
+  padding: 5px 5px 40px 5px;
+  background: transparent;
+  border-radius: 0;
+  backdrop-filter: none;
+  box-shadow: none;
+  margin-bottom: 0;
+  overflow: visible;
 }
 
 .compact-hand-scroll {
   display: flex;
   align-items: center; /* 垂直居中对齐，确保所有卡片组在同一水平线上 */
-  gap: 8px;
+  gap: 5px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 10px 5px;
+  padding: 5px 30px 40px 5px;
   scroll-behavior: smooth;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: nowrap;
   /* 隐藏滚动条但保持滚动功能 */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.compact-hand-scroll::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .compact-hand-scroll::-webkit-scrollbar {
@@ -85,6 +95,8 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   /* 确保所有叠放组有统一的对齐基准 */
   vertical-align: top;
+  overflow: visible;
+  margin-top: 20px; /* 向下移动，避免上面被遮挡 */
 }
 
 .compact-card-group.hovered .compact-card-stack {
@@ -98,6 +110,8 @@
   transform: translateX(-50%) translateY(var(--offset, 0px));
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  pointer-events: auto;
+  z-index: calc(var(--z-index, 1) + 100); /* 确保可以点击 */
 }
 
 .compact-card-item-stacked:hover {
@@ -269,6 +283,28 @@
   background: rgba(76, 175, 80, 0.1);
   padding: 2px 8px;
   border-radius: 10px;
+}
+
+.select-all-btn {
+  background: rgba(76, 175, 80, 0.8);
+  border: none;
+  border-radius: 8px;
+  padding: 4px 12px;
+  cursor: pointer;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  margin-right: 8px;
+}
+
+.select-all-btn:hover {
+  background: rgba(76, 175, 80, 1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.4);
 }
 
 .collapse-btn {

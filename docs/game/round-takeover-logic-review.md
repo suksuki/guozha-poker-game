@@ -9,7 +9,11 @@
 2. 轮询所有其他玩家（B、C、D），每个玩家依次选择：
    - 出牌（如果能打过）
    - 或要不起
-3. 轮完一圈后，下一个玩家就是出牌玩家（`nextPlayerIndex === lastPlayPlayerIndex`）
+3. **接风判断触发条件**（两种情况）：
+   - **正常情况**：轮完一圈后，下一个玩家就是出牌玩家（`nextPlayerIndex === lastPlayPlayerIndex`）
+   - **特殊情况**：出牌玩家已经出完牌，且所有剩余玩家都要不起（`lastPlayPlayerFinished && shouldTakeover`）
+     - 原因：`findNextActivePlayer` 会跳过已出完的玩家，所以 `nextPlayerIndex` 永远不会等于 `lastPlayPlayerIndex`
+     - 使用 `Round.shouldTakeover()` 检查所有剩余玩家是否都要不起
 4. **接风判断**：
    - 接风玩家 = 出牌玩家（`lastPlayPlayerIndex`）
    - 检查接风玩家是否已经出完牌：
