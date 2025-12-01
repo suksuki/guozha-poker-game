@@ -38,17 +38,27 @@ class SystemAnnouncementService {
   /**
    * 报牌（出牌时）
    * 立即开始生成音频，不等待完成
-   * 使用 onStart 回调来确保语音和动画同步
+   * 使用回调来确保语音和动画同步
    * @param play 出牌信息
    * @param voiceConfig 语音配置
-   * @param onStart 语音开始播放时的回调（用于同步动画）
+   * @param callbacks 回调函数
+   * @param callbacks.onStart 语音开始播放时的回调（用于同步动画）
+   * @param callbacks.onEnd 语音播放完成时的回调
+   * @param callbacks.onError 语音播放失败时的回调
    * @returns Promise（不等待完成）
    */
   async announcePlay(
     play: Play, 
     voiceConfig?: VoiceConfig,
-    onStart?: () => void
+    callbacks?: {
+      onStart?: () => void;
+      onEnd?: () => void;
+      onError?: (error: Error) => void;
+    }
   ): Promise<void> {
+    const onStart = callbacks?.onStart;
+    const onEnd = callbacks?.onEnd;
+    const onError = callbacks?.onError;
     const text = playToSpeechText(play);
     console.log('[SystemAnnouncement] announcePlay 被调用', {
       playType: play.type,
@@ -99,27 +109,37 @@ class SystemAnnouncementService {
           },
           onEnd: () => {
             console.log('[SystemAnnouncement] 报牌语音播放完成:', text);
+            this.isAnnouncing = false;
+            // 调用外部传入的 onEnd 回调
+            if (onEnd) {
+              onEnd();
+            }
           },
           onError: (error) => {
             console.error('[SystemAnnouncement] 报牌语音播放失败:', error);
+            this.isAnnouncing = false;
             // 即使失败，也调用 onStart（让动画继续）
             if (onStart) {
               onStart();
+            }
+            // 调用外部传入的 onError 回调
+            if (onError) {
+              onError(error);
             }
           }
         }
       );
     } catch (error) {
       console.error('[SystemAnnouncement] 报牌失败:', error);
+      this.isAnnouncing = false;
       // 即使失败，也调用 onStart（让动画继续）
       if (onStart) {
         onStart();
       }
-    } finally {
-      // 延迟重置标志，确保去重窗口有效
-      setTimeout(() => {
-        this.isAnnouncing = false;
-      }, this.deduplicationWindow);
+      // 调用外部传入的 onError 回调
+      if (onError) {
+        onError(error as Error);
+      }
     }
   }
 
@@ -190,9 +210,13 @@ export const systemAnnouncementService = new SystemAnnouncementService();
 export function announcePlay(
   play: Play, 
   voiceConfig?: VoiceConfig,
-  onStart?: () => void
+  callbacks?: {
+    onStart?: () => void;
+    onEnd?: () => void;
+    onError?: (error: Error) => void;
+  }
 ): Promise<void> {
-  return systemAnnouncementService.announcePlay(play, voiceConfig, onStart);
+  return systemAnnouncementService.announcePlay(play, voiceConfig, callbacks);
 }
 
 export function announcePass(voiceConfig?: VoiceConfig, onStart?: () => void): Promise<void> {

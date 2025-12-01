@@ -1,0 +1,527 @@
+/* 简化手牌组件样式 */
+
+.simplified-hand-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0; /* 去掉padding，避免白色区域 */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 120px; /* 保持最小高度，不因预览而改变 */
+}
+
+.simplified-hand-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #999;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.empty-text {
+  font-size: 16px;
+}
+
+/* 点数选择区域 */
+.rank-selection-area {
+  width: 100%;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.rank-selection-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px; /* 增加不同点数牌之间的间距，从12px改为24px */
+  justify-content: flex-start;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.rank-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 70px;
+  /* 高度根据内容自动调整，不设置固定高度 */
+  padding: 0 !important; /* 去掉padding，避免白色区域 */
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+  box-shadow: none !important;
+  /* 卡牌风格 */
+  font-weight: bold;
+  overflow: visible; /* 允许卡牌叠放超出边界 */
+  /* 确保没有margin导致白色区域 */
+  margin: 0 !important;
+}
+
+.rank-item:hover {
+  transform: translateY(-10px);
+}
+
+.rank-item.has-selected {
+  transform: translateY(-15px);
+}
+
+/* 当有选中状态时，添加一个闪烁提示 */
+.rank-item.has-selected::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  border: 3px solid rgba(76, 175, 80, 0.8);
+  border-radius: 10px;
+  animation: selected-border-pulse 1.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes selected-border-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.rank-item.playable {
+  animation: playable-pulse 1.5s infinite;
+  /* 增强边框效果 - 黄色 */
+  border: 3px solid rgba(255, 193, 7, 1) !important;
+  border-radius: 10px;
+  /* 增强阴影和发光效果 - 黄色 */
+  box-shadow: 
+    0 0 20px rgba(255, 193, 7, 0.8),
+    0 0 40px rgba(255, 193, 7, 0.5),
+    inset 0 0 30px rgba(255, 193, 7, 0.3),
+    0 4px 15px rgba(255, 193, 7, 0.6) !important;
+  /* 增强背景光晕 - 黄色 */
+  background: rgba(255, 193, 7, 0.15) !important;
+  /* 增强整体发光 - 黄色 */
+  filter: drop-shadow(0 0 15px rgba(255, 193, 7, 1));
+  /* 提升层级，确保高亮效果在最上层 */
+  z-index: 10;
+  /* 轻微的缩放效果 */
+  transform: scale(1.05);
+  position: relative;
+}
+
+/* 添加额外的发光环效果 - 黄色 */
+.rank-item.playable::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 2px solid rgba(255, 193, 7, 0.6);
+  border-radius: 12px;
+  animation: playable-ring 1.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes playable-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 15px rgba(255, 193, 7, 1));
+    box-shadow: 
+      0 0 20px rgba(255, 193, 7, 0.8),
+      0 0 40px rgba(255, 193, 7, 0.5),
+      inset 0 0 30px rgba(255, 193, 7, 0.3),
+      0 4px 15px rgba(255, 193, 7, 0.6);
+    transform: scale(1.05);
+  }
+  50% {
+    filter: drop-shadow(0 0 25px rgba(255, 193, 7, 1.2));
+    box-shadow: 
+      0 0 30px rgba(255, 193, 7, 1),
+      0 0 60px rgba(255, 193, 7, 0.7),
+      inset 0 0 40px rgba(255, 193, 7, 0.5),
+      0 6px 20px rgba(255, 193, 7, 0.8);
+    transform: scale(1.08);
+  }
+}
+
+@keyframes playable-ring {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+/* 卡牌叠放区域 */
+.rank-cards-stack {
+  position: relative;
+  width: 60px; /* medium 尺寸卡牌宽度 */
+  /* 高度根据实际卡牌数量动态调整，增加高度以容纳更明显的叠放效果 */
+  min-height: 84px; /* medium 尺寸卡牌高度 */
+  /* 根据卡牌数量动态调整高度，每张牌额外增加15px */
+  height: calc(84px + var(--card-count, 0) * 15px);
+  /* 确保叠放效果可见 */
+  overflow: visible;
+  /* 确保容器没有背景颜色 */
+  background: transparent !important;
+  /* 确保没有边框和阴影 */
+  border: none !important;
+  box-shadow: none !important;
+  /* 确保没有padding */
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.rank-card-stacked {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60px; /* medium 尺寸卡牌宽度 */
+  height: 84px; /* medium 尺寸卡牌高度 */
+  pointer-events: none;
+  transition: transform 0.2s ease, filter 0.2s ease;
+  /* 纵向叠放：每张牌向下偏移 */
+  /* 确保容器没有背景 */
+  background: transparent !important;
+  /* 确保没有边框和阴影 */
+  border: none !important;
+  box-shadow: none !important;
+  /* 确保没有padding和margin */
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 叠放时的阴影效果，让厚度更明显 */
+.rank-card-stacked:nth-child(1) {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+}
+
+.rank-card-stacked:nth-child(2) {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.rank-card-stacked:nth-child(3) {
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
+}
+
+.rank-card-stacked:nth-child(4) {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.rank-card-stacked:nth-child(5) {
+  filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.35));
+}
+
+.rank-card-stacked:nth-child(n+6) {
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4));
+}
+
+/* 选中状态的卡牌 */
+.rank-card-stacked.card-selected {
+  filter: drop-shadow(0 2px 6px rgba(76, 175, 80, 0.6)) !important;
+  animation: card-selected-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes card-selected-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 2px 6px rgba(76, 175, 80, 0.6));
+  }
+  50% {
+    filter: drop-shadow(0 4px 12px rgba(76, 175, 80, 0.9));
+  }
+}
+
+/* 总数量徽章 - 放在最后一张卡牌上 */
+.rank-card-stacked .rank-total-badge {
+  position: absolute;
+  bottom: -10px;
+  right: -10px;
+  width: 26px;
+  height: 26px;
+  background: #2196F3;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 200;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  border: none; /* 去掉白色边框 */
+}
+
+/* 选中数量徽章 - 放在最后一张卡牌上 */
+.rank-card-stacked .rank-selected-badge {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 26px;
+  height: 26px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 201;
+  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4);
+  border: none; /* 去掉白色边框 */
+}
+
+/* 移除不需要的点数信息样式 */
+
+/* 选中预览区域 - 悬浮在选中牌上方 */
+.rank-preview-popup {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 20px;
+  z-index: 1000;
+  pointer-events: none;
+  animation: preview-popup 0.3s ease-out;
+  /* 添加padding，为取消按钮留出空间 */
+  padding: 24px 24px 12px 8px; /* 上、右、下、左：为取消按钮留出右上角空间，底部增加空间给操作按钮 */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  /* 确保容器足够大，容纳横向平铺的卡牌 */
+  width: auto; /* 根据内容自动调整宽度 */
+  min-width: auto;
+  max-width: none; /* 不限制最大宽度，让卡牌横向排列 */
+  overflow: visible; /* 不显示滚动条 */
+}
+
+.rank-item:hover .rank-preview-popup {
+  pointer-events: auto;
+}
+
+@keyframes preview-popup {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* 移除全局预览区域样式 */
+
+/* 移除旧的预览卡片布局，现在使用悬浮预览 */
+
+.preview-stack {
+  position: relative;
+  display: flex;
+  flex-direction: row; /* 横向排列 */
+  align-items: center;
+  justify-content: center; /* 居中对齐 */
+  gap: 4px; /* 卡牌之间的间距 */
+  padding: 0; /* 移除padding，因为父容器已经有padding了 */
+  /* 去掉背景和边框 */
+  background: transparent;
+  border: none;
+  /* 根据卡牌数量动态调整宽度 */
+  width: auto; /* 根据内容自动调整 */
+  min-width: auto;
+  flex-wrap: nowrap; /* 不换行，保持横向一行 */
+  max-width: none; /* 不限制最大宽度，让卡牌横向排列 */
+  overflow: visible; /* 不显示滚动条，让容器自动扩展 */
+}
+
+.preview-card-flat {
+  position: relative;
+  width: 60px;
+  height: 84px;
+  flex-shrink: 0;
+  /* 确保卡牌样式正确显示 */
+  pointer-events: none;
+  /* 统一的阴影效果 */
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  transition: transform 0.2s ease;
+}
+
+.preview-card-flat:hover {
+  transform: translateY(-4px);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.preview-count-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 28px;
+  height: 28px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4);
+  z-index: 10;
+  font-weight: bold;
+  z-index: 100;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  border: none; /* 去掉白色边框 */
+}
+
+.btn-cancel-rank {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  background: transparent; /* 去掉白色背景 */
+  color: #999;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+  box-shadow: none; /* 去掉阴影 */
+  z-index: 1001;
+  pointer-events: auto;
+}
+
+.btn-cancel-rank:hover {
+  background: #ff4444;
+  color: white;
+  border-color: #ff4444;
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(255, 68, 68, 0.5);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .rank-selection-grid {
+    gap: 8px;
+  }
+  
+  .rank-item {
+    min-width: 60px;
+    min-height: 100px;
+    padding: 6px 4px;
+  }
+  
+  .rank-cards-stack {
+    width: 60px; /* medium 尺寸 */
+    min-height: 84px; /* medium 尺寸 */
+  }
+  
+  .rank-card-stacked {
+    width: 60px; /* medium 尺寸 */
+    height: 84px; /* medium 尺寸 */
+  }
+  
+  .rank-label {
+    font-size: 1em;
+  }
+  
+  .preview-stack {
+    width: 50px;
+    height: 70px;
+  }
+}
+
+/* 预览窗口操作区域 */
+.preview-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+/* 预览窗口验证错误提示 */
+.preview-validation-error {
+  padding: 6px 12px;
+  background: rgba(255, 68, 68, 0.9);
+  color: white;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  animation: validation-shake 0.5s ease-in-out;
+}
+
+@keyframes validation-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* 预览窗口打牌按钮 */
+.btn-play-from-preview {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+  pointer-events: auto;
+  min-width: 100px;
+}
+
+.btn-play-from-preview:hover:not(.disabled) {
+  background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.6);
+}
+
+.btn-play-from-preview:active:not(.disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.4);
+}
+
+.btn-play-from-preview.disabled {
+  background: linear-gradient(135deg, #999 0%, #888 100%);
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+

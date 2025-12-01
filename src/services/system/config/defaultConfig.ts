@@ -59,5 +59,9 @@ export const DefaultSystemConfig: SystemConfig = {
     voice: {},
     sound: {},
   },
+  // AI中控配置（可选，使用默认配置）
+  aiControl: {
+    enabled: true
+  },
 };
 

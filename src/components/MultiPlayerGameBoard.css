@@ -878,6 +878,9 @@
   overflow: visible;
   gap: 20px;
   width: 100%;
+  background: transparent; /* 明确设置为透明 */
+  border: none; /* 确保没有边框 */
+  box-shadow: none; /* 确保没有阴影 */
 }
 
 /* 手牌包装器 - 包含信息面板和手牌，统一背景 */
@@ -887,13 +890,13 @@
   align-items: flex-start !important;
   gap: 20px !important;
   width: 100% !important;
-  padding: 15px 20px !important;
-  background: rgba(255, 255, 255, 0.9) !important;
-  border-radius: 20px !important;
-  backdrop-filter: blur(10px) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
   min-height: 200px !important;
-  border: 2px solid rgba(0, 0, 0, 0.2) !important;
+  border: none !important;
   box-sizing: border-box !important;
 }
 
@@ -917,7 +920,8 @@
   max-width: none;
   overflow-x: visible;
   overflow-y: visible;
-  padding-right: 20px;
+  padding: 0; /* 去掉所有padding */
+  background: transparent; /* 明确设置为透明 */
 }
 
 .player-info {

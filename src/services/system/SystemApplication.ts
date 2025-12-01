@@ -113,16 +113,44 @@ export class SystemApplication {
   async initialize(config?: Partial<SystemConfig>): Promise<void> {
     if (this.initialized) {
       console.warn('[SystemApplication] 系统已经初始化，跳过');
-      return;
+      const currentStatus = this.getStatus();
+      console.warn('[SystemApplication] 当前模块状态:', currentStatus);
+      
+      // 检查是否有未初始化的模块
+      const uninitialized = Object.entries(currentStatus.modules)
+        .filter(([_, status]) => !status.initialized)
+        .map(([name]) => name);
+      
+      if (uninitialized.length > 0) {
+        console.warn('[SystemApplication] ⚠️ 发现未初始化的模块，尝试重新初始化:', uninitialized);
+        // 重置初始化状态，允许重新初始化
+        this.initialized = false;
+        // 继续执行初始化流程
+      } else {
+        return;
+      }
     }
+    
+    console.log('[SystemApplication] 开始初始化系统应用...');
+    console.log('[SystemApplication] 已注册模块数:', this.modules.size);
+    console.log('[SystemApplication] 已注册模块:', Array.from(this.modules.keys()));
     
     // 加载配置
     this.config = loadSystemConfig(config);
     this.context = new SystemContextImpl(this.modules, this.config);
+    console.log('[SystemApplication] 配置已加载');
     
     // 初始化模块（按依赖顺序）
     const initOrder = this.resolveInitOrder();
     this.errors = [];
+    
+    console.log('[SystemApplication] 初始化顺序:', initOrder);
+    
+    if (initOrder.length === 0) {
+      console.warn('[SystemApplication] ⚠️ 没有模块需要初始化！');
+      this.initialized = true;
+      return;
+    }
     
     for (const moduleName of initOrder) {
       const module = this.modules.get(moduleName);
@@ -132,28 +160,52 @@ export class SystemApplication {
       }
       
       try {
+        console.log(`[SystemApplication] 开始初始化模块: ${module.name}`);
         const moduleConfig = this.getModuleConfig(module.name);
+        console.log(`[SystemApplication] 模块 ${module.name} 配置:`, moduleConfig);
+        
+        const startTime = Date.now();
         await module.initialize(moduleConfig, this.context);
-        console.log(`[SystemApplication] 模块 ${module.name} 初始化成功`);
+        const duration = Date.now() - startTime;
+        
+        console.log(`[SystemApplication] ✅ 模块 ${module.name} 初始化成功 (耗时: ${duration}ms)`);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         this.errors.push({ module: module.name, error: err });
         
+        console.error(`[SystemApplication] ❌ 模块 ${module.name} 初始化失败:`, err);
+        console.error('错误堆栈:', err.stack);
+        
         if (this.isCriticalModule(module.name)) {
-          console.error(`[SystemApplication] 关键模块 ${module.name} 初始化失败，中断初始化`, err);
+          console.error(`[SystemApplication] 关键模块 ${module.name} 初始化失败，中断初始化`);
           throw err;
         } else {
-          console.warn(`[SystemApplication] 模块 ${module.name} 初始化失败，继续初始化其他模块`, err);
+          console.warn(`[SystemApplication] 模块 ${module.name} 初始化失败，继续初始化其他模块`);
         }
       }
     }
     
     this.initialized = true;
+    
+    // 验证所有模块状态
+    const finalStatus = this.getStatus();
+    const uninitializedModules = Object.entries(finalStatus.modules)
+      .filter(([_, status]) => !status.initialized)
+      .map(([name]) => name);
+    
     console.log('[SystemApplication] 系统应用初始化完成', {
       modulesCount: this.modules.size,
+      initializedModules: Object.entries(finalStatus.modules)
+        .filter(([_, status]) => status.initialized)
+        .map(([name]) => name),
+      uninitializedModules,
       errorsCount: this.errors.length,
       errors: this.errors.map(e => ({ module: e.module, message: e.error.message }))
     });
+    
+    if (uninitializedModules.length > 0) {
+      console.warn('[SystemApplication] ⚠️ 以下模块未初始化:', uninitializedModules);
+    }
   }
   
   /**
@@ -314,6 +366,7 @@ export class SystemApplication {
       'event': 'event',
       'tracking': 'tracking',
       'audio': 'audio',
+      'ai-control': 'aiControl', // 添加ai-control配置映射
     };
     
     const configKey = configMap[moduleName];
@@ -321,6 +374,7 @@ export class SystemApplication {
       return this.config[configKey as keyof SystemConfig];
     }
     
+    // 如果没有找到配置，返回空对象（模块可以使用默认配置）
     return {};
   }
   

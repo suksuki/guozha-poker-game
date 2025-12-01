@@ -6,7 +6,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, Player } from '../types/card';
-import { hasPlayableCards } from '../utils/cardUtils';
+import { hasPlayableCards, canPlayCards, canBeat } from '../utils/cardUtils';
 import { aiChoosePlay } from '../utils/aiPlayer';
 import { Game } from '../utils/Game';
 import { getLastPlay } from '../utils/gameStateUtils';
@@ -86,13 +86,46 @@ export function useGameActions({
         mctsIterations: 50 // 快速模式：大幅降低迭代次数以提高速度
       });
 
-      if (suggestedCards && suggestedCards.length > 0) {
-        // 这里不直接设置selectedCards，而是通过返回值让调用者处理
-        return suggestedCards;
-      } else {
+      if (!suggestedCards || suggestedCards.length === 0) {
         alert(`${t('game:actions.aiSuggest')}: ${t('game:actions.pass')}`);
         return null;
       }
+
+      // ========== 验证AI建议的牌是否符合出牌规则 ==========
+      
+      // 1. 验证牌是否在手牌中
+      const handCardIds = new Set(humanPlayer.hand.map(c => c.id));
+      const allCardsInHand = suggestedCards.every(card => handCardIds.has(card.id));
+      
+      if (!allCardsInHand) {
+        console.warn('[AI建议] 建议的牌不在手牌中，忽略建议', {
+          suggestedCardIds: suggestedCards.map(c => c.id),
+          handCardIds: Array.from(handCardIds)
+        });
+        alert('AI建议的牌不在手牌中，请重试');
+        return null;
+      }
+
+      // 2. 验证牌型是否合法
+      const play = canPlayCards(suggestedCards);
+      if (!play) {
+        console.warn('[AI建议] 建议的牌不构成合法牌型，忽略建议');
+        alert('AI建议的牌不构成合法牌型，请重试');
+        return null;
+      }
+
+      // 3. 如果有上家出牌，验证是否能压过
+      if (lastPlay) {
+        const canBeatLastPlay = canBeat(play, lastPlay);
+        if (!canBeatLastPlay) {
+          console.warn('[AI建议] 建议的牌不能压过上家的牌，忽略建议');
+          alert('AI建议的牌不能压过上家的牌，请重试');
+          return null;
+        }
+      }
+
+      // 验证通过，返回建议的牌
+      return suggestedCards;
     } catch (error) {
       console.error('获取AI建议失败:', error);
       // 注意：这里暂时保留中文，因为这是错误提示，不是游戏核心功能
@@ -101,7 +134,7 @@ export function useGameActions({
     } finally {
       setIsSuggesting(false);
     }
-  }, [humanPlayer, strategy, algorithm, game]);
+  }, [humanPlayer, strategy, algorithm, game, t]);
 
   return {
     isSuggesting,

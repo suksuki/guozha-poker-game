@@ -50,7 +50,7 @@ export function syncRoundToState(
  */
 export function getDefaultTimingConfig(): PlayTimingConfig {
   return {
-    minIntervalBetweenPlays: 500,  // 500ms最短间隔
+    minIntervalBetweenPlays: 100,  // 100ms最短间隔
     playTimeout: 30000,              // 30秒超时
     enabled: true
   };

@@ -23,9 +23,19 @@ export const RoundPlaysPanel: React.FC<RoundPlaysPanelProps> = ({
   roundScore,
   players = []
 }) => {
-  // 获取玩家头像emoji（和AIPlayerAvatar中的逻辑一致）
+  // 获取玩家头像emoji（区分人类玩家和AI玩家）
   const getPlayerAvatar = (playerId: number | null | undefined): string => {
     if (playerId === null || playerId === undefined) return '🤖';
+    
+    // 查找玩家信息
+    const player = players.find(p => p.id === playerId);
+    
+    // 如果是人类玩家，使用人类玩家头像
+    if (player && player.isHuman) {
+      return '🐱'; // 人类玩家使用小猫头像（和 PlayerInfo 一致）
+    }
+    
+    // AI玩家使用emoji数组
     const emojis = ['🤖', '👾', '🤖', '👽', '🤖', '👻', '🤖', '🦾'];
     return emojis[playerId % 8];
   };

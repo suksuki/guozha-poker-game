@@ -1,0 +1,259 @@
+/**
+ * 知识库样式
+ */
+
+.knowledge-base {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.knowledge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.knowledge-header h3 {
+  margin: 0;
+  color: #667eea;
+}
+
+.knowledge-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.search-input {
+  padding: 8px 12px;
+  background: #2a2a2a;
+  border: 1px solid #333;
+  border-radius: 5px;
+  color: #e0e0e0;
+  font-size: 14px;
+  width: 200px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.knowledge-actions button {
+  padding: 8px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.knowledge-content {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 20px;
+}
+
+.knowledge-sidebar {
+  background: #2a2a2a;
+  border-radius: 10px;
+  padding: 20px;
+  border: 1px solid #333;
+  height: fit-content;
+  position: sticky;
+  top: 20px;
+}
+
+.knowledge-sidebar h4 {
+  margin-top: 0;
+  color: #667eea;
+  font-size: 16px;
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.category-item {
+  padding: 10px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 5px;
+  color: #e0e0e0;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.3s;
+}
+
+.category-item:hover {
+  background: #333;
+  border-color: #667eea;
+}
+
+.category-item.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
+.knowledge-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.knowledge-card {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #333;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.knowledge-card:hover {
+  background: #333;
+  transform: translateX(5px);
+}
+
+.knowledge-card.selected {
+  background: #333;
+  border-color: #667eea;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.card-icon {
+  font-size: 20px;
+}
+
+.card-type {
+  background: #333;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #999;
+}
+
+.card-count {
+  margin-left: auto;
+  color: #999;
+  font-size: 12px;
+}
+
+.card-description {
+  margin-bottom: 8px;
+  color: #e0e0e0;
+}
+
+.card-timestamp {
+  color: #999;
+  font-size: 12px;
+}
+
+.record-detail {
+  background: #2a2a2a;
+  border-radius: 10px;
+  padding: 20px;
+  border: 1px solid #333;
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.record-detail h4 {
+  margin-top: 0;
+  color: #667eea;
+}
+
+.detail-section {
+  margin-bottom: 20px;
+}
+
+.detail-section h5 {
+  color: #999;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #333;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-weight: bold;
+  color: #999;
+}
+
+.data-preview {
+  background: #1e1e1e;
+  border-radius: 5px;
+  padding: 15px;
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #d4d4d4;
+  line-height: 1.5;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.detail-actions button {
+  padding: 10px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.detail-actions button:hover {
+  background: #5568d3;
+}
+
+@media (max-width: 768px) {
+  .knowledge-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .knowledge-sidebar {
+    position: relative;
+    top: 0;
+  }
+  
+  .knowledge-main {
+    grid-template-columns: 1fr;
+  }
+  
+  .record-detail {
+    position: relative;
+    top: 0;
+  }
+}
+

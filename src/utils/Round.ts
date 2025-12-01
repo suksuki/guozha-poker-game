@@ -68,6 +68,11 @@ export class Round {
   private winnerId?: number;
   private winnerName?: string;
 
+  // ========== 接风轮标记 ==========
+  private isTakeoverRound: boolean = false;
+  private takeoverStartPlayerIndex: number | null = null; // 接风轮询起点（刚要不起的玩家）
+  private takeoverEndPlayerIndex: number | null = null; // 接风轮询终点（出牌玩家）
+
   // ========== 出牌时间控制 ==========
   private timingConfig: PlayTimingConfig = {
     minIntervalBetweenPlays: 500,  // 默认500ms最短间隔
@@ -588,6 +593,60 @@ export class Round {
     
     // 清除出牌计时器
     this.clearPlayTimer(playerIndex);
+  }
+
+  // ========== 接风轮标记相关方法 ==========
+
+  /**
+   * 开始接风轮（标记当前轮次为接风轮）
+   * @param startPlayerIndex 接风轮询起点（刚要不起的玩家）
+   * @param endPlayerIndex 接风轮询终点（出牌玩家）
+   */
+  startTakeoverRound(startPlayerIndex: number, endPlayerIndex: number): void {
+    this.isTakeoverRound = true;
+    this.takeoverStartPlayerIndex = startPlayerIndex;
+    this.takeoverEndPlayerIndex = endPlayerIndex;
+  }
+
+  /**
+   * 结束接风轮（当有玩家要得起时提前结束）
+   */
+  endTakeoverRound(): void {
+    this.isTakeoverRound = false;
+    // 保留起点和终点信息，可能后续有用
+  }
+
+  /**
+   * 检查是否是接风轮
+   */
+  isTakeoverRoundActive(): boolean {
+    return this.isTakeoverRound;
+  }
+
+  /**
+   * 获取接风轮询起点玩家索引
+   */
+  getTakeoverStartPlayerIndex(): number | null {
+    return this.takeoverStartPlayerIndex;
+  }
+
+  /**
+   * 获取接风轮询终点玩家索引
+   */
+  getTakeoverEndPlayerIndex(): number | null {
+    return this.takeoverEndPlayerIndex;
+  }
+
+  /**
+   * 检查接风轮询是否完成（是否回到出牌玩家）
+   * @param currentPlayerIndex 当前玩家索引
+   */
+  isTakeoverPollingComplete(currentPlayerIndex: number): boolean {
+    if (!this.isTakeoverRound) {
+      return false;
+    }
+    // 如果当前玩家索引等于出牌玩家索引，说明接风轮询完成
+    return currentPlayerIndex === this.takeoverEndPlayerIndex;
   }
 
   // ========== 接风判断 ==========

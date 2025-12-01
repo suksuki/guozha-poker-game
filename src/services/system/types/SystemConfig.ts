@@ -73,6 +73,14 @@ export interface AudioConfig {
 }
 
 /**
+ * AI中控配置（可选）
+ */
+export interface AIControlConfig {
+  enabled?: boolean;
+  [key: string]: any; // 允许其他配置项
+}
+
+/**
  * 系统完整配置
  */
 export interface SystemConfig {
@@ -80,5 +88,6 @@ export interface SystemConfig {
   event: EventConfig;
   tracking: TrackingConfig;
   audio: AudioConfig;
+  aiControl?: AIControlConfig; // AI中控配置（可选）
 }
 

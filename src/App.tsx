@@ -9,6 +9,7 @@ import { CodeReviewManager } from './components/CodeReviewManager';
 import { TestManagementManager } from './components/TestManagementManager';
 import { SelfIterationManager } from './components/SelfIterationManager';
 import { IdeaConfirmationDialog } from './components/IdeaConfirmationDialog';
+import { AIControlDashboard } from './components/ai-control/AIControlDashboard';
 import { useIdeaGeneration } from './hooks/useIdeaGeneration';
 import { useGameConfigContext } from './contexts/GameConfigContext';
 import { getIdeaGenerationService, GameIdea } from './services/ideaGenerationService';
@@ -16,6 +17,7 @@ import { initTTS, getTTSConfigFromEnv } from './tts/initTTS';
 import { setTTSProvider } from './services/multiChannelVoiceService';
 import { SystemApplication } from './services/system';
 import { registerAllModules } from './services/system/modules/registerModules';
+import { AIControlCenter } from './services/ai/control/AIControlCenter';
 import './App.css';
 
 function App() {
@@ -39,11 +41,53 @@ function App() {
         // 启动系统应用
         await systemApp.start();
         
+        // 检查AI中控系统初始化状态
+        try {
+          const aiControlModule = systemApp.getModule('ai-control');
+          if (aiControlModule) {
+            const moduleStatus = aiControlModule.getStatus();
+            if (mounted) {
+              if (moduleStatus.initialized) {
+                console.log('[App] ✅ AI中控系统已初始化', moduleStatus);
+              } else {
+                console.warn('[App] ⚠️ AI中控模块已注册但未初始化', moduleStatus);
+              }
+            }
+          } else {
+            if (mounted) {
+              console.warn('[App] ⚠️ AI中控模块未找到，请检查registerModules.ts');
+            }
+          }
+        } catch (error) {
+          console.error('[App] ❌ 检查AI中控系统状态失败:', error);
+        }
+        
         if (mounted) {
-          console.log('[App] 系统应用模块初始化完成', systemApp.getStatus());
+          const finalStatus = systemApp.getStatus();
+          console.log('[App] 系统应用模块初始化完成', finalStatus);
+          
+          // 详细输出每个模块的状态
+          console.log('[App] 模块初始化状态:');
+          Object.entries(finalStatus.modules).forEach(([name, status]) => {
+            console.log(`  - ${name}: ${status.initialized ? '✅' : '❌'} (enabled: ${status.enabled})`);
+          });
+          
+          // 如果有错误，详细输出
+          if (finalStatus.errors.length > 0) {
+            console.error('[App] 初始化错误:');
+            finalStatus.errors.forEach(err => {
+              console.error(`  - ${err.module}: ${err.error.message}`);
+              if (err.error.stack) {
+                console.error('    堆栈:', err.error.stack);
+              }
+            });
+          }
         }
       } catch (error) {
-        console.error('[App] 系统应用模块初始化失败:', error);
+        console.error('[App] ❌ 系统应用模块初始化失败:', error);
+        if (error instanceof Error) {
+          console.error('错误堆栈:', error.stack);
+        }
       }
     }
     
@@ -145,6 +189,7 @@ function App() {
       <CodeReviewManager />
       <TestManagementManager />
       <SelfIterationManager />
+      <AIControlDashboard />
       
       {/* 想法确认对话框 */}
       {currentIdea && (

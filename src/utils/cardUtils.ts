@@ -476,13 +476,11 @@ export function findPlayableCards(hand: Card[], lastPlay: Play | null): Card[][]
         }
       } else if (lastPlay.type === CardType.BOMB) {
         // 炸弹可以用更大的炸弹或墩来压
-        if (cards.length >= 4) {
-          // 尝试所有可能的炸弹组合
-          for (let i = 4; i <= cards.length && i < 7; i++) {
-            const testPlay = canPlayCards(cards.slice(0, i));
-            if (testPlay && canBeat(testPlay, lastPlay)) {
-              playable.push(cards.slice(0, i));
-            }
+        if (cards.length >= 4 && cards.length <= 6) {
+          // 对于4-6张相同点数，直接检查全部是否能压过
+          const testPlay = canPlayCards(cards);
+          if (testPlay && testPlay.type === CardType.BOMB && canBeat(testPlay, lastPlay)) {
+            playable.push(cards);
           }
         }
         // 墩可以压炸弹

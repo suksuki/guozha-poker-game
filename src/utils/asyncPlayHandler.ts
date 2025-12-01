@@ -32,7 +32,8 @@ export async function processPlayAsync(
   humanPlayerIndex: number,
   gameConfig: { timingConfig?: any; cardTrackerEnabled?: boolean; announcementDelay?: number },
   updateState: (updater: (prev: MultiPlayerGameState) => MultiPlayerGameState) => void,
-  getState: () => MultiPlayerGameState
+  getState: () => MultiPlayerGameState,
+  onAnnouncementComplete?: () => void
 ): Promise<PlayProcessResult> {
   // 从配置或 localStorage 读取计分器开关配置（默认关闭）
   const cardTrackerEnabled = gameConfig?.cardTrackerEnabled ?? (() => {
@@ -148,30 +149,56 @@ export async function processPlayAsync(
     } as Player;
     
 
-    // 5.5 生成TTS并播放语音（等待完成，添加超时保护）
-    // 如果轮次已结束，跳过 TTS 生成和播放
-    if (!round.isEnded()) {
-      try {
-        // 为 TTS 添加超时保护（10秒）
-        await Promise.race([
-          announcePlay(play, player.voiceConfig),
-          new Promise<void>((_, reject) => {
-            setTimeout(() => {
-              reject(new Error('TTS 生成或播放超时（10秒）'));
-            }, 10000);
-          })
-        ]);
-        
-        // 报牌完成后，等待可配置的时间间隔（默认1000ms）
-        const announcementDelay = gameConfig?.announcementDelay ?? 1000;
-        if (announcementDelay > 0) {
-          await new Promise(resolve => setTimeout(resolve, announcementDelay));
-        }
-      } catch (error) {
-        // TTS 失败不应该阻止游戏继续
-        // 继续执行，不抛出错误
-      }
+    // 5.5 生成TTS并播放语音（使用回调，不等待完成）
+    // 如果轮次已结束，跳过 TTS 生成和播放，直接触发回调
+    if (round.isEnded()) {
+      // 轮次已结束，立即触发回调
+      onAnnouncementComplete?.();
     } else {
+      // 启动报牌（不await），使用回调机制
+      let announcementCompleted = false;
+      const completeAnnouncement = () => {
+        if (announcementCompleted) return;
+        announcementCompleted = true;
+        
+        // 去掉报牌后延迟，立即触发回调继续游戏
+        onAnnouncementComplete?.();
+      };
+      
+      // 4秒超时保护，确保回调一定会被触发
+      const timeoutId = setTimeout(() => {
+        console.warn('[processPlayAsync] 报牌超时（4秒），强制触发回调');
+        completeAnnouncement();
+      }, 4000);
+      
+      try {
+        // 不await，使用onEnd回调
+        announcePlay(play, player.voiceConfig, {
+          onStart: () => {
+            // 动画同步回调（如果需要）
+          },
+          onEnd: () => {
+            clearTimeout(timeoutId);
+            completeAnnouncement();
+          },
+          onError: (error) => {
+            // 报牌失败也触发回调，不阻止游戏继续
+            console.error('[processPlayAsync] 报牌失败:', error);
+            clearTimeout(timeoutId);
+            completeAnnouncement();
+          }
+        }).catch((error) => {
+          // Promise rejection 也触发回调
+          console.error('[processPlayAsync] 报牌Promise失败:', error);
+          clearTimeout(timeoutId);
+          completeAnnouncement();
+        });
+      } catch (error) {
+        // 调用失败也触发回调
+        console.error('[processPlayAsync] 报牌调用失败:', error);
+        clearTimeout(timeoutId);
+        completeAnnouncement();
+      }
     }
     
     // 5.6 更新游戏状态（如果轮次未结束）

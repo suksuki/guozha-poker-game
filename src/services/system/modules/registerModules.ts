@@ -8,11 +8,15 @@ import { ValidationModule } from './validation/ValidationModule';
 import { EventModule } from './event/EventModule';
 import { TrackingModule } from './tracking/TrackingModule';
 import { AudioModule } from './audio/AudioModule';
+import { AIControlModule } from './ai-control/AIControlModule';
 
 /**
  * 注册所有核心模块
  */
 export function registerAllModules(systemApp: SystemApplication): void {
+  // 最先注册AI中控模块（最高优先级，无依赖）
+  systemApp.registerModule(new AIControlModule());
+  
   // 先注册事件模块（无依赖）
   systemApp.registerModule(new EventModule());
   
@@ -22,7 +26,7 @@ export function registerAllModules(systemApp: SystemApplication): void {
   systemApp.registerModule(new AudioModule());
   
   console.log('[registerModules] 所有核心模块已注册', {
-    modules: ['event', 'validation', 'tracking', 'audio']
+    modules: ['ai-control', 'event', 'validation', 'tracking', 'audio']
   });
 }
 

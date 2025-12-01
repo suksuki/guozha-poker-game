@@ -1,0 +1,276 @@
+/**
+ * 数据中心样式
+ */
+
+.data-center {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.data-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.data-header h3 {
+  margin: 0;
+  color: #667eea;
+}
+
+.data-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.data-actions button {
+  padding: 8px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.data-actions button:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.data-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.data-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #333;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #667eea;
+}
+
+.data-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.session-card {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #333;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.session-card:hover {
+  background: #333;
+  transform: translateX(5px);
+}
+
+.session-card.selected {
+  background: #333;
+  border-color: #667eea;
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.session-id {
+  font-weight: bold;
+  color: #667eea;
+}
+
+.tutorial-badge {
+  background: #ffc107;
+  color: #000;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.session-info {
+  margin-bottom: 10px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 14px;
+}
+
+.info-label {
+  color: #999;
+}
+
+.session-tags {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  background: #333;
+  color: #999;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.session-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.session-actions button {
+  padding: 6px 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.session-detail {
+  background: #2a2a2a;
+  border-radius: 10px;
+  padding: 20px;
+  border: 1px solid #333;
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.session-detail h4 {
+  margin-top: 0;
+  color: #667eea;
+}
+
+.detail-section {
+  margin-bottom: 20px;
+}
+
+.detail-section h5 {
+  color: #999;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.detail-item {
+  margin-bottom: 10px;
+}
+
+.detail-label {
+  font-weight: bold;
+  color: #999;
+  margin-right: 10px;
+}
+
+.player-info {
+  display: flex;
+  gap: 15px;
+  padding: 8px;
+  background: #1e1e1e;
+  border-radius: 5px;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.player-type {
+  color: #667eea;
+}
+
+.scores-list {
+  margin-top: 10px;
+}
+
+.score-item {
+  padding: 5px 0;
+  font-size: 14px;
+}
+
+.tags-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.detail-actions button {
+  padding: 10px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.detail-actions button:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.detail-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .data-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .session-detail {
+    position: relative;
+    top: 0;
+  }
+  
+  .data-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
