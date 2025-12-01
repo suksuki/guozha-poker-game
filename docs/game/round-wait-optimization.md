@@ -117,6 +117,47 @@ if (!round.isEnded()) {
 - ✅ 异步处理过程中会检查轮次状态
 - ✅ 减少不必要的等待时间
 
+## 🎯 语音通道独立优化（2024年更新）
+
+### 问题描述
+`playNextTurn` 中的等待逻辑会检查所有语音（包括聊天语音），导致游戏流程被聊天语音阻塞。
+
+### 解决方案
+修改 `playNextTurn` 中的等待逻辑，只检查报牌通道，不检查聊天通道：
+
+**文件**: `src/utils/Game.ts:669-691`
+
+**修改前**:
+```typescript
+const isVoiceSpeaking = voiceService.isCurrentlySpeaking(); // 检查所有通道
+```
+
+**修改后**:
+```typescript
+const isAnnouncementSpeaking = voiceService.isAnnouncementSpeaking(); // 只检查报牌通道
+```
+
+**新增方法**: `src/services/voiceService.ts`
+```typescript
+/**
+ * 是否正在播放报牌语音（只检查报牌通道，不检查聊天通道）
+ * 报牌和聊天使用不同的通道，应该独立检查
+ */
+isAnnouncementSpeaking(): boolean {
+  return multiChannelVoiceService.isCurrentlySpeaking(ChannelType.ANNOUNCEMENT);
+}
+```
+
+### 通道分配
+- **报牌语音**: `ChannelType.ANNOUNCEMENT` (值为 8)
+- **聊天语音**: `ChannelType.PLAYER_0` 到 `ChannelType.PLAYER_7` (值为 0-7)
+
+### 效果
+- ✅ 报牌语音和聊天语音完全独立
+- ✅ `playNextTurn` 只等待报牌语音完成，不等待聊天语音
+- ✅ 聊天语音不会阻塞游戏流程
+- ✅ 游戏速度明显提升
+
 ## 🧪 测试建议
 
 1. 测试轮次结束时的等待逻辑

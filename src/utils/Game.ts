@@ -225,26 +225,9 @@ export class Game {
    * 更新当前玩家索引
    */
   updateCurrentPlayerIndex(index: number, skipAutoPlay: boolean = false): void {
-    const oldIndex = this.currentPlayerIndex;
     this.currentPlayerIndex = index;
-    
-    // 如果当前玩家是AI或托管模式，自动出牌
-    // 注意：只有当索引真正变化且游戏正在进行时才自动出牌
-    // skipAutoPlay: 如果为 true，跳过自动出牌（由调度器处理）
-    if (!skipAutoPlay && oldIndex !== index && this.status === GameStatus.PLAYING) {
-      const currentPlayer = this.players[index];
-      if (currentPlayer) {
-        const shouldAutoPlay = currentPlayer.type === PlayerType.AI || 
-                              (currentPlayer.isHuman && this.isAutoPlay);
-        
-        if (shouldAutoPlay) {
-          // 延迟执行，确保状态已更新
-          setTimeout(() => {
-            this.playNextTurn(index).catch(() => {});
-          }, 100);
-        }
-      }
-    }
+    this.triggerUpdate();
+    // 注意：自动出牌现在由RoundScheduler通过playNextTurn统一处理，不再在这里处理
   }
 
   /**
@@ -437,15 +420,9 @@ export class Game {
     // 初始化调度器
     this.initializeScheduler();
 
-    // 如果第一个玩家是AI或托管模式，自动出牌
-    const firstPlayerObj = this.players[firstPlayer];
-    if (firstPlayerObj && (firstPlayerObj.type === PlayerType.AI || (firstPlayerObj.isHuman && this.isAutoPlay))) {
-      // 延迟执行，确保状态已更新
-      setTimeout(() => {
-        if (this.scheduler) {
-          this.scheduler.scheduleNextTurn(firstPlayer, 0);
-        }
-      }, 500);
+    // 开始第一个玩家的轮次（无论是什么类型）
+    if (firstPlayer !== null) {
+      this.playNextTurn(firstPlayer).catch(() => {});
     }
 
     return firstPlayer;
@@ -538,7 +515,7 @@ export class Game {
       });
 
       // 设置调度器的回调
-      this.scheduler.onNextTurnCallback = async (playerIndex: number) => {
+      this.scheduler.onNextTurnCallback = async (playerIndex: number, state?: any) => {
         await this.playNextTurn(playerIndex);
       };
     } else {
@@ -595,10 +572,8 @@ export class Game {
     if (newValue && this.status === GameStatus.PLAYING) {
       const currentPlayer = this.players[this.currentPlayerIndex];
       if (currentPlayer && currentPlayer.isHuman) {
-        // 延迟触发，确保状态已更新（setAutoPlay 会先执行）
-        setTimeout(() => {
-          this.triggerAutoPlay();
-        }, 300);
+        // 直接触发自动出牌
+        this.triggerAutoPlay();
       }
     }
     
@@ -609,7 +584,6 @@ export class Game {
    * 触发当前玩家自动出牌（用于托管模式）
    */
   triggerAutoPlay(): void {
-
     if (this.status !== GameStatus.PLAYING) {
       return;
     }
@@ -622,17 +596,12 @@ export class Game {
     const shouldAutoPlay = currentPlayer.type === PlayerType.AI || 
                           (currentPlayer.isHuman && this.isAutoPlay);
 
-
     if (!shouldAutoPlay) {
       return;
     }
 
-
-    this.initializeScheduler();
-    if (this.scheduler) {
-      this.scheduler.scheduleNextTurn(this.currentPlayerIndex, 0);
-    } else {
-    }
+    // 直接调用 playNextTurn，不再通过调度器队列
+    this.playNextTurn(this.currentPlayerIndex).catch(() => {});
   }
 
   /**
@@ -675,25 +644,40 @@ export class Game {
       return;
     }
     
+    // 先更新 currentPlayerIndex（无论是否为自动出牌）
+    const wasPlayerIndexChanged = playerIndex !== this.currentPlayerIndex;
+    if (wasPlayerIndexChanged) {
+      this.currentPlayerIndex = playerIndex;
+    }
+    
     // 检查是否应该自动出牌：只有AI玩家或托管模式下的人类玩家才自动出牌
     const shouldAutoPlay = currentPlayer.type === PlayerType.AI || 
                           (currentPlayer.isHuman && this.isAutoPlay);
     
     
     if (!shouldAutoPlay) {
+      // 真实玩家（非托管）：无论是否改变，都触发React更新，确保UI响应
+      this.triggerUpdate();
       return;
     }
+    
+    // AI玩家或托管模式：只有在playerIndex改变时才触发更新（避免重复更新）
+    if (wasPlayerIndexChanged) {
+      this.triggerUpdate();
+    }
 
-    // 检查是否正在播放语音（添加超时保护）
+    // 检查是否正在播放报牌语音（只检查报牌通道，不检查聊天通道）
+    // 报牌和聊天使用不同的通道，应该独立检查，聊天不应该阻塞游戏流程
     try {
-      const isVoiceSpeaking = voiceService.isCurrentlySpeaking();
-      if (isVoiceSpeaking) {
+      const isAnnouncementSpeaking = voiceService.isAnnouncementSpeaking();
+      if (isAnnouncementSpeaking) {
         const initialPlayerIndex = this.currentPlayerIndex;
         // 添加超时保护，避免无限等待
         await Promise.race([
           new Promise<void>((resolve) => {
             const checkInterval = setInterval(() => {
-              if (!voiceService.isCurrentlySpeaking() || this.currentPlayerIndex !== initialPlayerIndex) {
+              // 只检查报牌通道，不检查聊天通道
+              if (!voiceService.isAnnouncementSpeaking() || this.currentPlayerIndex !== initialPlayerIndex) {
                 clearInterval(checkInterval);
                 resolve();
               }
@@ -704,13 +688,6 @@ export class Game {
       }
     } catch (error) {
       // 忽略错误，继续执行
-    }
-
-    // 更新当前玩家索引（跳过自动出牌，因为 playNextTurn 本身就是自动出牌）
-    if (playerIndex !== this.currentPlayerIndex) {
-      this.updateCurrentPlayerIndex(playerIndex, true);
-      this.triggerUpdate();
-      await new Promise(resolve => setTimeout(resolve, 50));
     }
 
     const currentRound = this.getCurrentRound();
@@ -791,6 +768,45 @@ export class Game {
       }
       
       // 处理出牌
+      // 准备 onAnnouncementComplete 回调
+      const onAnnouncementComplete = () => {
+        // 报牌完成后，交给 RoundScheduler 处理出牌完成后的调度逻辑
+        this.initializeScheduler(); // 确保调度器已初始化
+        if (this.scheduler) {
+          const updatedRound = this.getCurrentRound();
+          if (updatedRound) {
+            this.scheduler.onPlayCompleted(
+              playerIndex,
+              updatedRound,
+              this.players,
+              this.playerCount,
+              (updater) => {
+                const updated = updater({
+                  rounds: this.rounds,
+                  players: this.players,
+                  currentRoundIndex: this.currentRoundIndex,
+                  currentPlayerIndex: this.currentPlayerIndex
+                } as any);
+                
+                // 更新状态
+                if (updated.rounds) {
+                  updated.rounds.forEach((r: Round, i: number) => {
+                    if (i < this.rounds.length) {
+                      this.updateRound(i, r);
+                    }
+                  });
+                }
+                
+                // 注意：不在这里更新currentPlayerIndex，由playNextTurn统一处理
+                // 不在这里调用triggerUpdate()，由playNextTurn统一触发React更新
+              }
+            ).catch((error) => {
+              console.error('[Game.playCards] onPlayCompleted 失败:', error);
+            });
+          }
+        }
+      };
+
       const result = await processPlayAsync(
         round,
         playerIndex,
@@ -836,7 +852,8 @@ export class Game {
           players: this.players,
           currentRoundIndex: this.currentRoundIndex,
           status: this.status
-        } as any)
+        } as any),
+        onAnnouncementComplete
       );
 
       if (result.status === 'completed') {
@@ -916,51 +933,8 @@ export class Game {
           }
         }
         
-        // 交给 RoundScheduler 处理出牌完成后的调度逻辑
-        this.initializeScheduler(); // 确保调度器已初始化
-        if (this.scheduler) {
-          await this.scheduler.onPlayCompleted(
-            playerIndex,
-            updatedRound,
-            this.players,
-            this.playerCount,
-            (updater) => {
-              const updated = updater({
-                rounds: this.rounds,
-                players: this.players,
-                currentRoundIndex: this.currentRoundIndex,
-                currentPlayerIndex: this.currentPlayerIndex
-              } as any);
-              
-              // 更新状态
-              if (updated.rounds) {
-                updated.rounds.forEach((r: Round, i: number) => {
-                  if (i < this.rounds.length) {
-                    this.updateRound(i, r);
-                  }
-                });
-              }
-              
-              // 注意：onPlayCompleted 的 onStateUpdate 回调不返回 players
-              // 因为 players 已经在 processPlayAsync 的 updateState 回调中更新了
-              // 这里不应该再次更新 players，否则会覆盖之前的手牌更新
-              // if (updated.players) {
-              //   updated.players.forEach((p: Player, i: number) => {
-              //     if (i < this.players.length) {
-              //       this.updatePlayer(i, p);
-              //     }
-              //   });
-              // }
-              
-              if (updated.currentPlayerIndex !== undefined) {
-                // 跳过自动出牌，因为调度器会处理
-                this.updateCurrentPlayerIndex(updated.currentPlayerIndex, true);
-              }
-              
-              this.triggerUpdate();
-            }
-          );
-        }
+        // 注意：调度逻辑现在由 onAnnouncementComplete 回调处理
+        // 报牌完成后会自动调用 onPlayCompleted
       }
 
       this.isProcessingPlayMap.delete(playerIndex);
@@ -1120,9 +1094,6 @@ export class Game {
             const newRound = Round.createNew(newRoundNumber, Date.now(), latestGameConfig.timingConfig || undefined);
             
             this.addRound(newRound);
-            // 新轮次开始，由调度器处理自动出牌
-            this.updateCurrentPlayerIndex(nextPlayerIndex, true);
-            
             // 更新调度器的轮次号
             if (this.scheduler) {
               this.scheduler.updateRoundNumber(newRoundNumber);
@@ -1143,18 +1114,18 @@ export class Game {
               }
             }
             
-            // 如果下一个玩家是AI或托管模式，自动出牌
-            const nextPlayer = this.players[nextPlayerIndex];
-            if (nextPlayer && (nextPlayer.type === PlayerType.AI || (nextPlayer.isHuman && this.isAutoPlay))) {
-              setTimeout(() => {
-                if (this.scheduler) {
-                  this.scheduler.scheduleNextTurn(nextPlayerIndex, 0);
-                }
-              }, 500);
+            // 重要：先触发一次更新，确保新轮次状态被React感知
+            // 这样 playNextTurn 中的 getCurrentRound() 能获取到新轮次
+            this.triggerUpdate();
+            
+            // 通知RoundScheduler处理下一个玩家（无论是什么类型）
+            if (nextPlayerIndex !== null) {
+              await this.playNextTurn(nextPlayerIndex);
             }
+          } else {
+            // 没有下一个玩家，只触发更新
+            this.triggerUpdate();
           }
-          
-          this.triggerUpdate();
         }
       );
     }

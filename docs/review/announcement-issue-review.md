@@ -203,3 +203,20 @@ if (!this.isEnabled() || !this.config?.announcement.enabled) {
 - 报牌可以中断其他播放
 - 即使音频模块未初始化，也应该能够报牌（降级处理）
 
+## 🎯 语音通道独立性（2024年更新）
+
+### 设计原则
+报牌语音和聊天语音使用完全独立的通道，无论是在通道分配上还是逻辑上都是独立的。
+
+### 通道分配
+- **报牌语音**: `ChannelType.ANNOUNCEMENT` (值为 8)
+- **聊天语音**: `ChannelType.PLAYER_0` 到 `ChannelType.PLAYER_7` (值为 0-7)
+
+### 游戏流程优化
+`playNextTurn` 中的等待逻辑只检查报牌通道，不检查聊天通道：
+- 使用 `voiceService.isAnnouncementSpeaking()` 只检查报牌通道
+- 聊天语音不会阻塞游戏流程
+- 游戏速度明显提升
+
+详细文档请参考：[语音通道独立性设计](../game/voice-channel-independence.md)
+

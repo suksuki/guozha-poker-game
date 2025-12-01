@@ -120,10 +120,18 @@ class VoiceService {
   }
 
   /**
-   * 是否正在播放
+   * 是否正在播放（检查所有通道）
    */
   isCurrentlySpeaking(): boolean {
     return multiChannelVoiceService.isCurrentlySpeaking();
+  }
+
+  /**
+   * 是否正在播放报牌语音（只检查报牌通道，不检查聊天通道）
+   * 报牌和聊天使用不同的通道，应该独立检查
+   */
+  isAnnouncementSpeaking(): boolean {
+    return multiChannelVoiceService.isCurrentlySpeaking(ChannelType.ANNOUNCEMENT);
   }
 }
 
