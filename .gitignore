@@ -44,3 +44,11 @@ lerna-debug.log*
 # OS
 Thumbs.db
 
+# Python virtual environments
+venv/
+venv-*/
+env/
+ENV/
+*.pyc
+__pycache__/
+
