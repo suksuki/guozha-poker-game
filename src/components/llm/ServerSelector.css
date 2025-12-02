@@ -1,0 +1,250 @@
+.server-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 10px 0;
+}
+
+.server-input-section,
+.server-list-section {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  background: #fafafa;
+}
+
+.server-input-section h4,
+.server-list-section h4 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* 输入模式选择 */
+.input-mode-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.input-mode-selector label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.input-mode-selector label:hover {
+  background: #f0f0f0;
+}
+
+.input-mode-selector input[type="radio"] {
+  cursor: pointer;
+}
+
+/* 输入字段 */
+.server-input-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.input-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #555;
+}
+
+.input-group input[type="text"] {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.input-group input[type="text"]:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+/* 局域网 IP 输入 */
+.lan-input {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.lan-input .prefix {
+  padding: 8px 8px 8px 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  font-size: 14px;
+  color: #666;
+}
+
+.lan-input input {
+  flex: 1;
+  border-radius: 0 4px 4px 0 !important;
+}
+
+/* 添加按钮 */
+.btn-add-server {
+  width: 100%;
+  padding: 10px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-add-server:hover:not(:disabled) {
+  background: #45a049;
+}
+
+.btn-add-server:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* 服务器列表 */
+.server-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 服务器卡片 */
+.server-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  background: white;
+  transition: all 0.2s;
+}
+
+.server-card:hover {
+  border-color: #4CAF50;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.server-card.active {
+  border-color: #4CAF50;
+  background: #f1f8f4;
+}
+
+.server-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.server-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-icon {
+  font-size: 12px;
+}
+
+.server-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.server-url {
+  font-size: 12px;
+  color: #666;
+  font-family: monospace;
+}
+
+.server-latency {
+  font-size: 11px;
+  color: #4CAF50;
+}
+
+/* 服务器操作按钮 */
+.server-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.server-actions button {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.server-actions button:hover {
+  background: #f5f5f5;
+}
+
+.btn-use {
+  background: #4CAF50 !important;
+  color: white !important;
+  border-color: #4CAF50 !important;
+}
+
+.btn-use:hover {
+  background: #45a049 !important;
+}
+
+.active-label {
+  padding: 6px 12px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.btn-favorite {
+  font-size: 16px !important;
+  padding: 4px 8px !important;
+}
+
+.btn-favorite.favorited {
+  color: #FFD700;
+  border-color: #FFD700 !important;
+}
+
+.btn-remove {
+  padding: 4px 8px !important;
+}
+
+.btn-remove:hover {
+  background: #f44336 !important;
+  color: white !important;
+  border-color: #f44336 !important;
+}
+

@@ -73,4 +73,3 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </Suspense>
   </React.StrictMode>,
 )
-
