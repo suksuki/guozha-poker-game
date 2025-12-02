@@ -82,7 +82,6 @@ export function useGame() {
         };
       });
     } catch (error) {
-      console.error('AI出牌失败:', error);
       // AI要不起
       setGameState(prev => ({
         ...prev,

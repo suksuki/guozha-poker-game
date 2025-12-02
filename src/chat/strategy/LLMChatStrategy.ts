@@ -61,16 +61,12 @@ export class LLMChatStrategy implements IChatStrategy {
     player: Player,
     context?: ChatContext
   ): Promise<ChatMessage | null> {
-    console.log('[LLMChatStrategy] 🎲 生成随机闲聊，玩家:', player.name);
     const prompt = this.buildPrompt(player, ChatEventType.RANDOM, context);
-    console.log('[LLMChatStrategy] 📝 生成的Prompt长度:', prompt.length, '字符');
     const content = await this.callLLMAPI(prompt);
     if (!content) {
-      console.warn('[LLMChatStrategy] ⚠️ 大模型返回空内容，可能API调用失败');
       return null;
     }
     
-    console.log('[LLMChatStrategy] ✅ 成功生成聊天内容:', content);
     return {
       playerId: player.id,
       playerName: player.name,
@@ -85,16 +81,12 @@ export class LLMChatStrategy implements IChatStrategy {
     eventType: ChatEventType,
     context?: ChatContext
   ): Promise<ChatMessage | null> {
-    console.log('[LLMChatStrategy] 生成事件聊天，玩家:', player.name, '事件:', eventType);
     const prompt = this.buildPrompt(player, eventType, context);
-    console.log('[LLMChatStrategy] 生成的Prompt长度:', prompt.length);
     const content = await this.callLLMAPI(prompt);
     if (!content) {
-      console.warn('[LLMChatStrategy] 大模型返回空内容，可能API调用失败');
       return null;
     }
     
-    console.log('[LLMChatStrategy] ✅ 成功生成聊天内容:', content);
     return {
       playerId: player.id,
       playerName: player.name,
@@ -402,11 +394,9 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
       if (response.ok) {
         const data = await response.json();
         const models = data.models?.map((m: any) => m.name) || [];
-        console.log('[LLMChatStrategy] 可用的Ollama模型:', models);
         return models;
       }
     } catch (e) {
-      console.warn('[LLMChatStrategy] 无法获取模型列表:', e);
     }
     return [];
   }
@@ -420,27 +410,19 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
     let modelToUse = this.config.model || 'qwen2:0.5b';
     
     if (availableModels.length > 0 && !availableModels.includes(modelToUse)) {
-      console.warn('[LLMChatStrategy] ⚠️ 配置的模型不存在，可用模型:', availableModels);
       // 尝试自动选择聊天模型（优先选择包含chat或qwen的模型）
       const chatModels = availableModels.filter(m => 
         m.includes('chat') || m.includes('qwen') || m.includes('deepseek')
       );
       if (chatModels.length > 0) {
         modelToUse = chatModels[0];
-        console.log('[LLMChatStrategy] 自动切换到模型:', modelToUse);
       } else if (availableModels.length > 0) {
         // 如果没有找到聊天模型，使用第一个可用模型
         modelToUse = availableModels[0];
-        console.log('[LLMChatStrategy] 使用第一个可用模型:', modelToUse);
       }
     }
     
     // 添加调试日志
-    console.log('[LLMChatStrategy] 调用Ollama API:', {
-      url: apiUrl,
-      model: this.config.model || 'qwen1.5:0.5b',
-      promptLength: prompt.length
-    });
     
     try {
       const controller = new AbortController();
@@ -474,13 +456,6 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         headers['Authorization'] = `Bearer ${this.config.apiKey}`;
       }
       
-      console.log('[LLMChatStrategy] 发送请求:', {
-        url: apiUrl,
-        model: requestBody.model,
-        messagesCount: requestBody.messages.length,
-        requestBody: JSON.stringify(requestBody, null, 2)
-      });
-      
       const startTime = Date.now();
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -492,15 +467,12 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
       
       clearTimeout(timeoutId);
       
-      console.log('[LLMChatStrategy] API响应时间:', endTime - startTime, 'ms');
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[LLMChatStrategy] Ollama API调用失败:', response.status, errorText);
         // 尝试解析错误信息
         try {
           const errorData = JSON.parse(errorText);
-          console.error('[LLMChatStrategy] 错误详情:', errorData);
         } catch (e) {
           // 忽略JSON解析错误
         }
@@ -508,7 +480,6 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
       }
       
       const data = await response.json();
-      console.log('[LLMChatStrategy] API响应数据:', data);
       
       // Ollama原生API格式：data.message.content
       // 也兼容OpenAI兼容格式和其他可能的格式
@@ -520,22 +491,16 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
                      '';
       
       if (!content) {
-        console.warn('[LLMChatStrategy] Ollama返回空内容，完整响应:', JSON.stringify(data, null, 2));
       } else {
-        console.log('[LLMChatStrategy] 收到大模型回复:', content);
       }
       
       return this.parseResponse(content);
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.error('[LLMChatStrategy] Ollama API调用超时（', timeout, 'ms）');
       } else {
-        console.error('[LLMChatStrategy] Ollama API调用出错:', error);
         if (error.message) {
-          console.error('[LLMChatStrategy] 错误信息:', error.message);
         }
         if (error.cause) {
-          console.error('[LLMChatStrategy] 错误原因:', error.cause);
         }
       }
       return '';

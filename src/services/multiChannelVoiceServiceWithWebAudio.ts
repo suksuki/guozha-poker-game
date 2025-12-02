@@ -113,9 +113,7 @@ class MultiChannelVoiceServiceWithWebAudio {
         this.channelPanners.set(channel, pannerNode);
       });
 
-      console.log('[MultiChannelVoice] Web Audio API 已初始化（用于声像定位）');
     } catch (error) {
-      console.warn('[MultiChannelVoice] 无法初始化 Web Audio API:', error);
     }
   }
 
@@ -287,7 +285,6 @@ class MultiChannelVoiceServiceWithWebAudio {
         ]);
 
         if (voices.length === 0) {
-          console.warn(`[${CHANNEL_CONFIGS[channel].name}] 警告：没有可用的语音`);
         }
 
         const utterance = this.createUtterance(text, voiceConfig, voices);
@@ -313,7 +310,6 @@ class MultiChannelVoiceServiceWithWebAudio {
         this.lastSpeechText.set(channel, text);
         this.lastSpeechTime.set(channel, Date.now());
 
-        console.log(`[${channelConfig.name}] 开始播放（声像位置: ${channelConfig.pan}）:`, text);
 
         let cleaned = false;
         const cleanup = () => {
@@ -330,7 +326,6 @@ class MultiChannelVoiceServiceWithWebAudio {
         utterance.onend = () => {
           if ((utterance as any).__interrupted) return;
           if (this.channelItems.get(channel) === item) {
-            console.log(`[${channelConfig.name}] 播放完成:`, text);
             cleanup();
           }
         };
@@ -340,12 +335,6 @@ class MultiChannelVoiceServiceWithWebAudio {
           if (this.channelItems.get(channel) === item) {
             const errorType = (error as any).error || (error as any).type || '';
             if (errorType !== 'interrupted') {
-              console.error(`[${channelConfig.name}] 播放出错:`, {
-                text,
-                error,
-                errorType,
-                errorMessage: (error as any).message || '未知错误'
-              });
             }
             cleanup();
           }
@@ -372,7 +361,6 @@ class MultiChannelVoiceServiceWithWebAudio {
         // 但可以通过不同的音量设置来区分不同玩家
         
       } catch (error) {
-        console.error(`[${CHANNEL_CONFIGS[channel].name}] 播放语音时出错:`, error);
         this.channelItems.delete(channel);
         const pendingSet = this.pendingRequests.get(channel);
         if (pendingSet) {

@@ -172,7 +172,6 @@ export function validateCardIntegrityCore(
       playedCardsByRound,
       playerHandsByPlayer
     };
-    console.log('[CardValidation] 📊 详细验证信息:', detailedLog);
   }
 
   return {

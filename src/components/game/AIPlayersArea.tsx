@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Player } from '../../types/card';
+import { TeamConfig } from '../../types/team';
 import { AIPlayerAvatar } from './AIPlayerAvatar';
 
 interface AIPlayersAreaProps {
@@ -13,13 +14,15 @@ interface AIPlayersAreaProps {
   currentPlayerIndex: number;
   lastPlayPlayerIndex: number | null;
   playerCount?: number; // 玩家总数（用于判断最后一名）
+  teamConfig?: TeamConfig | null; // 团队配置（团队模式下使用）
 }
 
 export const AIPlayersArea: React.FC<AIPlayersAreaProps> = ({
   players,
   currentPlayerIndex,
   lastPlayPlayerIndex,
-  playerCount
+  playerCount,
+  teamConfig
 }) => {
   const aiPlayers = players.filter(player => !player.isHuman);
 
@@ -37,6 +40,7 @@ export const AIPlayersArea: React.FC<AIPlayersAreaProps> = ({
             isLastPlay={isLastPlay}
             showPosition={false}
             playerCount={playerCount}
+            teamConfig={teamConfig}
           />
         );
       })}

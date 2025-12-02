@@ -1,6 +1,6 @@
 {
   "config": {
-    "playerCount": "플레이어 수 (4-8명)",
+    "playerCount": "플레이어 수 (4-100명)",
     "yourPosition": "당신의 위치",
     "player": "플레이어 {{index}}",
     "aiStrategy": "AI 전략",
@@ -29,7 +29,9 @@
     "favorHuman": "인간 플레이어 우대",
     "favorAi": "AI 플레이어 우대",
     "balancedScore": "균형 점수 카드",
-    "clustered": "클러스터 분배"
+    "clustered": "클러스터 분배",
+    "bombFriendly": "큰 패 나오기 쉬움",
+    "monteCarlo": "몬테카를로 시뮬레이션"
   },
   "dealingAlgorithmHint": "카드 나누기 전략 선택, 게임 난이도와 재미에 영향",
   "skipDealingAnimationHint": "체크하면 카드 나누기 애니메이션 없이 바로 게임 시작",

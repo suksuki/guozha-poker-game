@@ -68,7 +68,6 @@ export class AudioPreloader {
       await Promise.all(batch.map(item => this.preloadItem(item)));
     }
 
-    console.log(`[AudioPreloader] 预加载完成，共 ${this.preloaded.size} 个音频`);
   }
 
   /**
@@ -92,7 +91,6 @@ export class AudioPreloader {
     try {
       const speaker = defaultSpeakerManager.getSpeaker(item.roleId);
       if (!speaker) {
-        console.warn(`[AudioPreloader] 角色 ${item.roleId} 未配置`);
         return;
       }
 
@@ -103,9 +101,7 @@ export class AudioPreloader {
       });
 
       this.preloaded.set(cacheKey, ttsResult.audioBuffer);
-      console.log(`[AudioPreloader] 预加载: ${item.text} (${item.roleId})`);
     } catch (error) {
-      console.error(`[AudioPreloader] 预加载失败: ${item.text}`, error);
     } finally {
       this.loading.delete(cacheKey);
     }

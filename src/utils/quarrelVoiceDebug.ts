@@ -67,32 +67,7 @@ export function getQuarrelVoiceDebugInfo(): QuarrelVoiceDebugInfo {
  * 打印调试信息到控制台
  */
 export function printQuarrelVoiceDebugInfo(): void {
-  const info = getQuarrelVoiceDebugInfo();
-  
-  console.group('🔊 QuarrelVoiceService 调试信息');
-  
-  console.group('📊 服务状态');
-  console.log('已初始化:', info.serviceStatus.initialized);
-  console.log('正在播放的角色:', info.serviceStatus.playingRoles);
-  console.log('队列长度:', info.serviceStatus.queueLength);
-  console.log('LLM可用:', info.serviceStatus.hasLLM);
-  console.groupEnd();
-  
-  console.group('🎵 音频服务状态');
-  console.log('已启用:', info.audioServiceStatus.enabled);
-  console.log('当前并发:', `${info.audioServiceStatus.currentConcurrent}/${info.audioServiceStatus.maxConcurrent}`);
-  console.log('活动声道:', info.audioServiceStatus.activeChannels);
-  console.groupEnd();
-  
-  console.group('⚙️ 配置');
-  console.log('最大并发:', info.config.maxConcurrent);
-  console.log('QUICK_JAB最大时长:', `${info.config.quickJabMaxDuration}s`);
-  console.log('启用Ducking:', info.config.enableDucking);
-  console.log('Ducking级别:', info.config.duckingLevel);
-  console.log('长文本阈值:', info.config.longTextThreshold);
-  console.groupEnd();
-  
-  console.groupEnd();
+  // 调试功能已禁用
 }
 
 /**
@@ -104,11 +79,6 @@ export function startQuarrelVoiceMonitoring(interval: number = 5000): () => void
     
     // 只在有活动时打印
     if (info.serviceStatus.playingRoles.length > 0 || info.serviceStatus.queueLength > 0) {
-      console.log(
-        `[QuarrelVoice监控] 播放:${info.serviceStatus.playingRoles.length} ` +
-        `队列:${info.serviceStatus.queueLength} ` +
-        `并发:${info.audioServiceStatus.currentConcurrent}/${info.audioServiceStatus.maxConcurrent}`
-      );
     }
   }, interval);
 
@@ -182,9 +152,6 @@ export function exposeQuarrelVoiceDebugTools(): void {
       startMonitoring: startQuarrelVoiceMonitoring,
       test: testQuarrelVoiceService,
     };
-    console.log('🔧 QuarrelVoice调试工具已暴露到 window.quarrelVoiceDebug');
-    console.log('   使用 window.quarrelVoiceDebug.printInfo() 查看状态');
-    console.log('   使用 window.quarrelVoiceDebug.test() 测试服务');
   }
 }
 

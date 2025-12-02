@@ -44,7 +44,6 @@ class GameEventService {
   emit(event: GameEvent): void {
     // 检查队列是否已满
     if (this.eventQueue.length >= this.maxQueueSize) {
-      console.warn('[GameEventService] 事件队列已满，丢弃低优先级事件');
       // 移除优先级最低的事件
       const minPriorityIndex = this.eventQueue.reduce((minIndex, current, index, arr) => 
         current.priority < arr[minIndex].priority ? index : minIndex, 0
@@ -86,7 +85,6 @@ class GameEventService {
             try {
               return callback(event);
             } catch (error) {
-              console.error(`[GameEventService] 事件回调执行失败:`, error);
               return Promise.resolve();
             }
           }));
@@ -96,7 +94,6 @@ class GameEventService {
             await new Promise(resolve => setTimeout(resolve, event.duration));
           }
         } catch (error) {
-          console.error(`[GameEventService] 处理事件失败:`, error);
         }
       }
 

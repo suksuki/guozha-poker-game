@@ -124,6 +124,48 @@ export interface SuggestResult {
 }
 
 /**
+ * 单个建议方案
+ */
+export interface PlaySuggestion {
+  /** 建议的牌 */
+  cards: Card[];
+  /** 牌型 */
+  type: string;
+  /** 牌型值 */
+  value: number;
+  /** 推荐度评分（1-5星） */
+  rating: number;
+  /** 主要原因 */
+  mainReason: string;
+  /** 详细理由 */
+  detailedReason: string;
+  /** 优点列表 */
+  advantages: string[];
+  /** 缺点列表 */
+  disadvantages: string[];
+  /** 风险评估（低/中/高） */
+  riskLevel: 'low' | 'medium' | 'high';
+  /** 预期收益 */
+  expectedBenefit: string;
+  /** 置信度（0-1） */
+  confidence: number;
+}
+
+/**
+ * 多个建议结果
+ */
+export interface MultipleSuggestionsResult {
+  /** 建议列表（按推荐度排序） */
+  suggestions: PlaySuggestion[];
+  /** 最佳建议（第一个） */
+  best: PlaySuggestion | null;
+  /** 建议总数 */
+  total: number;
+  /** 生成时间戳 */
+  timestamp: number;
+}
+
+/**
  * 打牌服务配置
  */
 export interface CardPlayingServiceConfig {

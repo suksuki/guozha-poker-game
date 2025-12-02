@@ -72,7 +72,6 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
       // 如果5秒后还没有开始播放，自动隐藏
       const startTimeout = setTimeout(() => {
         if (visible && !speaking && !speechStartRef.current) {
-          console.log('[ChatBubble] 5秒内未开始播放，自动隐藏');
           setFadeOut(true);
           speechEndRef.current = true;
           setTimeout(() => {
@@ -85,7 +84,6 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
       // 如果8秒后还没有结束，自动隐藏
       const endTimeout = setTimeout(() => {
         if (visible && !speechEndRef.current) {
-          console.log('[ChatBubble] 8秒内未结束播放，自动隐藏');
           setFadeOut(true);
           speechEndRef.current = true;
           setTimeout(() => {

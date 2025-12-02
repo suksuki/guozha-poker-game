@@ -63,11 +63,7 @@ export class AzureSpeechTTSClient implements ITTSClient {
     this.baseUrl = `https://${this.region}.tts.speech.microsoft.com/cognitiveservices/v1`;
 
     if (!this.subscriptionKey) {
-      console.warn('[AzureSpeechTTSClient] ⚠️ 未配置 Subscription Key，Azure Speech Service 将无法使用');
-      console.warn('[AzureSpeechTTSClient] 请设置环境变量 VITE_AZURE_SPEECH_KEY 或在配置中提供 subscriptionKey');
     } else {
-      console.log('[AzureSpeechTTSClient] ✅ Subscription Key 已配置（长度:', this.subscriptionKey.length, '）');
-      console.log('[AzureSpeechTTSClient] 🌍 使用区域:', this.region);
     }
   }
 
@@ -85,7 +81,6 @@ export class AzureSpeechTTSClient implements ITTSClient {
     if (useCache) {
       const cached = await this.audioCache.get(cacheKey);
       if (cached) {
-        console.log(`[AzureSpeechTTSClient] 使用缓存: ${text.substring(0, 20)}...`);
         return cached;
       }
     }
@@ -104,7 +99,6 @@ export class AzureSpeechTTSClient implements ITTSClient {
         return result;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(`[AzureSpeechTTSClient] 第 ${i + 1} 次尝试失败:`, lastError);
         if (i < this.retryCount) {
           // 等待后重试
           await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
@@ -139,9 +133,6 @@ export class AzureSpeechTTSClient implements ITTSClient {
       // 构建 SSML（Speech Synthesis Markup Language）
       const ssml = this.buildSSML(text, voiceName, languageCode, voiceConfig);
 
-      console.log('[AzureSpeechTTSClient] 🔍 发送请求到 Azure Speech Service');
-      console.log('[AzureSpeechTTSClient] 语言:', languageCode);
-      console.log('[AzureSpeechTTSClient] 语音:', voiceName);
 
       const response = await fetch(this.baseUrl, {
         method: 'POST',
@@ -183,12 +174,6 @@ export class AzureSpeechTTSClient implements ITTSClient {
           errorMessage += '\n2. Region 配置错误';
           errorMessage += '\n3. 请检查 Azure Portal 中的密钥和区域设置';
         }
-        
-        console.error('[AzureSpeechTTSClient] ❌ API 错误详情:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorText: errorText.substring(0, 200),
-        });
         
         throw new Error(errorMessage);
       }
@@ -290,9 +275,6 @@ export class AzureSpeechTTSClient implements ITTSClient {
 
       // 检查响应状态
       if (response.status === 401 || response.status === 403) {
-        console.warn('[AzureSpeechTTSClient] 健康检查失败 - Subscription Key 认证错误:', {
-          status: response.status,
-        });
         return false;
       }
       
@@ -304,7 +286,6 @@ export class AzureSpeechTTSClient implements ITTSClient {
       
       return false;
     } catch (error) {
-      console.warn('[AzureSpeechTTSClient] 健康检查异常:', error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -382,10 +363,8 @@ export class AzureSpeechTTSClient implements ITTSClient {
    */
   updateVoiceName(voiceName: string): void {
     this.config.voiceName = voiceName;
-    console.log('[AzureSpeechTTSClient] ✅ 语音已更新为:', voiceName);
     // 清除缓存，确保新语音立即生效
     this.audioCache.clear().catch(err => {
-      console.warn('[AzureSpeechTTSClient] 清除缓存失败:', err);
     });
   }
 

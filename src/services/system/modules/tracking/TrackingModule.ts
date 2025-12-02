@@ -23,11 +23,6 @@ export class TrackingModule implements SystemModule {
     this.context = context;
     this.enabled = config.enabled;
     this.initialized = true;
-    
-    console.log('[TrackingModule] 追踪模块初始化完成', {
-      enabled: this.enabled,
-      cardTrackerEnabled: config.cardTracker.enabled
-    });
   }
   
   configure(config: Partial<TrackingConfig>): void {

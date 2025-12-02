@@ -67,7 +67,7 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
             <input
               type="number"
               min="4"
-              max="8"
+              max="100"
               value={localConfig.playerCount}
               onChange={(e) => updateConfig({ playerCount: parseInt(e.target.value) || 4 })}
             />
@@ -172,7 +172,6 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              console.log('TrainingConfigPanel: 开始训练按钮被点击');
               onStartTraining();
             }}
             style={{ width: '100%', fontSize: '16px', padding: '12px', cursor: 'pointer' }}

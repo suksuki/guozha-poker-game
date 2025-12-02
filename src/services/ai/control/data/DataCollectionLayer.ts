@@ -45,7 +45,6 @@ export class DataCollectionLayer {
    */
   async initialize(): Promise<void> {
     // 可以在这里做一些初始化工作
-    console.log('[DataCollectionLayer] 初始化完成');
   }
 }
 

@@ -15,6 +15,7 @@ export interface AIConfig {
   allPlayerHands?: Card[][]; // 所有玩家的手牌（完全信息模式使用）
   currentRoundScore?: number; // 当前轮次累计的分数
   playerCount?: number; // 玩家总数
+  teamMode?: boolean; // 是否启用团队模式
 }
 
 // MCTS配置
@@ -26,6 +27,7 @@ export interface MCTSConfig {
   allPlayerHands?: Card[][]; // 所有玩家的手牌（完全信息模式使用）
   currentRoundScore?: number; // 当前轮次累计的分数
   playerCount?: number; // 玩家总数
+  teamMode?: boolean; // 是否启用团队模式
 }
 
 // MCTS节点

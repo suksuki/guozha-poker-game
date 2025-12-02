@@ -28,7 +28,6 @@ export function useAudioModule(): UseAudioModuleReturn {
       return audioModule.announcePlay(play, voiceConfig, onStart);
     } else {
       // 如果音频模块未初始化，直接调用 systemAnnouncementService
-      console.warn('[useAudioModule] 音频模块未初始化，使用 systemAnnouncementService');
       const { announcePlay: systemAnnouncePlay } = await import('../services/systemAnnouncementService');
       return systemAnnouncePlay(play, voiceConfig, onStart);
     }

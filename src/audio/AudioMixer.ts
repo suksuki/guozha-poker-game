@@ -49,9 +49,7 @@ export class AudioMixer {
       }
 
       this.isInitialized = true;
-      console.log('[AudioMixer] AudioContext 已初始化');
     } catch (error) {
-      console.error('[AudioMixer] 初始化失败:', error);
       throw error;
     }
   }
@@ -86,7 +84,6 @@ export class AudioMixer {
     const nodes: RoleAudioNodes = { gain, pan };
     this.roleNodes.set(roleId, nodes);
 
-    console.log(`[AudioMixer] 创建角色节点: ${roleId}, pan=${panValue}`);
     return nodes;
   }
 
@@ -157,7 +154,6 @@ export class AudioMixer {
       });
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error(`[AudioMixer] 播放失败 (${roleId}):`, err);
       if (onError) {
         onError(err);
       }
@@ -183,7 +179,6 @@ export class AudioMixer {
       role.gain.gain.setTargetAtTime(targetGain, currentTime, fadeTime);
     }
 
-    console.log(`[AudioMixer] Ducking: ${activeRoleId} 突出，其他角色降至 ${otherLevel}`);
   }
 
   /**
@@ -201,7 +196,6 @@ export class AudioMixer {
       role.gain.gain.setTargetAtTime(1.0, currentTime, fadeTime);
     }
 
-    console.log('[AudioMixer] 恢复所有角色音量');
   }
 
   /**

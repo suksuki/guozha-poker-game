@@ -6,8 +6,10 @@
 import { Card, Play } from '../../types/card';
 import { ValidationService } from './ValidationService';
 import { PlayExecutorService } from './PlayExecutorService';
-import { SuggestOptions, SuggestResult } from './types';
+import { SuggestOptions, SuggestResult, MultipleSuggestionsResult, PlaySuggestion } from './types';
 import { aiChoosePlay } from '../../utils/aiPlayer';
+import { mctsChooseMultiplePlays } from '../../utils/mctsAI';
+import { reasoningService } from './ReasoningService';
 
 /**
  * AI建议服务类
@@ -67,21 +69,12 @@ export class AISuggesterService {
       const allCardsInHand = suggestedCards.every(card => handCardIds.has(card.id));
       
       if (!allCardsInHand) {
-        console.warn('[AISuggesterService] 建议的牌不在手牌中，忽略建议', {
-          playerId,
-          suggestedCardIds: suggestedCards.map(c => c.id),
-          handCardIds: Array.from(handCardIds)
-        });
         return null; // 建议的牌不在手牌中
       }
 
       // 4. 验证建议的牌型
       const play = this.validationService.validateCardType(suggestedCards);
       if (!play) {
-        console.warn('[AISuggesterService] 建议的牌不构成合法牌型，忽略建议', {
-          playerId,
-          suggestedCards: suggestedCards.map(c => `${c.rank}-${c.suit}`)
-        });
         return null; // 建议的牌不合法
       }
 
@@ -89,13 +82,6 @@ export class AISuggesterService {
       if (lastPlay) {
         const canBeat = this.validationService.canBeat(play, lastPlay);
         if (!canBeat) {
-          console.warn('[AISuggesterService] 建议的牌不能压过上家的牌，忽略建议', {
-            playerId,
-            playType: play.type,
-            playValue: play.value,
-            lastPlayType: lastPlay.type,
-            lastPlayValue: lastPlay.value
-          });
           return null; // 建议的牌不能压过上家
         }
       }
@@ -117,7 +103,6 @@ export class AISuggesterService {
         explanation
       };
     } catch (error) {
-      console.error('[AISuggesterService] 获取AI建议失败:', error);
       return null;
     }
   }
@@ -299,6 +284,113 @@ export class AISuggesterService {
 
     // 限制分数范围
     return Math.max(0, Math.min(100, score));
+  }
+
+  /**
+   * 获取多个AI建议（多方案建议）
+   * @param playerId 玩家ID
+   * @param playerHand 玩家手牌
+   * @param lastPlay 上家出的牌（可选）
+   * @param options AI建议选项
+   * @param maxSuggestions 最大建议数量（默认5个）
+   * @returns 多个AI建议结果
+   */
+  async suggestMultiplePlays(
+    playerId: number,
+    playerHand: Card[],
+    lastPlay: Play | null,
+    options: SuggestOptions = {},
+    maxSuggestions: number = 5
+  ): Promise<MultipleSuggestionsResult | null> {
+    try {
+      // 1. 检查是否有可出的牌
+      const hasPlayable = this.playExecutorService.hasPlayableCards(
+        playerId,
+        playerHand,
+        lastPlay
+      );
+
+      if (!hasPlayable) {
+        return null; // 没有可出的牌
+      }
+
+      // 2. 使用MCTS生成多个候选动作
+      const candidateActions = mctsChooseMultiplePlays(
+        playerHand,
+        lastPlay,
+        {
+          iterations: options.mctsIterations || 50,
+          currentRoundScore: 0, // 可以从游戏状态中获取
+          playerCount: 4 // 可以从游戏状态中获取
+        },
+        maxSuggestions
+      );
+
+      if (!candidateActions || candidateActions.length === 0) {
+        return null; // 没有候选动作
+      }
+
+      // 3. 为每个候选动作生成建议
+      const suggestions: PlaySuggestion[] = [];
+
+      for (const candidate of candidateActions) {
+        // 验证建议的牌是否在手牌中
+        const handCardIds = new Set(playerHand.map(c => c.id));
+        const allCardsInHand = candidate.cards.every(card => handCardIds.has(card.id));
+        
+        if (!allCardsInHand) {
+          continue; // 跳过不在手牌中的牌
+        }
+
+        // 验证建议的牌型
+        const play = this.validationService.validateCardType(candidate.cards);
+        if (!play) {
+          continue; // 跳过不合法的牌型
+        }
+
+        // 如果有上家出牌，检查是否能压过
+        if (lastPlay) {
+          const canBeat = this.validationService.canBeat(play, lastPlay);
+          if (!canBeat) {
+            continue; // 跳过不能压过的牌
+          }
+        }
+
+        // 生成详细理由
+        const reasoning = reasoningService.generateReasoning(candidate.cards, {
+          hand: playerHand,
+          lastPlay: lastPlay,
+          currentRoundScore: 0, // 可以从游戏状态中获取
+          remainingCardCount: playerHand.length - candidate.cards.length,
+          playerCount: 4 // 可以从游戏状态中获取
+        });
+
+        // 创建建议对象
+        const suggestion: PlaySuggestion = {
+          cards: candidate.cards,
+          ...reasoning
+        };
+
+        suggestions.push(suggestion);
+      }
+
+      if (suggestions.length === 0) {
+        return null; // 没有有效建议
+      }
+
+      // 4. 按推荐度排序（rating从高到低）
+      suggestions.sort((a, b) => b.rating - a.rating);
+
+      // 5. 返回结果
+      return {
+        suggestions,
+        best: suggestions[0] || null,
+        total: suggestions.length,
+        timestamp: Date.now()
+      };
+    } catch (error) {
+      return null;
+    }
   }
 }
 

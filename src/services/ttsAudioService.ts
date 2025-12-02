@@ -142,9 +142,7 @@ class TTSAudioService {
         this.channelPanners.set(channel, pannerNode);
       });
 
-      console.log('[TTSAudioService] Web Audio API 已初始化');
     } catch (error) {
-      console.error('[TTSAudioService] 初始化失败:', error);
     }
   }
 
@@ -178,7 +176,6 @@ class TTSAudioService {
       this.audioCache.clear();
     }
     
-    console.log('[TTSAudioService] 配置已更新:', this.config);
   }
 
   /**
@@ -199,7 +196,6 @@ class TTSAudioService {
     // 如果未启用多声道或AudioContext未初始化，直接失败
     if (!this.config.enabled || !this.audioContext) {
       const error = new Error('多声道未启用或AudioContext未初始化');
-      console.error('[TTSAudioService]', error.message);
       if (events?.onError) {
         events.onError(error);
       }
@@ -214,7 +210,6 @@ class TTSAudioService {
         if (!audioBuffer) {
           // 生成失败，直接失败（不使用speechSynthesis）
           const error = new Error('TTS服务音频生成失败');
-          console.error('[TTSAudioService]', error.message);
           if (events?.onError) {
             events.onError(error);
           }
@@ -224,9 +219,7 @@ class TTSAudioService {
 
         // 音频生成完成，立即调用 onStart（让动画可以开始）
         // 这样动画和语音生成是同步的，播放会在生成完成后立即开始
-        console.log(`[TTSAudioService] ✅ 音频生成完成: "${text.substring(0, 20)}..." (时长: ${audioBuffer.duration.toFixed(2)}s, 采样率: ${audioBuffer.sampleRate}Hz, 声道: ${CHANNEL_CONFIGS[channel].name})`);
         if (events?.onStart) {
-          console.log(`[TTSAudioService] 调用 onStart 回调 (声道: ${CHANNEL_CONFIGS[channel].name})`);
           events.onStart();
         }
 
@@ -250,7 +243,6 @@ class TTSAudioService {
         // 添加到队列或立即播放
         this.addToQueue(playItem);
       } catch (error) {
-        console.error('[TTSAudioService] 播放失败:', error);
         if (events?.onError) {
           events.onError(error as Error);
         }
@@ -289,11 +281,9 @@ class TTSAudioService {
       // 根据声道类型选择提供者
       if (channel === ChannelType.ANNOUNCEMENT) {
         selectedProvider = announcementProvider || 'azure';
-        console.log(`[TTSAudioService] 📢 报牌场景，使用TTS提供者: ${selectedProvider} (channel: ${channel})`);
       } else {
         // 聊天场景（PLAYER_0 到 PLAYER_7）
         selectedProvider = chatProvider || 'piper';
-        console.log(`[TTSAudioService] 💬 聊天场景，使用TTS提供者: ${selectedProvider} (channel: ${channel})`);
       }
     }
 
@@ -302,7 +292,6 @@ class TTSAudioService {
       const cacheKey = this.getCacheKey(text, voiceConfig, channel, selectedProvider as TTSProvider);
       const cached = this.audioCache.get(cacheKey);
       if (cached) {
-        console.log(`[TTSAudioService] ✅ 使用缓存音频: ${text.substring(0, 20)}... (provider: ${selectedProvider}, channel: ${channel})`);
         return cached;
       }
     }
@@ -310,7 +299,6 @@ class TTSAudioService {
     // 尝试使用本地TTS服务生成音频
     // 如果 useTTS=false 或 TTS服务不可用，返回null，让调用者回退到speechSynthesis
     if (!this.config.useTTS) {
-      console.warn('[TTSAudioService] useTTS=false，将回退到speechSynthesis（单声道串行播放）');
       return null;
     }
 
@@ -329,24 +317,18 @@ class TTSAudioService {
       
       // 使用TTS服务管理器生成音频
       const channelName = channel === ChannelType.ANNOUNCEMENT ? '📢报牌' : '💬聊天';
-      console.log(`[TTSAudioService] 🎯 ${channelName}场景 - 开始生成音频: "${text.substring(0, 30)}..." (lang: ${ttsOptions.lang}, provider: ${selectedProvider}, channel: ${channel})`);
       let result;
       if (selectedProvider && selectedProvider !== 'auto') {
         // 使用指定的TTS服务商
-        console.log(`[TTSAudioService] ✅ ${channelName}场景 - 使用指定TTS服务商: ${selectedProvider}`);
         result = await this.ttsManager.synthesizeWithProvider(
           selectedProvider as any,
           text,
           ttsOptions
         );
-        console.log(`[TTSAudioService] ✅ ${channelName}场景 - TTS服务返回音频: ${(result.audioBuffer.byteLength / 1024).toFixed(2)} KB (provider: ${selectedProvider})`);
       } else {
         // 自动选择最佳TTS服务商
-        console.log(`[TTSAudioService] ⚠️ ${channelName}场景 - 自动选择最佳TTS服务商（未指定provider）`);
         result = await this.ttsManager.synthesize(text, ttsOptions);
-        console.log(`[TTSAudioService] ✅ ${channelName}场景 - TTS服务返回音频: ${(result.audioBuffer.byteLength / 1024).toFixed(2)} KB (auto-selected)`);
       }
-      console.log(`[TTSAudioService] TTS服务返回音频: ${(result.audioBuffer.byteLength / 1024).toFixed(2)} KB`);
       
       // 解码音频数据
       const audioBuffer = await this.audioContext.decodeAudioData(result.audioBuffer);
@@ -363,13 +345,9 @@ class TTSAudioService {
           }
         }
         this.audioCache.set(cacheKey, audioBuffer);
-        console.log(`[TTSAudioService] 💾 已缓存音频: ${text.substring(0, 20)}... (provider: ${selectedProvider}, channel: ${channel})`);
       }
-      
-      console.log(`[TTSAudioService] TTS服务音频生成成功: ${text.substring(0, 20)}... (${audioBuffer.duration.toFixed(2)}s)`);
       return audioBuffer;
     } catch (error) {
-      console.error('[TTSAudioService] TTS服务生成失败，将回退到speechSynthesis（单声道串行播放）:', error);
       return null;
     }
   }
@@ -426,7 +404,6 @@ class TTSAudioService {
     // 报牌使用独立的 ANNOUNCEMENT 声道，与玩家聊天通道完全隔离
     // 报牌和聊天可以同时播放，不需要中断聊天
     if (item.channel === ChannelType.ANNOUNCEMENT && item.priority === 4) {
-      console.log(`[TTSAudioService] 🎯 报牌请求：使用独立报牌通道，与聊天通道隔离`);
       // 检查报牌通道是否正在播放
       const isAnnouncementBusy = this.activeSources.has(ChannelType.ANNOUNCEMENT);
       if (!isAnnouncementBusy) {
@@ -455,11 +432,9 @@ class TTSAudioService {
     
     if (!isChannelBusy) {
       // 声道空闲，立即播放
-      console.log(`[TTSAudioService] 声道 ${CHANNEL_CONFIGS[item.channel].name} 空闲，立即播放:`, item.text.substring(0, 20));
       this.playAudio(item);
     } else {
       // 声道正在播放，加入该声道的队列
-      console.log(`[TTSAudioService] 声道 ${CHANNEL_CONFIGS[item.channel].name} 正在播放，加入队列:`, item.text.substring(0, 20));
       this.addToChannelQueue(item);
     }
   }
@@ -473,7 +448,6 @@ class TTSAudioService {
     // 按优先级排序（优先级高的在前）
     queue.sort((a, b) => b.priority - a.priority);
     this.channelQueues.set(item.channel, queue);
-    console.log(`[TTSAudioService] 声道 ${CHANNEL_CONFIGS[item.channel].name} 队列长度: ${queue.length}`);
   }
 
   /**
@@ -492,9 +466,7 @@ class TTSAudioService {
     if (this.audioContext.state === 'suspended') {
       try {
         await this.audioContext.resume();
-        console.log('[TTSAudioService] AudioContext 已恢复运行');
       } catch (error) {
-        console.error('[TTSAudioService] 恢复 AudioContext 失败:', error);
         item.reject(new Error('AudioContext 无法恢复运行'));
         return;
       }
@@ -506,11 +478,9 @@ class TTSAudioService {
     if (this.activeSources.has(item.channel)) {
       // 同一声道正在播放，停止它（让新播放开始）
       // 但不同声道可以同时播放，不会互相影响
-      console.log(`[TTSAudioService] 声道 ${CHANNEL_CONFIGS[item.channel].name} 正在播放，停止旧播放（新播放将开始）`);
       this.stopChannel(item.channel);
     } else {
       // 声道空闲，可以立即播放（与其他声道并行）
-      console.log(`[TTSAudioService] 声道 ${CHANNEL_CONFIGS[item.channel].name} 空闲，可以与其他声道并行播放`);
     }
 
     try {
@@ -540,16 +510,6 @@ class TTSAudioService {
       // 所以这里只需要连接 segGain -> roleGain 即可
 
       // 验证连接
-      console.log(`[TTSAudioService] 音频连接验证:`, {
-        channel: CHANNEL_CONFIGS[item.channel].name,
-        segGain: segGain.gain.value,
-        roleGain: roleGain.gain.value,
-        panner: panner.pan.value,
-        masterGain: this.masterGain?.gain.value,
-        audioBufferDuration: item.audioBuffer.duration,
-        audioBufferSampleRate: item.audioBuffer.sampleRate,
-        audioBufferChannels: item.audioBuffer.numberOfChannels
-      });
 
       // 应用ducking：降低其他角色的音量
       if (this.duckingConfig.enabled) {
@@ -599,8 +559,6 @@ class TTSAudioService {
 
       // 开始播放
       try {
-        console.log(`[TTSAudioService] 🎵 准备播放音频: ${CHANNEL_CONFIGS[item.channel].name} - "${item.text.substring(0, 20)}..." (时长: ${item.audioBuffer.duration.toFixed(2)}s)`);
-        console.log(`[TTSAudioService] AudioContext 状态: ${this.audioContext?.state}, 采样率: ${this.audioContext?.sampleRate}Hz`);
         
         source.start(0);
         this.activeSources.set(item.channel, source);
@@ -612,9 +570,7 @@ class TTSAudioService {
 
         // 显示当前所有正在播放的声道
         const activeChannels = Array.from(this.activeSources.keys()).map(ch => CHANNEL_CONFIGS[ch].name).join(', ');
-        console.log(`[TTSAudioService] ✅ 音频开始播放: ${CHANNEL_CONFIGS[item.channel].name} - "${item.text.substring(0, 20)}..." (并发数: ${this.currentConcurrentCount}, 时长: ${item.audioBuffer.duration.toFixed(2)}s, 正在播放的声道: [${activeChannels}])`);
       } catch (error) {
-        console.error(`[TTSAudioService] ❌ 播放失败:`, error);
         this.currentConcurrentCount--;
         if (item.events?.onError) {
           item.events.onError(error as Error);
@@ -642,7 +598,6 @@ class TTSAudioService {
     this.channelGains.forEach((gain, channel) => {
       // 检查 setTargetAtTime 方法是否可用（测试环境可能没有）
       if (!gain.gain.setTargetAtTime) {
-        console.warn('[TTSAudioService] setTargetAtTime 不可用，跳过音量调整');
         return;
       }
 
@@ -676,7 +631,6 @@ class TTSAudioService {
     this.channelGains.forEach((gain, channel) => {
       // 检查 setTargetAtTime 方法是否可用（测试环境可能没有）
       if (!gain.gain.setTargetAtTime) {
-        console.warn('[TTSAudioService] setTargetAtTime 不可用，跳过音量恢复');
         return;
       }
 
@@ -704,9 +658,7 @@ class TTSAudioService {
     // 播放队列中的下一个
     const nextItem = queue.shift();
     if (nextItem) {
-      console.log(`[TTSAudioService] 从声道 ${CHANNEL_CONFIGS[channel].name} 队列中取出下一个:`, nextItem.text.substring(0, 20));
       this.playAudio(nextItem).catch(error => {
-        console.error(`[TTSAudioService] 播放声道 ${CHANNEL_CONFIGS[channel].name} 队列项失败:`, error);
         nextItem.reject(error);
         // 继续处理队列
         this.processChannelQueue(channel);
@@ -723,7 +675,6 @@ class TTSAudioService {
     this.activeSources.forEach((source, channel) => {
       if (channel !== ChannelType.ANNOUNCEMENT) {
         try {
-          console.log(`[TTSAudioService] 中断聊天播放: ${CHANNEL_CONFIGS[channel].name}`);
           source.stop();
           interruptedCount++;
         } catch (e) {
@@ -738,7 +689,6 @@ class TTSAudioService {
     });
     
     if (interruptedCount > 0) {
-      console.log(`[TTSAudioService] ✅ 已中断 ${interruptedCount} 个聊天播放，报牌声道独立使用`);
     }
     // 清空所有声道队列中的非报牌项（报牌使用独立声道，不受聊天影响）
     this.channelQueues.forEach((queue, channel) => {
@@ -800,7 +750,6 @@ class TTSAudioService {
   ): Promise<void> {
     return new Promise((resolve) => {
       if (!('speechSynthesis' in window)) {
-        console.error('[TTSAudioService] speechSynthesis 不支持');
         if (events?.onError) {
           events.onError(new Error('speechSynthesis 不支持'));
         }
@@ -825,13 +774,11 @@ class TTSAudioService {
 
       if (events?.onStart) {
         utterance.onstart = () => {
-          console.log(`[TTSAudioService] 开始播放（speechSynthesis）: ${CHANNEL_CONFIGS[channel].name} - "${text.substring(0, 30)}..."`);
           events.onStart!();
         };
       }
 
       utterance.onend = () => {
-        console.log(`[TTSAudioService] 播放完成（speechSynthesis）: ${CHANNEL_CONFIGS[channel].name} - "${text.substring(0, 30)}..."`);
         if (events?.onEnd) {
           events.onEnd();
         }
@@ -839,14 +786,11 @@ class TTSAudioService {
       };
 
       utterance.onerror = (error) => {
-        console.error(`[TTSAudioService] 播放错误（speechSynthesis）: ${CHANNEL_CONFIGS[channel].name} - "${text.substring(0, 30)}..."`, error);
         if (events?.onError) {
           events.onError(error as Error);
         }
         resolve();
       };
-
-      console.log(`[TTSAudioService] 使用speechSynthesis播放: ${CHANNEL_CONFIGS[channel].name} - "${text.substring(0, 30)}..." (lang: ${utterance.lang}, volume: ${utterance.volume})`);
       window.speechSynthesis.speak(utterance);
     });
   }
@@ -890,7 +834,6 @@ class TTSAudioService {
    */
   clearCache(): void {
     this.audioCache.clear();
-    console.log('[TTSAudioService] 音频缓存已清空');
   }
 
   /**
@@ -902,9 +845,7 @@ class TTSAudioService {
     const panner = this.channelPanners.get(channel);
     if (panner) {
       panner.pan.value = Math.max(-1, Math.min(1, pan));
-      console.log(`[TTSAudioService] 设置声道 ${channel} 的pan值为 ${pan}`);
     } else {
-      console.warn(`[TTSAudioService] 声道 ${channel} 不存在，无法设置pan值`);
     }
   }
 }

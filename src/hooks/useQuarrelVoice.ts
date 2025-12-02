@@ -97,10 +97,8 @@ export function useQuarrelVoice(options: UseQuarrelVoiceOptions = {}): UseQuarre
         await service.init();
         serviceRef.current = service;
         initializedRef.current = true;
-        console.log('[useQuarrelVoice] 初始化完成');
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        console.error('[useQuarrelVoice] 初始化失败:', err);
         if (onError) {
           onError(err);
         }
@@ -120,7 +118,6 @@ export function useQuarrelVoice(options: UseQuarrelVoiceOptions = {}): UseQuarre
   // 提交话语
   const submitUtter = useCallback(async (utter: Utter) => {
     if (!serviceRef.current) {
-      console.warn('[useQuarrelVoice] 服务未初始化');
       return;
     }
     await serviceRef.current.submitUtter(utter);

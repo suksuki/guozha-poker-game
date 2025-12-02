@@ -38,7 +38,6 @@ export class EventBus {
         try {
           handler(...args);
         } catch (error) {
-          console.error(`[EventBus] 事件处理器错误: ${event}`, error);
         }
       });
     }
@@ -51,7 +50,6 @@ export class EventBus {
           try {
             handler(event, ...args);
           } catch (error) {
-            console.error(`[EventBus] 通配符事件处理器错误: ${event}`, error);
           }
         });
       }

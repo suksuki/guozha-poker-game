@@ -235,7 +235,6 @@ export class SegmentedPlayback {
           }, 300);  // 300ms 间隔，允许插嘴
         },
         onError: (error) => {
-          console.error(`[SegmentedPlayback] 段播放失败 (${roleId}, 段${currentIndex}):`, error);
           if (config.onError) {
             config.onError(error);
           }
@@ -248,7 +247,6 @@ export class SegmentedPlayback {
       this.submitUtterCallback(utter);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error(`[SegmentedPlayback] 生成 TTS 失败 (${roleId}, 段${currentIndex}):`, err);
       
       if (config.onError) {
         config.onError(err);

@@ -39,7 +39,6 @@ export class MonitorLayer {
     }
     
     if (!this.config.monitor.enabled) {
-      console.log('[MonitorLayer] 监控已禁用');
       return;
     }
     
@@ -52,7 +51,6 @@ export class MonitorLayer {
     this.startResourceMonitoring();
     
     this.monitoring = true;
-    console.log('[MonitorLayer] 监控已启动');
   }
   
   /**
@@ -68,7 +66,6 @@ export class MonitorLayer {
     this.behaviorMonitor.stop();
     
     this.monitoring = false;
-    console.log('[MonitorLayer] 监控已停止');
   }
   
   /**
@@ -212,7 +209,6 @@ export class MonitorLayer {
       // 如果资源使用过高，调整采样率
       if (status.memory.usage > 0.8 || status.cpu.usage > 0.8) {
         this.sampler.adjustSamplingRate(0.01); // 降低到1%
-        console.warn('[MonitorLayer] 资源使用过高，降低采样率');
       } else if (status.memory.usage < 0.5 && status.cpu.usage < 0.5) {
         this.sampler.adjustSamplingRate(this.config.monitor.samplingRate); // 恢复
       }

@@ -22,7 +22,7 @@ import {
 import { i18n } from '../i18n';
 import { detectLanguage } from '../utils/languageDetection';
 import { ttsAudioService } from './ttsAudioService';
-import { ChannelScheduler, PlaybackPriority, PlayRequest } from './channelScheduler';
+import { ChannelScheduler, PlaybackPriority, PlayRequest, ChannelUsage } from './channelScheduler';
 
 // 声道配置
 interface ChannelConfig {
@@ -102,7 +102,6 @@ class MultiChannelVoiceService {
     // 如果启用新的调度器，创建实例
     if (this.useChannelScheduler && this.multiChannelConfig.enabled) {
       this.channelScheduler = new ChannelScheduler();
-      console.log('[MultiChannelVoiceService] 已启用声道调度器');
     }
     
     // 如果启用多声道，同步配置到ttsAudioService
@@ -140,7 +139,6 @@ class MultiChannelVoiceService {
       ttsAudioService.updateConfig({ enabled: false });
     }
     
-    console.log('[MultiChannelVoiceService] 多声道配置已更新:', this.multiChannelConfig);
   }
 
   /**
@@ -163,7 +161,6 @@ class MultiChannelVoiceService {
       const ttsManager = getTTSServiceManager();
       return ttsManager.getProviderStatus();
     } catch (error) {
-      console.error('[MultiChannelVoiceService] 获取TTS服务商状态失败:', error);
       return {};
     }
   }
@@ -175,7 +172,6 @@ class MultiChannelVoiceService {
     this.updateMultiChannelConfig({
       ttsProvider: provider
     });
-    console.log(`[MultiChannelVoiceService] TTS服务商已设置为: ${provider}`);
   }
 
   /**
@@ -305,7 +301,6 @@ class MultiChannelVoiceService {
 
       // 如果找不到匹配的语音，尝试查找同语系的语音
       if (matchingVoices.length === 0) {
-        console.warn(`[MultiChannelVoice] 未找到 ${targetLang} 的语音，尝试查找同语系语音`);
         matchingVoices = voices.filter(voice => {
           const voiceLang = voice.lang.toLowerCase();
           return voiceLang.includes(langPrefix) || langPrefix.includes(voiceLang.split('-')[0]);
@@ -319,15 +314,12 @@ class MultiChannelVoiceService {
         } else {
           utterance.voice = matchingVoices[0];
         }
-        console.log(`[MultiChannelVoice] 选择语音: ${utterance.voice.name} (${utterance.voice.lang}) 用于文本: "${text.substring(0, 20)}..."`);
       } else {
         // 如果没有匹配的语音，尝试查找默认语音
         const defaultVoice = voices.find(voice => voice.default) || voices[0];
         if (defaultVoice) {
           utterance.voice = defaultVoice;
-          console.warn(`[MultiChannelVoice] 未找到匹配的语音，使用默认语音: ${defaultVoice.name} (${defaultVoice.lang})`);
         } else {
-          console.error(`[MultiChannelVoice] 无法找到任何可用语音！`);
         }
       }
     }
@@ -357,7 +349,7 @@ class MultiChannelVoiceService {
     priority: number = 1, // 优先级：3=对骂，2=事件，1=随机，4=报牌（最高）
     playerId?: number // 玩家ID（用于声道调度）
   ): Promise<void> {
-    // 如果启用了新的调度器，使用调度器
+    // 如果启用了新的调度器，使用调度器分配声道，然后使用TTS Audio Service播放
     if (this.useChannelScheduler && this.channelScheduler && this.multiChannelConfig.enabled) {
       try {
         // 确定播放类型和通道
@@ -373,30 +365,69 @@ class MultiChannelVoiceService {
           }
         }
         
-        // 映射优先级
-        const playbackPriority = this.mapPriorityToPlaybackPriority(priority);
+        // 使用调度器分配声道
+        const allocation = this.channelScheduler.allocateChannel({
+          usage: playbackType === 'announcement' ? ChannelUsage.ANNOUNCEMENT : ChannelUsage.PLAYER,
+          playerId: finalPlayerId,
+          priority: priority
+        });
         
-        // 如果是聊天，使用调度器分配的通道
-        let finalChannel = channel;
-        if (playbackType === 'chat' && finalPlayerId !== undefined) {
-          finalChannel = this.channelScheduler.getPlayerChannel(finalPlayerId);
+        let finalChannel = allocation.channel;
+        
+        // 如果被加入队列，等待声道可用
+        if (allocation.isQueued) {
+          // 等待当前播放完成（最多等待30秒）
+          const startTime = Date.now();
+          while (this.channelScheduler.isChannelActive(finalChannel)) {
+            if (Date.now() - startTime > 30000) {
+              throw new Error(`等待声道 ${finalChannel} 可用超时`);
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
         }
         
-        // 创建播放请求
-        const request: PlayRequest = {
-          text,
-          voiceConfig,
-          channel: finalChannel,
-          priority: playbackPriority,
-          type: playbackType,
-          playerId: finalPlayerId,
-          events
-        };
+        // 标记声道为活跃（在播放开始前）
+        // 注意：allocateChannel已经分配了声道，但我们需要标记为活跃以便后续请求知道
+        // 实际上，allocateChannel内部已经标记了，这里只是为了确保
         
-        console.log(`[MultiChannelVoiceService] 使用声道调度器播放: ${text.substring(0, 30)}... (channel: ${finalChannel}, type: ${playbackType})`);
-        return await this.channelScheduler.requestPlay(request);
+        // 使用TTS Audio Service播放，播放完成后释放声道
+        try {
+          // 包装事件回调，在播放完成后释放声道
+          const wrappedEvents = {
+            ...events,
+            onStart: () => {
+              // 调用原始onStart回调
+              if (events?.onStart) {
+                events.onStart();
+              }
+            },
+            onEnd: () => {
+              // 释放声道
+              this.channelScheduler?.releaseChannel(finalChannel, finalPlayerId);
+              // 调用原始回调
+              if (events?.onEnd) {
+                events.onEnd();
+              }
+            },
+            onError: (error: Error) => {
+              // 释放声道
+              this.channelScheduler?.releaseChannel(finalChannel, finalPlayerId);
+              // 调用原始回调
+              if (events?.onError) {
+                events.onError(error);
+              }
+            }
+          };
+          
+          // 使用TTS Audio Service播放
+          await ttsAudioService.speak(text, voiceConfig, finalChannel, wrappedEvents, priority);
+          return; // 重要：播放完成后直接返回，避免继续执行下面的代码
+        } catch (playError) {
+          // 播放失败，释放声道
+          this.channelScheduler?.releaseChannel(finalChannel, finalPlayerId);
+          throw playError;
+        }
       } catch (error) {
-        console.error('[MultiChannelVoiceService] 声道调度器播放失败:', error);
         if (events?.onError) {
           events.onError(error as Error);
         }
@@ -407,10 +438,8 @@ class MultiChannelVoiceService {
     // 如果启用多声道，使用TTS Audio Service（只使用TTS API，不使用speechSynthesis）
     if (this.multiChannelConfig.enabled) {
       try {
-        console.log(`[MultiChannelVoiceService] 使用多声道播放（TTS API服务）: ${text.substring(0, 30)}... (channel: ${channel})`);
         return await ttsAudioService.speak(text, voiceConfig, channel, events, priority);
       } catch (error) {
-        console.error('[MultiChannelVoiceService] 多声道播放失败（TTS服务不可用）:', error);
         // TTS服务失败，直接失败（不使用speechSynthesis）
         if (events?.onError) {
           events.onError(error as Error);
@@ -420,7 +449,6 @@ class MultiChannelVoiceService {
     }
     
     // 使用串行播放（speechSynthesis）
-    console.log(`[MultiChannelVoiceService] 使用串行播放（speechSynthesis）: ${text.substring(0, 30)}... (channel: ${channel})`);
     
     // 使用串行播放（speechSynthesis）
     return new Promise(async (resolve, reject) => {
@@ -428,7 +456,6 @@ class MultiChannelVoiceService {
       // 使用同步检查，确保原子性
       const pendingSet = this.pendingRequests.get(channel) || new Set();
       if (pendingSet.has(text)) {
-        console.log(`[${CHANNEL_CONFIGS[channel].name}] 去重：相同请求正在处理，跳过:`, text);
         resolve();
         return;
       }
@@ -443,7 +470,6 @@ class MultiChannelVoiceService {
       if (channel === ChannelType.ANNOUNCEMENT) {
         // 如果正在播放相同文本，跳过（去重）
         if (currentItem && currentItem.text === text) {
-          console.log(`[${CHANNEL_CONFIGS[channel].name}] 去重：正在播放相同文本，跳过:`, text);
           pendingSet.delete(text);
           resolve();
           return;
@@ -455,7 +481,6 @@ class MultiChannelVoiceService {
         const now = Date.now();
         
         if (text === lastText && lastTime && (now - lastTime) < this.config.deduplicationWindow) {
-          console.log(`[${CHANNEL_CONFIGS[channel].name}] 去重：最近刚播放过，跳过:`, text, '时间差:', now - lastTime, 'ms');
           pendingSet.delete(text);
           resolve();
           return;
@@ -467,7 +492,6 @@ class MultiChannelVoiceService {
           const lastTime = this.lastSpeechTime.get(channel);
           const now = Date.now();
           if (lastTime && (now - lastTime) < 1000) {
-            console.log(`[${CHANNEL_CONFIGS[channel].name}] 旧报牌刚开始播放，新报牌加入队列:`, text, '旧报牌:', currentItem.text);
             const queue = this.channelQueues.get(channel) || [];
             if (queue.length < this.config.maxQueueSize) {
               queue.push({
@@ -483,7 +507,6 @@ class MultiChannelVoiceService {
               return;
             } else {
               // 队列已满，中断旧报牌
-              console.log(`[${CHANNEL_CONFIGS[channel].name}] 队列已满，中断旧报牌，播放新报牌:`, text, '旧报牌:', currentItem.text);
               if (currentItem.utterance) {
                 (currentItem.utterance as any).__interrupted = true;
               }
@@ -491,7 +514,6 @@ class MultiChannelVoiceService {
             }
           } else {
             // 旧报牌播放时间较长，可以中断
-            console.log(`[${CHANNEL_CONFIGS[channel].name}] 中断旧报牌，播放新报牌:`, text, '旧报牌:', currentItem.text);
             if (currentItem.utterance) {
               (currentItem.utterance as any).__interrupted = true;
             }
@@ -511,7 +533,6 @@ class MultiChannelVoiceService {
       } else {
         // 非报牌声道：只检查当前声道
         if (currentItem && currentItem.text === text) {
-          console.log(`[${CHANNEL_CONFIGS[channel].name}] 去重：正在播放相同文本，跳过:`, text);
           resolve();
           return;
         }
@@ -522,7 +543,6 @@ class MultiChannelVoiceService {
         const now = Date.now();
         
         if (text === lastText && lastTime && (now - lastTime) < this.config.deduplicationWindow) {
-          console.log(`[${CHANNEL_CONFIGS[channel].name}] 去重：最近刚播放过，跳过:`, text, '时间差:', now - lastTime, 'ms');
           resolve();
           return;
         }
@@ -536,7 +556,6 @@ class MultiChannelVoiceService {
         // 检查声道队列长度，如果超过限制，丢弃最旧的消息
         if (queue.length >= this.config.maxQueueSize) {
           const removed = queue.shift();
-          console.warn(`[${CHANNEL_CONFIGS[channel].name}] ⚠️ 声道队列已满，丢弃旧消息:`, removed?.text);
           if (removed) {
             removed.reject(new Error('声道队列已满，消息被丢弃'));
           }
@@ -552,12 +571,10 @@ class MultiChannelVoiceService {
           events // 保存事件回调，确保队列中的消息也能触发气泡显示
         });
         this.channelQueues.set(channel, queue);
-        console.log(`[${CHANNEL_CONFIGS[channel].name}] 当前正在播放，加入队列（队列长度: ${queue.length}/${this.config.maxQueueSize}）:`, text);
         return; // 不立即播放，等待队列处理
       }
 
       if (!('speechSynthesis' in window)) {
-        console.error(`[${CHANNEL_CONFIGS[channel].name}] 错误：浏览器不支持语音合成API`);
         setTimeout(() => resolve(), 300);
         return;
       }
@@ -571,20 +588,11 @@ class MultiChannelVoiceService {
         ]);
 
         if (voices.length === 0) {
-          console.warn(`[${CHANNEL_CONFIGS[channel].name}] 警告：没有可用的语音，尝试使用默认语音`);
         }
 
         const utterance = this.createUtterance(text, voiceConfig, voices);
         
         // 添加调试信息
-        console.log(`[${CHANNEL_CONFIGS[channel].name}] 语音配置:`, {
-          text,
-          lang: utterance.lang,
-          voice: utterance.voice?.name || '默认',
-          rate: utterance.rate,
-          pitch: utterance.pitch,
-          volume: utterance.volume
-        });
         
         const item: SpeechItem = {
           text,
@@ -606,7 +614,6 @@ class MultiChannelVoiceService {
         this.lastSpeechTime.set(channel, Date.now());
 
         const channelConfig = CHANNEL_CONFIGS[channel];
-        console.log(`[${channelConfig.name}] 开始播放:`, text);
 
         let cleaned = false;
         const cleanup = () => {
@@ -637,7 +644,6 @@ class MultiChannelVoiceService {
           }
           // 检查是否还是当前项（可能已被新的报牌替换）
           if (this.channelItems.get(channel) === item) {
-            console.log(`[${channelConfig.name}] 播放完成:`, text);
             // 调用事件回调（优先使用 item.events，如果没有则使用参数中的 events）
             (item.events || events)?.onEnd?.();
             cleanup();
@@ -663,18 +669,6 @@ class MultiChannelVoiceService {
           if (this.channelItems.get(channel) === item) {
             const errorObj = error as any;
             const errorMessage = errorObj.error || errorObj.message || '未知错误';
-            console.error(`[${channelConfig.name}] 播放出错:`, {
-              text,
-              error,
-              errorMessage,
-              utterance: {
-                lang: utterance.lang,
-                voice: utterance.voice?.name,
-                rate: utterance.rate,
-                pitch: utterance.pitch,
-                volume: utterance.volume
-              }
-            });
             // 调用事件回调（优先使用 item.events，如果没有则使用参数中的 events）
             (item.events || events)?.onError?.(new Error(errorMessage));
             cleanup();
@@ -707,7 +701,6 @@ class MultiChannelVoiceService {
         if (channel === ChannelType.ANNOUNCEMENT) {
           // 如果有聊天语音在播放，中断它
           if (this.isPlayingChat) {
-            console.log(`[${CHANNEL_CONFIGS[channel].name}] 报牌中断聊天语音`);
             // 中断所有非报牌声道的语音
             this.channelItems.forEach((otherItem, ch) => {
               if (ch !== ChannelType.ANNOUNCEMENT && otherItem.utterance) {
@@ -725,7 +718,6 @@ class MultiChannelVoiceService {
         // 聊天语音：串行播放（一次只播放一个）
         // 如果正在播放聊天，加入队列
         if (this.isPlayingChat) {
-          console.log(`[${CHANNEL_CONFIGS[channel].name}] 正在播放聊天，加入队列:`, text);
           this.addToChatQueue(item);
           return;
         }
@@ -734,12 +726,6 @@ class MultiChannelVoiceService {
         this.isPlayingChat = true;
         this.playUtterance(utterance, item, channel);
       } catch (error) {
-        console.error(`[${CHANNEL_CONFIGS[channel].name}] 播放语音时出错:`, {
-          error,
-          text,
-          errorMessage: (error as Error).message,
-          stack: (error as Error).stack
-        });
         this.channelItems.delete(channel);
         // 清除待处理请求标记
         const pendingSet = this.pendingRequests.get(channel);
@@ -773,7 +759,6 @@ class MultiChannelVoiceService {
           if (this.channelItems.get(channel) === item && !(utterance as any).__interrupted) {
             // 调用事件回调（队列中的消息也能触发气泡显示）
             item.events?.onStart?.();
-            console.log(`[${channelConfig.name}] 语音开始播放:`, item.text);
           }
         });
       }
@@ -786,7 +771,6 @@ class MultiChannelVoiceService {
       if (this.channelItems.get(channel) === item) {
         // 调用事件回调（队列中的消息也能触发气泡隐藏）
         item.events?.onEnd?.();
-        console.log(`[${channelConfig.name}] 播放完成:`, item.text);
         this.channelItems.delete(channel);
         
         // 如果是聊天语音，标记为不播放，处理下一个
@@ -811,7 +795,6 @@ class MultiChannelVoiceService {
       if (this.channelItems.get(channel) === item) {
         const errorType = (error as any).error || (error as any).type || '';
         if (errorType !== 'interrupted') {
-          console.error(`[${channelConfig.name}] 播放出错:`, error);
         }
         // 调用事件回调
         item.events?.onError?.(error as Error);
@@ -832,7 +815,6 @@ class MultiChannelVoiceService {
 
     // 播放
     window.speechSynthesis.speak(utterance);
-    console.log(`[${channelConfig.name}] 开始播放:`, item.text);
   }
 
   /**
@@ -844,7 +826,6 @@ class MultiChannelVoiceService {
       // 按优先级排序，丢弃最低优先级的消息
       this.chatQueue.sort((a, b) => b.priority - a.priority);
       const removed = this.chatQueue.pop();
-      console.warn(`[MultiChannelVoice] ⚠️ 聊天队列已满，丢弃低优先级消息:`, removed?.text);
       if (removed) {
         removed.reject(new Error('聊天队列已满，消息被丢弃'));
       }
@@ -863,7 +844,6 @@ class MultiChannelVoiceService {
       this.chatQueue.push(item);
     }
     
-    console.log(`[MultiChannelVoice] 加入聊天队列（队列长度: ${this.chatQueue.length}/${this.config.maxQueueSize}，优先级: ${item.priority}）:`, item.text);
   }
   
   /**
@@ -875,7 +855,6 @@ class MultiChannelVoiceService {
     }
     
     const nextItem = this.chatQueue.shift()!;
-    console.log(`[MultiChannelVoice] 从聊天队列中取出（优先级: ${nextItem.priority}）:`, nextItem.text);
     
     // 重新创建 utterance（如果还没有创建）
     if (!nextItem.utterance) {
@@ -886,7 +865,6 @@ class MultiChannelVoiceService {
         this.setupAudioParams(nextItem, nextItem.channel);
         this.playUtterance(nextItem.utterance, nextItem, nextItem.channel);
       }).catch(err => {
-        console.error(`[MultiChannelVoice] 创建utterance失败:`, err);
         nextItem.reject(err);
         this.isPlayingChat = false;
         this.processNextChat(); // 继续处理下一个
@@ -907,7 +885,6 @@ class MultiChannelVoiceService {
     }
 
     const nextItem = queue.shift()!;
-    console.log(`[${CHANNEL_CONFIGS[channel].name}] 从声道队列中取出下一个语音:`, nextItem.text);
     
     // 递归调用 speak 来播放队列中的下一个，传递保存的 events 和 priority
     this.speak(nextItem.text, nextItem.voiceConfig, channel, nextItem.events, nextItem.priority)

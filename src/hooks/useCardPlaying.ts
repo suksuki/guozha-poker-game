@@ -310,7 +310,6 @@ export function useCardPlaying({
       setCurrentSuggestion(suggestion);
       return suggestion;
     } catch (error) {
-      console.error('获取AI建议失败:', error);
       return null;
     } finally {
       setIsSuggesting(false);
@@ -341,7 +340,6 @@ export function useCardPlaying({
       );
       return suggestions;
     } catch (error) {
-      console.error('获取多个AI建议失败:', error);
       return [];
     } finally {
       setIsSuggesting(false);

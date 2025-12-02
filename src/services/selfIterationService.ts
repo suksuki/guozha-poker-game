@@ -77,19 +77,15 @@ export class SelfIterationService {
    * 执行完整的自我分析
    */
   async analyzeSelf(): Promise<SelfIterationReport> {
-    console.log('[SelfIterationService] 开始自我分析...');
 
     // 1. 代码审查
     const codeReview = await this.codeReviewService.scanCodebase('src');
-    console.log(`[SelfIterationService] 代码审查完成: ${codeReview.summary.totalIssues} 个问题`);
 
     // 2. 测试分析
     const testAnalysis = await this.testManagementService.scanTests('tests,src');
-    console.log(`[SelfIterationService] 测试分析完成: ${testAnalysis.summary.totalTests} 个测试`);
 
     // 3. 生成改进计划
     const improvementPlans = this.generateImprovementPlans(codeReview, testAnalysis);
-    console.log(`[SelfIterationService] 生成 ${improvementPlans.length} 个改进计划`);
 
     // 4. 生成 Cursor 提示词对象
     const cursorPrompts = improvementPlans
@@ -541,7 +537,6 @@ ${files.map(f => `- ${f}`).join('\n')}
   private async autoFixImport(issue: CodeIssue): Promise<void> {
     // 这个功能已经在 CodeReviewManager 中实现了
     // 这里只是占位
-    console.log(`[SelfIterationService] 自动修复导入: ${issue.file}:${issue.line}`);
   }
 
   /**
@@ -617,7 +612,6 @@ ${files.map(f => `- ${f}`).join('\n')}
         }));
       }
     } catch (error) {
-      console.warn('[SelfIterationService] 加载历史失败:', error);
     }
   }
 
@@ -628,7 +622,6 @@ ${files.map(f => `- ${f}`).join('\n')}
     try {
       localStorage.setItem('self_iteration_history', JSON.stringify(this.history));
     } catch (error) {
-      console.warn('[SelfIterationService] 保存历史失败:', error);
     }
   }
 

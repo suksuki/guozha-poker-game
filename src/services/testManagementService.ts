@@ -70,18 +70,14 @@ export class TestManagementService {
       try {
         const content = await this.readFile(file);
         if (!content) {
-          console.warn(`[TestManagementService] 文件内容为空: ${file}`);
           continue;
         }
         const testFile = this.analyzeTestFile(file, content);
         this.testFiles.push(testFile);
-        console.log(`[TestManagementService] 分析文件: ${file}, 测试数: ${testFile.testCount}`);
       } catch (error) {
-        console.warn(`[TestManagementService] 分析测试文件失败: ${file}`, error);
       }
     }
     
-    console.log(`[TestManagementService] 总共分析 ${this.testFiles.length} 个测试文件`);
 
     // 检测问题
     this.detectTestIssues();
@@ -111,14 +107,11 @@ export class TestManagementService {
       const response = await fetch(`/api/tests/files?path=${basePath}`);
       if (response.ok) {
         const files = await response.json();
-        console.log(`[TestManagementService] 找到 ${files.length} 个测试文件`);
         return files;
       } else {
         const errorText = await response.text();
-        console.warn('[TestManagementService] API 返回错误:', response.status, errorText);
       }
     } catch (error) {
-      console.warn('[TestManagementService] 无法通过 API 获取测试文件列表:', error);
     }
 
     // 回退到空列表（让用户知道没有找到测试文件）
@@ -152,7 +145,6 @@ export class TestManagementService {
 
       throw new Error(`无法读取文件: ${filePath}`);
     } catch (error) {
-      console.warn(`[TestManagementService] 读取文件失败: ${filePath}`, error);
       return '';
     }
   }

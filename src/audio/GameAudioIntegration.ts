@@ -65,7 +65,6 @@ export class GameAudioIntegration {
       // 获取角色配置
       const speaker = defaultSpeakerManager.getSpeaker(event.playerId);
       if (!speaker) {
-        console.warn(`[GameAudioIntegration] 角色 ${event.playerId} 未配置`);
         return;
       }
 
@@ -110,7 +109,6 @@ export class GameAudioIntegration {
 
       this.audioRoom.submitUtter(utter);
     } catch (error) {
-      console.error(`[GameAudioIntegration] 处理游戏事件失败:`, error);
     }
   }
 
@@ -296,7 +294,6 @@ export class GameAudioIntegration {
     const playerId = `player${player.id}`;
     const speaker = defaultSpeakerManager.getSpeaker(playerId);
     if (!speaker) {
-      console.warn(`[GameAudioIntegration] 角色 ${playerId} 未配置`);
       return;
     }
 

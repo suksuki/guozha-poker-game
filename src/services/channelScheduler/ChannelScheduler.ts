@@ -173,7 +173,6 @@ export class ChannelScheduler {
 
     // 3. 立即播放报牌（与聊天通道并行，不互相影响）
     this.playbackController.play(request, state).catch((error) => {
-      console.error('[ChannelScheduler] 报牌播放失败:', error);
     });
   }
 
@@ -183,7 +182,6 @@ export class ChannelScheduler {
    */
   private handleChatRequest(request: PlayRequest): void {
     if (request.playerId === undefined) {
-      console.error('[ChannelScheduler] 聊天请求缺少playerId');
       return;
     }
 
@@ -192,7 +190,6 @@ export class ChannelScheduler {
     const state = this.playerChannelStates.get(preferredChannel);
 
     if (!state) {
-      console.error(`[ChannelScheduler] 无法找到通道状态: ${preferredChannel}`);
       return;
     }
 
@@ -209,7 +206,6 @@ export class ChannelScheduler {
           const availableState = this.playerChannelStates.get(availableChannel);
           if (availableState) {
             this.playbackController.play(request, availableState).catch((error) => {
-              console.error('[ChannelScheduler] 聊天播放失败:', error);
             });
           }
         } else {
@@ -220,7 +216,6 @@ export class ChannelScheduler {
     } else {
       // 如果空闲，立即播放
       this.playbackController.play(request, state).catch((error) => {
-        console.error('[ChannelScheduler] 聊天播放失败:', error);
       });
     }
   }
@@ -258,14 +253,12 @@ export class ChannelScheduler {
    */
   private addToChannelQueue(state: ChannelState, request: PlayRequest): void {
     if (state.queue.length >= this.config.maxQueueLength) {
-      console.warn(`[ChannelScheduler] 通道 ${state.channel} 队列已满，丢弃请求`);
       return;
     }
 
     state.queue.push(request);
     // 按优先级排序（优先级高的在前）
     state.queue.sort((a, b) => b.priority - a.priority);
-    console.log(`[ChannelScheduler] 通道 ${state.channel} 队列长度: ${state.queue.length}`);
   }
 
   /**
@@ -282,7 +275,6 @@ export class ChannelScheduler {
     if (state.queue.length > 0) {
       const nextRequest = state.queue.shift()!;
       this.playbackController.play(nextRequest, state).catch((error) => {
-        console.error('[ChannelScheduler] 队列播放失败:', error);
         // 播放失败，继续处理下一个
         this.processNextInQueue(channel);
       });

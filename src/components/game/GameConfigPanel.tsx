@@ -23,7 +23,7 @@ interface GameConfigPanelProps {
   humanPlayerIndex: number;
   strategy: 'aggressive' | 'conservative' | 'balanced';
   algorithm: 'simple' | 'mcts';
-  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered';
+  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered' | 'bomb-friendly' | 'monte-carlo';
   skipDealingAnimation?: boolean;
   dealingSpeed?: number;
   sortOrder?: 'asc' | 'desc' | 'grouped';
@@ -34,11 +34,13 @@ interface GameConfigPanelProps {
   cardTrackerPanelVisible?: boolean;
   playTimeout?: number;
   announcementDelay?: number;
+  teamMode?: boolean;
+  onTeamModeChange?: (enabled: boolean) => void;
   onPlayerCountChange: (count: number) => void;
   onHumanPlayerIndexChange: (index: number) => void;
   onStrategyChange: (strategy: 'aggressive' | 'conservative' | 'balanced') => void;
   onAlgorithmChange: (algorithm: 'simple' | 'mcts') => void;
-  onDealingAlgorithmChange?: (algorithm: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered') => void;
+  onDealingAlgorithmChange?: (algorithm: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered' | 'bomb-friendly' | 'monte-carlo') => void;
   onSkipDealingAnimationChange?: (skip: boolean) => void;
   onDealingSpeedChange?: (speed: number) => void;
   onSortOrderChange?: (order: 'asc' | 'desc' | 'grouped') => void;
@@ -188,6 +190,8 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   cardTrackerPanelVisible = false,
   playTimeout = 30000,
   announcementDelay = 1000,
+  teamMode = false,
+  onTeamModeChange,
   onPlayerCountChange,
   onHumanPlayerIndexChange,
   onStrategyChange,
@@ -244,7 +248,6 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
       if (isAvailable) {
         const models = await getAvailableOllamaModels();
         setAvailableModels(models);
-        console.log('[GameConfigPanel] 可用模型:', models);
       }
       setIsLoadingModels(false);
     };
@@ -290,7 +293,6 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
         setTestError('模型返回空响应，请检查模型是否正常工作');
       }
     } catch (error: any) {
-      console.error('[GameConfigPanel] 测试LLM失败:', error);
       setTestError(error.message || '测试失败，请检查模型配置和网络连接');
     } finally {
       setIsTesting(false);
@@ -466,7 +468,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
             <input
               type="number"
               min="4"
-              max="8"
+              max="100"
               value={playerCount}
               onChange={(e) => onPlayerCountChange(parseInt(e.target.value) || 4)}
             />
@@ -482,6 +484,23 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               ))}
             </select>
           </div>
+          {onTeamModeChange && (playerCount === 4 || playerCount === 6) && (
+            <div className="config-item">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                  type="checkbox"
+                  checked={teamMode || false}
+                  onChange={(e) => onTeamModeChange(e.target.checked)}
+                />
+                <span>团队模式 (合作模式)</span>
+              </label>
+              <small style={{ display: 'block', color: '#999', marginTop: '5px' }}>
+                {playerCount === 4 
+                  ? '2v2 团队对战模式，分数按团队计算' 
+                  : '3v3 团队对战模式，分数按团队计算'}
+              </small>
+            </div>
+          )}
         </div>
       </ConfigGroupModal>
 
@@ -531,7 +550,6 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                   if (isAvailable) {
                     const models = await getAvailableOllamaModels();
                     setAvailableModels(models);
-                    console.log('[GameConfigPanel] 刷新模型列表:', models);
                   }
                   setIsLoadingModels(false);
                 }}
@@ -769,6 +787,8 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                 <option value="favor-ai">{t('ui:dealingAlgorithms.favorAi')}</option>
                 <option value="balanced-score">{t('ui:dealingAlgorithms.balancedScore')}</option>
                 <option value="clustered">{t('ui:dealingAlgorithms.clustered')}</option>
+                <option value="bomb-friendly">{t('ui:dealingAlgorithms.bombFriendly')}</option>
+                <option value="monte-carlo">{t('ui:dealingAlgorithms.monteCarlo')}</option>
               </select>
               <small>{t('ui:dealingAlgorithmHint')}</small>
             </div>

@@ -24,17 +24,17 @@ export function triggerScoreLossReaction(
   if (shouldCurse) {
     // 大分被吃，触发脏话（更激烈）- 80%概率
     if (Math.random() < 0.8) {
-      triggerScoreEatenCurseReaction(player, lostScore, gameState).catch(console.error);
+      triggerScoreEatenCurseReaction(player, lostScore, gameState).catch(() => {});
     } else if (Math.random() < 0.3) {
       // 20%概率普通抱怨
-      triggerScoreStolenReaction(player, lostScore, gameState).catch(console.error);
+      triggerScoreStolenReaction(player, lostScore, gameState).catch(() => {});
     }
   } else {
     // 小分被吃，也有一定概率触发脏话（30%），或者普通抱怨（40%）
     if (Math.random() < 0.3) {
-      triggerScoreEatenCurseReaction(player, lostScore, gameState).catch(console.error);
+      triggerScoreEatenCurseReaction(player, lostScore, gameState).catch(() => {});
     } else if (Math.random() < 0.4) {
-      triggerScoreStolenReaction(player, lostScore, gameState).catch(console.error);
+      triggerScoreStolenReaction(player, lostScore, gameState).catch(() => {});
     }
   }
 }

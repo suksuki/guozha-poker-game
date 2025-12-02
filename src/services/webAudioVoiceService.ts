@@ -97,9 +97,7 @@ class WebAudioVoiceService {
       this.systemGain.connect(this.systemPanner!);
       this.systemPanner.connect(this.masterGain!);
 
-      console.log('[WebAudioVoice] Web Audio API 上下文已初始化');
     } catch (error) {
-      console.error('[WebAudioVoice] 无法初始化 Web Audio API:', error);
     }
   }
 
@@ -201,7 +199,6 @@ class WebAudioVoiceService {
             
             resolve(audioBuffer);
           } catch (e) {
-            console.warn('[WebAudioVoice] 音频解码失败:', e);
             stream.getTracks().forEach(track => track.stop());
             resolve(null);
           }
@@ -234,7 +231,6 @@ class WebAudioVoiceService {
         window.speechSynthesis.speak(utterance);
       });
     } catch (error) {
-      console.warn('[WebAudioVoice] 无法捕获音频，回退到 speechSynthesis:', error);
       return null;
     }
   }

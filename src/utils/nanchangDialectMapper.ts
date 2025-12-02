@@ -88,10 +88,8 @@ function loadMappingFromStorage(): void {
       const loaded = JSON.parse(stored);
       // 合并到现有映射表（本地存储的优先级更高）
       NANCHANG_MAPPING = { ...NANCHANG_MAPPING, ...loaded };
-      console.log('[NanchangDialectMapper] 从本地存储加载映射表，新增', Object.keys(loaded).length, '条映射');
     }
   } catch (error) {
-    console.warn('[NanchangDialectMapper] 加载映射表失败:', error);
   }
 }
 
@@ -101,9 +99,7 @@ function loadMappingFromStorage(): void {
 function saveMappingToStorage(): void {
   try {
     localStorage.setItem(MAPPING_FILE_KEY, JSON.stringify(NANCHANG_MAPPING));
-    console.log('[NanchangDialectMapper] 映射表已保存到本地存储，共', Object.keys(NANCHANG_MAPPING).length, '条映射');
   } catch (error) {
-    console.warn('[NanchangDialectMapper] 保存映射表失败:', error);
   }
 }
 
@@ -169,7 +165,6 @@ ${texts.join('\n')}
     });
 
     if (!response.ok) {
-      console.warn('[NanchangDialectMapper] LLM训练失败:', response.status, response.statusText);
       return [];
     }
 
@@ -184,17 +179,13 @@ ${texts.join('\n')}
       const mappings = JSON.parse(jsonStr);
       
       if (Array.isArray(mappings)) {
-        console.log('[NanchangDialectMapper] LLM训练成功，生成', mappings.length, '条映射');
         return mappings;
       }
     } catch (parseError) {
-      console.warn('[NanchangDialectMapper] 解析LLM训练结果失败:', parseError);
-      console.warn('[NanchangDialectMapper] 原始内容:', content);
     }
     
     return [];
   } catch (error) {
-    console.warn('[NanchangDialectMapper] LLM训练出错:', error);
     return [];
   }
 }
@@ -208,7 +199,6 @@ export function addMapping(mandarin: string, nanchang: string): void {
   if (mandarin && nanchang && mandarin !== nanchang) {
     NANCHANG_MAPPING[mandarin] = nanchang;
     saveMappingToStorage();
-    console.log('[NanchangDialectMapper] ✅ 添加映射:', mandarin, '->', nanchang);
   }
 }
 
@@ -226,7 +216,6 @@ export function addMappings(mappings: Array<{ mandarin: string; nanchang: string
   });
   if (added > 0) {
     saveMappingToStorage();
-    console.log('[NanchangDialectMapper] ✅ 批量添加映射:', added, '条');
   }
 }
 
@@ -304,9 +293,7 @@ export function clearCustomMappings(): void {
       '大墩': '大墩',
       '小墩': '小墩',
     };
-    console.log('[NanchangDialectMapper] 已清空自定义映射，恢复为内置映射表');
   } catch (error) {
-    console.warn('[NanchangDialectMapper] 清空映射表失败:', error);
   }
 }
 
@@ -375,10 +362,8 @@ if (import.meta.env.DEV) {
     '好牌',
   ];
   
-  console.log('=== 南昌话映射测试 ===');
   testCases.forEach(test => {
     const converted = convertToNanchangDialect(test);
-    console.log(`${test} -> ${converted}`);
   });
 }
 

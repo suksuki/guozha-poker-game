@@ -19,20 +19,17 @@ export class ExecuteLayer {
    */
   async execute(result: AnalysisResult): Promise<void> {
     if (!this.config.execute.enabled) {
-      console.log('[ExecuteLayer] 执行已禁用');
       return;
     }
     
     // 检查风险等级
     if (this.getRiskLevel(result.risk) > this.getRiskLevel(this.config.execute.maxRiskLevel)) {
-      console.warn('[ExecuteLayer] 风险等级过高，跳过执行', result);
       return;
     }
     
     // 检查是否需要确认
     if (this.config.execute.requireConfirmation && result.risk !== 'low') {
       // 这里应该触发UI确认，暂时跳过
-      console.log('[ExecuteLayer] 需要确认，跳过自动执行', result);
       return;
     }
     
@@ -53,7 +50,6 @@ export class ExecuteLayer {
         timestamp: Date.now()
       });
     } catch (error) {
-      console.error('[ExecuteLayer] 执行失败', error);
       this.eventBus.emit('execute:complete', {
         result,
         success: false,
@@ -69,7 +65,6 @@ export class ExecuteLayer {
   private async executeOptimization(result: AnalysisResult): Promise<void> {
     // 这里应该实现具体的优化逻辑
     // 目前只是占位
-    console.log('[ExecuteLayer] 执行优化', result);
   }
   
   /**

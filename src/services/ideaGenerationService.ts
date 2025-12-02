@@ -385,7 +385,6 @@ export class IdeaGenerationService {
         const data = JSON.stringify(this.ideas);
         localStorage.setItem('game_ideas', data);
       } catch (error) {
-        console.warn('[IdeaGenerationService] 保存想法失败:', error);
       } finally {
         this.saveIdeasTimeout = null;
       }
@@ -409,7 +408,6 @@ export class IdeaGenerationService {
         }));
       }
     } catch (error) {
-      console.warn('[IdeaGenerationService] 加载想法失败:', error);
     }
   }
 
@@ -430,7 +428,6 @@ export class IdeaGenerationService {
         const data = JSON.stringify(this.designQueue);
         localStorage.setItem('design_queue', data);
       } catch (error) {
-        console.warn('[IdeaGenerationService] 保存设计队列失败:', error);
       } finally {
         this.saveDesignQueueTimeout = null;
       }
@@ -459,7 +456,6 @@ export class IdeaGenerationService {
         }));
       }
     } catch (error) {
-      console.warn('[IdeaGenerationService] 加载设计队列失败:', error);
     }
   }
 

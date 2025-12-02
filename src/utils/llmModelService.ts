@@ -15,7 +15,6 @@ export async function getAvailableOllamaModels(): Promise<string[]> {
       return models;
     }
   } catch (e) {
-    console.warn('[llmModelService] 无法获取Ollama模型列表:', e);
   }
   return [];
 }

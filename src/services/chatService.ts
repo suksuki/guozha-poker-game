@@ -19,6 +19,7 @@ import { getChatStrategy } from '../chat/strategy';
 import { groupCardsByRank } from '../utils/cardSorting';
 import { evaluateHandValue } from '../ai/simpleStrategy';
 import { MultiPlayerGameState } from '../utils/gameStateUtils';
+import { getRecommendedChatStrategy, checkLLMAvailability } from '../utils/llmHealthCheck';
 
 // 消息订阅回调类型
 type MessageSubscriber = (message: ChatMessage) => void;
@@ -31,12 +32,14 @@ class ChatService {
   private tauntConfig: TauntConfig;
   private strategy: IChatStrategy;
   private fallbackStrategy: IChatStrategy | null = null; // 回退策略（规则策略）
+  private llmConfig?: any; // 保存LLM配置，用于后续切换
+  private isInitialized: boolean = false; // 是否已初始化
   
   // 消息订阅者（用于通知其他玩家有新消息）
   private subscribers: Set<MessageSubscriber> = new Set();
 
   constructor(
-    strategy: 'rule-based' | 'llm' = 'llm', // 默认使用llm策略，因为大模型已启动
+    strategy: 'rule-based' | 'llm' = 'rule-based', // 默认使用规则策略，启动后自动检测
     config: ChatServiceConfig = DEFAULT_CHAT_SERVICE_CONFIG,
     bigDunConfig: BigDunConfig = DEFAULT_BIG_DUN_CONFIG,
     tauntConfig: TauntConfig = DEFAULT_TAUNT_CONFIG,
@@ -45,11 +48,59 @@ class ChatService {
     this.config = config;
     this.bigDunConfig = bigDunConfig;
     this.tauntConfig = tauntConfig;
+    this.llmConfig = llmConfig;
     this.strategy = getChatStrategy(strategy, config, bigDunConfig, tauntConfig, llmConfig);
-    // 如果使用LLM策略，创建规则策略作为回退
-    if (strategy === 'llm') {
-      this.fallbackStrategy = getChatStrategy('rule-based', config, bigDunConfig, tauntConfig);
+    
+    // 总是创建规则策略作为回退（无论使用哪个策略）
+    this.fallbackStrategy = getChatStrategy('rule-based', config, bigDunConfig, tauntConfig);
+    
+  }
+  
+  /**
+   * 异步初始化：自动检测LLM可用性并切换策略
+   * 应在应用启动时调用
+   */
+  async initializeWithAutoDetection(): Promise<void> {
+    if (this.isInitialized) {
+      return;
     }
+    
+    const startTime = Date.now();
+    
+    try {
+      // 获取推荐的策略
+      const recommendedStrategy = await getRecommendedChatStrategy();
+      const detectionTime = Date.now() - startTime;
+      
+      
+      // 如果推荐策略与当前策略不同，切换策略
+      if (recommendedStrategy !== this.strategy.name) {
+        this.setStrategy(recommendedStrategy, this.llmConfig);
+      } else {
+      }
+      
+      this.isInitialized = true;
+      
+      // 显示用户友好的提示
+      if (recommendedStrategy === 'llm') {
+      } else {
+      }
+    } catch (error) {
+      // 出错时使用规则策略
+      if (this.strategy.name !== 'rule-based') {
+        this.setStrategy('rule-based');
+      }
+      this.isInitialized = true;
+    }
+  }
+  
+  /**
+   * 检查LLM服务状态
+   * 可用于运行时检查
+   */
+  async checkLLMStatus(): Promise<boolean> {
+    const status = await checkLLMAvailability();
+    return status.available;
   }
 
   // 更新配置
@@ -121,7 +172,6 @@ class ChatService {
       try {
         callback(message);
       } catch (error) {
-        console.error('[ChatService] 消息订阅回调出错:', error);
       }
     });
   }
@@ -214,21 +264,17 @@ class ChatService {
     };
 
     // 使用策略生成聊天内容
-    console.log('[ChatService] 调用策略生成随机闲聊，策略:', this.strategy.name);
     let message = await this.strategy.generateRandomChat(player, fullContext);
     
     // 如果LLM策略失败，使用规则策略作为回退
     if (!message && this.fallbackStrategy && this.strategy.name === 'llm') {
-      console.warn('[ChatService] ⚠️ LLM策略返回null，切换到规则策略回退');
       message = await this.fallbackStrategy.generateRandomChat(player, fullContext);
     }
     
     if (message) {
-      console.log('[ChatService] ✅ 收到聊天消息:', message.content);
       this.addMessage(message);
       // 不再自动播放语音，由组件决定是否播放
     } else {
-      console.warn('[ChatService] ⚠️ 所有策略都返回null，未生成聊天消息');
     }
     
     return message;
@@ -267,21 +313,17 @@ class ChatService {
     };
 
     // 使用策略生成聊天内容
-    console.log('[ChatService] 调用策略生成事件聊天，策略:', this.strategy.name);
     let message = await this.strategy.generateEventChat(player, eventType, fullContext);
     
     // 如果LLM策略失败，使用规则策略作为回退
     if (!message && this.fallbackStrategy && this.strategy.name === 'llm') {
-      console.warn('[ChatService] ⚠️ LLM策略返回null，切换到规则策略回退');
       message = await this.fallbackStrategy.generateEventChat(player, eventType, fullContext);
     }
     
     if (message) {
-      console.log('[ChatService] ✅ 收到聊天消息:', message.content);
       this.addMessage(message);
       // 不再自动播放语音，由组件决定是否播放
     } else {
-      console.warn('[ChatService] ⚠️ 所有策略都返回null，未生成聊天消息');
     }
     
     return message;
@@ -384,17 +426,14 @@ class ChatService {
 
     // 检查策略是否支持回复
     if (!this.strategy.generateReply) {
-      console.warn('[ChatService] 当前策略不支持回复功能');
       return null;
     }
 
     // 使用策略生成回复内容
-    console.log('[ChatService] 调用策略生成回复，策略:', this.strategy.name, '回复:', originalMessage.content);
     let message = await this.strategy.generateReply(player, originalMessage, fullContext);
     
     // 如果LLM策略失败，使用规则策略作为回退
     if (!message && this.fallbackStrategy?.generateReply && this.strategy.name === 'llm') {
-      console.warn('[ChatService] ⚠️ LLM策略返回null，切换到规则策略回退');
       message = await this.fallbackStrategy.generateReply(player, originalMessage, fullContext);
     }
     
@@ -406,10 +445,8 @@ class ChatService {
         content: originalMessage.content,
         timestamp: originalMessage.timestamp
       };
-      console.log('[ChatService] ✅ 收到回复消息:', message.content);
       this.addMessage(message);
     } else {
-      console.warn('[ChatService] ⚠️ 所有策略都返回null，未生成回复消息');
     }
     
     return message;
@@ -446,7 +483,6 @@ class ChatService {
     
     // 如果LLM策略失败，使用规则策略作为回退
     if (!message && this.fallbackStrategy && this.strategy.name === 'llm') {
-      console.warn('[ChatService] ⚠️ LLM策略返回null，切换到规则策略回退（对骂）');
       message = await this.fallbackStrategy.generateTaunt(player, targetPlayer, fullContext);
     }
     
@@ -454,7 +490,6 @@ class ChatService {
       this.addMessage(message);
       // 不再自动播放语音，由组件决定是否播放
     } else {
-      console.warn('[ChatService] ⚠️ 所有策略都返回null，未生成对骂消息');
     }
   }
 
@@ -588,13 +623,6 @@ class ChatService {
 
 // 创建全局聊天服务实例（默认使用llm策略，因为大模型已启动）
 export const chatService = new ChatService('llm');
-
-// 输出当前使用的策略信息
-console.log('📢 聊天服务初始化:', {
-  策略: chatService['strategy'].name,
-  描述: chatService['strategy'].description,
-  是否使用LLM: chatService['strategy'].name === 'llm'
-});
 
 // 导出便捷函数（保持向后兼容）
 export function addChatMessage(message: ChatMessage): void {

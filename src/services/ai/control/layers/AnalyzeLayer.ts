@@ -142,7 +142,6 @@ export class AnalyzeLayer {
             });
             recommendation = analysis.suggestions.join('; ') || recommendation;
           } catch (error) {
-            console.warn('[AnalyzeLayer] LLM分析错误失败:', error);
           }
         }
         

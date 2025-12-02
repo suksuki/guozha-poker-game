@@ -136,7 +136,6 @@ export class LLMEvolutionLayer {
           optimized
         };
       } catch (error) {
-        console.warn('[LLMEvolutionLayer] 算法优化失败，使用LLM方案:', error);
       }
     }
     
@@ -167,7 +166,6 @@ ${JSON.stringify(result, null, 2)}
       });
       return response.content;
     } catch (error) {
-      console.error('[LLMEvolutionLayer] 解释优化失败:', error);
       return '解释生成失败';
     }
   }

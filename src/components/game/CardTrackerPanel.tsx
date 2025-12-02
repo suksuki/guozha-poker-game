@@ -34,12 +34,6 @@ export const CardTrackerPanel: React.FC<CardTrackerPanelProps> = ({
   // 获取所有轮次记录（从记牌器）
   const allRoundsFromTracker = useMemo(() => {
     const rounds = cardTracker.getAllRounds();
-    console.log('[CardTrackerPanel] 记牌器中的所有轮次:', rounds.map(r => ({
-      roundNumber: r.roundNumber,
-      playsCount: r.plays.length,
-      endTime: r.endTime ? '已结束' : '进行中',
-      winnerName: r.winnerName || '无'
-    })));
     return rounds;
   }, [gameStatus, currentRoundNumber]);
 
@@ -158,12 +152,6 @@ export const CardTrackerPanel: React.FC<CardTrackerPanelProps> = ({
 
     // 转换为数组并按轮次号倒序排序（最新的轮次在最上面）
     const sortedRounds = Array.from(roundsMap.values()).sort((a, b) => b.roundNumber - a.roundNumber);
-    console.log('[CardTrackerPanel] 合并后的所有轮次（倒序）:', sortedRounds.map(r => ({
-      roundNumber: r.roundNumber,
-      playsCount: r.plays.length,
-      endTime: r.endTime ? '已结束' : '进行中',
-      winnerName: r.winnerName || '未知'
-    })));
     return sortedRounds;
   }, [allRoundsFromTracker, allRoundsFromGameState, currentRoundNumber, currentRoundPlays, currentRoundScore, gameStatus, players]);
 

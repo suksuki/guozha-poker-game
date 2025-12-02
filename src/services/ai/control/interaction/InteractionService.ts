@@ -60,7 +60,6 @@ export class InteractionService {
         config
       };
     } catch (error) {
-      console.error('[InteractionService] 获取系统状态失败:', error);
       // 返回默认状态
       return {
         initialized: false,
@@ -85,7 +84,6 @@ export class InteractionService {
       }
       this.aiControl.startMonitoring();
     } catch (error: any) {
-      console.error('[InteractionService] 启动监控失败:', error);
       throw error;
     }
   }
@@ -243,9 +241,7 @@ export class InteractionService {
         this.aiControl.startMonitoring();
       }
       
-      console.log('[InteractionService] 配置已更新');
     } catch (error) {
-      console.error('[InteractionService] 更新配置失败:', error);
       throw error;
     }
   }
@@ -257,7 +253,6 @@ export class InteractionService {
     try {
       return (this.aiControl as any).getConfig() || {};
     } catch (error) {
-      console.error('[InteractionService] 获取配置失败:', error);
       return {};
     }
   }

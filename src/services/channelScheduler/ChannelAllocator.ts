@@ -12,8 +12,8 @@ import { ChannelSchedulerConfig, DEFAULT_CHANNEL_SCHEDULER_CONFIG } from './type
 export class ChannelAllocator {
   private config: ChannelSchedulerConfig;
   
-  // 玩家聊天通道数量（固定4个）
-  private readonly CHAT_CHANNEL_COUNT = 4;
+  // 玩家聊天通道数量（固定8个，支持更多玩家通过共享声道）
+  private readonly CHAT_CHANNEL_COUNT = 8;
 
   constructor(config: ChannelSchedulerConfig = DEFAULT_CHANNEL_SCHEDULER_CONFIG) {
     this.config = config;
@@ -21,12 +21,12 @@ export class ChannelAllocator {
 
   /**
    * 获取玩家对应的声道
-   * 4个玩家时，每人一个独立通道；超过4个玩家时，共享通道
+   * 8个玩家时，每人一个独立通道；超过8个玩家时，共享通道（通过取模分配）
    * @param playerId 玩家ID
    * @returns 声道类型
    */
   getPlayerChannel(playerId: number): ChannelType {
-    // 玩家ID映射到4个聊天通道（0-3对应PLAYER_0到PLAYER_3）
+    // 玩家ID映射到8个聊天通道（0-7对应PLAYER_0到PLAYER_7）
     const channelIndex = playerId % this.CHAT_CHANNEL_COUNT;
     return channelIndex as ChannelType;
   }
@@ -37,7 +37,7 @@ export class ChannelAllocator {
    * @returns 是否是玩家聊天通道
    */
   isPlayerChannel(channel: ChannelType): boolean {
-    return channel >= ChannelType.PLAYER_0 && channel <= ChannelType.PLAYER_3;
+    return channel >= ChannelType.PLAYER_0 && channel <= ChannelType.PLAYER_7;
   }
 
   /**
@@ -58,7 +58,11 @@ export class ChannelAllocator {
       ChannelType.PLAYER_0,
       ChannelType.PLAYER_1,
       ChannelType.PLAYER_2,
-      ChannelType.PLAYER_3
+      ChannelType.PLAYER_3,
+      ChannelType.PLAYER_4,
+      ChannelType.PLAYER_5,
+      ChannelType.PLAYER_6,
+      ChannelType.PLAYER_7
     ];
   }
 

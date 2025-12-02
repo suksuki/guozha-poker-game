@@ -1,6 +1,6 @@
 {
   "config": {
-    "playerCount": "Player Count (4-8)",
+    "playerCount": "Player Count (4-100)",
     "yourPosition": "Your Position",
     "player": "Player {{index}}",
     "aiStrategy": "AI Strategy",
@@ -29,7 +29,9 @@
     "favorHuman": "Favor Human Player",
     "favorAi": "Favor AI Players",
     "balancedScore": "Balanced Score Cards",
-    "clustered": "Clustered Distribution"
+    "clustered": "Clustered Distribution",
+    "bombFriendly": "Bomb-Friendly (Easy Big Cards)",
+    "monteCarlo": "Monte Carlo Simulation"
   },
   "dealingAlgorithmHint": "Choose dealing strategy, affects game difficulty and fun",
   "skipDealingAnimationHint": "Check to start game directly without dealing animation",

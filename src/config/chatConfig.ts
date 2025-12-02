@@ -93,7 +93,7 @@ export const DEFAULT_LLM_CHAT_CONFIG: LLMChatConfig = {
   enableContext: true,
   enableHistory: true,
   maxHistoryLength: 10,
-  timeout: 60000, // 60秒超时（LLM生成可能需要较长时间）
+  timeout: 3000, // 3秒快速超时，避免长时间等待（从60秒改为3秒）
   enableMultilingual: true, // 启用LLM多语言生成（LLM直接生成目标语言，而不是生成中文再翻译）
   systemPrompt: `你是一个过炸牌游戏的AI玩家，需要根据游戏情况生成自然、有趣的聊天内容。
 

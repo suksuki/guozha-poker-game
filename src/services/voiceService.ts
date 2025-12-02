@@ -89,14 +89,7 @@ class VoiceService {
     text: string, 
     voiceConfig?: VoiceConfig,
     events?: SpeechPlaybackEvents
-  ): Promise<void> {
-    console.log('[VoiceService] speakImmediate 被调用（报牌）', {
-      text: text.substring(0, 50),
-      hasVoiceConfig: !!voiceConfig,
-      channel: 'ANNOUNCEMENT',
-      priority: 4
-    });
-    
+  ): Promise<void> {    
     // 计算预估时长
     const estimatedDuration = this.calculateDuration(text, voiceConfig);
     if (events) {
@@ -173,26 +166,14 @@ export function waitForVoices(callback: () => void): void {
 // 列出所有可用语音（用于调试）
 export function listAvailableVoices(): void {
   if (!isSpeechSupported()) {
-    console.warn('浏览器不支持语音合成');
     return;
   }
 
   const voices = window.speechSynthesis.getVoices();
-  console.log(`\n=== 可用语音列表 (共${voices.length}个) ===`);
-
   const chineseVoices = voices.filter(voice => {
     const lang = voice.lang.toLowerCase();
     return lang.includes('zh') || lang.includes('cn') || lang.includes('hk') || lang.includes('tw');
-  });
+  });  chineseVoices.forEach((voice, index) => {  });
 
-  console.log(`\n中文语音 (共${chineseVoices.length}个):`);
-  chineseVoices.forEach((voice, index) => {
-    console.log(`  [${index}] ${voice.name} (${voice.lang}) - ${voice.default ? '默认' : ''}`);
-  });
-
-  console.log(`\n所有语音:`);
-  voices.forEach((voice, index) => {
-    console.log(`  [${index}] ${voice.name} (${voice.lang})`);
-  });
-  console.log('=====================================\n');
+  voices.forEach((voice, index) => {  });
 }

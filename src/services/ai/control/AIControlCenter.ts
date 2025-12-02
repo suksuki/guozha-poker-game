@@ -63,52 +63,37 @@ export class AIControlCenter {
    */
   async initialize(config?: Partial<AIControlConfig>): Promise<void> {
     if (this.initialized) {
-      console.warn('[AIControlCenter] 系统已经初始化');
       return;
     }
     
     try {
-      console.log('[AIControlCenter] 开始初始化...');
       
       // 加载配置
       this.config = this.loadConfig(config);
-      console.log('[AIControlCenter] 配置已加载');
       
       // 初始化知识库
-      console.log('[AIControlCenter] 初始化知识库...');
       this.knowledgeBase = new KnowledgeBase();
       await this.knowledgeBase.initialize();
-      console.log('[AIControlCenter] 知识库初始化完成');
       
       // 初始化决策引擎
-      console.log('[AIControlCenter] 初始化决策引擎...');
       this.decisionEngine = new DecisionEngine(this.knowledgeBase, this.eventBus);
-      console.log('[AIControlCenter] 决策引擎初始化完成');
       
       // 初始化各层
-      console.log('[AIControlCenter] 初始化监控层...');
       this.monitorLayer = new MonitorLayer(this.config, this.eventBus);
-      console.log('[AIControlCenter] 监控层初始化完成');
       
       // 分析层需要LLM服务（如果可用）
-      console.log('[AIControlCenter] 初始化分析层...');
       this.analyzeLayer = new AnalyzeLayer(
         this.config,
         this.knowledgeBase,
         this.eventBus,
         this.llmService
       );
-      console.log('[AIControlCenter] 分析层初始化完成');
       
-      console.log('[AIControlCenter] 初始化执行层...');
       this.executeLayer = new ExecuteLayer(this.config, this.decisionEngine, this.eventBus);
-      console.log('[AIControlCenter] 执行层初始化完成');
       
       // 初始化数据收集层
-      console.log('[AIControlCenter] 初始化数据收集层...');
       this.dataCollectionLayer = new DataCollectionLayer();
       await this.dataCollectionLayer.initialize();
-      console.log('[AIControlCenter] 数据收集层初始化完成');
     
     // 初始化LLM层（如果启用）
     if (this.config.evolution.llmEnabled) {
@@ -122,32 +107,22 @@ export class AIControlCenter {
         const available = await this.llmService.checkService();
         if (available) {
           this.llmEvolutionLayer = new LLMEvolutionLayer(this.llmService);
-          console.log('[AIControlCenter] LLM层初始化成功');
         } else {
-          console.warn('[AIControlCenter] LLM服务不可用，LLM功能已禁用');
         }
       } catch (error) {
-        console.warn('[AIControlCenter] LLM层初始化失败:', error);
       }
     }
     
     // 初始化算法演化层（如果启用）
     if (this.config.evolution.algorithmEnabled) {
       this.algorithmEvolutionLayer = new AlgorithmEvolutionLayer();
-      console.log('[AIControlCenter] 算法演化层初始化成功');
     }
     
       // 注册事件监听
-      console.log('[AIControlCenter] 设置事件监听...');
       this.setupEventListeners();
-      console.log('[AIControlCenter] 事件监听设置完成');
       
       this.initialized = true;
-      console.log('[AIControlCenter] ✅ 初始化完成，所有组件已就绪', {
-        config: this.config
-      });
     } catch (error) {
-      console.error('[AIControlCenter] ❌ 初始化失败:', error);
       this.initialized = false;
       throw error;
     }
@@ -159,12 +134,10 @@ export class AIControlCenter {
   startMonitoring(): void {
     if (!this.initialized) {
       const error = new Error('[AIControlCenter] 系统未初始化，请先调用initialize()');
-      console.error(error);
       throw error;
     }
     
     if (this.monitoring) {
-      console.warn('[AIControlCenter] 监控已经启动');
       return;
     }
     
@@ -187,9 +160,7 @@ export class AIControlCenter {
         timestamp: Date.now()
       });
       
-      console.log('[AIControlCenter] 监控已启动');
     } catch (error) {
-      console.error('[AIControlCenter] 启动监控失败:', error);
       this.monitoring = false;
       throw error;
     }
@@ -200,7 +171,6 @@ export class AIControlCenter {
    */
   stopMonitoring(): void {
     if (!this.monitoring) {
-      console.warn('[AIControlCenter] 监控未启动');
       return;
     }
     
@@ -215,9 +185,7 @@ export class AIControlCenter {
         timestamp: Date.now()
       });
       
-      console.log('[AIControlCenter] 监控已停止');
     } catch (error) {
-      console.error('[AIControlCenter] 停止监控失败:', error);
       // 即使出错也更新状态
       this.monitoring = false;
     }
@@ -428,7 +396,6 @@ export class AIControlCenter {
     
     // 分析层事件
     this.eventBus.on('analysis:complete', (results) => {
-      console.log('[AIControlCenter] 分析完成', results.length, '个结果');
       
       // 决策引擎评估
       results.forEach(result => {
@@ -442,7 +409,6 @@ export class AIControlCenter {
     
     // 执行层事件
     this.eventBus.on('execute:complete', (result) => {
-      console.log('[AIControlCenter] 执行完成', result);
       
       // 记录到知识库
       this.knowledgeBase.recordExecution(result);

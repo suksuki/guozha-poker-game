@@ -222,7 +222,6 @@ ${userPrompt}`;
       
       // 验证结构
       if (!parsed.beats || !Array.isArray(parsed.beats)) {
-        console.warn('[BeatsGenerator] 解析失败：缺少 beats 数组');
         return null;
       }
       
@@ -248,8 +247,6 @@ ${userPrompt}`;
         segments: segments,
       };
     } catch (error) {
-      console.error('[BeatsGenerator] JSON 解析失败:', error);
-      console.error('[BeatsGenerator] 原始响应:', response.substring(0, 500));
       
       // 尝试从文本中提取可能的segments（最后的容错）
       return this.tryExtractSegmentsFromText(response);
@@ -271,14 +268,12 @@ ${userPrompt}`;
           text: match[1]
         }));
         
-        console.log('[BeatsGenerator] 使用容错方法提取到segments:', segments.length);
         return {
           beats: [], // 无法提取beats结构
           segments: segments
         };
       }
     } catch (error) {
-      console.error('[BeatsGenerator] 容错提取也失败:', error);
     }
     
     return null;

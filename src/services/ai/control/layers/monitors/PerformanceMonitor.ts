@@ -151,7 +151,6 @@ export class PerformanceMonitor {
         observer.observe({ entryTypes: ['longtask'] });
       } catch (e) {
         // 浏览器不支持longtask
-        console.warn('[PerformanceMonitor] 不支持longtask监控');
       }
     }
   }

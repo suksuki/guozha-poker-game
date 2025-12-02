@@ -21,10 +21,11 @@ export interface GameStartConfig {
   playerCount: number;
   humanPlayerIndex: number;
   aiConfigs: AIConfig[];
-  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered';
+  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered' | 'bomb-friendly' | 'monte-carlo';
   skipDealingAnimation?: boolean;
   dealingSpeed?: number;
   sortOrder?: 'asc' | 'desc' | 'grouped';
+  teamMode?: boolean;  // 团队模式（4人或6人时启用）
 }
 
 export function useGameConfig() {
@@ -37,6 +38,18 @@ export function useGameConfig() {
   const [skipDealingAnimation, setSkipDealingAnimation] = useState(false);
   const [dealingSpeed, setDealingSpeed] = useState(150); // 发牌速度（毫秒/张）
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'grouped'>('grouped'); // 排序规则
+  
+  // 团队模式（从 localStorage 读取，默认关闭）
+  const [teamMode, setTeamMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('teamMode');
+    return saved !== null ? saved === 'true' : false; // 默认关闭
+  });
+
+  // 更新团队模式并保存到 localStorage
+  const updateTeamMode = useCallback((enabled: boolean) => {
+    setTeamMode(enabled);
+    localStorage.setItem('teamMode', enabled.toString());
+  }, []);
   
   // LLM聊天配置
   const [llmModel, setLlmModel] = useState<string>('qwen2:0.5b'); // 当前选择的LLM模型
@@ -119,7 +132,6 @@ export function useGameConfig() {
       model: llmModel,
       apiUrl: llmApiUrl
     });
-    console.log('[useGameConfig] 更新聊天LLM配置:', { model: llmModel, apiUrl: llmApiUrl });
 
     // 为每个AI玩家创建配置（使用本地算法，不需要API Key）
     const aiConfigs = Array.from({ length: playerCount }, () => ({
@@ -128,6 +140,9 @@ export function useGameConfig() {
       algorithm: algorithm || 'mcts' // 使用MCTS或智能策略
     }));
 
+    // 如果启用团队模式，检查玩家数量是否为4或6
+    const shouldEnableTeamMode = teamMode && (playerCount === 4 || playerCount === 6);
+    
     startGame({
       playerCount,
       humanPlayerIndex,
@@ -135,31 +150,27 @@ export function useGameConfig() {
       dealingAlgorithm,
       skipDealingAnimation,
       dealingSpeed,
-      sortOrder
+      sortOrder,
+      teamMode: shouldEnableTeamMode
     });
-  }, [playerCount, humanPlayerIndex, strategy, algorithm, dealingAlgorithm, skipDealingAnimation, dealingSpeed, sortOrder, llmModel, llmApiUrl]);
+  }, [playerCount, humanPlayerIndex, strategy, algorithm, dealingAlgorithm, skipDealingAnimation, dealingSpeed, sortOrder, llmModel, llmApiUrl, teamMode]);
 
   const [isTraining, setIsTraining] = useState(false);
 
   const handleStartTraining = useCallback(() => {
     // 切换到训练运行状态
-    console.log('useGameConfig: handleStartTraining被调用，设置isTraining为true');
     setIsTraining(true);
   }, []);
 
   const handleTrainingComplete = useCallback(() => {
-    console.log('handleTrainingComplete被调用，设置isTraining为false');
     setIsTraining((prev) => {
-      console.log('handleTrainingComplete: setIsTraining: prev =', prev, '设置为 false');
       return false;
     });
   }, []);
 
   const handleTrainingBack = useCallback(() => {
-    console.log('handleTrainingBack被调用，设置isTraining为false');
     // 使用函数式更新确保状态正确更新
     setIsTraining((prev) => {
-      console.log('setIsTraining: prev =', prev, '设置为 false');
       return false;
     });
   }, []);
@@ -197,6 +208,8 @@ export function useGameConfig() {
     setPlayTimeout: updatePlayTimeout,
     announcementDelay,
     setAnnouncementDelay: updateAnnouncementDelay,
+    teamMode,
+    setTeamMode: updateTeamMode,
     trainingConfig,
     setTrainingConfig,
     handleStartGame,

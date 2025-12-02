@@ -18,6 +18,9 @@ import { voiceService } from '../services/voiceService';
 import { clearChatMessages } from '../services/chatService';
 import { dealCards } from './cardUtils';
 import { cardTracker } from '../services/cardTrackerService';
+import { cumulativeScoreService } from '../services/cumulativeScoreService';
+import { TeamConfig, TeamRanking } from '../types/team';
+import { createTeamConfig, getPlayerTeamId } from './teamManager';
 
 /**
  * 游戏设置配置（用于初始化游戏）
@@ -31,11 +34,13 @@ export interface GameSetupConfig {
     algorithm?: 'simple' | 'mcts';
     mctsIterations?: number;
   }[];
-  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered';
+  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered' | 'bomb-friendly' | 'monte-carlo';
   skipDealingAnimation?: boolean;
   dealingSpeed?: number;
   sortOrder?: 'asc' | 'desc' | 'grouped';
   cardTrackerEnabled?: boolean;
+  // 团队模式配置（合作模式）
+  teamMode?: boolean;  // 是否启用团队模式（2v2或3v3）
 }
 
 /**
@@ -71,6 +76,7 @@ export class Game {
   // ========== 排名相关（由 controller 管理） ==========
   finishOrder: number[];
   finalRankings?: PlayerRanking[];
+  teamRankings?: TeamRanking[];  // 团队排名（团队模式下使用）
 
   // ========== 轮次相关 ==========
   rounds: Round[];
@@ -79,6 +85,13 @@ export class Game {
   // ========== 游戏记录 ==========
   gameRecord?: GameRecord;
   initialHands?: Card[][];
+  
+  // ========== 累积积分相关 ==========
+  private gameStartTime: number = 0;
+  private gameId: string = '';
+
+  // ========== 团队模式相关 ==========
+  teamConfig?: TeamConfig | null;  // 团队配置（团队模式下使用）
 
   // ========== 游戏控制器（内部） ==========
   controller: GameController;
@@ -197,6 +210,13 @@ export class Game {
   }
 
   /**
+   * 更新团队排名（由 controller 调用，团队模式下使用）
+   */
+  updateTeamRankings(rankings: TeamRanking[]): void {
+    this.teamRankings = rankings;
+  }
+
+  /**
    * 更新轮次
    */
   updateRound(roundIndex: number, round: Round): void {
@@ -289,6 +309,10 @@ export class Game {
     this.finalRankings = undefined;
     this.rounds = [];
     this.currentRoundIndex = -1;
+    
+    // 初始化累积积分相关
+    this.gameStartTime = 0;
+    this.gameId = '';
 
     // 初始化 controller（此时 players 已经设置好了）
     // controller 会通过 game.updatePlayer 更新玩家的 score、wonRounds、finishedRank
@@ -373,26 +397,60 @@ export class Game {
    * 这个方法处理所有游戏初始化逻辑，包括创建玩家、创建第一轮等
    */
   startNewGame(hands: Card[][]): number {
+    // 检查是否启用团队模式
+    const isTeamMode = this.config.teamMode === true && 
+                       (this.config.playerCount === 4 || this.config.playerCount === 6);
+    
+    // 创建团队配置（如果启用团队模式）
+    if (isTeamMode) {
+      this.teamConfig = createTeamConfig(
+        this.config.playerCount as 4 | 6,
+        this.config.humanPlayerIndex
+      );
+    } else {
+      this.teamConfig = null;
+    }
+    
     // 创建玩家数组
-    const players: Player[] = hands.map((hand, index) => ({
-      id: index,
-      name: index === this.config.humanPlayerIndex ? '你' : `玩家${index + 1}`,
-      type: index === this.config.humanPlayerIndex ? PlayerType.HUMAN : PlayerType.AI,
-      hand: hand,
-      score: -100,
-      dunCount: 0, // 初始化墩数为0
-      isHuman: index === this.config.humanPlayerIndex,
-      aiConfig: index === this.config.humanPlayerIndex ? undefined : {
-        apiKey: '',
-        strategy: this.config.aiConfigs[index]?.strategy || 'balanced',
-        algorithm: this.config.aiConfigs[index]?.algorithm || 'mcts',
-        mctsIterations: this.config.aiConfigs[index]?.mctsIterations || 100
-      },
-      voiceConfig: generateRandomVoiceConfig(index)
-    }));
+    const players: Player[] = hands.map((hand, index) => {
+      const teamId = isTeamMode && this.teamConfig 
+        ? getPlayerTeamId(index, this.teamConfig)
+        : null;
+      
+      return {
+        id: index,
+        name: index === this.config.humanPlayerIndex ? '你' : `玩家${index + 1}`,
+        type: index === this.config.humanPlayerIndex ? PlayerType.HUMAN : PlayerType.AI,
+        hand: hand,
+        score: -100,
+        dunCount: 0, // 初始化墩数为0
+        isHuman: index === this.config.humanPlayerIndex,
+        teamId: teamId, // 设置团队ID
+        aiConfig: index === this.config.humanPlayerIndex ? undefined : {
+          apiKey: '',
+          strategy: this.config.aiConfigs[index]?.strategy || 'balanced',
+          algorithm: this.config.aiConfigs[index]?.algorithm || 'mcts',
+          mctsIterations: this.config.aiConfigs[index]?.mctsIterations || 100
+        },
+        voiceConfig: generateRandomVoiceConfig(index)
+      };
+    });
 
-    // 随机选择第一个玩家
-    const firstPlayer = Math.floor(Math.random() * this.config.playerCount);
+    // 选择第一个玩家：如果有上一局，让上一局头游先出牌；否则随机选择
+    let firstPlayer: number;
+    const lastGameWinner = cumulativeScoreService.getLastGameWinner();
+    if (lastGameWinner !== null && lastGameWinner < this.config.playerCount) {
+      // 上一局头游先出牌
+      firstPlayer = lastGameWinner;
+    } else {
+      // 第一局或找不到上一局头游，随机选择
+      firstPlayer = Math.floor(Math.random() * this.config.playerCount);
+    }
+    
+    // 开始新一局游戏（累积积分系统）
+    const gameNumber = cumulativeScoreService.startNewGame(this.gameId || `game-${Date.now()}`);
+    this.gameId = `game-${Date.now()}-${gameNumber}`;
+    this.gameStartTime = Date.now();
 
     // 获取游戏配置并创建第一轮
     const latestGameConfig = getGameConfig();
@@ -444,7 +502,6 @@ export class Game {
         cardTracker.initialize(hands, Date.now());
         cardTracker.startRound(1, this.players);
       } catch (error) {
-        console.error('[Game] 追踪模块初始化失败:', error);
       }
     }
   }
@@ -469,6 +526,11 @@ export class Game {
     this.currentRoundIndex = -1;
     this.gameRecord = undefined;
     this.initialHands = undefined;
+    
+    // 重置累积积分相关（但不清空累积积分服务，因为那是跨游戏的）
+    this.gameStartTime = 0;
+    this.gameId = '';
+    
     this.controller.reset();
     
     // 触发更新回调
@@ -661,7 +723,8 @@ export class Game {
       return;
     }
     
-    // AI玩家或托管模式：只有在playerIndex改变时才触发更新（避免重复更新）
+    // AI玩家或托管模式：在playerIndex改变时触发更新
+    // 注意：自动出牌逻辑本身不依赖UI更新，所以这里只在实际需要时更新
     if (wasPlayerIndexChanged) {
       this.triggerUpdate();
     }
@@ -702,9 +765,13 @@ export class Game {
             
     if (hasPlayable) {
       // 有能打过的牌，使用AI出牌
-      const aiConfig: AIConfig = { strategy: 'balanced' as const, algorithm: 'mcts' as const };
+      const aiConfig: AIConfig = { 
+        strategy: 'balanced' as const, 
+        algorithm: 'mcts' as const,
+        teamMode: this.config.teamMode || false
+      };
       try {
-        const selectedCards = await aiChoosePlay(currentPlayer.hand, lastPlay, aiConfig);
+        const selectedCards = await aiChoosePlay(currentPlayer.hand, lastPlay, aiConfig, playerIndex);
         if (selectedCards && selectedCards.length > 0) {
           const playResult = await this.playCards(playerIndex, selectedCards);
           if (!playResult) {
@@ -801,7 +868,6 @@ export class Game {
                 // 不在这里调用triggerUpdate()，由playNextTurn统一触发React更新
               }
             ).catch((error) => {
-              console.error('[Game.playCards] onPlayCompleted 失败:', error);
             });
           }
         }
@@ -884,19 +950,10 @@ export class Game {
               const endResult = updatedRound.end(this.players, this.playerCount, winnerIndex);
               
               // 调试日志：检查轮次分数
-              console.log(`[Game] 游戏结束-轮次${updatedRound.roundNumber}结束:`, {
-                roundNumber: updatedRound.roundNumber,
-                roundScore: endResult.roundScore,
-                winnerIndex: endResult.winnerIndex,
-                winnerName: endResult.winnerIndex !== null ? this.players[endResult.winnerIndex]?.name : null,
-                totalPlays: updatedRound.getPlays().length,
-                plays: updatedRound.getPlays().map(p => ({ player: p.playerName, score: p.score, cards: p.cards.length }))
-              });
               
               // 分配轮次分数（重要：必须调用 controller 分配分数）
               // 注意：即使 roundScore 为 0，也要分配（这一轮没有分牌，但赢家仍然"捡分"）
               if (endResult.winnerIndex !== null) {
-                console.log(`[Game] 游戏结束-准备分配轮次分数: 轮次${updatedRound.roundNumber}, 分数=${endResult.roundScore}, 赢家=${endResult.winnerIndex}`);
                 this.controller.allocateRoundScore(
                   updatedRound.roundNumber,
                   endResult.roundScore,
@@ -905,7 +962,6 @@ export class Game {
                   updatedRound.toRecord()
                 );
               } else {
-                console.warn(`[Game] 游戏结束-轮次${updatedRound.roundNumber}结束，但winnerIndex为null，无法分配分数`);
               }
               
               // 注意：不要更新 endResult.updatedPlayers，因为：
@@ -924,6 +980,20 @@ export class Game {
             this.updateStatus(GameStatus.FINISHED);
             this.calculateFinalRankings();
             this.setWinner(this.finishOrder[0]); // 第一个出完的是获胜者
+            
+            // 记录本局分数到累积积分系统
+            if (this.finalRankings && this.finishOrder.length > 0) {
+              const gameEndTime = Date.now();
+              cumulativeScoreService.recordGameScore(
+                this.gameId,
+                this.gameStartTime,
+                gameEndTime,
+                this.players,
+                this.finalRankings,
+                this.finishOrder,
+                this.finishOrder[0] // 头游是获胜者
+              );
+            }
             
             // 触发更新
             this.triggerUpdate();
@@ -969,7 +1039,6 @@ export class Game {
         await announcePass(player.voiceConfig);
       } catch (error) {
         // 语音播放失败不应该阻止游戏继续
-        console.error('[Game] "要不起"语音播放失败:', error);
       }
     }
 
@@ -1023,19 +1092,10 @@ export class Game {
             const endResult = endedRound.end(players, this.playerCount, winnerIndex);
             
             // 调试日志：检查轮次分数
-            console.log(`[Game] 轮次${endedRound.roundNumber}结束:`, {
-              roundNumber: endedRound.roundNumber,
-              roundScore: endResult.roundScore,
-              winnerIndex: endResult.winnerIndex,
-              winnerName: endResult.winnerIndex !== null ? this.players[endResult.winnerIndex]?.name : null,
-              totalPlays: endedRound.getPlays().length,
-              plays: endedRound.getPlays().map(p => ({ player: p.playerName, score: p.score, cards: p.cards.length }))
-            });
             
             // 分配轮次分数（重要：必须调用 controller 分配分数）
             // 注意：即使 roundScore 为 0，也要分配（这一轮没有分牌，但赢家仍然"捡分"）
             if (endResult.winnerIndex !== null) {
-              console.log(`[Game] 准备分配轮次分数: 轮次${endedRound.roundNumber}, 分数=${endResult.roundScore}, 赢家=${endResult.winnerIndex}`);
               this.controller.allocateRoundScore(
                 endedRound.roundNumber,
                 endResult.roundScore,
@@ -1044,7 +1104,6 @@ export class Game {
                 endedRound.toRecord()
               );
             } else {
-              console.warn(`[Game] 轮次${endedRound.roundNumber}结束，但winnerIndex为null，无法分配分数`);
             }
             
             // 注意：不要更新 endResult.updatedPlayers，因为：
@@ -1075,14 +1134,7 @@ export class Game {
                   endResult.roundScore,
                   this.players
                 );
-                console.log(`[Game] 记牌器：第${endedRound.roundNumber}轮已结束`, {
-                  roundNumber: endedRound.roundNumber,
-                  winnerId: winner?.id ?? endResult.winnerIndex,
-                  winnerName: winner?.name ?? roundRecord.winnerName,
-                  totalScore: endResult.roundScore
-                });
               } catch (error) {
-                console.error(`[Game] 记牌器结束轮次失败:`, error);
               }
             }
           }
@@ -1108,9 +1160,7 @@ export class Game {
             if (cardTrackerEnabled) {
               try {
                 cardTracker.startRound(newRoundNumber, this.players);
-                console.log(`[Game] 记牌器：第${newRoundNumber}轮已开始`);
               } catch (error) {
-                console.error(`[Game] 记牌器开始新轮次失败:`, error);
               }
             }
             

@@ -85,11 +85,9 @@ export class SystemApplication {
    */
   registerModule(module: SystemModule): void {
     if (this.modules.has(module.name)) {
-      console.warn(`[SystemApplication] 模块 ${module.name} 已注册，将被覆盖`);
     }
     
     this.modules.set(module.name, module);
-    console.log(`[SystemApplication] 模块 ${module.name} 已注册`);
   }
   
   /**
@@ -112,9 +110,7 @@ export class SystemApplication {
    */
   async initialize(config?: Partial<SystemConfig>): Promise<void> {
     if (this.initialized) {
-      console.warn('[SystemApplication] 系统已经初始化，跳过');
       const currentStatus = this.getStatus();
-      console.warn('[SystemApplication] 当前模块状态:', currentStatus);
       
       // 检查是否有未初始化的模块
       const uninitialized = Object.entries(currentStatus.modules)
@@ -122,7 +118,6 @@ export class SystemApplication {
         .map(([name]) => name);
       
       if (uninitialized.length > 0) {
-        console.warn('[SystemApplication] ⚠️ 发现未初始化的模块，尝试重新初始化:', uninitialized);
         // 重置初始化状态，允许重新初始化
         this.initialized = false;
         // 继续执行初始化流程
@@ -131,23 +126,16 @@ export class SystemApplication {
       }
     }
     
-    console.log('[SystemApplication] 开始初始化系统应用...');
-    console.log('[SystemApplication] 已注册模块数:', this.modules.size);
-    console.log('[SystemApplication] 已注册模块:', Array.from(this.modules.keys()));
-    
     // 加载配置
     this.config = loadSystemConfig(config);
     this.context = new SystemContextImpl(this.modules, this.config);
-    console.log('[SystemApplication] 配置已加载');
     
     // 初始化模块（按依赖顺序）
     const initOrder = this.resolveInitOrder();
     this.errors = [];
     
-    console.log('[SystemApplication] 初始化顺序:', initOrder);
     
     if (initOrder.length === 0) {
-      console.warn('[SystemApplication] ⚠️ 没有模块需要初始化！');
       this.initialized = true;
       return;
     }
@@ -155,32 +143,23 @@ export class SystemApplication {
     for (const moduleName of initOrder) {
       const module = this.modules.get(moduleName);
       if (!module) {
-        console.warn(`[SystemApplication] 模块 ${moduleName} 未找到，跳过`);
         continue;
       }
       
       try {
-        console.log(`[SystemApplication] 开始初始化模块: ${module.name}`);
         const moduleConfig = this.getModuleConfig(module.name);
-        console.log(`[SystemApplication] 模块 ${module.name} 配置:`, moduleConfig);
         
         const startTime = Date.now();
         await module.initialize(moduleConfig, this.context);
         const duration = Date.now() - startTime;
-        
-        console.log(`[SystemApplication] ✅ 模块 ${module.name} 初始化成功 (耗时: ${duration}ms)`);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         this.errors.push({ module: module.name, error: err });
         
-        console.error(`[SystemApplication] ❌ 模块 ${module.name} 初始化失败:`, err);
-        console.error('错误堆栈:', err.stack);
         
         if (this.isCriticalModule(module.name)) {
-          console.error(`[SystemApplication] 关键模块 ${module.name} 初始化失败，中断初始化`);
           throw err;
         } else {
-          console.warn(`[SystemApplication] 模块 ${module.name} 初始化失败，继续初始化其他模块`);
         }
       }
     }
@@ -193,18 +172,7 @@ export class SystemApplication {
       .filter(([_, status]) => !status.initialized)
       .map(([name]) => name);
     
-    console.log('[SystemApplication] 系统应用初始化完成', {
-      modulesCount: this.modules.size,
-      initializedModules: Object.entries(finalStatus.modules)
-        .filter(([_, status]) => status.initialized)
-        .map(([name]) => name),
-      uninitializedModules,
-      errorsCount: this.errors.length,
-      errors: this.errors.map(e => ({ module: e.module, message: e.error.message }))
-    });
-    
     if (uninitializedModules.length > 0) {
-      console.warn('[SystemApplication] ⚠️ 以下模块未初始化:', uninitializedModules);
     }
   }
   
@@ -217,7 +185,6 @@ export class SystemApplication {
     }
     
     if (this.started) {
-      console.warn('[SystemApplication] 系统已经启动，跳过');
       return;
     }
     
@@ -230,13 +197,11 @@ export class SystemApplication {
             await (module as any).start();
           }
         } catch (error) {
-          console.warn(`[SystemApplication] 模块 ${module.name} 启动失败`, error);
         }
       }
     }
     
     this.started = true;
-    console.log('[SystemApplication] 系统应用启动完成');
   }
   
   /**
@@ -256,14 +221,12 @@ export class SystemApplication {
         try {
           await module.shutdown();
         } catch (error) {
-          console.warn(`[SystemApplication] 模块 ${module.name} 关闭失败`, error);
         }
       }
     }
     
     this.started = false;
     this.initialized = false;
-    console.log('[SystemApplication] 系统应用已关闭');
   }
   
   /**
@@ -280,14 +243,12 @@ export class SystemApplication {
         const moduleConfig = this.getModuleConfig(module.name);
         module.configure(moduleConfig);
       } catch (error) {
-        console.warn(`[SystemApplication] 模块 ${module.name} 配置更新失败`, error);
       }
     }
     
     // 保存配置到 localStorage
     saveSystemConfigToLocalStorage(this.config);
     
-    console.log('[SystemApplication] 配置已更新');
   }
   
   /**

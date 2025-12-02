@@ -167,7 +167,6 @@ export async function processPlayAsync(
       
       // 4秒超时保护，确保回调一定会被触发
       const timeoutId = setTimeout(() => {
-        console.warn('[processPlayAsync] 报牌超时（4秒），强制触发回调');
         completeAnnouncement();
       }, 4000);
       
@@ -183,19 +182,16 @@ export async function processPlayAsync(
           },
           onError: (error) => {
             // 报牌失败也触发回调，不阻止游戏继续
-            console.error('[processPlayAsync] 报牌失败:', error);
             clearTimeout(timeoutId);
             completeAnnouncement();
           }
         }).catch((error) => {
           // Promise rejection 也触发回调
-          console.error('[processPlayAsync] 报牌Promise失败:', error);
           clearTimeout(timeoutId);
           completeAnnouncement();
         });
       } catch (error) {
         // 调用失败也触发回调
-        console.error('[processPlayAsync] 报牌调用失败:', error);
         clearTimeout(timeoutId);
         completeAnnouncement();
       }

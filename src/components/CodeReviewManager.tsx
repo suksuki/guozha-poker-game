@@ -40,7 +40,6 @@ export const CodeReviewManager: React.FC = () => {
       const reviewResult = await service.scanCodebase('src');
       setResult(reviewResult);
     } catch (error) {
-      console.error('[CodeReviewManager] 扫描失败:', error);
       alert('代码扫描失败，请检查控制台');
     } finally {
       setIsLoading(false);
@@ -98,7 +97,6 @@ export const CodeReviewManager: React.FC = () => {
           }
         }
       } catch (error) {
-        console.error('[CodeReviewManager] 应用修复失败:', error);
         alert(`❌ 应用修复失败: ${error instanceof Error ? error.message : String(error)}`);
       }
     } else {

@@ -45,7 +45,6 @@ export function useIdeaGeneration(options: UseIdeaGenerationOptions = {}) {
         return idea;
       }
     } catch (error) {
-      console.error('[useIdeaGeneration] 生成想法失败:', error);
     } finally {
       setIsGenerating(false);
     }

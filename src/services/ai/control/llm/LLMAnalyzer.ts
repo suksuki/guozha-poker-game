@@ -62,7 +62,6 @@ export class LLMAnalyzer {
       const response = await this.llmService.call(request);
       return this.parseProblemAnalysis(response.content);
     } catch (error) {
-      console.error('[LLMAnalyzer] 分析问题失败:', error);
       // 返回默认分析
       return {
         problem: problem.description,
@@ -91,7 +90,6 @@ export class LLMAnalyzer {
       const response = await this.llmService.call(request);
       return this.parseCodeAnalysis(response.content, code);
     } catch (error) {
-      console.error('[LLMAnalyzer] 分析代码失败:', error);
       return {
         code,
         issues: [],
@@ -120,7 +118,6 @@ export class LLMAnalyzer {
       const response = await this.llmService.call(request);
       return this.parseOptimizationSuggestion(response.content, analysis);
     } catch (error) {
-      console.error('[LLMAnalyzer] 生成优化方案失败:', error);
       return {
         type: analysis.type,
         description: analysis.description,
@@ -151,7 +148,6 @@ export class LLMAnalyzer {
       const response = await this.llmService.call(request);
       return this.extractCode(response.content);
     } catch (error) {
-      console.error('[LLMAnalyzer] 生成代码失败:', error);
       return '';
     }
   }
@@ -287,7 +283,6 @@ ${context ? `上下文：${JSON.stringify(context, null, 2)}` : ''}
         };
       }
     } catch (e) {
-      console.warn('[LLMAnalyzer] 解析问题分析失败:', e);
     }
     
     // 降级处理
@@ -315,7 +310,6 @@ ${context ? `上下文：${JSON.stringify(context, null, 2)}` : ''}
         };
       }
     } catch (e) {
-      console.warn('[LLMAnalyzer] 解析代码分析失败:', e);
     }
     
     return {
@@ -346,7 +340,6 @@ ${context ? `上下文：${JSON.stringify(context, null, 2)}` : ''}
         };
       }
     } catch (e) {
-      console.warn('[LLMAnalyzer] 解析优化建议失败:', e);
     }
     
     return {

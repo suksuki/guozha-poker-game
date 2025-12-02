@@ -84,7 +84,6 @@ export class TranslationManager {
 
     // 开发模式下检查翻译是否存在
     if (this.config.devMode && translation === fullKey) {
-      console.warn(`[i18n] Missing translation: ${fullKey}`);
     }
 
     return translation;

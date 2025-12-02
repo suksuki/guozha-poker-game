@@ -8,7 +8,29 @@ import { hasPlayableCards } from './cardUtils';
 import { Round } from './Round';
 import { Game } from './Game';
 
+// ========== 类型定义 ==========
+
+/**
+ * 多人游戏状态接口
+ */
+export interface MultiPlayerGameState {
+  rounds: Round[];
+  players: Player[];
+  currentRoundIndex: number;
+}
+
 // ========== 辅助方法：从 Game 实例获取数据 ==========
+
+/**
+ * 从Game实例获取游戏状态
+ */
+export function getGameState(game: Game): MultiPlayerGameState {
+  return {
+    rounds: game.rounds,
+    players: game.players,
+    currentRoundIndex: game.currentRoundIndex
+  };
+}
 
 /**
  * 获取当前轮次对象

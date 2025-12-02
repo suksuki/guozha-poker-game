@@ -6,21 +6,22 @@ import './index.css'
 import './i18n' // 导入i18n配置（会自动查找index.ts）
 import { GameConfigProvider } from './contexts/GameConfigContext'
 import { isSpeechSupported, listAvailableVoices } from './services/voiceService'
-import { checkChatStrategy } from './services/chatService'
+import { checkChatStrategy, chatService } from './services/chatService'
 import './utils/testLLMChat' // 导入测试函数
 
-// 检查聊天策略
-const strategyInfo = checkChatStrategy();
-console.log('🔍 当前聊天策略检查:', strategyInfo);
-if (strategyInfo.isLLM) {
-  console.log('✅ 正在使用大模型（LLM）聊天策略');
-} else {
-  console.warn('⚠️ 正在使用规则（rule-based）聊天策略，不是大模型');
-}
+// 🚀 自动检测LLM可用性并初始化聊天服务
+
+// 异步初始化聊天服务（自动检测LLM）
+chatService.initializeWithAutoDetection().then(() => {
+  const strategyInfo = checkChatStrategy();
+  if (strategyInfo.isLLM) {
+  } else {
+  }
+}).catch(error => {
+});
 
 // 检查语音支持并输出调试信息
 if (isSpeechSupported()) {
-  console.log('✅ 语音合成API支持');
   // 等待语音加载完成后列出可用语音
   window.speechSynthesis.onvoiceschanged = () => {
     listAvailableVoices();
@@ -30,7 +31,6 @@ if (isSpeechSupported()) {
     listAvailableVoices();
   }, 500);
 } else {
-  console.warn('❌ 浏览器不支持语音合成API');
 }
 
 // 在用户第一次交互时激活语音（浏览器安全限制）
@@ -43,7 +43,6 @@ const activateVoice = () => {
     window.speechSynthesis.speak(utterance);
     window.speechSynthesis.cancel(); // 立即取消
     voiceActivated = true;
-    console.log('✅ 语音服务已激活');
   }
 };
 

@@ -40,7 +40,7 @@ if check_port 5000; then
 else
     echo "📢 正在启动 Piper TTS 服务（端口 5000）..."
     source venv-piper/bin/activate
-    nohup python scripts/piper-tts-server.py > /tmp/piper-tts.log 2>&1 &
+    nohup python3 scripts/piper-tts-server.py > /tmp/piper-tts.log 2>&1 &
     PIPER_PID=$!
     echo "✅ Piper TTS 服务已启动（PID: $PIPER_PID）"
     echo "📄 日志文件: /tmp/piper-tts.log"

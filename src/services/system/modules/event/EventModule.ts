@@ -22,11 +22,6 @@ export class EventModule implements SystemModule {
     this.context = context;
     this.enabled = config.enabled;
     this.initialized = true;
-    
-    console.log('[EventModule] 事件模块初始化完成', {
-      enabled: this.enabled,
-      maxQueueSize: config.maxQueueSize
-    });
   }
   
   configure(config: Partial<EventConfig>): void {
@@ -58,7 +53,6 @@ export class EventModule implements SystemModule {
    */
   subscribe(eventType: GameEventType, callback: GameEventCallback): () => void {
     if (!this.isEnabled()) {
-      console.warn('[EventModule] 事件模块未启用，订阅将被忽略');
       return () => {}; // 返回空函数
     }
     return gameEventService.subscribe(eventType, callback);
@@ -69,7 +63,6 @@ export class EventModule implements SystemModule {
    */
   emit(event: GameEvent): void {
     if (!this.isEnabled()) {
-      console.warn('[EventModule] 事件模块未启用，事件将被忽略');
       return;
     }
     gameEventService.emit(event);

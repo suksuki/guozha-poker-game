@@ -59,14 +59,7 @@ class SystemAnnouncementService {
     const onStart = callbacks?.onStart;
     const onEnd = callbacks?.onEnd;
     const onError = callbacks?.onError;
-    const text = playToSpeechText(play);
-    console.log('[SystemAnnouncement] announcePlay 被调用', {
-      playType: play.type,
-      text,
-      hasVoiceConfig: !!voiceConfig,
-      cardsCount: play.cards?.length || 0
-    });
-    const now = Date.now();
+    const text = playToSpeechText(play);    const now = Date.now();
     
     // 去重检查1：如果最近刚播放过相同文本，跳过（防止 React StrictMode 导致的重复调用）
     if (text === this.lastAnnounceText && (now - this.lastAnnounceTime) < this.deduplicationWindow) {
@@ -101,14 +94,12 @@ class SystemAnnouncementService {
         finalVoiceConfig,
         {
           onStart: () => {
-            console.log('[SystemAnnouncement] 报牌语音开始播放:', text);
             // 调用外部传入的 onStart 回调（用于同步动画）
             if (onStart) {
               onStart();
             }
           },
           onEnd: () => {
-            console.log('[SystemAnnouncement] 报牌语音播放完成:', text);
             this.isAnnouncing = false;
             // 调用外部传入的 onEnd 回调
             if (onEnd) {
@@ -116,7 +107,6 @@ class SystemAnnouncementService {
             }
           },
           onError: (error) => {
-            console.error('[SystemAnnouncement] 报牌语音播放失败:', error);
             this.isAnnouncing = false;
             // 即使失败，也调用 onStart（让动画继续）
             if (onStart) {
@@ -130,7 +120,6 @@ class SystemAnnouncementService {
         }
       );
     } catch (error) {
-      console.error('[SystemAnnouncement] 报牌失败:', error);
       this.isAnnouncing = false;
       // 即使失败，也调用 onStart（让动画继续）
       if (onStart) {
@@ -157,7 +146,6 @@ class SystemAnnouncementService {
     
     // 去重检查：如果最近刚播放过，跳过（防止重复调用）
     if (passText === this.lastAnnounceText && (now - this.lastAnnounceTime) < this.deduplicationWindow) {
-      console.log('[SystemAnnouncement] 去重：最近刚播放过"要不起"，跳过');
       // 即使去重，也调用 onStart（因为动画可能已经开始了）
       if (onStart) {
         onStart();
@@ -173,20 +161,16 @@ class SystemAnnouncementService {
       // 立即播放，不等待完成
       // 如果没有传入 voiceConfig，使用默认的男声配置
       const finalVoiceConfig = voiceConfig || this.defaultAnnouncementVoiceConfig;
-      console.log('[SystemAnnouncement] 播放"要不起":', passText, 'voiceConfig:', finalVoiceConfig);
       await voiceService.speakImmediate(passText, finalVoiceConfig, {
         onStart: () => {
-          console.log('[SystemAnnouncement] "要不起"语音开始播放:', passText);
           // 调用外部传入的 onStart 回调（用于同步动画）
           if (onStart) {
             onStart();
           }
         },
         onEnd: () => {
-          console.log('[SystemAnnouncement] "要不起"语音播放完成:', passText);
         },
         onError: (error) => {
-          console.error('[SystemAnnouncement] "要不起"语音播放失败:', error);
           // 即使失败，也调用 onStart（让动画继续）
           if (onStart) {
             onStart();
@@ -194,7 +178,6 @@ class SystemAnnouncementService {
         }
       });
     } catch (error) {
-      console.error('[SystemAnnouncement] "要不起"播放失败:', error);
       // 即使失败，也调用 onStart（让动画继续）
       if (onStart) {
         onStart();

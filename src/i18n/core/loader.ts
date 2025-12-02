@@ -109,14 +109,12 @@ export class ResourceLoader {
         loadedAt: Date.now(),
       };
     } catch (error) {
-      console.error(`[ResourceLoader] Failed to load ${namespace} for ${language}:`, error);
       
       // 回退到默认语言
       if (language !== 'zh-CN') {
         try {
           return await this.loadResource(namespace, 'zh-CN');
         } catch (fallbackError) {
-          console.error(`[ResourceLoader] Fallback failed:`, fallbackError);
         }
       }
       

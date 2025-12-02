@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Piper TTS HTTP 服务
 用于为游戏提供轻量级本地TTS服务

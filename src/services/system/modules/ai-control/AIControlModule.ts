@@ -18,28 +18,21 @@ export class AIControlModule implements SystemModule {
   
   async initialize(config: any, context: SystemContext): Promise<void> {
     try {
-      console.log('[AIControlModule] 开始初始化...');
       
       // 获取AI中控系统实例
       this.aiControl = AIControlCenter.getInstance();
-      console.log('[AIControlModule] AI中控系统实例已获取');
       
       // 从配置中获取AI中控配置
       const aiConfig: Partial<AIControlConfig> = config.aiControl || {};
-      console.log('[AIControlModule] 配置:', aiConfig);
       
       // 初始化
-      console.log('[AIControlModule] 开始初始化AI中控系统...');
       await this.aiControl.initialize(aiConfig);
-      console.log('[AIControlModule] AI中控系统初始化完成');
       
       // 注册到上下文（供其他模块使用）
       (context as any).registerService?.('aiControl', this.aiControl);
       
       this.initialized = true;
-      console.log('[AIControlModule] ✅ 初始化完成，状态:', this.getStatus());
     } catch (error) {
-      console.error('[AIControlModule] ❌ 初始化失败:', error);
       this.initialized = false;
       throw error;
     }

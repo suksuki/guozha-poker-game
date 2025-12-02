@@ -7,6 +7,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { i18n } from '../../i18n';
 import { Player } from '../../types/card';
+import { TeamConfig } from '../../types/team';
+import { getTeam } from '../../utils/teamManager';
 
 export interface AIPlayerAvatarProps {
   player: Player | Omit<Player, 'hand'>;
@@ -16,6 +18,7 @@ export interface AIPlayerAvatarProps {
   isLastPlay?: boolean; // 是否是最后出牌的玩家（打牌时使用）
   showPosition?: boolean; // 是否显示位置信息（发牌时true，打牌时false）
   playerCount?: number; // 玩家总数（用于判断最后一名）
+  teamConfig?: TeamConfig | null; // 团队配置（团队模式下使用）
 }
 
 export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarProps>(({
@@ -25,13 +28,19 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
   isCurrent = false,
   isLastPlay = false,
   showPosition = false,
-  playerCount
+  playerCount,
+  teamConfig
 }, ref) => {
   const { t } = useTranslation(['ui']);
   const actualHandCount = handCount !== undefined ? handCount : (player.hand?.length || 0);
   const playerScore = player.score || 0;
   const playerRank = player.finishedRank ?? null;
   const dunCount = player.dunCount || 0; // 玩家出的墩数（7张及以上）
+  
+  // 团队模式：获取玩家所属团队
+  const playerTeam = teamConfig && player.teamId !== null && player.teamId !== undefined
+    ? getTeam(player.teamId, teamConfig)
+    : null;
   
   // 根据玩家ID选择emoji
   const emojis = ['🤖', '👾', '🤖', '👽', '🤖', '👻', '🤖', '🦾'];
@@ -99,13 +108,34 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
         <div className="avatar-emoji">
           {avatarEmoji}
         </div>
-        <div className="avatar-name">{player.name}</div>
+        <div className="avatar-name">
+          {player.name}
+          {playerTeam && (
+            <span style={{
+              fontSize: '10px',
+              marginLeft: '6px',
+              padding: '2px 6px',
+              backgroundColor: playerTeam.id === 0 ? '#FFE0E0' : '#E0E0FF',
+              borderRadius: '4px',
+              color: playerTeam.id === 0 ? '#C62828' : '#1565C0',
+              fontWeight: 'bold'
+            }}>
+              {playerTeam.name}
+            </span>
+          )}
+        </div>
       </div>
       
       {/* 状态信息面板 */}
       <div className="ai-player-status-panel">
         <div className="status-item status-item-compact">
-          <span className="status-value">{playerScore}分，{dunCount}墩</span>
+          {playerTeam ? (
+            <span className="status-value">
+              {playerTeam.teamScore}分（团队），{dunCount}墩
+            </span>
+          ) : (
+            <span className="status-value">{playerScore}分，{dunCount}墩</span>
+          )}
         </div>
         <div className="status-item">
           <span className="status-label">{t('ui:aiPlayer.handLabel')}</span>

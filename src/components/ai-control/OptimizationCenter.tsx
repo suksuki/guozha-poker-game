@@ -29,14 +29,12 @@ export const OptimizationCenter: React.FC = () => {
             const suggestion = await interactionService.generateOptimization(result.id);
             newSuggestions.push(suggestion);
           } catch (error) {
-            console.warn('[OptimizationCenter] 生成建议失败:', error);
           }
         }
       }
       
       setSuggestions(newSuggestions);
     } catch (error) {
-      console.error('[OptimizationCenter] 加载建议失败:', error);
     }
   };
   
@@ -48,7 +46,6 @@ export const OptimizationCenter: React.FC = () => {
       setSuggestions(prev => [suggestion, ...prev]);
       setSelectedSuggestion(suggestion);
     } catch (error) {
-      console.error('[OptimizationCenter] 生成优化方案失败:', error);
       alert('生成优化方案失败');
     } finally {
       setIsGenerating(false);
@@ -67,7 +64,6 @@ export const OptimizationCenter: React.FC = () => {
       alert('优化已执行');
       loadSuggestions();
     } catch (error) {
-      console.error('[OptimizationCenter] 执行优化失败:', error);
       alert('执行优化失败');
     } finally {
       setIsExecuting(false);

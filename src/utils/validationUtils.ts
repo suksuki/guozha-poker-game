@@ -34,14 +34,7 @@ export function validateRoundEnd(
   );
   
   if (!roundEndValidationResult.isValid) {
-    console.error(`[CardValidation] ⚠️ 轮次结束时验证失败！`, {
-      error: roundEndValidationResult.errorMessage,
-      details: roundEndValidationResult.details
-    });
   } else {
-    console.log(`[CardValidation] ✅ 轮次结束时验证通过`, {
-      context
-    });
   }
   
   return roundEndValidationResult;
@@ -67,14 +60,7 @@ export function validateGameEnd(
   );
   
   if (!validationResult.isValid) {
-    console.error(`[CardValidation] ⚠️ 游戏结束时验证失败！`, {
-      error: validationResult.errorMessage,
-      details: validationResult.details
-    });
   } else {
-    console.log(`[CardValidation] ✅ 游戏结束时验证通过`, {
-      context
-    });
   }
   
   return validationResult;

@@ -53,7 +53,6 @@ export class BrowserTTSClient implements ITTSClient {
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     } catch (error) {
-      console.error('[BrowserTTSClient] 初始化 AudioContext 失败:', error);
     }
   }
 
@@ -64,7 +63,6 @@ export class BrowserTTSClient implements ITTSClient {
     let finalText = text;
     if (lang === 'nanchang') {
       finalText = convertToNanchang(text, true, true);
-      console.log(`[BrowserTTSClient] 南昌话转换: "${text}" -> "${finalText}"`);
     }
 
     // 检查缓存（使用转换后的文本）
@@ -74,14 +72,12 @@ export class BrowserTTSClient implements ITTSClient {
       // 先检查内存缓存
       const memoryCached = this.memoryCache.get(cacheKey);
       if (memoryCached) {
-        console.log(`[BrowserTTSClient] 使用内存缓存: ${finalText.substring(0, 20)}...`);
         return memoryCached;
       }
 
       // 检查持久化缓存
       const cached = await this.audioCache.get(cacheKey);
       if (cached) {
-        console.log(`[BrowserTTSClient] 使用持久化缓存: ${finalText.substring(0, 20)}...`);
         // 添加到内存缓存
         this.addToMemoryCache(cacheKey, cached);
         return cached;
@@ -123,12 +119,10 @@ export class BrowserTTSClient implements ITTSClient {
         return result;
       }
     } catch (error) {
-      console.warn('[BrowserTTSClient] MediaRecorder 捕获失败，尝试其他方案:', error);
     }
 
     // 方案2：使用 Web Audio API 的 Oscillator 生成占位音频
     // 注意：这只是占位实现，实际应该使用真正的 TTS API
-    console.warn('[BrowserTTSClient] 使用占位音频，实际应该使用真正的 TTS API');
     return this.generatePlaceholderAudio(text);
   }
 
@@ -180,7 +174,6 @@ export class BrowserTTSClient implements ITTSClient {
               format: 'audio/webm',
             });
           } catch (e) {
-            console.error('[BrowserTTSClient] 音频解码失败:', e);
             stream.getTracks().forEach((track) => track.stop());
             resolve(null);
           }
@@ -211,7 +204,6 @@ export class BrowserTTSClient implements ITTSClient {
         window.speechSynthesis.speak(utterance);
       });
     } catch (error) {
-      console.warn('[BrowserTTSClient] 无法捕获音频:', error);
       return null;
     }
   }
@@ -363,7 +355,6 @@ export class LocalTTSClient implements ITTSClient {
         format,
       };
     } catch (error) {
-      console.error('[LocalTTSClient] TTS API 调用失败:', error);
       throw error;
     }
   }

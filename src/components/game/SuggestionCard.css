@@ -1,0 +1,161 @@
+.suggestion-card {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.suggestion-card:hover {
+  border-color: #2196f3;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.suggestion-card.selected {
+  border-color: #2196f3;
+  background: #e3f2fd;
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.suggestion-index {
+  font-weight: bold;
+  font-size: 16px;
+  color: #2196f3;
+}
+
+.star-rating {
+  display: flex;
+  gap: 2px;
+}
+
+.star {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.star.full {
+  color: #ffc107;
+}
+
+.star.half {
+  color: #ffc107;
+}
+
+.star.empty {
+  color: #e0e0e0;
+}
+
+.risk-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.suggestion-cards {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.suggestion-type {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.play-value {
+  color: #999;
+  font-size: 12px;
+}
+
+.suggestion-main-reason {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.suggestion-details {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.detailed-reason {
+  margin-bottom: 12px;
+  color: #555;
+}
+
+.advantages,
+.disadvantages {
+  margin-bottom: 12px;
+}
+
+.advantages ul,
+.disadvantages ul {
+  margin: 4px 0 0 20px;
+  padding: 0;
+}
+
+.advantages li {
+  color: #4caf50;
+}
+
+.disadvantages li {
+  color: #f44336;
+}
+
+.expected-benefit {
+  margin-bottom: 8px;
+  color: #2196f3;
+  font-weight: 500;
+}
+
+.confidence {
+  margin-bottom: 8px;
+}
+
+.confidence-value {
+  color: #2196f3;
+  font-weight: bold;
+}
+
+.select-button {
+  width: 100%;
+  padding: 10px;
+  background: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  margin-top: 12px;
+}
+
+.select-button:hover {
+  background: #1976d2;
+}
+
+.select-button:active {
+  background: #1565c0;
+}
+

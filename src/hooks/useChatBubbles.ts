@@ -26,7 +26,6 @@ export function useChatBubbles(
   // 初始化语音功能（某些浏览器需要等待voices加载）
   useEffect(() => {
     waitForVoices(() => {
-      console.log('语音功能已就绪');
       // 列出所有可用语音（用于调试）
       listAvailableVoices();
     });
@@ -45,14 +44,6 @@ export function useChatBubbles(
         if (lastMessageIdRef.current === messageId) {
           return;
         }
-        
-        console.log('[useChatBubbles] 🔍 检测到新消息:', {
-          content: latestMessage.content,
-          playerId: latestMessage.playerId,
-          type: latestMessage.type,
-          timestamp: latestMessage.timestamp,
-          messageId
-        });
         
         lastMessageIdRef.current = messageId;
         
@@ -79,7 +70,6 @@ export function useChatBubbles(
                 }
               : player.voiceConfig;
             
-            console.log('[useChatBubbles] 播放聊天语音:', translatedContent, '玩家:', player.name, 'playerId:', translatedMessage.playerId, '类型:', translatedMessage.type, '音量:', voiceConfigForTaunt.volume);
             
             // 使用 voiceService 播放语音（它内部使用 ttsAudioService，支持多声道）
             // 注意：不再同时调用 gameAudio.handleChatMessage，避免重复播放
@@ -104,7 +94,6 @@ export function useChatBubbles(
                     newMap.set(translatedMessage.playerId, true);
                     return newMap;
                   });
-                  console.log('[useChatBubbles] 语音开始播放:', translatedContent);
                 },
                 onEnd: () => {
                   // 语音结束，标记为不播放状态（触发淡出）
@@ -113,10 +102,8 @@ export function useChatBubbles(
                     newMap.set(translatedMessage.playerId, false);
                     return newMap;
                   });
-                  console.log('[useChatBubbles] 语音播放完成:', translatedContent);
                 },
                 onError: (error) => {
-                  console.warn('[useChatBubbles] 语音播放失败:', error);
                   // 播放失败，立即隐藏（不等待）
                   setSpeakingStates(prev => {
                     const newMap = new Map(prev);
@@ -126,7 +113,6 @@ export function useChatBubbles(
                 }
               }
             ).catch(err => {
-              console.warn('[useChatBubbles] 播放聊天语音失败:', err);
               // 失败后立即隐藏（不等待）
               setSpeakingStates(prev => {
                 const newMap = new Map(prev);
@@ -135,11 +121,6 @@ export function useChatBubbles(
               });
             });
           } else {
-            console.warn('[useChatBubbles] 无法播放语音: 玩家不存在或没有voiceConfig', {
-              playerId: translatedMessage.playerId,
-              player: player,
-              players: game.players.map(p => ({ id: p.id, name: p.name, hasVoiceConfig: !!p.voiceConfig }))
-            });
             // 没有语音配置，直接显示气泡，2秒后自动隐藏
             setActiveChatBubbles(prev => {
               const newMap = new Map(prev);
@@ -155,7 +136,6 @@ export function useChatBubbles(
             }, 2000);
           }
         }).catch(err => {
-          console.warn('[useChatBubbles] 翻译失败，使用原文:', err);
           // 翻译失败，使用原文
           
           if (player?.voiceConfig) {
@@ -199,7 +179,6 @@ export function useChatBubbles(
                   });
                 },
                 onError: (error) => {
-                  console.warn('[useChatBubbles] 语音播放失败:', error);
                   // 播放失败，立即隐藏（不等待）
                   setSpeakingStates(prev => {
                     const newMap = new Map(prev);
@@ -209,7 +188,6 @@ export function useChatBubbles(
                 }
               }
             ).catch(err => {
-              console.warn('[useChatBubbles] 播放聊天语音失败:', err);
               // 失败后立即隐藏（不等待）
               setSpeakingStates(prev => {
                 const newMap = new Map(prev);
@@ -279,7 +257,6 @@ export function useChatBubbles(
             });
           }
         }).catch(err => {
-          console.error('触发随机闲聊失败:', err);
         });
       }
     }, 8000); // 每8秒检查一次

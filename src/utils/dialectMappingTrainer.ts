@@ -35,7 +35,6 @@ export async function trainDialectMapping(
   };
 
   try {
-    console.log('[DialectMappingTrainer] 开始训练，文本数量:', texts.length);
     
     // 调用LLM生成映射
     const mappings = await trainMappingWithLLM(texts, llmConfig);
@@ -60,15 +59,12 @@ export async function trainDialectMapping(
       });
       
       addMappings(mappings);
-      console.log('[DialectMappingTrainer] ✅ 训练完成，新增', result.added, '条映射，跳过', result.skipped, '条');
     } else {
-      console.log('[DialectMappingTrainer] ✅ 训练完成，生成', mappings.length, '条映射（未自动添加）');
     }
 
     return result;
   } catch (error) {
     result.errors.push((error as Error).message);
-    console.error('[DialectMappingTrainer] 训练失败:', error);
     return result;
   }
 }
@@ -113,7 +109,6 @@ export async function batchTrainFromSamples(
   batchSize: number = 20
 ): Promise<MappingTrainingResult> {
   const texts = extractTextsForTraining(samples);
-  console.log('[DialectMappingTrainer] 从训练数据中提取', texts.length, '个文本');
   
   if (texts.length === 0) {
     return {
@@ -131,7 +126,6 @@ export async function batchTrainFromSamples(
     batches.push(texts.slice(i, i + batchSize));
   }
 
-  console.log('[DialectMappingTrainer] 分', batches.length, '批处理');
   
   const allMappings: Array<{ mandarin: string; nanchang: string }> = [];
   let totalAdded = 0;
@@ -139,7 +133,6 @@ export async function batchTrainFromSamples(
   const errors: string[] = [];
 
   for (let i = 0; i < batches.length; i++) {
-    console.log(`[DialectMappingTrainer] 处理第 ${i + 1}/${batches.length} 批`);
     const result = await trainDialectMapping(batches[i], llmConfig, true);
     
     if (result.success) {
@@ -172,6 +165,5 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     batchTrain: batchTrainFromSamples,
     extractTexts: extractTextsForTraining
   };
-  console.log('[DialectMappingTrainer] 开发模式：训练工具已暴露到 window.dialectMappingTrainer');
 }
 

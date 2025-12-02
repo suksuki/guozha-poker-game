@@ -44,8 +44,6 @@ class TrainingDataCollector {
     if (this.samples.length > this.maxSamples) {
       this.samples.shift();
     }
-
-    console.log(`[TrainingDataCollector] 已收集样本 (${this.samples.length}/${this.maxSamples})`);
   }
 
   /**
@@ -111,7 +109,6 @@ class TrainingDataCollector {
    */
   clear(): void {
     this.samples = [];
-    console.log('[TrainingDataCollector] 已清空所有样本');
   }
 
   /**
@@ -119,7 +116,6 @@ class TrainingDataCollector {
    */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-    console.log(`[TrainingDataCollector] 收集${enabled ? '已启用' : '已禁用'}`);
   }
 
   /**
@@ -171,7 +167,6 @@ class TrainingDataCollector {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    console.log(`[TrainingDataCollector] 已下载训练数据: ${filename}`);
   }
 }
 
@@ -180,12 +175,5 @@ export const trainingDataCollector = new TrainingDataCollector();
 // 在开发环境中，将收集器暴露到全局，方便调试
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).trainingDataCollector = trainingDataCollector;
-  console.log('[TrainingDataCollector] 开发模式：训练数据收集器已暴露到 window.trainingDataCollector');
-  console.log('[TrainingDataCollector] 使用方法：');
-  console.log('  - window.trainingDataCollector.getAllSamples() - 获取所有样本');
-  console.log('  - window.trainingDataCollector.exportToJSON() - 导出JSON');
-  console.log('  - window.trainingDataCollector.exportToCSV() - 导出CSV');
-  console.log('  - window.trainingDataCollector.downloadData("json") - 下载JSON');
-  console.log('  - window.trainingDataCollector.getStats() - 获取统计信息');
 }
 

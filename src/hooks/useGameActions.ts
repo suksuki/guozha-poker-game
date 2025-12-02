@@ -10,6 +10,8 @@ import { hasPlayableCards, canPlayCards, canBeat } from '../utils/cardUtils';
 import { aiChoosePlay } from '../utils/aiPlayer';
 import { Game } from '../utils/Game';
 import { getLastPlay } from '../utils/gameStateUtils';
+import { aiSuggesterService } from '../services/cardPlaying/AISuggesterService';
+import { MultipleSuggestionsResult, PlaySuggestion } from '../services/cardPlaying/types';
 
 interface GameActionsParams {
   game: Game;
@@ -30,6 +32,7 @@ export function useGameActions({
 }: GameActionsParams) {
   const { t } = useTranslation(['game']);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [multipleSuggestions, setMultipleSuggestions] = useState<MultipleSuggestionsResult | null>(null);
 
   // 检查玩家是否有能打过的牌（用于强制出牌规则）
   const canPass = useMemo(() => {
@@ -97,19 +100,13 @@ export function useGameActions({
       const handCardIds = new Set(humanPlayer.hand.map(c => c.id));
       const allCardsInHand = suggestedCards.every(card => handCardIds.has(card.id));
       
-      if (!allCardsInHand) {
-        console.warn('[AI建议] 建议的牌不在手牌中，忽略建议', {
-          suggestedCardIds: suggestedCards.map(c => c.id),
-          handCardIds: Array.from(handCardIds)
-        });
-        alert('AI建议的牌不在手牌中，请重试');
+      if (!allCardsInHand) {        alert('AI建议的牌不在手牌中，请重试');
         return null;
       }
 
       // 2. 验证牌型是否合法
       const play = canPlayCards(suggestedCards);
       if (!play) {
-        console.warn('[AI建议] 建议的牌不构成合法牌型，忽略建议');
         alert('AI建议的牌不构成合法牌型，请重试');
         return null;
       }
@@ -118,7 +115,6 @@ export function useGameActions({
       if (lastPlay) {
         const canBeatLastPlay = canBeat(play, lastPlay);
         if (!canBeatLastPlay) {
-          console.warn('[AI建议] 建议的牌不能压过上家的牌，忽略建议');
           alert('AI建议的牌不能压过上家的牌，请重试');
           return null;
         }
@@ -127,7 +123,6 @@ export function useGameActions({
       // 验证通过，返回建议的牌
       return suggestedCards;
     } catch (error) {
-      console.error('获取AI建议失败:', error);
       // 注意：这里暂时保留中文，因为这是错误提示，不是游戏核心功能
       alert('获取AI建议失败，请稍后重试');
       return null;
@@ -136,13 +131,64 @@ export function useGameActions({
     }
   }, [humanPlayer, strategy, algorithm, game, t]);
 
+  // 获取多个AI建议（多方案建议）
+  const handleSuggestMultiplePlays = useCallback(async () => {
+    if (!humanPlayer) return;
+
+    setIsSuggesting(true);
+    try {
+      const lastPlay = getLastPlay(game);
+      
+      const result = await aiSuggesterService.suggestMultiplePlays(
+        humanPlayer.id,
+        humanPlayer.hand,
+        lastPlay,
+        {
+          strategy,
+          algorithm: algorithm || 'mcts',
+          mctsIterations: 50
+        },
+        5 // 最多5个建议
+      );
+
+      if (!result || result.suggestions.length === 0) {
+        alert(`${t('game:actions.aiSuggest')}: ${t('game:actions.pass')}`);
+        return null;
+      }
+
+      setMultipleSuggestions(result);
+      return result;
+    } catch (error) {
+      alert('获取AI建议失败，请稍后重试');
+      return null;
+    } finally {
+      setIsSuggesting(false);
+    }
+  }, [humanPlayer, strategy, algorithm, game, t]);
+
+  // 关闭多方案建议面板
+  const closeMultipleSuggestions = useCallback(() => {
+    setMultipleSuggestions(null);
+  }, []);
+
+  // 选择某个建议方案
+  const handleSelectSuggestion = useCallback((suggestion: PlaySuggestion) => {
+    // 这里可以自动选中建议的牌，或者让用户手动确认
+    setMultipleSuggestions(null);
+    // TODO: 自动选中建议的牌
+  }, []);
+
   return {
     isSuggesting,
     canPass,
     isPlayerTurn,
     handlePlay,
     handlePass,
-    handleSuggestPlay
+    handleSuggestPlay,
+    handleSuggestMultiplePlays,
+    multipleSuggestions,
+    closeMultipleSuggestions,
+    handleSelectSuggestion
   };
 }
 

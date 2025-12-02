@@ -82,7 +82,6 @@ export function updateMainFightRoles(roleIds: string[]): void {
   mainFightRoles = new Set(roleIds);
   // 清除这些角色的pan值，让它们重新分配
   roleIds.forEach(roleId => rolePanMap.delete(roleId));
-  console.log('[QuarrelVoiceService] 更新主吵架角色:', roleIds);
 }
 
 /**
@@ -123,7 +122,6 @@ class QuarrelVoiceService {
     try {
       this.llmStrategy = new LLMChatStrategy(DEFAULT_LLM_CHAT_CONFIG);
     } catch (error) {
-      console.warn('[QuarrelVoiceService] LLM策略初始化失败，将使用回退方案:', error);
     }
   }
 
@@ -138,7 +136,6 @@ class QuarrelVoiceService {
     // 确保ttsAudioService已初始化
     // ttsAudioService在构造函数中会自动初始化，这里只是确保
     this.isInitialized = true;
-    console.log('[QuarrelVoiceService] 初始化完成');
   }
 
   /**
@@ -150,12 +147,10 @@ class QuarrelVoiceService {
     } catch (error) {
       // 如果是最后一次重试，直接抛出错误
       if (retryCount >= this.retryConfig.maxRetries) {
-        console.error(`[QuarrelVoiceService] 播放失败（已重试${retryCount}次）:`, error);
         throw error;
       }
 
       // 等待后重试
-      console.warn(`[QuarrelVoiceService] 播放失败，${this.retryConfig.retryDelay}ms后重试 (${retryCount + 1}/${this.retryConfig.maxRetries}):`, error);
       await delay(this.retryConfig.retryDelay);
       return this.playUtterWithRetry(utter, retryCount + 1);
     }
@@ -170,7 +165,6 @@ class QuarrelVoiceService {
       if (utter.priority === 'QUICK_JAB') {
         const estimatedDuration = estimateDuration(utter.text, utter.lang);
         if (estimatedDuration > QUICK_JAB_MAX_DURATION) {
-          console.warn(`[QuarrelVoiceService] QUICK_JAB文本过长（${estimatedDuration.toFixed(2)}s > ${QUICK_JAB_MAX_DURATION}s），截断`);
           // 截断文本：保留前N个字符，使得时长≤1.5s
           const maxChars = Math.floor(QUICK_JAB_MAX_DURATION * 3); // 假设3字/秒
           utter.text = utter.text.substring(0, maxChars) + '...';
@@ -216,7 +210,6 @@ class QuarrelVoiceService {
       // 但是pan值需要动态设置，这需要在ttsAudioService中支持
       // 目前先使用固定的channel pan值
     } catch (error) {
-      console.error('[QuarrelVoiceService] 播放失败:', error);
       if (utter.onError) {
         utter.onError(error as Error);
       }
@@ -353,10 +346,8 @@ class QuarrelVoiceService {
       }
 
       // 如果所有分段方法都失败，直接提交原文本
-      console.warn('[QuarrelVoiceService] 所有分段方法都失败，直接提交原文本');
       this.scheduler.submit(utter);
     } catch (error) {
-      console.error('[QuarrelVoiceService] 长吵架分段失败，回退到直接播放:', error);
       // 回退：直接提交原文本
       this.scheduler.submit(utter);
     }
@@ -372,7 +363,6 @@ class QuarrelVoiceService {
     retryCount: number = 0
   ): Promise<string[] | null> {
     if (!this.llmStrategy) {
-      console.warn('[QuarrelVoiceService] LLM策略不可用，跳过segments生成');
       return null;
     }
 
@@ -385,7 +375,6 @@ class QuarrelVoiceService {
       const response = await this.llmStrategy.callLLMAPI(prompt, 1);
 
       if (!response || !response.trim()) {
-        console.warn('[QuarrelVoiceService] LLM返回空响应');
         return null;
       }
 
@@ -396,7 +385,6 @@ class QuarrelVoiceService {
         const sortedSegments = parsed.segments
           .sort((a, b) => a.beat_index - b.beat_index)
           .map(s => s.text);
-        console.log('[QuarrelVoiceService] LLM生成segments成功:', sortedSegments);
         return sortedSegments;
       }
 
@@ -404,12 +392,10 @@ class QuarrelVoiceService {
     } catch (error) {
       // 如果是最后一次重试，返回null
       if (retryCount >= this.retryConfig.maxRetries) {
-        console.error(`[QuarrelVoiceService] LLM生成segments失败（已重试${retryCount}次）:`, error);
         return null;
       }
 
       // 等待后重试
-      console.warn(`[QuarrelVoiceService] LLM生成segments失败，${this.retryConfig.retryDelay}ms后重试 (${retryCount + 1}/${this.retryConfig.maxRetries}):`, error);
       await delay(this.retryConfig.retryDelay);
       return this.generateSegmentsWithLLM(utter, beatsStructure, context, retryCount + 1);
     }
@@ -494,7 +480,6 @@ class QuarrelVoiceService {
     if (config.retryDelay !== undefined) {
       this.retryConfig.retryDelay = config.retryDelay;
     }
-    console.log('[QuarrelVoiceService] 配置已更新:', config);
   }
 
   /**

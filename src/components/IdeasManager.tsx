@@ -68,7 +68,6 @@ export const IdeasManager: React.FC = () => {
       try {
         setIdeas(JSON.parse(saved));
       } catch (e) {
-        console.error('Failed to load ideas:', e);
       }
     } else {
       // 初始化示例数据

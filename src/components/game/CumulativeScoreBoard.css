@@ -1,0 +1,277 @@
+.cumulative-score-board-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.cumulative-score-board {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  max-width: 900px;
+  width: 90%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.cumulative-score-board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 2px solid #e0e0e0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.cumulative-score-board-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.cumulative-score-board-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-reset,
+.btn-close {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-reset {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.btn-reset:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-close {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 20px;
+}
+
+.btn-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.cumulative-score-board-content {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.current-game-info {
+  background: #f5f5f5;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: #667eea;
+}
+
+.cumulative-rankings {
+  margin-bottom: 32px;
+}
+
+.cumulative-rankings h3,
+.game-records h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.score-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.score-table thead {
+  background: #f8f9fa;
+}
+
+.score-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #555;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.score-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.score-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.score-table tbody tr.rank-1 {
+  background: #fff9e6;
+}
+
+.score-table tbody tr.rank-2 {
+  background: #f5f5f5;
+}
+
+.score-table tbody tr.rank-3 {
+  background: #fff4e6;
+}
+
+.rank-cell {
+  font-weight: 600;
+  font-size: 18px;
+  text-align: center;
+  width: 60px;
+}
+
+.player-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.total-score {
+  font-weight: 600;
+  font-size: 16px;
+  color: #667eea;
+}
+
+.game-records {
+  margin-top: 32px;
+}
+
+.game-records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.game-record-item {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e0e0e0;
+}
+
+.game-record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.game-number {
+  font-weight: 600;
+  font-size: 16px;
+  color: #667eea;
+}
+
+.game-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.game-record-scores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.player-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+
+.player-score.winner {
+  background: #fff9e6;
+  border-color: #ffd700;
+}
+
+.player-score .player-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.player-score .score {
+  font-weight: 600;
+  color: #667eea;
+}
+
+.player-score .winner-badge {
+  margin-left: 4px;
+  font-size: 16px;
+}
+
+.no-records {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.no-records p {
+  margin: 0;
+  font-size: 16px;
+}
+
