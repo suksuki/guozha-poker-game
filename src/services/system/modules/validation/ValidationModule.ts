@@ -24,12 +24,6 @@ export class ValidationModule implements SystemModule {
     this.context = context;
     this.enabled = config.enabled;
     this.initialized = true;
-    
-    console.log('[ValidationModule] 验证模块初始化完成', {
-      enabled: this.enabled,
-      validateOnRoundEnd: config.validateOnRoundEnd,
-      validateOnGameEnd: config.validateOnGameEnd
-    });
   }
   
   configure(config: Partial<ValidationConfig>): void {
@@ -305,7 +299,6 @@ export class ValidationModule implements SystemModule {
       try {
         callback(result);
       } catch (error) {
-        console.error('[ValidationModule] 验证错误回调执行失败', error);
       }
     }
   }
@@ -328,9 +321,7 @@ export class ValidationModule implements SystemModule {
     };
     
     if (level === 'error' || level === 'warn') {
-      console.error(`[ValidationModule] ⚠️ ${result.context.context || result.context.trigger}验证失败！`, logData);
     } else if (level === 'info' || level === 'debug') {
-      console.log('[ValidationModule] 验证失败', logData);
     }
     
     // 如果配置要求抛出异常
@@ -349,10 +340,6 @@ export class ValidationModule implements SystemModule {
     if (level === 'none' || level === 'error') return;
     
     if (level === 'info' || level === 'debug') {
-      console.log(`[ValidationModule] ✅ ${result.context.context || result.context.trigger}验证通过`, {
-        validator: result.validatorName,
-        stats: result.stats
-      });
     }
   }
   

@@ -61,7 +61,7 @@ export function useUrgePlay({
               if (idx !== game.currentPlayerIndex && player.type === PlayerType.AI) {
                 // 随机选择一些AI玩家催促（避免所有人同时催促）
                 if (Math.random() < 0.4) {
-                  triggerUrgePlayReaction(player, currentPlayer).catch(console.error);
+                  triggerUrgePlayReaction(player, currentPlayer).catch(() => {});
                 }
               }
             });

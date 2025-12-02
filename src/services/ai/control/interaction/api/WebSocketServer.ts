@@ -76,7 +76,6 @@ export class WebSocketServer {
    */
   addConnection(connection: WebSocketConnection): void {
     this.connections.set(connection.id, connection);
-    console.log(`[WebSocketServer] 新连接: ${connection.id}`);
     
     // 发送欢迎消息
     connection.send({
@@ -91,7 +90,6 @@ export class WebSocketServer {
    */
   removeConnection(connectionId: string): void {
     this.connections.delete(connectionId);
-    console.log(`[WebSocketServer] 连接断开: ${connectionId}`);
   }
   
   /**
@@ -141,7 +139,6 @@ export class WebSocketServer {
         break;
         
       default:
-        console.warn(`[WebSocketServer] 未知操作: ${message.action}`);
     }
   }
   
@@ -160,7 +157,6 @@ export class WebSocketServer {
         try {
           connection.send(message);
         } catch (error) {
-          console.error(`[WebSocketServer] 发送消息失败: ${connection.id}`, error);
           this.removeConnection(connection.id);
         }
       }

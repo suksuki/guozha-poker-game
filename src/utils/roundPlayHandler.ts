@@ -101,7 +101,6 @@ export class RoundPlayHandler {
       // 5. 开始超时计时
       if (enableTimeout) {
         this.round.startPlayTimer(playerIndex, () => {
-          console.warn(`玩家 ${playerIndex} 出牌超时`);
           onTimeout?.();
         });
       }
@@ -203,7 +202,6 @@ export class RoundPlayHandler {
       // 超时保护
       setTimeout(() => {
         clearInterval(checkInterval);
-        console.warn('等待语音播放超时，强制继续');
         resolve();
       }, timeout);
     });

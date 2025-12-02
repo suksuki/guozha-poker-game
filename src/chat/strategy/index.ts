@@ -43,7 +43,16 @@ export function getChatStrategy(
   
   switch (strategy) {
     case 'llm':
-      chatStrategy = new LLMChatStrategy(llmConfig || DEFAULT_LLM_CHAT_CONFIG);
+      // 🔥 新增：创建 fallback 策略（规则策略）
+      const fallbackStrategy = new RuleBasedStrategy(
+        chatConfig || DEFAULT_CHAT_SERVICE_CONFIG,
+        bigDunConfig || DEFAULT_BIG_DUN_CONFIG,
+        tauntConfig || DEFAULT_TAUNT_CONFIG
+      );
+      chatStrategy = new LLMChatStrategy(
+        llmConfig || DEFAULT_LLM_CHAT_CONFIG,
+        fallbackStrategy  // 传入 fallback 策略
+      );
       break;
     case 'rule-based':
     default:
@@ -77,5 +86,13 @@ export function getAvailableChatStrategies(): IChatStrategy[] {
     ),
     new LLMChatStrategy(DEFAULT_LLM_CHAT_CONFIG)
   ];
+}
+
+/**
+ * 清除策略缓存（强制重新创建）
+ */
+export function clearStrategyCache(): void {
+  strategyInstances.clear();
+  console.log('🔄 策略缓存已清除');
 }
 

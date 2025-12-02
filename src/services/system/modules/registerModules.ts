@@ -24,10 +24,6 @@ export function registerAllModules(systemApp: SystemApplication): void {
   systemApp.registerModule(new ValidationModule());
   systemApp.registerModule(new TrackingModule());
   systemApp.registerModule(new AudioModule());
-  
-  console.log('[registerModules] 所有核心模块已注册', {
-    modules: ['ai-control', 'event', 'validation', 'tracking', 'audio']
-  });
 }
 
 /**
@@ -36,6 +32,5 @@ export function registerAllModules(systemApp: SystemApplication): void {
 export function registerDevModules(systemApp: SystemApplication): void {
   // 开发环境模块可以在这里注册
   // 例如：监控模块、调试模块等
-  console.log('[registerModules] 开发环境模块注册完成');
 }
 

@@ -39,7 +39,6 @@ function loadFromLocalStorage(): Partial<ISystemConfig> {
       return JSON.parse(saved);
     }
   } catch (error) {
-    console.warn('[SystemConfig] 加载 localStorage 配置失败:', error);
   }
   return {};
 }
@@ -113,7 +112,6 @@ export function saveSystemConfigToLocalStorage(config: ISystemConfig): void {
   try {
     localStorage.setItem('systemConfig', JSON.stringify(config));
   } catch (error) {
-    console.warn('[SystemConfig] 保存配置到 localStorage 失败:', error);
   }
 }
 

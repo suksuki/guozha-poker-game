@@ -84,7 +84,6 @@ export const DesignDocManager: React.FC = () => {
       // 更新统计
       setStats(service.getStats());
     } catch (error) {
-      console.error('[DesignDocManager] 加载文档失败:', error);
     } finally {
       setIsLoading(false);
     }

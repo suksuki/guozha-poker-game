@@ -80,32 +80,17 @@ export function useIdleChat({
             triggerRandomChat(randomPlayer, 0.7, undefined, gameState)
               .then(chatMessage => {
                 if (chatMessage) {
-                  console.log('[useIdleChat] ✅ 触发空闲聊天:', {
-                    player: randomPlayer.name,
-                    content: chatMessage.content,
-                    idleTime: Math.round(idleTime / 1000) + '秒',
-                    queueStatus: {
-                      isPlaying: queueStatus.isPlaying,
-                      queueLength: queueStatus.queueLength
-                    }
-                  });
                   lastChatTimeRef.current = Date.now();
                   // 重置空闲计时器，避免连续触发
                   lastActionTimeRef.current = Date.now() + 5000; // 给5秒缓冲
                 }
               })
               .catch(err => {
-                console.warn('[useIdleChat] 触发空闲聊天失败:', err);
               });
           }
         } else {
           // 队列繁忙，记录日志但不触发（仅在调试时）
           if (queueStatus.queueLength >= minQueueLength) {
-            console.log('[useIdleChat] 语音队列繁忙，跳过触发聊天', {
-              isPlaying: queueStatus.isPlaying,
-              queueLength: queueStatus.queueLength,
-              threshold: minQueueLength
-            });
           }
         }
       }

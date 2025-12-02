@@ -1,0 +1,35 @@
+import React, { useEffect } from 'react';
+import { MultiPlayerGameBoard } from './components/MultiPlayerGameBoard';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
+import { IdeasManager } from './components/IdeasManager';
+import { DesignDocManager } from './components/DesignDocManager';
+import { TTSStatusMonitor } from './components/TTSStatusMonitor';
+import { CodeReviewManager } from './components/CodeReviewManager';
+import { TestManagementManager } from './components/TestManagementManager';
+import { initTTS, getTTSConfigFromEnv } from './tts/initTTS';
+import './App.css';
+
+function App() {
+  // 初始化 TTS 系统
+  useEffect(() => {
+    const config = getTTSConfigFromEnv();
+    initTTS(config).catch((error) => {
+      console.error('[App] TTS 系统初始化失败:', error);
+    });
+  }, []);
+
+  return (
+    <div className="App">
+      <LanguageSwitcher />
+      <MultiPlayerGameBoard />
+      <IdeasManager />
+      <DesignDocManager />
+      <TTSStatusMonitor />
+      <CodeReviewManager />
+      <TestManagementManager />
+    </div>
+  );
+}
+
+export default App;
+

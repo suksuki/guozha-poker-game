@@ -26,9 +26,10 @@ export class AudioMixer {
   private roleNodes: Map<string, RoleAudioNodes> = new Map();
   private masterGain: GainNode | null = null;
   private isInitialized: boolean = false;
+  private isResumed: boolean = false; // 跟踪是否已恢复（避免重复恢复）
 
   /**
-   * 初始化 AudioContext
+   * 初始化 AudioContext（不立即resume，等待用户交互）
    */
   async init(): Promise<void> {
     if (this.isInitialized && this.ctx) {
@@ -43,16 +44,35 @@ export class AudioMixer {
       this.masterGain.gain.value = 1.0;
       this.masterGain.connect(this.ctx.destination);
 
-      // 如果 AudioContext 被暂停，恢复它
-      if (this.ctx.state === 'suspended') {
-        await this.ctx.resume();
-      }
+      // ✅ 不在初始化时resume，等待用户交互
+      // 移除自动resume，避免浏览器自动播放策略警告
 
       this.isInitialized = true;
-      console.log('[AudioMixer] AudioContext 已初始化');
     } catch (error) {
-      console.error('[AudioMixer] 初始化失败:', error);
       throw error;
+    }
+  }
+
+  /**
+   * 确保AudioContext已恢复（在播放前调用）
+   * 这个方法会在用户交互后自动恢复AudioContext
+   */
+  private async ensureResumed(): Promise<void> {
+    if (!this.ctx) {
+      return;
+    }
+
+    // 如果已经恢复过或状态不是suspended，直接返回
+    if (this.isResumed || this.ctx.state !== 'suspended') {
+      return;
+    }
+
+    try {
+      await this.ctx.resume();
+      this.isResumed = true;
+    } catch (error) {
+      // 可能仍然需要用户交互，静默失败
+      // 下次播放时会重试
     }
   }
 
@@ -86,7 +106,6 @@ export class AudioMixer {
     const nodes: RoleAudioNodes = { gain, pan };
     this.roleNodes.set(roleId, nodes);
 
-    console.log(`[AudioMixer] 创建角色节点: ${roleId}, pan=${panValue}`);
     return nodes;
   }
 
@@ -105,6 +124,9 @@ export class AudioMixer {
     if (!this.ctx || !this.masterGain) {
       throw new Error('AudioMixer 未初始化，请先调用 init()');
     }
+
+    // ✅ 播放前确保AudioContext已恢复
+    await this.ensureResumed();
 
     const { volume = 1.0, pan, onEnd, onError } = options;
 
@@ -157,7 +179,6 @@ export class AudioMixer {
       });
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error(`[AudioMixer] 播放失败 (${roleId}):`, err);
       if (onError) {
         onError(err);
       }
@@ -183,7 +204,6 @@ export class AudioMixer {
       role.gain.gain.setTargetAtTime(targetGain, currentTime, fadeTime);
     }
 
-    console.log(`[AudioMixer] Ducking: ${activeRoleId} 突出，其他角色降至 ${otherLevel}`);
   }
 
   /**
@@ -201,7 +221,6 @@ export class AudioMixer {
       role.gain.gain.setTargetAtTime(1.0, currentTime, fadeTime);
     }
 
-    console.log('[AudioMixer] 恢复所有角色音量');
   }
 
   /**
@@ -269,10 +288,16 @@ export class AudioMixer {
 
   /**
    * 恢复 AudioContext（如果被暂停）
+   * 公共方法，可手动调用
    */
   async resume(): Promise<void> {
     if (this.ctx && this.ctx.state === 'suspended') {
-      await this.ctx.resume();
+      try {
+        await this.ctx.resume();
+        this.isResumed = true;
+      } catch (error) {
+        // 如果恢复失败（可能仍需要用户交互），静默处理
+      }
     }
   }
 
@@ -287,6 +312,7 @@ export class AudioMixer {
     this.ctx = null;
     this.masterGain = null;
     this.isInitialized = false;
+    this.isResumed = false;
   }
 }
 

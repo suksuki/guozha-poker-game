@@ -67,7 +67,6 @@ export class DesignDocService {
         // 静默失败，只记录警告
         const path = DOC_PATHS[index];
         if (result.status === 'rejected') {
-          console.warn(`[DesignDocService] 加载文档失败: ${path}`, result.reason);
         }
       }
     });
@@ -381,7 +380,6 @@ export class DesignDocService {
         const metadata = JSON.parse(saved);
         this.docMetadata = new Map(Object.entries(metadata));
       } catch (error) {
-        console.error('[DesignDocService] 加载元数据失败:', error);
       }
     }
   }

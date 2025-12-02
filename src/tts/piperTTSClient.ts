@@ -46,7 +46,6 @@ export class PiperTTSClient implements ITTSClient {
     if (useCache) {
       const cached = await this.audioCache.get(cacheKey);
       if (cached) {
-        console.log(`[PiperTTSClient] 使用缓存: ${text.substring(0, 20)}...`);
         return cached;
       }
     }
@@ -65,7 +64,6 @@ export class PiperTTSClient implements ITTSClient {
         return result;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(`[PiperTTSClient] 第 ${i + 1} 次尝试失败:`, lastError);
         if (i < this.retryCount) {
           // 等待后重试
           await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
@@ -92,7 +90,6 @@ export class PiperTTSClient implements ITTSClient {
     try {
       // Piper TTS API 端点
       const endpoint = `${this.baseUrl}/api/tts`;
-      console.log(`[PiperTTSClient] 🎯 调用 Piper TTS API: ${endpoint}, 文本: "${text.substring(0, 30)}..."`);
 
       // 构建请求体
       const requestBody: any = {
@@ -117,24 +114,18 @@ export class PiperTTSClient implements ITTSClient {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[PiperTTSClient] ❌ API 错误: ${response.status} ${response.statusText} - ${errorText}`);
         throw new Error(`Piper TTS API 错误: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
-      console.log(`[PiperTTSClient] ✅ API 响应成功: ${response.status}, Content-Type: ${response.headers.get('content-type')}`);
-
       // Piper TTS 返回音频数据（WAV格式）
       const arrayBuffer = await response.arrayBuffer();
-      console.log(`[PiperTTSClient] ✅ 收到音频数据: ${(arrayBuffer.byteLength / 1024).toFixed(2)} KB`);
       
       if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-        console.error(`[PiperTTSClient] ❌ 音频数据为空`);
         throw new Error('Piper TTS API 返回空音频数据');
       }
       
       // 估算时长（Piper TTS API 可能不返回时长信息）
       const duration = this.estimateDuration(text);
-      console.log(`[PiperTTSClient] ✅ 音频生成成功: ${text.substring(0, 20)}... (时长: ${duration.toFixed(2)}s, 大小: ${(arrayBuffer.byteLength / 1024).toFixed(2)} KB)`);
 
       return {
         audioBuffer: arrayBuffer,
@@ -171,16 +162,13 @@ export class PiperTTSClient implements ITTSClient {
    */
   async checkHealth(): Promise<boolean> {
     try {
-      console.log(`[PiperTTSClient] 检查健康状态: ${this.baseUrl}/health`);
       const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(3000),
       });
       const isOk = response.ok;
-      console.log(`[PiperTTSClient] 健康检查响应: ${response.status} ${response.statusText} (${isOk ? '✅' : '❌'})`);
       return isOk;
     } catch (error) {
-      console.warn(`[PiperTTSClient] 健康检查失败:`, error);
       return false;
     }
   }

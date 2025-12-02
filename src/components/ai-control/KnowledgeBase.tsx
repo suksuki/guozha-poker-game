@@ -33,7 +33,6 @@ export const KnowledgeBase: React.FC = () => {
       const history = await interactionService.getKnowledgeHistory('all', 100);
       setRecords(history);
     } catch (error) {
-      console.error('[KnowledgeBase] 加载历史失败:', error);
     } finally {
       setIsLoading(false);
     }

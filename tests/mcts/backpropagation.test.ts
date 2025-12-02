@@ -156,5 +156,133 @@ describe('MCTS反向传播', () => {
     expect(leaf.visits).toBe(4);
     expect(leaf.wins).toBe(1); // 只有winner=0时增加wins
   });
+
+  it('应该正确处理深层节点树', () => {
+    // 创建一个更深的节点树
+    let current: MCTSNode = {
+      hand: [],
+      lastPlay: null,
+      playerToMove: 'ai',
+      visits: 0,
+      wins: 0,
+      children: [],
+      parent: null,
+      action: null,
+      untriedActions: []
+    };
+
+    const nodes: MCTSNode[] = [current];
+
+    // 创建10层深的树
+    for (let i = 0; i < 10; i++) {
+      const child: MCTSNode = {
+        hand: [],
+        lastPlay: null,
+        playerToMove: i % 2 === 0 ? 'opponent' : 'ai',
+        visits: 0,
+        wins: 0,
+        children: [],
+        parent: current,
+        action: null,
+        untriedActions: []
+      };
+      current.children = [child];
+      nodes.push(child);
+      current = child;
+    }
+
+    const leaf = current;
+    backpropagate(leaf, 0);
+
+    // 所有节点都应该被访问
+    nodes.forEach(node => {
+      expect(node.visits).toBe(1);
+      expect(node.wins).toBe(1);
+    });
+  });
+
+  it('应该正确累计统计信息', () => {
+    const leaf = createNodeTree();
+    const parent = leaf.parent!;
+    const grandparent = parent.parent!;
+
+    // 进行多次模拟
+    for (let i = 0; i < 10; i++) {
+      backpropagate(leaf, i % 2 === 0 ? 0 : 1);
+    }
+
+    // 检查统计信息
+    expect(leaf.visits).toBe(10);
+    expect(parent.visits).toBe(10);
+    expect(grandparent.visits).toBe(10);
+
+    // 5次AI获胜，5次对手获胜
+    expect(leaf.wins).toBe(5);
+    expect(parent.wins).toBe(5);
+    expect(grandparent.wins).toBe(5);
+  });
+
+  it('应该在胜率计算中正确工作', () => {
+    const leaf = createNodeTree();
+    
+    // 模拟10次，7次AI获胜
+    for (let i = 0; i < 10; i++) {
+      backpropagate(leaf, i < 7 ? 0 : 1);
+    }
+
+    const winRate = leaf.wins / leaf.visits;
+    expect(winRate).toBeCloseTo(0.7, 2);
+    expect(leaf.visits).toBe(10);
+    expect(leaf.wins).toBe(7);
+  });
+
+  it('应该正确处理多分支树', () => {
+    const root: MCTSNode = {
+      hand: [],
+      lastPlay: null,
+      playerToMove: 'ai',
+      visits: 0,
+      wins: 0,
+      children: [],
+      parent: null,
+      action: null,
+      untriedActions: []
+    };
+
+    // 创建多个子节点
+    const children: MCTSNode[] = [];
+    for (let i = 0; i < 3; i++) {
+      const child: MCTSNode = {
+        hand: [],
+        lastPlay: null,
+        playerToMove: 'opponent',
+        visits: 0,
+        wins: 0,
+        children: [],
+        parent: root,
+        action: null,
+        untriedActions: []
+      };
+      children.push(child);
+      root.children.push(child);
+    }
+
+    // 对每个子节点进行反向传播
+    backpropagate(children[0], 0);
+    backpropagate(children[1], 1);
+    backpropagate(children[2], 0);
+
+    // 根节点应该接收所有更新
+    expect(root.visits).toBe(3);
+    expect(root.wins).toBe(2); // 两次AI获胜
+
+    // 每个子节点应该只接收自己的更新
+    expect(children[0].visits).toBe(1);
+    expect(children[0].wins).toBe(1);
+    expect(children[1].visits).toBe(1);
+    expect(children[1].wins).toBe(0);
+    expect(children[2].visits).toBe(1);
+    expect(children[2].wins).toBe(1);
+  });
 });
 

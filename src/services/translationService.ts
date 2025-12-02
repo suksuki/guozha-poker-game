@@ -42,11 +42,9 @@ export async function translateText(
   try {
     const translated = await translateWithAPI(text, currentLang);
     if (translated) {
-      console.log(`[TranslationService] 翻译: "${text}" -> "${translated}" (${currentLang})`);
       return translated;
     }
   } catch (error) {
-    console.warn('[TranslationService] 翻译API失败，使用简单翻译:', error);
   }
 
   // 回退：返回原文（让语音系统自动检测语言）
@@ -92,7 +90,6 @@ async function translateWithAPI(
 
     return null;
   } catch (error) {
-    console.warn('[TranslationService] 翻译API调用失败:', error);
     return null;
   }
 }

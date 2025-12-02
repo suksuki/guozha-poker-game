@@ -23,7 +23,10 @@ export class MCTSStrategy implements IAIStrategy {
       perfectInformation: config.perfectInformation || false,
       allPlayerHands: config.allPlayerHands,
       currentRoundScore: config.currentRoundScore || 0,
-      playerCount: config.playerCount || 2
+      playerCount: config.playerCount || 2,
+      teamMode: config.teamMode || false,
+      // 传递动态策略调整（如果存在）
+      strategyAdjustments: (config as any).strategyAdjustments
     };
     
     return mctsChoosePlay(hand, lastPlay, mctsConfig);

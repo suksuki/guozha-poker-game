@@ -87,13 +87,13 @@ export interface LLMChatConfig {
 export const DEFAULT_LLM_CHAT_CONFIG: LLMChatConfig = {
   provider: 'custom',
   apiUrl: 'http://localhost:11434/api/chat', // Ollama原生API地址
-  model: 'qwen2:0.5b', // Ollama模型名称
+  model: 'qwen2.5:3b', // Ollama模型名称（默认使用更通用的模型）
   temperature: 0.8, // 更高的温度，让聊天更生动
   maxTokens: 50, // 减少token数，鼓励简短输出（15个字约30-40 tokens）
   enableContext: true,
   enableHistory: true,
   maxHistoryLength: 10,
-  timeout: 60000, // 60秒超时（LLM生成可能需要较长时间）
+  timeout: 60000, // 60秒超时（远程服务器首次加载需要更长时间）
   enableMultilingual: true, // 启用LLM多语言生成（LLM直接生成目标语言，而不是生成中文再翻译）
   systemPrompt: `你是一个过炸牌游戏的AI玩家，需要根据游戏情况生成自然、有趣的聊天内容。
 

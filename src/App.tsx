@@ -18,6 +18,8 @@ import { setTTSProvider } from './services/multiChannelVoiceService';
 import { SystemApplication } from './services/system';
 import { registerAllModules } from './services/system/modules/registerModules';
 import { AIControlCenter } from './services/ai/control/AIControlCenter';
+import { checkStorageHealth } from './utils/cleanupStorage';
+import { testStorage } from './utils/persistentConfig';
 import './App.css';
 
 function App() {
@@ -26,6 +28,13 @@ function App() {
 
   // 初始化系统应用模块
   useEffect(() => {
+    // 🔥 测试存储可用性
+    const storageTest = testStorage();
+    console.log('💾 存储测试:', storageTest.message);
+    
+    // 🔥 清理 localStorage
+    checkStorageHealth();
+
     let mounted = true;
     
     async function initSystemApplication() {
@@ -48,45 +57,33 @@ function App() {
             const moduleStatus = aiControlModule.getStatus();
             if (mounted) {
               if (moduleStatus.initialized) {
-                console.log('[App] ✅ AI中控系统已初始化', moduleStatus);
               } else {
-                console.warn('[App] ⚠️ AI中控模块已注册但未初始化', moduleStatus);
               }
             }
           } else {
             if (mounted) {
-              console.warn('[App] ⚠️ AI中控模块未找到，请检查registerModules.ts');
             }
           }
         } catch (error) {
-          console.error('[App] ❌ 检查AI中控系统状态失败:', error);
         }
         
         if (mounted) {
           const finalStatus = systemApp.getStatus();
-          console.log('[App] 系统应用模块初始化完成', finalStatus);
           
           // 详细输出每个模块的状态
-          console.log('[App] 模块初始化状态:');
           Object.entries(finalStatus.modules).forEach(([name, status]) => {
-            console.log(`  - ${name}: ${status.initialized ? '✅' : '❌'} (enabled: ${status.enabled})`);
           });
           
           // 如果有错误，详细输出
           if (finalStatus.errors.length > 0) {
-            console.error('[App] 初始化错误:');
             finalStatus.errors.forEach(err => {
-              console.error(`  - ${err.module}: ${err.error.message}`);
               if (err.error.stack) {
-                console.error('    堆栈:', err.error.stack);
               }
             });
           }
         }
       } catch (error) {
-        console.error('[App] ❌ 系统应用模块初始化失败:', error);
         if (error instanceof Error) {
-          console.error('错误堆栈:', error.stack);
         }
       }
     }
@@ -97,7 +94,7 @@ function App() {
     return () => {
       mounted = false;
       // 如果需要在应用关闭时清理，可以在这里调用 shutdown
-      // SystemApplication.getInstance().shutdown().catch(console.error);
+      // SystemApplication.getInstance().shutdown().catch(() => {});
     };
   }, []);
 
@@ -124,10 +121,7 @@ function App() {
         timeout: 30000,
         retryCount: 2,
       };
-      console.log('[App] ✅ 检测到 Azure Speech Service 配置，已启用 Azure TTS');
     } else {
-      console.log('[App] ⚠️ 未检测到 Azure Speech Service 配置，Azure TTS 未启用');
-      console.log('[App] 💡 提示：设置环境变量 VITE_AZURE_SPEECH_KEY 和 VITE_AZURE_SPEECH_REGION');
     }
     
     initTTS(config).then(() => {
@@ -142,9 +136,7 @@ function App() {
         }
       }
       setTTSProvider('auto');  // 使用自动选择（根据场景）
-      console.log('[App] ✅ TTS 系统已初始化，场景配置：报牌=Azure，聊天=Piper');
     }).catch((error) => {
-      console.error('[App] TTS 系统初始化失败:', error);
     });
   }, []);
 
@@ -165,9 +157,7 @@ function App() {
     queueMicrotask(() => {
       try {
         ideaService.adoptIdea(idea, documentTitle);
-        console.log('[App] 想法已采纳并加入设计队列');
       } catch (error) {
-        console.error('[App] 采纳想法失败:', error);
       }
     });
   };
@@ -175,7 +165,6 @@ function App() {
   // 处理想法拒绝
   const handleRejectIdea = (idea: GameIdea) => {
     clearCurrentIdea();
-    console.log('[App] 想法已拒绝');
   };
 
   return (
@@ -205,4 +194,3 @@ function App() {
 }
 
 export default App;
-

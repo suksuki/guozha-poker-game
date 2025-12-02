@@ -1,5 +1,6 @@
 import { Card, Play, Rank } from '../types/card';
 import { canPlayCards, canBeat, findPlayableCards, isScoreCard, calculateCardsScore } from './cardUtils';
+import { evaluateCardBreaking, BreakingContext } from './smartCardBreaking';
 
 // MCTS节点
 interface MCTSNode {
@@ -14,6 +15,14 @@ interface MCTSNode {
   untriedActions: Card[][];  // 未尝试的动作
 }
 
+// 策略调整
+interface StrategyAdjustment {
+  type: 'weight' | 'parameter' | 'preference';
+  target: string;
+  value: number;
+  priority: number;
+}
+
 // MCTS配置
 interface MCTSConfig {
   iterations?: number;       // 迭代次数
@@ -23,6 +32,8 @@ interface MCTSConfig {
   allPlayerHands?: Card[][]; // 所有玩家的手牌（完全信息模式使用）
   currentRoundScore?: number; // 当前轮次累计的分数
   playerCount?: number; // 玩家总数
+  strategyAdjustments?: StrategyAdjustment[]; // 动态策略调整
+  teamMode?: boolean; // 是否启用团队模式
 }
 
 // 游戏状态（用于模拟）
@@ -46,7 +57,7 @@ interface SimulatedGameState {
 /**
  * 统计手牌中每种点数的数量
  */
-function countRankGroups(hand: Card[]): Map<number, number> {
+export function countRankGroups(hand: Card[]): Map<number, number> {
   const groups = new Map<number, number>();
   hand.forEach(card => {
     const rank = card.rank;
@@ -328,7 +339,9 @@ function evaluateActionQuality(
   lastPlay: Play | null,
   opponentHands: Card[][] = [],
   currentRoundScore: number = 0,
-  perfectInformation: boolean = false
+  perfectInformation: boolean = false,
+  strategyAdjustments: StrategyAdjustment[] = [],
+  config?: MCTSConfig
 ): number {
   if (!action || action.length === 0) return -1000;
   
@@ -337,8 +350,31 @@ function evaluateActionQuality(
   
   let score = 0;
   
-  // 评估牌型策略
-  score += evaluateCardTypeStrategy(action, hand, lastPlay, play);
+  // 检查是否拆牌
+  const handRankGroups = countRankGroups(hand);
+  const actionRank = action[0].rank;
+  const originalCount = handRankGroups.get(actionRank) || 0;
+  const remainingCount = originalCount - action.length;
+  const isBreaking = originalCount >= 3 && remainingCount > 0;
+  
+  // 如果拆牌，使用智能拆牌评估
+  if (isBreaking) {
+    const remainingHand = hand.filter(card => !action.some(c => c.id === card.id));
+    const teamMode = config?.teamMode || false;
+    const breakingContext: BreakingContext = {
+      lastPlay,
+      currentRoundScore,
+      remainingHandCount: remainingHand.length,
+      teamMode,
+      opponentHands: perfectInformation ? opponentHands : undefined
+    };
+    
+    const breakingEvaluation = evaluateCardBreaking(action, hand, play, breakingContext);
+    score += breakingEvaluation;  // 拆牌净价值（可能是正数或负数）
+  } else {
+    // 如果不拆牌，使用原有评估
+    score += evaluateCardTypeStrategy(action, hand, lastPlay, play);
+  }
   
   // 评估分牌策略
   score += evaluateScoreCardStrategy(action, hand, lastPlay, play, currentRoundScore);
@@ -362,7 +398,73 @@ function evaluateActionQuality(
     score += 15; // 保留大牌拿分
   }
   
+  // 应用动态策略调整
+  score = applyStrategyAdjustments(score, action, hand, lastPlay, play, strategyAdjustments);
+  
   return score;
+}
+
+/**
+ * 应用动态策略调整
+ */
+function applyStrategyAdjustments(
+  baseScore: number,
+  action: Card[],
+  hand: Card[],
+  lastPlay: Play | null,
+  play: Play,
+  adjustments: StrategyAdjustment[]
+): number {
+  let adjustedScore = baseScore;
+  const remainingHand = hand.filter(card => !action.some(c => c.id === card.id));
+  
+  for (const adjustment of adjustments) {
+    switch (adjustment.type) {
+      case 'weight':
+        // 权重调整
+        if (adjustment.target === 'bigCardPreservationWeight') {
+          // 检查是否保留了大牌
+          const hasBigCards = remainingHand.some(card => {
+            const testPlay = canPlayCards([card]);
+            return testPlay && testPlay.value >= 12;
+          });
+          if (hasBigCards) {
+            adjustedScore += adjustment.value * 50;
+          }
+        } else if (adjustment.target === 'supportWeight') {
+          // 检查是否支援了队友（比如出牌让队友能够出）
+          // 这里简化处理：如果出牌后剩余手牌少，可能是在支援
+          if (remainingHand.length <= 6) {
+            adjustedScore += adjustment.value * 50;
+          }
+        } else if (adjustment.target === 'aggressiveWeight') {
+          // 激进权重：如果出的是大牌或炸弹，加分
+          if (play.type === 'bomb' || play.type === 'dun' || play.value >= 12) {
+            adjustedScore += adjustment.value * 50;
+          }
+        }
+        break;
+        
+      case 'preference':
+        // 偏好调整
+        if (adjustment.target === 'action_preference') {
+          // 直接调整基础分数
+          adjustedScore += adjustment.value;
+        } else if (adjustment.target === 'supportHuman') {
+          // 如果出牌可能支援人类玩家（比如出小牌让人类能压过）
+          if (play.value <= 10 && lastPlay && play.value > lastPlay.value) {
+            adjustedScore += adjustment.value;
+          }
+        }
+        break;
+        
+      case 'parameter':
+        // 参数调整（这里可以扩展）
+        break;
+    }
+  }
+  
+  return adjustedScore;
 }
 
 // 使用启发式选择最佳动作（当MCTS没有生成子节点时）
@@ -373,7 +475,7 @@ function selectBestActionByHeuristic(actions: Card[][], hand: Card[], lastPlay: 
   // 评估每个动作的质量
   const scoredActions = actions.map(action => ({
     action,
-    score: evaluateActionQuality(action, hand, lastPlay, [], 0, false) // 基础版本
+    score: evaluateActionQuality(action, hand, lastPlay, [], 0, false, [], undefined) // 基础版本
   }));
   
   // 选择得分最高的动作
@@ -861,7 +963,9 @@ function mcts(
       root.lastPlay,
       opponentHands,
       config.currentRoundScore || 0,
-      config.perfectInformation || false
+      config.perfectInformation || false,
+      config.strategyAdjustments || [],
+      config
     );
     
     return {
@@ -876,6 +980,188 @@ function mcts(
   return scoredChildren[0].child.action;
 }
 
+/**
+ * MCTS生成多个候选动作（用于多方案建议）
+ * @param hand 手牌
+ * @param lastPlay 上家出的牌
+ * @param config MCTS配置
+ * @param topN 返回前N个最佳动作
+ * @returns 前N个最佳动作列表
+ */
+export function mctsChooseMultiplePlays(
+  hand: Card[],
+  lastPlay: Play | null,
+  config: MCTSConfig = {},
+  topN: number = 5
+): Array<{ cards: Card[]; score: number }> {
+  try {
+    // 快速模式：降低迭代次数以提高速度
+    const iterations = config.iterations || 50;
+    const explorationConstant = config.explorationConstant || 1.414;
+    const baseDepth = config.simulationDepth || 20;
+    const maxDepth = Math.min(50, hand.length * 2);
+    const simulationDepth = Math.max(baseDepth, maxDepth);
+    
+    const adjustedIterations = hand.length > 30 
+      ? Math.max(30, Math.floor(iterations * 0.6))
+      : hand.length > 20
+      ? Math.max(40, Math.floor(iterations * 0.8))
+      : iterations;
+    
+    const playableOptions = findPlayableCards(hand, lastPlay);
+    
+    if (playableOptions.length === 0) {
+      return [];
+    }
+    
+    const root: MCTSNode = {
+      hand: hand,
+      lastPlay: lastPlay,
+      playerToMove: 'ai',
+      visits: 0,
+      wins: 0,
+      children: [],
+      parent: null,
+      action: null,
+      untriedActions: [...playableOptions]
+    };
+    
+    const allCards = generateAllCards();
+    const startTime = Date.now();
+    const maxTime = 2000;
+    
+    // MCTS主循环
+    for (let i = 0; i < adjustedIterations; i++) {
+      if (Date.now() - startTime > maxTime) {
+        break;
+      }
+      
+      let node = root;
+      
+      // Selection
+      while (node.children.length > 0 && node.untriedActions.length === 0) {
+        node = selectBestChild(node, explorationConstant);
+      }
+      
+      // Expansion
+      if (node.untriedActions.length > 0) {
+        if (node.untriedActions.length === 0) {
+          const actions = generateActions(node.hand, node.lastPlay);
+          node.untriedActions = actions;
+        }
+        
+        const expandedNode = expandNode(node, []);
+        if (expandedNode) {
+          node = expandedNode;
+        }
+      }
+      
+      // Simulation
+      if (node.hand.length === 0) {
+        backpropagate(node, 0);
+        continue;
+      }
+      
+      const allHands = initializeMCTSHands(node, config, allCards);
+      
+      const gameState: SimulatedGameState = {
+        aiHand: [...node.hand],
+        opponentHands: allHands.slice(1),
+        allHands: allHands,
+        lastPlay: node.lastPlay,
+        lastPlayPlayerIndex: null,
+        currentPlayerIndex: node.playerToMove === 'ai' ? 0 : 1,
+        playerCount: config.playerCount || 2,
+        roundScore: config.currentRoundScore || 0,
+        aiScore: 0,
+        isTerminal: false,
+        winner: null,
+        perfectInformation: config.perfectInformation || false
+      };
+      
+      const winner = simulateGame(gameState, simulationDepth, config.perfectInformation || false);
+      
+      // Backpropagation
+      backpropagate(node, winner);
+    }
+    
+    // 计算所有子节点的综合分数
+    const scoredActions: Array<{ cards: Card[]; score: number }> = [];
+    
+    if (root.children.length === 0) {
+      // 如果没有子节点，使用启发式选择前N个
+      const heuristicScored = playableOptions.map(action => {
+        const play = canPlayCards(action);
+        if (!play) return null;
+        
+        const opponentHands = config.perfectInformation && config.allPlayerHands 
+          ? config.allPlayerHands.filter((_, idx) => idx > 0)
+          : [];
+        const heuristicScore = evaluateActionQuality(
+          action,
+          hand,
+          lastPlay,
+          opponentHands,
+          config.currentRoundScore || 0,
+          config.perfectInformation || false,
+          config.strategyAdjustments || [],
+          config
+        );
+        
+        return { cards: action, score: heuristicScore };
+      }).filter((item): item is { cards: Card[]; score: number } => item !== null);
+      
+      heuristicScored.sort((a, b) => b.score - a.score);
+      return heuristicScored.slice(0, topN);
+    }
+    
+    // 使用MCTS结果
+    root.children.forEach(child => {
+      if (!child.action) return;
+      
+      const visitScore = child.visits;
+      const winRate = child.visits > 0 ? child.wins / child.visits : 0;
+      const baseScore = visitScore * (0.7 + winRate * 0.3);
+      
+      const opponentHands = config.perfectInformation && config.allPlayerHands 
+        ? config.allPlayerHands.filter((_, idx) => idx > 0)
+        : [];
+      const heuristicScore = evaluateActionQuality(
+        child.action,
+        hand,
+        lastPlay,
+        opponentHands,
+        config.currentRoundScore || 0,
+        config.perfectInformation || false,
+        config.strategyAdjustments || [],
+        config
+      );
+      
+      const totalScore = baseScore + heuristicScore * 5;
+      scoredActions.push({ cards: child.action, score: totalScore });
+    });
+    
+    // 按分数排序，返回前N个
+    scoredActions.sort((a, b) => b.score - a.score);
+    return scoredActions.slice(0, topN);
+  } catch (error) {
+    // 降级到简单策略
+    const playableOptions = findPlayableCards(hand, lastPlay);
+    if (playableOptions.length === 0) return [];
+    
+    const validPlays = playableOptions
+      .map(cards => ({ cards, play: canPlayCards(cards) }))
+      .filter((item): item is { cards: Card[]; play: Play } => {
+        if (!item.play) return false;
+        if (!lastPlay) return true;
+        return canBeat(item.play, lastPlay);
+      });
+    
+    validPlays.sort((a, b) => a.play.value - b.play.value);
+    return validPlays.slice(0, topN).map(item => ({ cards: item.cards, score: 50 }));
+  }
+}
+
 // ========== 导出函数 ==========
 
 // MCTS AI选择出牌
@@ -887,7 +1173,6 @@ export function mctsChoosePlay(
   try {
     return mcts(hand, lastPlay, config);
   } catch (error) {
-    console.error('MCTS算法错误:', error);
     // 降级到简单策略
     const playableOptions = findPlayableCards(hand, lastPlay);
     if (playableOptions.length === 0) return null;

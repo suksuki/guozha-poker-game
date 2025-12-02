@@ -145,7 +145,6 @@ export class LLMService {
         return data.models?.map((m: any) => m.name) || [];
       }
     } catch (e) {
-      console.warn('[LLMService] 无法获取模型列表:', e);
     }
     return [];
   }

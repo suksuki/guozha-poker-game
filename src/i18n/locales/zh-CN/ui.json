@@ -1,6 +1,6 @@
 {
   "config": {
-    "playerCount": "玩家数量 (4-8人)",
+    "playerCount": "玩家数量 (4-100人)",
     "yourPosition": "你的位置",
     "player": "玩家{{index}}",
     "aiStrategy": "AI策略",
@@ -29,7 +29,9 @@
     "favorHuman": "偏袒人类玩家",
     "favorAi": "偏袒AI玩家",
     "balancedScore": "平衡分牌",
-    "clustered": "聚类分配"
+    "clustered": "聚类分配",
+    "bombFriendly": "易出大牌",
+    "monteCarlo": "蒙特卡洛模拟"
   },
   "dealingAlgorithmHint": "选择发牌策略，影响游戏难度和趣味性",
   "skipDealingAnimationHint": "勾选后直接开始游戏，不显示发牌动画",

@@ -78,9 +78,7 @@ class WebAudioMultiChannelService {
         this.channelPanners.set(channel, pannerNode);
       });
 
-      console.log('[WebAudioMultiChannel] Web Audio API 上下文已初始化');
     } catch (error) {
-      console.error('[WebAudioMultiChannel] 无法初始化 Web Audio API:', error);
     }
   }
 
@@ -94,7 +92,6 @@ class WebAudioMultiChannelService {
     channel: ChannelType = ChannelType.PLAYER_0
   ): Promise<void> {
     if (!this.audioContext) {
-      console.warn('[WebAudioMultiChannel] AudioContext 未初始化，回退到 speechSynthesis');
       return this.fallbackToSpeechSynthesis(text, voiceConfig, channel);
     }
 
@@ -110,7 +107,6 @@ class WebAudioMultiChannelService {
         this.fallbackToSpeechSynthesis(text, voiceConfig, channel);
       }
     } catch (error) {
-      console.error('[WebAudioMultiChannel] TTS 生成失败，回退到 speechSynthesis:', error);
       this.fallbackToSpeechSynthesis(text, voiceConfig, channel);
     }
   }

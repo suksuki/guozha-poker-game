@@ -45,15 +45,11 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
                        'eastus';
     
     if (!azureKey) {
-      console.warn('[initTTS] ⚠️ Azure Speech Service 已启用但未找到 Subscription Key，将跳过初始化');
-      console.warn('[initTTS] 💡 提示：请设置环境变量 VITE_AZURE_SPEECH_KEY 和 VITE_AZURE_SPEECH_REGION');
       ttsManager.configureProvider('azure', {
         provider: 'azure',
         enabled: false,
       });
     } else {
-      console.log('[initTTS] 🔑 找到 Azure Speech Service Subscription Key，长度:', azureKey.length);
-      console.log('[initTTS] 🌍 Azure 区域:', azureRegion);
       
       // 从 localStorage 读取保存的语音选择
       const savedVoiceName = typeof window !== 'undefined' 
@@ -70,9 +66,7 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
 
       // 检查服务是否可用（需要 Subscription Key）
       try {
-        console.log('[initTTS] 🔍 开始 Azure Speech Service 健康检查...');
         const isHealthy = await azureClient.checkHealth();
-        console.log(`[initTTS] Azure Speech Service 健康检查结果: ${isHealthy ? '✅ 可用' : '❌ 不可用'}`);
         
         if (isHealthy) {
           ttsManager.configureProvider('azure', {
@@ -81,19 +75,13 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
             enabled: true,
             config: { ...config.azureConfig, subscriptionKey: azureKey, region: azureRegion },
           });
-          console.log('[initTTS] ✅ Azure Speech Service 已启用（最高优先级）');
         } else {
-          console.warn('[initTTS] ⚠️ Azure Speech Service 服务不可用（可能是 Subscription Key 无效或网络问题），已禁用');
-          console.warn('[initTTS] 💡 提示：请检查 Subscription Key 和 Region 是否正确');
           ttsManager.configureProvider('azure', {
             provider: 'azure',
             enabled: false,
           });
         }
       } catch (error) {
-        console.error('[initTTS] ❌ Azure Speech Service 健康检查失败:', error);
-        console.warn('[initTTS] ⚠️ Azure Speech Service 健康检查失败，已禁用');
-        console.warn('[initTTS] 错误详情:', error instanceof Error ? error.message : String(error));
         ttsManager.configureProvider('azure', {
           provider: 'azure',
           enabled: false,
@@ -105,7 +93,6 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
   // 配置 Piper TTS（轻量级本地TTS）
   if (config.enablePiper !== false) {  // 默认启用
     const piperBaseUrl = config.piperConfig?.baseUrl || 'http://localhost:5000';
-    console.log(`[initTTS] 正在检查 Piper TTS 服务: ${piperBaseUrl}`);
     
     const piperClient = new PiperTTSClient({
       baseUrl: piperBaseUrl,
@@ -116,7 +103,6 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
     // 检查服务是否可用
     try {
       const isHealthy = await piperClient.checkHealth();
-      console.log(`[initTTS] Piper TTS 健康检查结果: ${isHealthy ? '✅ 可用' : '❌ 不可用'}`);
       
       if (isHealthy) {
         ttsManager.configureProvider('piper', {
@@ -125,17 +111,13 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
           enabled: true,
           config: config.piperConfig,
         });
-        console.log('[initTTS] ✅ Piper TTS 已启用');
       } else {
-        console.warn('[initTTS] ⚠️ Piper TTS 服务不可用，已禁用');
         ttsManager.configureProvider('piper', {
           provider: 'piper',
           enabled: false,
         });
       }
     } catch (error) {
-      console.error('[initTTS] ❌ Piper TTS 健康检查失败:', error);
-      console.warn('[initTTS] ⚠️ Piper TTS 健康检查失败，但仍尝试启用（服务可能正在启动）');
       ttsManager.configureProvider('piper', {
         provider: 'piper',
         priority: 1,
@@ -155,7 +137,6 @@ export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
   // 启动健康检查
   ttsManager.startHealthCheck(5 * 60 * 1000);  // 每5分钟检查一次
 
-  console.log('[initTTS] TTS 系统初始化完成');
 }
 
 /**

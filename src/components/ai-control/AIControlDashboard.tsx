@@ -33,7 +33,6 @@ export const AIControlDashboard: React.FC = () => {
       const systemStatus = interactionService.getSystemStatus();
       setStatus(systemStatus);
     } catch (error) {
-      console.error('[AIControlDashboard] 加载系统状态失败:', error);
     }
   };
   
@@ -43,7 +42,6 @@ export const AIControlDashboard: React.FC = () => {
       const results = interactionService.getAnalysisResults({ limit: 10 });
       setAnalysisResults(results);
     } catch (error) {
-      console.error('[AIControlDashboard] 加载分析结果失败:', error);
     }
   };
   
@@ -55,7 +53,6 @@ export const AIControlDashboard: React.FC = () => {
       
       if (!status.initialized) {
         // 尝试等待初始化（最多等待5秒）
-        console.log('[AIControlDashboard] 系统未初始化，等待初始化...');
         let waitCount = 0;
         const maxWait = 10; // 最多等待10次，每次500ms
         
@@ -67,11 +64,9 @@ export const AIControlDashboard: React.FC = () => {
         
         if (!status.initialized) {
           alert('AI中控系统初始化超时。请检查：\n1. SystemApplication是否正确启动\n2. AIControlModule是否正确注册\n3. 查看控制台错误信息');
-          console.error('[AIControlDashboard] 系统初始化超时');
           return;
         }
         
-        console.log('[AIControlDashboard] 系统已初始化');
       }
       
       interactionService.startMonitoring();
@@ -81,9 +76,7 @@ export const AIControlDashboard: React.FC = () => {
         loadSystemStatus();
       }, 100);
       
-      console.log('[AIControlDashboard] 监控启动请求已发送');
     } catch (error: any) {
-      console.error('[AIControlDashboard] 启动监控失败:', error);
       alert(`启动监控失败: ${error.message || '未知错误'}\n\n请检查控制台获取详细信息。`);
     }
   };
@@ -98,9 +91,7 @@ export const AIControlDashboard: React.FC = () => {
         loadSystemStatus();
       }, 100);
       
-      console.log('[AIControlDashboard] 监控停止请求已发送');
     } catch (error: any) {
-      console.error('[AIControlDashboard] 停止监控失败:', error);
       alert(`停止监控失败: ${error.message || '未知错误'}`);
     }
   };
@@ -122,7 +113,6 @@ export const AIControlDashboard: React.FC = () => {
     const checkInitialization = () => {
       const currentStatus = interactionService.getSystemStatus();
       if (currentStatus.initialized) {
-        console.log('[AIControlDashboard] 系统已初始化');
         loadSystemStatus();
         loadAnalysisResults();
         
@@ -137,7 +127,6 @@ export const AIControlDashboard: React.FC = () => {
           loadSystemStatus();
         }, 5000);
       } else {
-        console.log('[AIControlDashboard] 等待系统初始化...');
         // 更新状态显示
         setStatus(currentStatus);
       }
@@ -165,10 +154,6 @@ export const AIControlDashboard: React.FC = () => {
           
           const finalStatus = interactionService.getSystemStatus();
           if (!finalStatus.initialized) {
-            console.error('[AIControlDashboard] 初始化超时，请检查：');
-            console.error('1. SystemApplication是否正确启动');
-            console.error('2. AIControlModule是否正确注册');
-            console.error('3. 查看控制台是否有初始化错误');
             
             // 更新状态显示错误
             setStatus({
@@ -192,12 +177,10 @@ export const AIControlDashboard: React.FC = () => {
     
     // 订阅监控状态变化事件
     const handleMonitoringStarted = () => {
-      console.log('[AIControlDashboard] 收到监控启动事件');
       setTimeout(() => loadSystemStatus(), 200);
     };
     
     const handleMonitoringStopped = () => {
-      console.log('[AIControlDashboard] 收到监控停止事件');
       setTimeout(() => loadSystemStatus(), 200);
     };
     

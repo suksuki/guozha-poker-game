@@ -54,10 +54,8 @@ export const TTSStatusMonitor: React.FC = () => {
 
   // 手动检查健康状态
   const handleCheckHealth = async () => {
-    console.log('[TTSStatusMonitor] 开始检查所有 TTS 服务健康状态...');
     await ttsManager.checkAllProvidersHealth();
     updateStatus();
-    console.log('[TTSStatusMonitor] 健康检查完成，当前状态:', ttsManager.getProviderStatus());
   };
 
   // 测试 TTS
@@ -157,7 +155,6 @@ export const TTSStatusMonitor: React.FC = () => {
                 const provider = e.target.value as TTSProvider;
                 setAnnouncementProvider(provider);
                 localStorage.setItem('tts_provider_announcement', provider);
-                console.log('[TTSStatusMonitor] 报牌场景TTS提供者已设置为:', provider);
                 const isHealthy = status[provider]?.healthy;
                 if (isHealthy) {
                   alert(`✅ 报牌场景已设置为：${providerNames[provider]}\n\n配置已保存，将在下次报牌时生效。`);
@@ -200,7 +197,6 @@ export const TTSStatusMonitor: React.FC = () => {
                 const provider = e.target.value as TTSProvider;
                 setChatProvider(provider);
                 localStorage.setItem('tts_provider_chat', provider);
-                console.log('[TTSStatusMonitor] 聊天场景TTS提供者已设置为:', provider);
                 const isHealthy = status[provider]?.healthy;
                 if (isHealthy) {
                   alert(`✅ 聊天场景已设置为：${providerNames[provider]}\n\n配置已保存，将在下次AI聊天时生效。`);
@@ -283,7 +279,6 @@ export const TTSStatusMonitor: React.FC = () => {
                       className="btn-enable"
                       onClick={async () => {
                         // 尝试重新启用 Azure Speech Service
-                        console.log('[TTSStatusMonitor] 尝试重新启用 Azure Speech Service...');
                         const { initTTS } = await import('../tts/initTTS');
                         const azureKey = 
                           import.meta.env.VITE_AZURE_SPEECH_KEY ||
@@ -348,7 +343,6 @@ export const TTSStatusMonitor: React.FC = () => {
                         const azureClient = ttsManager.getProvider('azure') as AzureSpeechTTSClient;
                         if (azureClient && 'updateVoiceName' in azureClient) {
                           azureClient.updateVoiceName(voiceName);
-                          console.log('[TTSStatusMonitor] Azure 语音已更新为:', voiceName);
                           const voiceDisplayName = availableVoices.find(v => v.name === voiceName)?.displayName || voiceName;
                           alert(`✅ 语音已切换为：${voiceDisplayName}\n\n注意：已清除缓存，新语音将在下次合成时生效。`);
                         }

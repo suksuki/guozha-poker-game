@@ -97,19 +97,15 @@ export class QuarrelService {
         civility,
         priority,
         onSegmentStart: (index, text) => {
-          console.log(`[QuarrelService] 段 ${index + 1} 开始: ${text}`);
         },
         onSegmentEnd: (index) => {
-          console.log(`[QuarrelService] 段 ${index + 1} 完成`);
         },
         onComplete: () => {
-          console.log('[QuarrelService] 吵架播放完成');
           if (onComplete) {
             onComplete();
           }
         },
         onError: (error) => {
-          console.error('[QuarrelService] 播放错误:', error);
           if (onError) {
             onError(error);
           }
@@ -120,7 +116,6 @@ export class QuarrelService {
       await this.segmentedPlayback.startPlayback(beatsWithSegments, playbackConfig);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error('[QuarrelService] 吵架生成失败:', err);
       if (onError) {
         onError(err);
       }
@@ -154,11 +149,9 @@ export class QuarrelService {
         return parsed;
       }
     } catch (error) {
-      console.error('[QuarrelService] LLM 调用失败:', error);
     }
     
     // 如果 LLM 调用失败，生成占位分段
-    console.warn('[QuarrelService] LLM 调用失败，使用占位内容');
     const segments = beatsStructure.beats.map((beat, index) => ({
       beat_index: index,
       text: this.generatePlaceholderText(beat, index, context),
@@ -203,7 +196,6 @@ export class QuarrelService {
       const data = await response.json();
       return data.message?.content || data.response || '';
     } catch (error) {
-      console.error('[QuarrelService] LLM API 调用失败:', error);
       throw error;
     }
   }

@@ -1,6 +1,6 @@
 {
   "config": {
-    "playerCount": "プレイヤー数 (4-8人)",
+    "playerCount": "プレイヤー数 (4-100人)",
     "yourPosition": "あなたの位置",
     "player": "プレイヤー{{index}}",
     "aiStrategy": "AI戦略",
@@ -29,7 +29,9 @@
     "favorHuman": "人間プレイヤー優遇",
     "favorAi": "AIプレイヤー優遇",
     "balancedScore": "バランススコアカード",
-    "clustered": "クラスター配布"
+    "clustered": "クラスター配布",
+    "bombFriendly": "大牌が出やすい",
+    "monteCarlo": "モンテカルロシミュレーション"
   },
   "dealingAlgorithmHint": "カード配り戦略を選択、ゲーム難易度と楽しさに影響",
   "skipDealingAnimationHint": "チェックするとカード配りアニメーションなしで直接ゲーム開始",

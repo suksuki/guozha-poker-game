@@ -633,3 +633,83 @@
   }
 }
 
+/* LLM 状态详细显示 */
+.llm-status-detailed {
+  padding: 12px;
+  border-radius: 6px;
+  background: #f5f5f5;
+  margin-top: 8px;
+}
+
+.status-checking {
+  color: #FFA500;
+  font-weight: 500;
+}
+
+.status-available-box {
+  color: #4CAF50;
+}
+
+.status-available-box .status-icon {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.server-info-mini {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.server-info-mini div {
+  margin: 2px 0;
+}
+
+.status-unavailable {
+  color: #f44336;
+  font-weight: 500;
+}
+
+.status-unknown {
+  color: #999;
+}
+
+.status-disabled {
+  color: #999;
+}
+
+/* 配置保存提示 */
+.config-save-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 15px;
+  background: #e8f5e9;
+  border: 1px solid #4CAF50;
+  border-radius: 8px;
+}
+
+.config-save-notice .notice-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.config-save-notice .notice-text {
+  flex: 1;
+}
+
+.config-save-notice .notice-text strong {
+  display: block;
+  color: #2e7d32;
+  margin-bottom: 4px;
+}
+
+.config-save-notice .notice-text p {
+  margin: 0;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.4;
+}
+

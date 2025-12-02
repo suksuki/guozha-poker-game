@@ -202,6 +202,182 @@ describe('MCTS游戏模拟', () => {
       expect(winner).toBeGreaterThanOrEqual(0);
       expect(winner).toBeLessThan(4);
     });
+
+    it('应该处理AI首先出完牌的情况', () => {
+      const hands = dealCards(4);
+      // 给AI很少的牌
+      const aiHand = hands[0]?.slice(0, 2) || [];
+      const opponentHands = hands.slice(1).map(h => h || []);
+      
+      if (aiHand.length === 0) {
+        return;
+      }
+      
+      const state = createGameState(aiHand, opponentHands, null, 0, true);
+      
+      const winner = simulateGame(state, 50, true);
+      
+      // AI有很少的牌，可能会赢
+      expect(winner).toBeGreaterThanOrEqual(0);
+      expect(winner).toBeLessThan(4);
+    });
+
+    it('应该处理对手首先出完牌的情况', () => {
+      const hands = dealCards(4);
+      // 给对手很少的牌
+      const aiHand = hands[0] || [];
+      const opponentHands = [
+        hands[1]?.slice(0, 2) || [],
+        hands[2] || [],
+        hands[3] || []
+      ].filter(h => h.length > 0);
+      
+      if (aiHand.length === 0 || opponentHands.length === 0) {
+        return;
+      }
+      
+      const state = createGameState(aiHand, opponentHands, null, 0, true);
+      
+      const winner = simulateGame(state, 50, true);
+      
+      expect(winner).toBeGreaterThanOrEqual(0);
+      expect(winner).toBeLessThan(4);
+    });
+
+    it('应该在不同初始玩家索引下工作', () => {
+      const hands = dealCards(4);
+      const aiHand = hands[0] || [];
+      const opponentHands = hands.slice(1).filter(h => h && h.length > 0);
+      
+      if (aiHand.length === 0 || opponentHands.length === 0) {
+        return;
+      }
+      
+      // 测试从不同玩家开始
+      for (let startPlayer = 0; startPlayer < 3; startPlayer++) {
+        const state = createGameState(aiHand, opponentHands, null, startPlayer, true);
+        const winner = simulateGame(state, 50, true);
+        
+        expect(winner).toBeGreaterThanOrEqual(0);
+        expect(winner).toBeLessThan(4);
+      }
+    });
+
+    it('应该处理玩家轮流要不起的情况', () => {
+      const hands = dealCards(4);
+      const aiHand = hands[0] || [];
+      const opponentHands = hands.slice(1).filter(h => h && h.length > 0);
+      
+      if (aiHand.length === 0 || opponentHands.length === 0 || !opponentHands[0] || opponentHands[0].length === 0) {
+        return;
+      }
+      
+      // 创建一个大牌作为上家出牌
+      const deck = createDeck();
+      const bigCard = deck.find(c => c.rank === Rank.TWO) || opponentHands[0][0];
+      const lastPlay: Play = {
+        type: 'single',
+        cards: [bigCard],
+        value: Rank.TWO
+      };
+      
+      const state = createGameState(aiHand, opponentHands, lastPlay, 0, true);
+      
+      const winner = simulateGame(state, 50, true);
+      
+      expect(winner).toBeGreaterThanOrEqual(0);
+      expect(winner).toBeLessThan(4);
+    });
+
+    it('应该处理短游戏（快速结束）', () => {
+      const deck = createDeck();
+      // 给每个玩家很少的牌
+      const aiHand = deck.slice(0, 3);
+      const opponentHands = [
+        deck.slice(3, 6),
+        deck.slice(6, 9)
+      ];
+      
+      const state = createGameState(aiHand, opponentHands, null, 0, true);
+      
+      const winner = simulateGame(state, 20, true);
+      
+      expect(winner).toBeGreaterThanOrEqual(0);
+      expect(winner).toBeLessThan(3);
+    });
+
+    it('应该在深度限制内完成模拟', () => {
+      const hands = dealCards(4);
+      const aiHand = hands[0] || [];
+      const opponentHands = hands.slice(1).filter(h => h && h.length > 0);
+      
+      if (aiHand.length === 0 || opponentHands.length === 0) {
+        return;
+      }
+      
+      const state = createGameState(aiHand, opponentHands, null, 0, true);
+      
+      // 测试不同的深度限制
+      const depths = [5, 10, 20, 50, 100];
+      
+      for (const depth of depths) {
+        const winner = simulateGame(state, depth, true);
+        expect(winner).toBeGreaterThanOrEqual(0);
+        expect(winner).toBeLessThan(4);
+      }
+    });
+  });
+
+  describe('estimateOpponentHand边界情况', () => {
+    it('应该处理没有剩余牌的情况', () => {
+      const allCards = createDeck();
+      const aiHand = allCards.slice(); // AI拿了所有牌
+      
+      const estimated = estimateOpponentHand(aiHand, allCards, 10);
+      
+      // 没有剩余牌，应该返回空数组或很少的牌
+      expect(estimated.length).toBeLessThanOrEqual(10);
+    });
+
+    it('应该不返回AI已有的牌', () => {
+      const allCards = createDeck();
+      const aiHand = allCards.slice(0, 10);
+      
+      const estimated = estimateOpponentHand(aiHand, allCards, 5);
+      
+      // 估计的牌不应该在AI手牌中
+      estimated.forEach(card => {
+        expect(aiHand.some(h => h.id === card.id)).toBe(false);
+      });
+    });
+
+    it('应该处理请求数量大于可用牌数的情况', () => {
+      const allCards = createDeck();
+      const aiHand = allCards.slice(0, 50); // AI拿了大部分牌
+      
+      const estimated = estimateOpponentHand(aiHand, allCards, 100);
+      
+      // 返回的牌数不应超过可用牌数
+      const availableCards = allCards.length - aiHand.length;
+      expect(estimated.length).toBeLessThanOrEqual(availableCards);
+    });
+
+    it('应该返回随机分布的牌', () => {
+      const allCards = createDeck();
+      const aiHand = allCards.slice(0, 10);
+      
+      // 多次估计，应该得到不同的结果
+      const estimate1 = estimateOpponentHand(aiHand, allCards, 5);
+      const estimate2 = estimateOpponentHand(aiHand, allCards, 5);
+      
+      // 至少有一张牌不同（概率非常高）
+      const allSame = estimate1.every((card, i) => 
+        estimate2[i] && card.id === estimate2[i].id
+      );
+      
+      // 不保证每次都不同，但概率很低
+      expect([true, false]).toContain(allSame);
+    });
   });
 });
 

@@ -59,7 +59,6 @@ export const SettingsCenter: React.FC = () => {
       setSaveMessage('配置已保存（需要重启系统生效）');
       setTimeout(() => setSaveMessage(null), 3000);
     } catch (error) {
-      console.error('[SettingsCenter] 保存配置失败:', error);
       setSaveMessage('保存失败');
       setTimeout(() => setSaveMessage(null), 3000);
     } finally {

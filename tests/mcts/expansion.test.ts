@@ -207,5 +207,148 @@ describe('MCTS节点扩展', () => {
     // 应该成功扩展
     expect(result).not.toBeNull();
   });
+
+  it('应该正确处理对子扩展', () => {
+    const pairHand = [
+      { suit: Suit.SPADES, rank: Rank.THREE, id: 'spades-3' },
+      { suit: Suit.HEARTS, rank: Rank.THREE, id: 'hearts-3' },
+      { suit: Suit.DIAMONDS, rank: Rank.FOUR, id: 'diamonds-4' }
+    ];
+    const action = [pairHand[0], pairHand[1]]; // 对子
+    const node = createNode(pairHand, null, 'ai', [action]);
+    
+    const result = expandNode(node, testDeck);
+    
+    expect(result).not.toBeNull();
+    if (result) {
+      expect(result.hand.length).toBe(pairHand.length - 2);
+      expect(result.lastPlay).not.toBeNull();
+      expect(result.lastPlay!.cards.length).toBe(2);
+    }
+  });
+
+  it('应该正确处理三张扩展', () => {
+    const tripleHand = [
+      { suit: Suit.SPADES, rank: Rank.THREE, id: 'spades-3' },
+      { suit: Suit.HEARTS, rank: Rank.THREE, id: 'hearts-3' },
+      { suit: Suit.DIAMONDS, rank: Rank.THREE, id: 'diamonds-3' },
+      { suit: Suit.CLUBS, rank: Rank.FOUR, id: 'clubs-4' }
+    ];
+    const action = [tripleHand[0], tripleHand[1], tripleHand[2]]; // 三张
+    const node = createNode(tripleHand, null, 'ai', [action]);
+    
+    const result = expandNode(node, testDeck);
+    
+    expect(result).not.toBeNull();
+    if (result) {
+      expect(result.hand.length).toBe(tripleHand.length - 3);
+      expect(result.lastPlay!.cards.length).toBe(3);
+    }
+  });
+
+  it('应该正确处理炸弹扩展', () => {
+    const bombHand = [
+      { suit: Suit.SPADES, rank: Rank.THREE, id: 'spades-3' },
+      { suit: Suit.HEARTS, rank: Rank.THREE, id: 'hearts-3' },
+      { suit: Suit.DIAMONDS, rank: Rank.THREE, id: 'diamonds-3' },
+      { suit: Suit.CLUBS, rank: Rank.THREE, id: 'clubs-3' }
+    ];
+    const action = bombHand.slice(); // 炸弹
+    const node = createNode(bombHand, null, 'ai', [action]);
+    
+    const result = expandNode(node, testDeck);
+    
+    expect(result).not.toBeNull();
+    if (result) {
+      expect(result.hand.length).toBe(0); // 所有牌都出完了
+      expect(result.lastPlay!.cards.length).toBe(4);
+    }
+  });
+
+  it('应该在扩展后正确更新children数组', () => {
+    const hand = [
+      { suit: Suit.SPADES, rank: Rank.THREE, id: 'spades-3' },
+      { suit: Suit.HEARTS, rank: Rank.FOUR, id: 'hearts-4' }
+    ];
+    const action1 = [hand[0]];
+    const action2 = [hand[1]];
+    const node = createNode(hand, null, 'ai', [action1, action2]);
+    
+    const initialChildrenCount = node.children.length;
+    const result = expandNode(node, testDeck);
+    
+    expect(node.children.length).toBe(initialChildrenCount + 1);
+    expect(node.children).toContain(result);
+  });
+
+  it('应该在扩展后正确移除untriedAction', () => {
+    const hand = [
+      { suit: Suit.SPADES, rank: Rank.THREE, id: 'spades-3' },
+      { suit: Suit.HEARTS, rank: Rank.FOUR, id: 'hearts-4' },
+      { suit: Suit.DIAMONDS, rank: Rank.FIVE, id: 'diamonds-5' }
+    ];
+    const action1 = [hand[0]];
+    const action2 = [hand[1]];
+    const action3 = [hand[2]];
+    const node = createNode(hand, null, 'ai', [action1, action2, action3]);
+    
+    const initialUntriedCount = node.untriedActions.length;
+    expandNode(node, testDeck);
+    
+    expect(node.untriedActions.length).toBe(initialUntriedCount - 1);
+  });
+
+  it('应该在多次扩展后用完所有untried actions', () => {
+    const hand = [
+      { suit: Suit.SPADES, rank: Rank.THREE, id: 'spades-3' },
+      { suit: Suit.HEARTS, rank: Rank.FOUR, id: 'hearts-4' }
+    ];
+    const action1 = [hand[0]];
+    const action2 = [hand[1]];
+    const node = createNode(hand, null, 'ai', [action1, action2]);
+    
+    expandNode(node, testDeck);
+    expandNode(node, testDeck);
+    
+    expect(node.untriedActions.length).toBe(0);
+    expect(node.children.length).toBe(2);
+  });
+
+  it('应该在所有actions尝试后返回null', () => {
+    const hand = [
+      { suit: Suit.SPADES, rank: Rank.THREE, id: 'spades-3' }
+    ];
+    const action = [hand[0]];
+    const node = createNode(hand, null, 'ai', [action]);
+    
+    // 第一次扩展应该成功
+    const result1 = expandNode(node, testDeck);
+    expect(result1).not.toBeNull();
+    
+    // 第二次扩展应该返回null（没有更多actions）
+    const result2 = expandNode(node, testDeck);
+    expect(result2).toBeNull();
+  });
+
+  it('应该正确设置子节点的所有属性', () => {
+    const hand = [
+      { suit: Suit.SPADES, rank: Rank.THREE, id: 'spades-3' },
+      { suit: Suit.HEARTS, rank: Rank.FOUR, id: 'hearts-4' }
+    ];
+    const action = [hand[0]];
+    const node = createNode(hand, null, 'ai', [action]);
+    
+    const result = expandNode(node, testDeck);
+    
+    expect(result).not.toBeNull();
+    if (result) {
+      expect(result.parent).toBe(node);
+      expect(result.action).toEqual(action);
+      expect(result.visits).toBe(0);
+      expect(result.wins).toBe(0);
+      expect(result.children).toEqual([]);
+      expect(result.playerToMove).toBe('opponent');
+    }
+  });
 });
 

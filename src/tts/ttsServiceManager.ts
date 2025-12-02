@@ -98,13 +98,6 @@ export class TTSServiceManager {
     // 获取可用的提供者列表（按优先级排序）
     const availableProviders = this.getAvailableProviders();
 
-    console.log(`[TTSServiceManager] 可用提供者列表:`, availableProviders.map(p => ({
-      provider: p.provider,
-      priority: p.priority,
-      enabled: p.enabled,
-      healthy: this.healthStatus.get(p.provider)
-    })));
-
     if (availableProviders.length === 0) {
       throw new Error('没有可用的 TTS 提供者');
     }
@@ -117,22 +110,18 @@ export class TTSServiceManager {
       const client = this.providers.get(provider);
 
       if (!client) {
-        console.warn(`[TTSServiceManager] 提供者 ${provider} 的客户端不存在`);
         continue;
       }
 
       try {
-        console.log(`[TTSServiceManager] 尝试使用提供者: ${provider} (优先级: ${providerConfig.priority})`);
         const result = await client.synthesize(text, options);
         
         // 标记为健康
         this.healthStatus.set(provider, true);
-        console.log(`[TTSServiceManager] ✅ 提供者 ${provider} 成功生成音频`);
         
         return result;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(`[TTSServiceManager] ❌ 提供者 ${provider} 失败:`, lastError.message);
         
         // 标记为不健康
         this.healthStatus.set(provider, false);
@@ -143,7 +132,6 @@ export class TTSServiceManager {
     }
 
     // 所有提供者都失败了
-    console.error(`[TTSServiceManager] ❌ 所有提供者都失败了，最后错误:`, lastError);
     throw lastError || new Error('所有 TTS 提供者都失败了');
   }
 
@@ -163,21 +151,16 @@ export class TTSServiceManager {
     // 检查提供者是否启用
     const config = this.providerConfigs.find(c => c.provider === provider);
     if (config && !config.enabled) {
-      console.warn(`[TTSServiceManager] ⚠️ 提供者 ${provider} 未启用，尝试强制使用`);
       // 如果指定了提供者但未启用，仍然尝试使用（可能是临时禁用）
     }
-
-    console.log(`[TTSServiceManager] 🎯 使用指定提供者 ${provider} 生成语音: "${text.substring(0, 30)}..."`);
     
     try {
       const result = await client.synthesize(text, options);
       this.healthStatus.set(provider, true);
-      console.log(`[TTSServiceManager] ✅ 提供者 ${provider} 成功生成音频: ${(result.audioBuffer.byteLength / 1024).toFixed(2)} KB`);
       return result;
     } catch (error) {
       this.healthStatus.set(provider, false);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[TTSServiceManager] ❌ 提供者 ${provider} 生成失败:`, errorMsg);
       // 如果指定了提供者但失败，直接抛出错误，不要回退到其他提供者
       // 这样调用者可以知道指定的提供者不可用
       throw error;
@@ -191,14 +174,12 @@ export class TTSServiceManager {
     const available = this.providerConfigs.filter(config => {
       // 检查是否启用
       if (!config.enabled) {
-        console.log(`[TTSServiceManager] 提供者 ${config.provider} 未启用`);
         return false;
       }
 
       // 检查健康状态（如果已知不健康，跳过）
       const isHealthy = this.healthStatus.get(config.provider);
       if (isHealthy === false) {
-        console.log(`[TTSServiceManager] 提供者 ${config.provider} 标记为不健康，跳过`);
         return false;
       }
 
@@ -237,7 +218,6 @@ export class TTSServiceManager {
       } catch (error) {
         // 静默失败，不输出错误日志（只对启用的提供者输出警告）
         if (config.enabled) {
-          console.warn(`[TTSServiceManager] 提供者 ${provider} 健康检查失败（已禁用）`);
         }
         this.healthStatus.set(provider, false);
         return false;
@@ -252,7 +232,6 @@ export class TTSServiceManager {
     } catch (error) {
       // 静默失败，不输出错误日志（只对启用的提供者输出警告）
       if (config.enabled) {
-        console.warn(`[TTSServiceManager] 提供者 ${provider} 测试合成失败（已禁用）`);
       }
       this.healthStatus.set(provider, false);
       return false;

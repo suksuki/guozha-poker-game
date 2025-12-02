@@ -113,35 +113,33 @@
 
 .rank-item.playable {
   animation: playable-pulse 1.5s infinite;
-  /* 增强边框效果 - 黄色 */
-  border: 3px solid rgba(255, 193, 7, 1) !important;
+  /* 边框效果 - 黄色 */
+  border: 2px solid rgba(255, 193, 7, 0.9) !important;
   border-radius: 10px;
-  /* 增强阴影和发光效果 - 黄色 */
+  /* 减小阴影和发光效果 - 黄色 */
   box-shadow: 
-    0 0 20px rgba(255, 193, 7, 0.8),
-    0 0 40px rgba(255, 193, 7, 0.5),
-    inset 0 0 30px rgba(255, 193, 7, 0.3),
-    0 4px 15px rgba(255, 193, 7, 0.6) !important;
-  /* 增强背景光晕 - 黄色 */
-  background: rgba(255, 193, 7, 0.15) !important;
-  /* 增强整体发光 - 黄色 */
-  filter: drop-shadow(0 0 15px rgba(255, 193, 7, 1));
+    0 0 8px rgba(255, 193, 7, 0.5),
+    0 2px 8px rgba(255, 193, 7, 0.3) !important;
+  /* 减小背景光晕 - 黄色 */
+  background: rgba(255, 193, 7, 0.08) !important;
+  /* 减小整体发光 - 黄色 */
+  filter: drop-shadow(0 0 6px rgba(255, 193, 7, 0.6));
   /* 提升层级，确保高亮效果在最上层 */
   z-index: 10;
   /* 轻微的缩放效果 */
-  transform: scale(1.05);
+  transform: scale(1.03);
   position: relative;
 }
 
-/* 添加额外的发光环效果 - 黄色 */
+/* 添加额外的发光环效果 - 黄色（减小） */
 .rank-item.playable::before {
   content: '';
   position: absolute;
-  top: -8px;
-  left: -8px;
-  right: -8px;
-  bottom: -8px;
-  border: 2px solid rgba(255, 193, 7, 0.6);
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 1px solid rgba(255, 193, 7, 0.4);
   border-radius: 12px;
   animation: playable-ring 1.5s ease-in-out infinite;
   pointer-events: none;
@@ -150,22 +148,18 @@
 
 @keyframes playable-pulse {
   0%, 100% {
-    filter: drop-shadow(0 0 15px rgba(255, 193, 7, 1));
+    filter: drop-shadow(0 0 6px rgba(255, 193, 7, 0.6));
     box-shadow: 
-      0 0 20px rgba(255, 193, 7, 0.8),
-      0 0 40px rgba(255, 193, 7, 0.5),
-      inset 0 0 30px rgba(255, 193, 7, 0.3),
-      0 4px 15px rgba(255, 193, 7, 0.6);
-    transform: scale(1.05);
+      0 0 8px rgba(255, 193, 7, 0.5),
+      0 2px 8px rgba(255, 193, 7, 0.3);
+    transform: scale(1.03);
   }
   50% {
-    filter: drop-shadow(0 0 25px rgba(255, 193, 7, 1.2));
+    filter: drop-shadow(0 0 10px rgba(255, 193, 7, 0.8));
     box-shadow: 
-      0 0 30px rgba(255, 193, 7, 1),
-      0 0 60px rgba(255, 193, 7, 0.7),
-      inset 0 0 40px rgba(255, 193, 7, 0.5),
-      0 6px 20px rgba(255, 193, 7, 0.8);
-    transform: scale(1.08);
+      0 0 12px rgba(255, 193, 7, 0.6),
+      0 3px 10px rgba(255, 193, 7, 0.4);
+    transform: scale(1.05);
   }
 }
 
@@ -246,16 +240,16 @@
 
 /* 选中状态的卡牌 */
 .rank-card-stacked.card-selected {
-  filter: drop-shadow(0 2px 6px rgba(76, 175, 80, 0.6)) !important;
+  filter: drop-shadow(0 1px 4px rgba(76, 175, 80, 0.5)) !important;
   animation: card-selected-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes card-selected-pulse {
   0%, 100% {
-    filter: drop-shadow(0 2px 6px rgba(76, 175, 80, 0.6));
+    filter: drop-shadow(0 1px 4px rgba(76, 175, 80, 0.5));
   }
   50% {
-    filter: drop-shadow(0 4px 12px rgba(76, 175, 80, 0.9));
+    filter: drop-shadow(0 2px 6px rgba(76, 175, 80, 0.7));
   }
 }
 

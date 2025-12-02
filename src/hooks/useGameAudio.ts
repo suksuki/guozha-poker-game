@@ -62,7 +62,6 @@ export function useGameAudio(config: UseGameAudioConfig = {}) {
     // 预加载常用音频
     if (preloadCommon && !preloadedRef.current) {
       preloadCommonAudio().catch((error) => {
-        console.warn('[useGameAudio] 预加载失败:', error);
       });
       preloadedRef.current = true;
     }

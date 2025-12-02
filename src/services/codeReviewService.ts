@@ -69,7 +69,6 @@ export class CodeReviewService {
         const fileIssues = this.detectIssues(file, content, metrics);
         this.issues.push(...fileIssues);
       } catch (error) {
-        console.warn(`[CodeReviewService] 分析文件失败: ${file}`, error);
       }
     }
 
@@ -101,7 +100,6 @@ export class CodeReviewService {
         return files;
       }
     } catch (error) {
-      console.warn('[CodeReviewService] 无法通过 API 获取文件列表，使用默认列表', error);
     }
 
     // 回退到默认文件列表
@@ -142,7 +140,6 @@ export class CodeReviewService {
 
       throw new Error(`无法读取文件: ${filePath}`);
     } catch (error) {
-      console.warn(`[CodeReviewService] 读取文件失败: ${filePath}`, error);
       return '';
     }
   }
@@ -458,7 +455,6 @@ export class CodeReviewService {
         return await response.json();
       }
     } catch (error) {
-      console.warn('[CodeReviewService] 无法获取文件列表，使用默认列表', error);
     }
 
     // 返回默认文件列表

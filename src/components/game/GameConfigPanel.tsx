@@ -12,6 +12,9 @@ import { LLMChatStrategy } from '../../chat/strategy/LLMChatStrategy';
 import { LLMChatConfig } from '../../config/chatConfig';
 import { useSystemConfig } from '../../hooks/useSystemConfig';
 import { ConfigGroupModal } from './ConfigGroupModal';
+import { ServerSelector } from '../llm/ServerSelector';
+import { OllamaServerConfig } from '../../services/llm/OllamaServerManager';
+import { LLMAvailability } from '../../services/llm/LLMAvailabilityManager';
 import './GameConfigPanel.css';
 
 export type { GameMode };
@@ -23,27 +26,41 @@ interface GameConfigPanelProps {
   humanPlayerIndex: number;
   strategy: 'aggressive' | 'conservative' | 'balanced';
   algorithm: 'simple' | 'mcts';
-  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered';
+  dealingAlgorithm?: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered' | 'bomb-friendly' | 'monte-carlo';
   skipDealingAnimation?: boolean;
   dealingSpeed?: number;
   sortOrder?: 'asc' | 'desc' | 'grouped';
   llmModel?: string;
   llmApiUrl?: string;
+  llmEnabled?: boolean;
+  llmAvailability?: LLMAvailability;
+  currentServer?: OllamaServerConfig;
+  allServers?: OllamaServerConfig[];
+  recentServers?: OllamaServerConfig[];
   ideaGenerationEnabled?: boolean;
   cardTrackerEnabled?: boolean;
   cardTrackerPanelVisible?: boolean;
   playTimeout?: number;
   announcementDelay?: number;
+  teamMode?: boolean;
+  onTeamModeChange?: (enabled: boolean) => void;
   onPlayerCountChange: (count: number) => void;
   onHumanPlayerIndexChange: (index: number) => void;
   onStrategyChange: (strategy: 'aggressive' | 'conservative' | 'balanced') => void;
   onAlgorithmChange: (algorithm: 'simple' | 'mcts') => void;
-  onDealingAlgorithmChange?: (algorithm: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered') => void;
+  onDealingAlgorithmChange?: (algorithm: 'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered' | 'bomb-friendly' | 'monte-carlo') => void;
   onSkipDealingAnimationChange?: (skip: boolean) => void;
   onDealingSpeedChange?: (speed: number) => void;
   onSortOrderChange?: (order: 'asc' | 'desc' | 'grouped') => void;
   onLlmModelChange?: (model: string) => void;
   onLlmApiUrlChange?: (url: string) => void;
+  onLlmEnabledChange?: (enabled: boolean) => void;
+  onServerChange?: (serverId: string) => void;
+  onAddServer?: (config: Partial<OllamaServerConfig>) => void;
+  onRemoveServer?: (serverId: string) => void;
+  onToggleServerFavorite?: (serverId: string) => void;
+  onCheckServer?: (server: OllamaServerConfig) => Promise<boolean>;
+  onRefreshModels?: () => Promise<void>;
   onIdeaGenerationEnabledChange?: (enabled: boolean) => void;
   onCardTrackerEnabledChange?: (enabled: boolean) => void;
   onCardTrackerPanelVisibleChange?: (visible: boolean) => void;
@@ -183,11 +200,18 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   sortOrder = 'grouped',
   llmModel = 'qwen2:0.5b',
   llmApiUrl = 'http://localhost:11434/api/chat',
+  llmEnabled = true,
+  llmAvailability = 'unknown',
+  currentServer,
+  allServers = [],
+  recentServers = [],
   ideaGenerationEnabled = true,
   cardTrackerEnabled = false,
   cardTrackerPanelVisible = false,
   playTimeout = 30000,
   announcementDelay = 1000,
+  teamMode = false,
+  onTeamModeChange,
   onPlayerCountChange,
   onHumanPlayerIndexChange,
   onStrategyChange,
@@ -198,6 +222,13 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   onSortOrderChange,
   onLlmModelChange,
   onLlmApiUrlChange,
+  onLlmEnabledChange,
+  onServerChange,
+  onAddServer,
+  onRemoveServer,
+  onToggleServerFavorite,
+  onCheckServer,
+  onRefreshModels,
   onIdeaGenerationEnabledChange,
   onCardTrackerEnabledChange,
   onCardTrackerPanelVisibleChange,
@@ -209,7 +240,6 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   const { t } = useTranslation(['game', 'ui']);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
-  const [ollamaAvailable, setOllamaAvailable] = useState(false);
   
   // 测试窗口状态
   const [testMessage, setTestMessage] = useState('');
@@ -234,23 +264,30 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
     e.stopPropagation();
   };
 
-  // 加载可用模型列表
+  // 加载可用模型列表（从当前服务器）
   useEffect(() => {
     const loadModels = async () => {
-      setIsLoadingModels(true);
-      const isAvailable = await checkOllamaService();
-      setOllamaAvailable(isAvailable);
-      
-      if (isAvailable) {
-        const models = await getAvailableOllamaModels();
-        setAvailableModels(models);
-        console.log('[GameConfigPanel] 可用模型:', models);
+      if (!currentServer || !llmEnabled || llmAvailability !== 'available') {
+        setAvailableModels([]);
+        return;
       }
+      
+      setIsLoadingModels(true);
+      const serverUrl = `${currentServer.protocol}://${currentServer.host}:${currentServer.port}`;
+      const models = await getAvailableOllamaModels(serverUrl);
+      setAvailableModels(models);
       setIsLoadingModels(false);
     };
     
     loadModels();
-  }, []);
+  }, [currentServer, llmEnabled, llmAvailability]);
+  
+  // 刷新模型列表
+  const handleRefreshModels = async () => {
+    if (onRefreshModels) {
+      await onRefreshModels();
+    }
+  };
 
   // 测试大模型
   const handleTestLLM = async () => {
@@ -261,37 +298,64 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
     setTestResponse(null);
     
     try {
-      // 创建测试用的 LLM 配置
-      const testConfig: LLMChatConfig = {
-        provider: 'custom',
-        apiUrl: llmApiUrl,
+      // 直接调用 Ollama API 进行测试（绕过策略层）
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      
+      const messages = [
+        { role: 'system', content: '你是一个友好的AI助手，简洁自然地回答问题。' },
+        { role: 'user', content: testMessage.trim() }
+      ];
+      
+      const requestBody = {
         model: llmModel,
-        temperature: 0.8,
-        maxTokens: 100,
-        enableContext: false,
-        enableHistory: false,
-        timeout: 20000,
-        systemPrompt: '你是一个友好的AI助手，简洁自然地回答问题。'
+        messages: messages,
+        stream: false
       };
       
-      // 创建 LLM 策略实例
-      const strategy = new LLMChatStrategy(testConfig);
+      const startTime = Date.now();
+      const response = await fetch(llmApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
       
-      // 构建测试 prompt
-      const prompt = `用户说：${testMessage.trim()}\n\n请简洁自然地回应（不超过20个字）：`;
+      clearTimeout(timeoutId);
+      const endTime = Date.now();
+      const latency = endTime - startTime;
       
-      // 调用 LLM API（使用私有方法，需要类型断言）
-      // @ts-ignore - 访问私有方法用于测试
-      const response = await strategy.callLLMAPI(prompt, 1);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
       
-      if (response && response.trim()) {
-        setTestResponse(response.trim());
+      const data = await response.json();
+      
+      // 解析响应（支持 Ollama 原生格式和 OpenAI 兼容格式）
+      const content = data.message?.content || 
+                     data.choices?.[0]?.message?.content ||
+                     data.content || 
+                     data.text || 
+                     data.response ||
+                     '';
+      
+      if (content && content.trim()) {
+        setTestResponse(`${content.trim()} (耗时: ${latency}ms)`);
       } else {
         setTestError('模型返回空响应，请检查模型是否正常工作');
       }
     } catch (error: any) {
-      console.error('[GameConfigPanel] 测试LLM失败:', error);
-      setTestError(error.message || '测试失败，请检查模型配置和网络连接');
+      if (error.name === 'AbortError') {
+        setTestError('请求超时，请检查服务器连接');
+      } else if (error.message.includes('Failed to fetch')) {
+        setTestError(`无法连接到服务器: ${llmApiUrl}`);
+      } else {
+        setTestError(error.message || '测试失败，请检查模型配置和网络连接');
+      }
+      console.error('LLM test error:', error);
     } finally {
       setIsTesting(false);
     }
@@ -374,10 +438,10 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                   </div>
                   <div className="config-group-summary-item">
                     <span className="config-group-summary-icon">
-                      {isLoadingModels ? '⏳' : ollamaAvailable ? '✅' : '❌'}
+                      {llmAvailability === 'checking' ? '⏳' : llmAvailability === 'available' ? '✅' : '❌'}
                     </span>
                     <span className="config-group-summary-text">
-                      {isLoadingModels ? t('ui:llm.checking') : ollamaAvailable ? t('ui:llm.connected') : t('ui:llm.disconnected')}
+                      {llmAvailability === 'checking' ? t('ui:llm.checking') : llmAvailability === 'available' ? t('ui:llm.connected') : t('ui:llm.disconnected')}
                     </span>
                   </div>
                 </div>
@@ -466,7 +530,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
             <input
               type="number"
               min="4"
-              max="8"
+              max="100"
               value={playerCount}
               onChange={(e) => onPlayerCountChange(parseInt(e.target.value) || 4)}
             />
@@ -482,6 +546,23 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               ))}
             </select>
           </div>
+          {onTeamModeChange && (playerCount === 4 || playerCount === 6) && (
+            <div className="config-item">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                  type="checkbox"
+                  checked={teamMode || false}
+                  onChange={(e) => onTeamModeChange(e.target.checked)}
+                />
+                <span>团队模式 (合作模式)</span>
+              </label>
+              <small style={{ display: 'block', color: '#999', marginTop: '5px' }}>
+                {playerCount === 4 
+                  ? '2v2 团队对战模式，分数按团队计算' 
+                  : '3v3 团队对战模式，分数按团队计算'}
+              </small>
+            </div>
+          )}
         </div>
       </ConfigGroupModal>
 
@@ -517,46 +598,85 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
         onClose={closeModal}
       >
         <div className="config-group">
+          {/* LLM 功能开关 */}
+          {onLlmEnabledChange && (
+            <div className="config-item full-width">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                  type="checkbox"
+                  checked={llmEnabled}
+                  onChange={(e) => onLlmEnabledChange(e.target.checked)}
+                />
+                <span>☐ 启用 LLM 功能</span>
+              </label>
+              <small>使用大模型生成智能聊天和分析（关闭后使用预设聊天模板）</small>
+            </div>
+          )}
+          
+          {/* LLM 状态指示器 */}
           <div className="config-item full-width">
-            <label>
-              {t('ui:llm.service')}
-              <button
-                type="button"
-                className="refresh-models-btn"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  setIsLoadingModels(true);
-                  const isAvailable = await checkOllamaService();
-                  setOllamaAvailable(isAvailable);
-                  if (isAvailable) {
-                    const models = await getAvailableOllamaModels();
-                    setAvailableModels(models);
-                    console.log('[GameConfigPanel] 刷新模型列表:', models);
-                  }
-                  setIsLoadingModels(false);
-                }}
-                disabled={isLoadingModels}
-                title={t('ui:llm.refreshModels')}
-              >
-                🔄
-              </button>
-            </label>
-            <div className="llm-status">
-              {isLoadingModels ? (
-                <span className="status-loading">{t('ui:llm.checking')}</span>
-              ) : ollamaAvailable ? (
-                <span className="status-available">{t('ui:llm.connected')}</span>
-              ) : (
-                <span className="status-unavailable">{t('ui:llm.disconnected')}</span>
+            <label>LLM 服务状态</label>
+            <div className="llm-status-detailed">
+              {llmAvailability === 'checking' && (
+                <span className="status-checking">🟡 检测中...</span>
+              )}
+              {llmAvailability === 'available' && (
+                <div className="status-available-box">
+                  <span className="status-icon">🟢 LLM 可用 - 使用智能聊天</span>
+                  {currentServer && (
+                    <div className="server-info-mini">
+                      <div>服务器: {currentServer.host}:{currentServer.port}</div>
+                      {currentServer.latency && <div>延迟: {currentServer.latency}ms</div>}
+                    </div>
+                  )}
+                </div>
+              )}
+              {llmAvailability === 'unavailable' && (
+                <span className="status-unavailable">🔴 LLM 不可用 - 使用预设聊天</span>
+              )}
+              {llmAvailability === 'unknown' && (
+                <span className="status-unknown">⚪ LLM 未检测</span>
+              )}
+              {!llmEnabled && (
+                <span className="status-disabled">⚪ LLM 已禁用 - 使用预设聊天</span>
               )}
             </div>
           </div>
-          {onLlmModelChange && (
+
+          {/* 服务器选择器 */}
+          {llmEnabled && onServerChange && onAddServer && onRemoveServer && onToggleServerFavorite && onCheckServer && currentServer && (
             <div className="config-item full-width">
-              <label>{t('ui:llm.model')}</label>
+              <ServerSelector
+                currentServer={currentServer}
+                allServers={allServers}
+                recentServers={recentServers}
+                onServerChange={onServerChange}
+                onAddServer={onAddServer}
+                onRemoveServer={onRemoveServer}
+                onToggleFavorite={onToggleServerFavorite}
+                onCheckServer={onCheckServer}
+              />
+            </div>
+          )}
+
+          {/* 模型选择 */}
+          {llmEnabled && llmAvailability === 'available' && onLlmModelChange && (
+            <div className="config-item full-width">
+              <label>
+                {t('ui:llm.model')}
+                <button
+                  type="button"
+                  className="refresh-models-btn"
+                  onClick={handleRefreshModels}
+                  disabled={isLoadingModels}
+                  title="刷新模型列表"
+                >
+                  🔄
+                </button>
+              </label>
               {isLoadingModels ? (
                 <select disabled>
-                  <option>{t('ui:llm.loading')}</option>
+                  <option>加载中...</option>
                 </select>
               ) : availableModels.length > 0 ? (
                 <>
@@ -569,23 +689,18 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                     ))}
                   </select>
                   <small>
-                    <strong>{t('ui:llm.currentSelection')}</strong> {llmModel} | 
-                    {t('ui:llm.availableModels', { count: availableModels.length })}
-                    {filterChatModels(availableModels).length > 0 && (
-                      <span className="chat-models-hint">
-                        {t('ui:llm.recommendedModels', { models: filterChatModels(availableModels).join(', ') })}
-                      </span>
-                    )}
+                    <strong>当前选择:</strong> {llmModel} | 
+                    可用模型: {availableModels.length} 个
                   </small>
                   <div className="available-models-list">
-                    <strong>{t('ui:llm.allAvailableModels')}</strong>
+                    <strong>所有可用模型</strong>
                     <div className="models-tags">
                       {availableModels.map(model => (
                         <span
                           key={model}
                           className={`model-tag ${model === llmModel ? 'selected' : ''}`}
                           onClick={() => onLlmModelChange(model)}
-                          title={t('ui:llm.clickToSelect')}
+                          title="点击选择"
                         >
                           {model}
                         </span>
@@ -599,63 +714,76 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                     type="text"
                     value={llmModel}
                     onChange={(e) => onLlmModelChange(e.target.value)}
-                    placeholder={t('ui:llm.enterModelName')}
+                    placeholder="输入模型名称"
                   />
-                  <small>{t('ui:llm.cannotGetModels', { model: llmModel })}</small>
+                  <small>无法获取模型列表，当前使用: {llmModel}</small>
                 </>
               )}
             </div>
           )}
-          {onLlmApiUrlChange && (
+          
+          {/* API URL 显示（只读） */}
+          {llmEnabled && llmAvailability === 'available' && (
             <div className="config-item full-width">
-              <label>{t('ui:llm.apiUrl')}</label>
+              <label>API 地址 (自动生成)</label>
               <input
                 type="text"
                 value={llmApiUrl}
-                onChange={(e) => onLlmApiUrlChange(e.target.value)}
-                placeholder="http://localhost:11434/api/chat"
+                disabled
+                style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
               />
-              <small>{t('ui:llm.apiUrlHint')}</small>
+              <small>根据服务器地址自动生成，无需手动修改</small>
             </div>
           )}
           
           {/* 测试窗口 */}
-          <div className="llm-test-window">
-            <h3 className="test-window-title">{t('ui:llm.test.title')}</h3>
-            <div className="test-input-group">
-              <input
-                type="text"
-                className="test-input"
-                value={testMessage}
-                onChange={(e) => setTestMessage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !isTesting && testMessage.trim()) {
-                    handleTestLLM();
-                  }
-                }}
-                placeholder={t('ui:llm.test.inputPlaceholder')}
-                disabled={isTesting}
-              />
-              <button
-                className="test-send-btn"
-                onClick={handleTestLLM}
-                disabled={isTesting || !testMessage.trim() || !ollamaAvailable}
-                title={!ollamaAvailable ? t('ui:llm.test.connectFirst') : t('ui:llm.test.sendMessage')}
-              >
-                {isTesting ? t('ui:llm.test.testing') : t('ui:llm.test.send')}
-              </button>
+          {llmEnabled && llmAvailability === 'available' && (
+            <div className="llm-test-window">
+              <h3 className="test-window-title">{t('ui:llm.test.title')}</h3>
+              <div className="test-input-group">
+                <input
+                  type="text"
+                  className="test-input"
+                  value={testMessage}
+                  onChange={(e) => setTestMessage(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !isTesting && testMessage.trim()) {
+                      handleTestLLM();
+                    }
+                  }}
+                  placeholder={t('ui:llm.test.inputPlaceholder')}
+                  disabled={isTesting}
+                />
+                <button
+                  className="test-send-btn"
+                  onClick={handleTestLLM}
+                  disabled={isTesting || !testMessage.trim()}
+                  title={t('ui:llm.test.sendMessage')}
+                >
+                  {isTesting ? t('ui:llm.test.testing') : t('ui:llm.test.send')}
+                </button>
+              </div>
+              {testError && (
+                <div className="test-error">
+                  {t('ui:llm.test.error')} {testError}
+                </div>
+              )}
+              {testResponse && (
+                <div className="test-response">
+                  <strong>{t('ui:llm.test.response')}</strong>
+                  <div className="test-response-content">{testResponse}</div>
+                </div>
+              )}
             </div>
-            {testError && (
-              <div className="test-error">
-                {t('ui:llm.test.error')} {testError}
-              </div>
-            )}
-            {testResponse && (
-              <div className="test-response">
-                <strong>{t('ui:llm.test.response')}</strong>
-                <div className="test-response-content">{testResponse}</div>
-              </div>
-            )}
+          )}
+          
+          {/* 配置保存提示 */}
+          <div className="config-save-notice">
+            <div className="notice-icon">💾</div>
+            <div className="notice-text">
+              <strong>配置自动保存</strong>
+              <p>你的服务器选择和模型配置会自动保存，刷新页面后自动恢复。</p>
+            </div>
           </div>
         </div>
       </ConfigGroupModal>
@@ -769,6 +897,8 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                 <option value="favor-ai">{t('ui:dealingAlgorithms.favorAi')}</option>
                 <option value="balanced-score">{t('ui:dealingAlgorithms.balancedScore')}</option>
                 <option value="clustered">{t('ui:dealingAlgorithms.clustered')}</option>
+                <option value="bomb-friendly">{t('ui:dealingAlgorithms.bombFriendly')}</option>
+                <option value="monte-carlo">{t('ui:dealingAlgorithms.monteCarlo')}</option>
               </select>
               <small>{t('ui:dealingAlgorithmHint')}</small>
             </div>

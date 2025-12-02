@@ -7,13 +7,21 @@ import { ChatMessage, ChatEventType } from '../../types/chat';
 import { Player, Card, Suit, Rank, Play } from '../../types/card';
 import { IChatStrategy, ChatContext } from './IChatStrategy';
 import { LLMChatConfig } from '../../config/chatConfig';
+import { getLLMAvailabilityManager } from '../../services/llm/LLMAvailabilityManager';
 import { i18n } from '../../i18n';
 
 export class LLMChatStrategy implements IChatStrategy {
   readonly name = 'llm';
   readonly description = '基于大语言模型的智能聊天策略';
+  private availabilityManager = getLLMAvailabilityManager();
+  private fallbackStrategy?: IChatStrategy;
 
-  constructor(private config: LLMChatConfig) {}
+  constructor(
+    private config: LLMChatConfig,
+    fallbackStrategy?: IChatStrategy
+  ) {
+    this.fallbackStrategy = fallbackStrategy;
+  }
 
   /**
    * 获取当前语言要求（用于Prompt）
@@ -61,23 +69,27 @@ export class LLMChatStrategy implements IChatStrategy {
     player: Player,
     context?: ChatContext
   ): Promise<ChatMessage | null> {
-    console.log('[LLMChatStrategy] 🎲 生成随机闲聊，玩家:', player.name);
-    const prompt = this.buildPrompt(player, ChatEventType.RANDOM, context);
-    console.log('[LLMChatStrategy] 📝 生成的Prompt长度:', prompt.length, '字符');
-    const content = await this.callLLMAPI(prompt);
-    if (!content) {
-      console.warn('[LLMChatStrategy] ⚠️ 大模型返回空内容，可能API调用失败');
+    try {
+      const prompt = this.buildPrompt(player, ChatEventType.RANDOM, context);
+      const content = await this.callLLMAPI(prompt);
+      if (!content) {
+        return null;
+      }
+      
+      return {
+        playerId: player.id,
+        playerName: player.name,
+        content,
+        timestamp: Date.now(),
+        type: 'random'
+      };
+    } catch (error) {
+      // 🔥 降级到 fallback 策略
+      if (this.fallbackStrategy) {
+        return await this.fallbackStrategy.generateRandomChat(player, context);
+      }
       return null;
     }
-    
-    console.log('[LLMChatStrategy] ✅ 成功生成聊天内容:', content);
-    return {
-      playerId: player.id,
-      playerName: player.name,
-      content,
-      timestamp: Date.now(),
-      type: 'random'
-    };
   }
 
   async generateEventChat(
@@ -85,23 +97,27 @@ export class LLMChatStrategy implements IChatStrategy {
     eventType: ChatEventType,
     context?: ChatContext
   ): Promise<ChatMessage | null> {
-    console.log('[LLMChatStrategy] 生成事件聊天，玩家:', player.name, '事件:', eventType);
-    const prompt = this.buildPrompt(player, eventType, context);
-    console.log('[LLMChatStrategy] 生成的Prompt长度:', prompt.length);
-    const content = await this.callLLMAPI(prompt);
-    if (!content) {
-      console.warn('[LLMChatStrategy] 大模型返回空内容，可能API调用失败');
+    try {
+      const prompt = this.buildPrompt(player, eventType, context);
+      const content = await this.callLLMAPI(prompt);
+      if (!content) {
+        return null;
+      }
+      
+      return {
+        playerId: player.id,
+        playerName: player.name,
+        content,
+        timestamp: Date.now(),
+        type: 'event'
+      };
+    } catch (error) {
+      // 🔥 降级到 fallback 策略
+      if (this.fallbackStrategy) {
+        return await this.fallbackStrategy.generateEventChat(player, eventType, context);
+      }
       return null;
     }
-    
-    console.log('[LLMChatStrategy] ✅ 成功生成聊天内容:', content);
-    return {
-      playerId: player.id,
-      playerName: player.name,
-      content,
-      timestamp: Date.now(),
-      type: 'event'
-    };
   }
 
   async generateTaunt(
@@ -109,17 +125,25 @@ export class LLMChatStrategy implements IChatStrategy {
     targetPlayer?: Player,
     context?: ChatContext
   ): Promise<ChatMessage | null> {
-    const prompt = this.buildTauntPrompt(player, targetPlayer, context);
-    const content = await this.callLLMAPI(prompt);
-    if (!content) return null;
-    
-    return {
-      playerId: player.id,
-      playerName: player.name,
-      content,
-      timestamp: Date.now(),
-      type: 'taunt'
-    };
+    try {
+      const prompt = this.buildTauntPrompt(player, targetPlayer, context);
+      const content = await this.callLLMAPI(prompt);
+      if (!content) return null;
+      
+      return {
+        playerId: player.id,
+        playerName: player.name,
+        content,
+        timestamp: Date.now(),
+        type: 'taunt'
+      };
+    } catch (error) {
+      // 🔥 降级到 fallback 策略
+      if (this.fallbackStrategy) {
+        return await this.fallbackStrategy.generateTaunt(player, targetPlayer, context);
+      }
+      return null;
+    }
   }
 
   /**
@@ -398,49 +422,72 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
    */
   private async checkAvailableModels(): Promise<string[]> {
     try {
-      const response = await fetch('http://localhost:11434/api/tags');
+      // 🔥 使用配置的 API URL，而不是硬编码 localhost
+      const apiUrl = this.config.apiUrl || 'http://localhost:11434/api/chat';
+      const tagsUrl = apiUrl.replace('/api/chat', '/api/tags');
+      
+      console.log('🔍 检查可用模型:', tagsUrl);
+      const response = await fetch(tagsUrl, {
+        signal: AbortSignal.timeout(10000)  // 10秒超时（获取模型列表）
+      });
+      
       if (response.ok) {
         const data = await response.json();
         const models = data.models?.map((m: any) => m.name) || [];
-        console.log('[LLMChatStrategy] 可用的Ollama模型:', models);
+        console.log('✅ 获取到模型列表:', models);
         return models;
       }
     } catch (e) {
-      console.warn('[LLMChatStrategy] 无法获取模型列表:', e);
+      console.warn('⚠️  获取模型列表失败:', e);
     }
     return [];
   }
 
+  private isFirstRequest: boolean = true;  // 标记首次请求
+  
   private async callLLMAPI(prompt: string): Promise<string> {
     const apiUrl = this.config.apiUrl || 'http://localhost:11434/api/chat';
-    const timeout = this.config.timeout || 60000; // 默认60秒超时
+    // 🔥 首次请求使用更长的超时（模型加载需要时间）
+    const baseTimeout = this.config.timeout || 20000;
+    const timeout = this.isFirstRequest ? baseTimeout * 2 : baseTimeout; // 首次 40 秒，后续 20 秒
+    
+    // 🔥 新增：检查 LLM 可用性
+    const serverUrl = apiUrl.replace('/api/chat', '');
+    if (!this.availabilityManager.shouldUseLLM(serverUrl)) {
+      // LLM 不可用，抛出错误以触发降级
+      throw new Error('LLM service is unavailable');
+    }
     
     // 如果模型找不到，先检查可用模型
     const availableModels = await this.checkAvailableModels();
-    let modelToUse = this.config.model || 'qwen2:0.5b';
+    // 🔥 优先使用配置的模型，不要硬编码后备值
+    let modelToUse = this.config.model || 'qwen2.5:3b';
+    
+    console.log('🔍 配置的模型:', this.config.model);
+    console.log('🔍 可用模型列表:', availableModels);
+    console.log('🔍 初始 modelToUse:', modelToUse);
     
     if (availableModels.length > 0 && !availableModels.includes(modelToUse)) {
-      console.warn('[LLMChatStrategy] ⚠️ 配置的模型不存在，可用模型:', availableModels);
+      console.log('⚠️  配置的模型不在可用列表中，尝试自动选择');
       // 尝试自动选择聊天模型（优先选择包含chat或qwen的模型）
       const chatModels = availableModels.filter(m => 
         m.includes('chat') || m.includes('qwen') || m.includes('deepseek')
       );
+      console.log('🔍 聊天模型:', chatModels);
+      
       if (chatModels.length > 0) {
         modelToUse = chatModels[0];
-        console.log('[LLMChatStrategy] 自动切换到模型:', modelToUse);
+        console.log('✅ 自动选择聊天模型:', modelToUse);
       } else if (availableModels.length > 0) {
         // 如果没有找到聊天模型，使用第一个可用模型
         modelToUse = availableModels[0];
-        console.log('[LLMChatStrategy] 使用第一个可用模型:', modelToUse);
+        console.log('⚠️  使用第一个可用模型:', modelToUse);
       }
+    } else {
+      console.log('✅ 使用配置的模型');
     }
     
     // 添加调试日志
-    console.log('[LLMChatStrategy] 调用Ollama API:', {
-      url: apiUrl,
-      model: this.config.model || 'qwen1.5:0.5b',
-      promptLength: prompt.length
-    });
     
     try {
       const controller = new AbortController();
@@ -462,8 +509,10 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         stream: false // Ollama支持流式输出，但我们这里不需要
       };
       
-      // 如果Ollama支持，可以添加这些参数（但根据Python代码，似乎不需要）
-      // 先不添加，看看是否能工作
+      // 🔥 调试日志：显示实际请求的模型
+      console.log(`🤖 LLM 请求: ${apiUrl}`);
+      console.log(`📦 使用模型: ${modelToUse}`);
+      console.log(`💬 消息数: ${messages.length}`);
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -473,13 +522,6 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
       if (this.config.apiKey) {
         headers['Authorization'] = `Bearer ${this.config.apiKey}`;
       }
-      
-      console.log('[LLMChatStrategy] 发送请求:', {
-        url: apiUrl,
-        model: requestBody.model,
-        messagesCount: requestBody.messages.length,
-        requestBody: JSON.stringify(requestBody, null, 2)
-      });
       
       const startTime = Date.now();
       const response = await fetch(apiUrl, {
@@ -492,15 +534,12 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
       
       clearTimeout(timeoutId);
       
-      console.log('[LLMChatStrategy] API响应时间:', endTime - startTime, 'ms');
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[LLMChatStrategy] Ollama API调用失败:', response.status, errorText);
         // 尝试解析错误信息
         try {
           const errorData = JSON.parse(errorText);
-          console.error('[LLMChatStrategy] 错误详情:', errorData);
         } catch (e) {
           // 忽略JSON解析错误
         }
@@ -508,7 +547,6 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
       }
       
       const data = await response.json();
-      console.log('[LLMChatStrategy] API响应数据:', data);
       
       // Ollama原生API格式：data.message.content
       // 也兼容OpenAI兼容格式和其他可能的格式
@@ -520,25 +558,36 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
                      '';
       
       if (!content) {
-        console.warn('[LLMChatStrategy] Ollama返回空内容，完整响应:', JSON.stringify(data, null, 2));
+        console.warn('⚠️  模型返回空内容');
       } else {
-        console.log('[LLMChatStrategy] 收到大模型回复:', content);
+        console.log('✅ LLM 响应成功');
       }
+      
+      // 🔥 标记首次请求成功
+      this.isFirstRequest = false;
       
       return this.parseResponse(content);
     } catch (error: any) {
+      // 🔥 新增：标记 LLM 不可用
+      const serverUrl = apiUrl.replace('/api/chat', '');
+      this.availabilityManager.markUnavailable(serverUrl);
+      
       if (error.name === 'AbortError') {
-        console.error('[LLMChatStrategy] Ollama API调用超时（', timeout, 'ms）');
+        console.warn(`❌ LLM 请求超时 (${timeout}ms)`);
+        console.warn(`   - API: ${apiUrl}`);
+        console.warn(`   - 模型: ${this.config.model}`);
+        console.warn(`   - 是否首次: ${this.isFirstRequest}`);
       } else {
-        console.error('[LLMChatStrategy] Ollama API调用出错:', error);
         if (error.message) {
-          console.error('[LLMChatStrategy] 错误信息:', error.message);
+          console.warn('LLM error:', error.message);
         }
         if (error.cause) {
-          console.error('[LLMChatStrategy] 错误原因:', error.cause);
+          console.warn('LLM error cause:', error.cause);
         }
       }
-      return '';
+      
+      // 抛出错误，让上层决定如何处理（降级）
+      throw error;
     }
   }
 

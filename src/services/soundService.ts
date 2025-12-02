@@ -38,9 +38,7 @@ class SoundService {
 
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      console.log('[SoundService] Web Audio API 上下文已创建');
     } catch (error) {
-      console.warn('[SoundService] 无法创建 Web Audio API 上下文，使用 HTML5 Audio', error);
     }
   }
 
@@ -66,28 +64,18 @@ class SoundService {
         
         // 添加超时处理
         const timeout = setTimeout(() => {
-          console.warn(`[SoundService] HTML5 Audio 加载超时: ${name}`, url);
           (audio as any).__loadFailed = true;
           reject(new Error(`HTML5 Audio 加载超时: ${name}`));
         }, 10000); // 10秒超时
         
         audio.addEventListener('error', (e) => {
           clearTimeout(timeout);
-          const error = audio.error;
-          console.warn(`[SoundService] HTML5 Audio 加载失败: ${name}`, {
-            url,
-            errorCode: error?.code,
-            errorMessage: error?.message,
-            networkState: audio.networkState,
-            readyState: audio.readyState
-          });
-          (audio as any).__loadFailed = true;
+          const error = audio.error;          (audio as any).__loadFailed = true;
           reject(new Error(`HTML5 Audio 加载失败: ${name} (${error?.code || 'unknown'})`));
         });
         
         audio.addEventListener('canplaythrough', () => {
           clearTimeout(timeout);
-          console.log(`[SoundService] HTML5 Audio 加载成功: ${name}`, url);
           this.htmlAudioSounds.set(name, audio);
           resolve();
         });
@@ -115,13 +103,11 @@ class SoundService {
         audio.preload = this.config.preload ? 'auto' : 'none';
         
         audio.addEventListener('error', (e) => {
-          console.warn(`[SoundService] HTML5 Audio 加载失败: ${name}，将使用备用音效`, url);
           (audio as any).__loadFailed = true;
           reject(new Error(`HTML5 Audio 加载失败: ${name}`));
         });
         
         audio.addEventListener('canplaythrough', () => {
-          console.log(`[SoundService] HTML5 Audio 加载成功: ${name}`, url);
           this.htmlAudioSounds.set(name, audio);
           resolve();
         });
@@ -136,50 +122,26 @@ class SoundService {
 
     // 使用 Web Audio API 加载（主要用于 MP3）
     try {
-      console.log(`[SoundService] 尝试加载音频: ${name}`, url);
-      const response = await fetch(url);
-      console.log(`[SoundService] 响应状态: ${response.status}`, {
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        contentType: response.headers.get('content-type'),
-        contentLength: response.headers.get('content-length')
-      });
-      
+      const response = await fetch(url);      
       if (!response.ok) {
         // 文件不存在，抛出错误让调用者继续尝试下一个路径
         throw new Error(`文件不存在 (${response.status} ${response.statusText})`);
       }
       const arrayBuffer = await response.arrayBuffer();
-      console.log(`[SoundService] 音频数据大小: ${arrayBuffer.byteLength} bytes`);
       const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-      this.sounds.set(name, audioBuffer);
-      console.log(`[SoundService] Web Audio 音效加载成功: ${name}`, {
-        url,
-        duration: audioBuffer.duration,
-        sampleRate: audioBuffer.sampleRate,
-        channels: audioBuffer.numberOfChannels
-      });
-    } catch (error) {
-      // 解码失败，尝试使用 HTML5 Audio 作为备用
-      console.warn(`[SoundService] Web Audio 音效加载失败: ${name} (${url})，尝试 HTML5 Audio`, {
-        error: error instanceof Error ? error.message : String(error),
-        errorType: error instanceof Error ? error.constructor.name : typeof error
-      });
-      
+      this.sounds.set(name, audioBuffer);    } catch (error) {
+      // 解码失败，尝试使用 HTML5 Audio 作为备用      
       return new Promise((resolve, reject) => {
         const audio = new Audio(url);
         audio.volume = this.config.volume;
         audio.preload = this.config.preload ? 'auto' : 'none';
         
         audio.addEventListener('error', (e) => {
-          console.warn(`[SoundService] HTML5 Audio 也加载失败: ${name}`, url);
           (audio as any).__loadFailed = true;
           reject(new Error(`HTML5 Audio 加载失败: ${name}`));
         });
         
         audio.addEventListener('canplaythrough', () => {
-          console.log(`[SoundService] HTML5 Audio 加载成功（备用）: ${name}`, url);
           this.htmlAudioSounds.set(name, audio);
           resolve();
         });
@@ -216,7 +178,6 @@ class SoundService {
       'explosion': ['/sounds/explosion.aiff', '/sounds/explosion.mp3'],
     };
 
-    console.log('[SoundService] 开始预加载音效...');
     
     // 并行加载所有音效，尝试每个路径直到成功
     const loadPromises = Object.entries(soundPaths).map(async ([name, paths]) => {
@@ -237,7 +198,6 @@ class SoundService {
       }
       // 所有路径都失败，标记为缺失
       if (lastError) {
-        console.warn(`[SoundService] 所有路径都加载失败: ${name}，将使用备用音效`);
         (this as any).__soundFileMissing = (this as any).__soundFileMissing || new Set();
         (this as any).__soundFileMissing.add(name);
       }
@@ -245,12 +205,7 @@ class SoundService {
 
     await Promise.all(loadPromises);
     
-    this.isInitialized = true;
-    console.log('[SoundService] 音效预加载完成', {
-      webAudio: Array.from(this.sounds.keys()),
-      htmlAudio: Array.from(this.htmlAudioSounds.keys())
-    });
-  }
+    this.isInitialized = true;  }
 
   /**
    * 播放音效（使用 Web Audio API）
@@ -266,7 +221,6 @@ class SoundService {
 
     // 检查音效文件是否缺失，如果缺失直接使用备用音效
     if ((this as any).__soundFileMissing?.has(name)) {
-      console.log(`[SoundService] 音效文件缺失，使用备用音效: ${name}`);
       this.playFallbackSound(name, volume);
       return;
     }
@@ -283,9 +237,7 @@ class SoundService {
         // 尝试使用多声道服务播放系统声音（如果可用）
         try {
           const { webAudioVoiceService } = require('./webAudioVoiceService');
-          webAudioVoiceService.playSystemSound(audioBuffer, vol);
-          console.log(`[SoundService] 播放系统声音 (多声道): ${name}`, { volume: vol });
-          return;
+          webAudioVoiceService.playSystemSound(audioBuffer, vol);          return;
         } catch (e) {
           // 多声道服务不可用，使用普通播放
         }
@@ -300,12 +252,8 @@ class SoundService {
         source.connect(gainNode);
         gainNode.connect(this.audioContext.destination);
         
-        source.start(0);
-        
-        console.log(`[SoundService] 播放音效 (Web Audio): ${name}`, { volume: vol });
-        return;
+        source.start(0);        return;
       } catch (error) {
-        console.warn(`[SoundService] Web Audio 播放失败: ${name}，尝试 HTML5 Audio`, error);
       }
     }
 
@@ -314,20 +262,14 @@ class SoundService {
     if (htmlAudio) {
       // 检查是否加载失败
       if ((htmlAudio as any).__loadFailed) {
-        console.warn(`[SoundService] 音效文件不存在，使用备用音效: ${name}`);
         this.playFallbackSound(name, volume);
         return;
       }
 
       const newAudio = htmlAudio.cloneNode() as HTMLAudioElement;
-      newAudio.volume = vol;
-      
-      console.log(`[SoundService] 播放音效 (HTML5 Audio): ${name}`, { volume: vol });
-      
+      newAudio.volume = vol;      
       newAudio.play().catch(error => {
-        console.warn(`[SoundService] HTML5 Audio 播放失败: ${name}`, error);
         if (error.name === 'NotAllowedError') {
-          console.warn(`[SoundService] 浏览器阻止了自动播放，需要用户交互后才能播放音效`);
         } else {
           // 使用备用音效
           this.playFallbackSound(name, volume);
@@ -337,7 +279,6 @@ class SoundService {
     }
 
     // 如果音效未加载，直接使用备用音效（因为文件不存在）
-    console.log(`[SoundService] 音效未加载: ${name}，直接使用备用音效`);
     this.playFallbackSound(name, volume);
   }
 
@@ -350,7 +291,6 @@ class SoundService {
     this.initAudioContext();
 
     if (!this.audioContext) {
-      console.warn(`[SoundService] 无法创建音频上下文，跳过备用音效: ${name}`);
       return;
     }
 
@@ -451,9 +391,7 @@ class SoundService {
       mainOsc.start(now);
       mainOsc.stop(now + duration);
       
-      console.log(`[SoundService] 播放备用音效: ${name}`);
     } catch (error) {
-      console.warn(`[SoundService] 无法播放备用音效: ${name}`, error);
     }
   }
 
@@ -474,7 +412,6 @@ class SoundService {
       // 尝试播放音效，如果文件不存在则静默跳过
       this.playSound(soundName);
     } else {
-      console.warn(`[SoundService] 未知的动画强度: ${intensity}`);
     }
   }
 

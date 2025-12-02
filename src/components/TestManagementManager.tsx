@@ -30,10 +30,8 @@ export const TestManagementManager: React.FC = () => {
     try {
       // 扫描 tests 和 src 目录
       const testAnalysis = await service.scanTests('tests,src');
-      console.log('[TestManagementManager] 扫描结果:', testAnalysis);
       setAnalysis(testAnalysis);
     } catch (error) {
-      console.error('[TestManagementManager] 扫描失败:', error);
       alert('测试扫描失败，请检查控制台');
     } finally {
       setIsLoading(false);
@@ -102,7 +100,6 @@ export const TestManagementManager: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('[TestManagementManager] 运行测试失败:', error);
       alert(`运行测试失败: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
@@ -173,7 +170,6 @@ export const TestManagementManager: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('[TestManagementManager] 运行所有测试失败:', error);
       alert(`运行所有测试失败: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
@@ -211,7 +207,6 @@ export const TestManagementManager: React.FC = () => {
       // 重新扫描以更新结果
       handleScan();
     } catch (error) {
-      console.error('[TestManagementManager] 合并测试失败:', error);
       alert(`合并测试失败: ${error instanceof Error ? error.message : String(error)}`);
     }
   };

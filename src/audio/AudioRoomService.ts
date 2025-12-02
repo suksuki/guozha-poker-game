@@ -22,7 +22,6 @@ export class AudioRoomService {
   async init(config?: Parameters<typeof useAudioRoom>[0]): Promise<void> {
     // 注意：useAudioRoom 是 Hook，需要在 React 组件中使用
     // 这里提供一个服务类，但实际使用应该在组件中调用 useAudioRoom
-    console.log('[AudioRoomService] 初始化音频房间');
   }
 
   /**
@@ -59,7 +58,6 @@ export class AudioRoomService {
     // 获取角色配置
     const speaker = defaultSpeakerManager.getSpeaker(roleId);
     if (!speaker) {
-      console.warn(`[AudioRoomService] 角色 ${roleId} 未配置，使用默认配置`);
     }
 
     try {
@@ -90,7 +88,6 @@ export class AudioRoomService {
       this.audioRoom.submitUtter(utter);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error(`[AudioRoomService] 生成 TTS 失败 (${roleId}):`, err);
       if (onError) {
         onError(err);
       }

@@ -201,7 +201,6 @@ export class PlayerActionTracker {
     this.sessions.set(gameId, session);
     this.currentGameId = gameId;
     
-    console.log('[PlayerActionTracker] 开始追踪游戏', gameId);
   }
   
   /**
@@ -209,7 +208,6 @@ export class PlayerActionTracker {
    */
   recordAction(action: Omit<PlayerAction, 'id' | 'timestamp' | 'gameId' | 'roundId'>): void {
     if (!this.currentGameId) {
-      console.warn('[PlayerActionTracker] 没有正在追踪的游戏');
       return;
     }
     

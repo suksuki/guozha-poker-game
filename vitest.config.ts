@@ -22,7 +22,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: './tests/setup.ts',
+    setupFiles: path.resolve(__dirname, './tests/setup.ts'),
     // 测试文件排除规则（慢测试和UI/异步测试）
     // 可以通过环境变量 TEST_FAST=true 来跳过慢测试
     exclude: process.env.TEST_FAST 

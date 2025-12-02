@@ -469,7 +469,6 @@ export class CursorPromptService {
     try {
       localStorage.setItem('cursor_prompts', JSON.stringify(this.prompts));
     } catch (error) {
-      console.warn('[CursorPromptService] 保存提示词失败:', error);
     }
   }
 
@@ -488,7 +487,6 @@ export class CursorPromptService {
         }));
       }
     } catch (error) {
-      console.warn('[CursorPromptService] 加载提示词失败:', error);
     }
   }
 

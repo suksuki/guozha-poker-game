@@ -65,8 +65,6 @@ export class DialogueScheduler {
     } else {
       this.queue.push(utter);
     }
-
-    console.log(`[DialogueScheduler] 提交话语: ${utter.roleId} (${utter.priority})`);
     this.tick();
   }
 
@@ -105,7 +103,6 @@ export class DialogueScheduler {
       })
       .catch((error) => {
         // 播放失败
-        console.error(`[DialogueScheduler] 播放失败: ${next.roleId}`, error);
         this.playing.delete(next.roleId);
         if (next.onError) {
           next.onError(error);

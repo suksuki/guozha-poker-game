@@ -50,7 +50,6 @@ export const SelfIterationManager: React.FC = () => {
       // 加载提示词历史
       loadPromptHistory();
     } catch (error) {
-      console.error('[SelfIterationManager] 分析失败:', error);
       alert('自我分析失败，请检查控制台');
     } finally {
       setIsAnalyzing(false);
@@ -77,7 +76,6 @@ export const SelfIterationManager: React.FC = () => {
       // 如果开启了自动运行且还没有报告，自动开始分析
       const autoRun = localStorage.getItem('self-iteration-auto-run') === 'true';
       if (autoRun && !report && !isAnalyzing) {
-        console.log('[SelfIterationManager] 自动运行分析...');
         handleAnalyze();
       }
     }
@@ -96,7 +94,6 @@ export const SelfIterationManager: React.FC = () => {
       // 重新分析以更新报告
       await handleAnalyze();
     } catch (error) {
-      console.error('[SelfIterationManager] 执行改进失败:', error);
       alert('执行改进失败，请检查控制台');
     }
   };
@@ -193,7 +190,6 @@ export const SelfIterationManager: React.FC = () => {
 
       alert(`✅ 已成功合并 ${plansToMerge.length} 个改进计划！`);
     } catch (error) {
-      console.error('[SelfIterationManager] 合并改进计划失败:', error);
       alert('合并改进计划失败，请检查控制台');
     }
   };

@@ -92,7 +92,6 @@ export function useSystemConfig(): UseSystemConfigReturn {
       
       setIsLoading(false);
     } catch (error) {
-      console.error('[useSystemConfig] 加载配置失败:', error);
       setIsLoading(false);
     }
   }, [isInitialized, getModule]);

@@ -100,10 +100,8 @@ export function useAudioRoom(config: UseAudioRoomConfig = {}): UseAudioRoomRetur
         schedulerRef.current = scheduler;
 
         initializedRef.current = true;
-        console.log('[useAudioRoom] 初始化完成');
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        console.error('[useAudioRoom] 初始化失败:', err);
         if (onError) {
           onError(err);
         }
@@ -124,7 +122,6 @@ export function useAudioRoom(config: UseAudioRoomConfig = {}): UseAudioRoomRetur
   // 提交话语
   const submitUtter = useCallback((utter: Utter) => {
     if (!schedulerRef.current) {
-      console.warn('[useAudioRoom] Scheduler 未初始化');
       return;
     }
     schedulerRef.current.submit(utter);

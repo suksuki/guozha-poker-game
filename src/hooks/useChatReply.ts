@@ -73,7 +73,6 @@ export function useChatReply({
     if (queueStatus.isPlaying || queueStatus.queueLength >= 3) {
       // 队列繁忙，降低回复概率
       adjustedProbability = aiReplyProbability * 0.5;
-      console.log('[useChatReply] 语音队列繁忙，降低回复概率:', adjustedProbability);
     }
 
     // 随机选择一些AI玩家回复（避免所有人同时回复）
@@ -91,15 +90,9 @@ export function useChatReply({
               await triggerReply(aiPlayer, message, adjustedProbability, gameState)
                 .then(replyMessage => {
                   if (replyMessage) {
-                    console.log('[useChatReply] ✅ AI自动回复:', {
-                      player: aiPlayer.name,
-                      reply: replyMessage.content,
-                      original: message.content
-                    });
                   }
                 })
                 .catch(err => {
-                  console.warn('[useChatReply] AI自动回复失败:', err);
                 });
             }
           }
@@ -146,11 +139,9 @@ export function useChatReply({
     await triggerReply(humanPlayer, message, 1.0, gameState)
       .then(replyMessage => {
         if (replyMessage) {
-          console.log('[useChatReply] ✅ 真实玩家回复:', replyMessage.content);
         }
       })
       .catch(err => {
-        console.warn('[useChatReply] 真实玩家回复失败:', err);
       });
   }, [pendingReply, humanPlayer, gameState]);
 

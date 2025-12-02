@@ -43,7 +43,6 @@ export function validateAllRoundsOnUpdate(
     }
   } catch (error) {
     // 新模块不可用，降级到旧方法
-    console.warn('[validateAllRoundsOnUpdate] 新验证模块不可用，使用旧方法', error);
   }
   
   // 降级：使用旧的验证逻辑
@@ -116,43 +115,7 @@ export function validateAllRoundsOnUpdate(
       cardsCount: play.cards?.length || 0,
       cards: play.cards?.map(c => `${c.suit}-${c.rank}`).slice(0, 5) || []
     })) || [];
-
-    console.error(`[AllRoundsValidation] ⚠️ ${context || 'allRounds 更新'}时验证失败！`, {
-      error: result.errorMessage,
-      expected: result.totalCardsExpected,
-      found: result.totalCardsFound,
-      missing: result.missingCards,
-      allRoundsCount: allRounds.length,
-      playedCardsCount: result.playedCardsCount,
-      currentRoundPlaysCount: currentRoundPlays?.length || 0,
-      playerHandsCount: result.playerHandsCount,
-      duplicateCardsCount: result.duplicateCards.length,
-      duplicateCards: result.duplicateCards.length > 0 ? result.duplicateCards.slice(0, 5) : [], // 只显示前5张重复牌
-      playerHandsDetail,
-      breakdown: {
-        allRoundsCards: result.details.playedCardsByRound.reduce((sum, r) => sum + r.count, 0),
-        currentRoundCards: currentRoundPlays?.reduce((sum, p) => sum + (p.cards?.length || 0), 0) || 0,
-        playerHands: result.playerHandsCount,
-        sum: result.totalCardsFound
-      },
-      roundsDetail,
-      currentRoundDetail,
-      // 基于 suit-rank 的近似分析：哪些牌型多了/少了（用于快速定位问题牌型）
-      extraCardsApprox: extraCardsSummary,
-      missingCardsApprox: missingCardsSummary,
-      context
-    });
   } else {
-    console.log(`[AllRoundsValidation] ✅ ${context || 'allRounds 更新'}时卡牌验证通过`, {
-      expected: result.totalCardsExpected,
-      found: result.totalCardsFound,
-      allRoundsCount: allRounds.length,
-      playedCardsCount: result.playedCardsCount,
-      currentRoundPlaysCount: currentRoundPlays?.length || 0,
-      playerHandsCount: result.playerHandsCount,
-      duplicateCardsCount: result.duplicateCards.length,
-      context
-    });
   }
 
   // 注意：分数验证已移出此函数
@@ -277,7 +240,6 @@ export function validateCardIntegritySimple(
     })) || []
   };
   
-  console.log('[CardValidation] 📊 详细验证信息:', detailedLog);
   
   // 检查是否完整
   // 如果提供了 initialHands，严格要求牌数必须完全匹配
@@ -571,7 +533,6 @@ function validateCardIntegrityCore(
       playedCardsByRound,
       playerHandsByPlayer
     };
-    console.log('[CardValidation] 📊 详细验证信息:', detailedLog);
   }
 
   return {
@@ -686,7 +647,6 @@ export function validateScoreIntegrity(
     }
   } catch (error) {
     // 新模块不可用，降级到旧方法
-    console.warn('[validateScoreIntegrity] 新验证模块不可用，使用旧方法', error);
   }
   
   // 降级：使用旧的验证逻辑
@@ -733,32 +693,6 @@ export function validateScoreIntegrity(
         }
       }
     }));
-    
-    console.error(`[ScoreValidation] ⚠️ ${context || '分数校验'}失败！${errorMessage}`, {
-      totalScore,
-      expectedTotal: 0,
-      playerCount: players.length,
-      initialTotalScore,
-      totalScoreCards,
-      playerScores: players.map(p => ({
-        id: p.id,
-        name: p.name,
-        score: p.score || 0
-      })),
-      context
-    });
   } else {
-    console.log(`[ScoreValidation] ✅ ${context || '分数校验'}通过：分数总和=${totalScore}`, {
-      totalScore,
-      playerCount: players.length,
-      initialTotalScore,
-      totalScoreCards,
-      playerScores: players.map(p => ({
-        id: p.id,
-        name: p.name,
-        score: p.score || 0
-      })),
-      context
-    });
   }
 }

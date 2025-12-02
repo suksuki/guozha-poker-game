@@ -20,9 +20,7 @@ export class KnowledgeBase {
     try {
       this.db = await this.openDatabase();
       this.initialized = true;
-      console.log('[KnowledgeBase] 初始化完成');
     } catch (error) {
-      console.error('[KnowledgeBase] 初始化失败', error);
       // 降级到内存存储
       this.initialized = true;
     }
@@ -71,7 +69,6 @@ export class KnowledgeBase {
           timestamp: Date.now()
         });
       } catch (e) {
-        console.error('[KnowledgeBase] 记录错误失败', e);
       }
     } else {
       // 内存存储
@@ -92,7 +89,6 @@ export class KnowledgeBase {
           timestamp: Date.now()
         });
       } catch (e) {
-        console.error('[KnowledgeBase] 记录性能失败', e);
       }
     } else {
       this.cache.set(`performance_${Date.now()}`, performance);
@@ -112,7 +108,6 @@ export class KnowledgeBase {
           timestamp: Date.now()
         });
       } catch (e) {
-        console.error('[KnowledgeBase] 记录执行失败', e);
       }
     } else {
       this.cache.set(`execution_${Date.now()}`, execution);
@@ -138,7 +133,6 @@ export class KnowledgeBase {
           request.onerror = () => reject(request.error);
         });
       } catch (e) {
-        console.error('[KnowledgeBase] 查询历史失败', e);
         return [];
       }
     } else {

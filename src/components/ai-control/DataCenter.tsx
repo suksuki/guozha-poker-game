@@ -23,7 +23,6 @@ export const DataCenter: React.FC = () => {
       const gameSessions = await interactionService.getGameSessions({ limit: 50 });
       setSessions(gameSessions);
     } catch (error) {
-      console.error('[DataCenter] 加载会话失败:', error);
     } finally {
       setIsLoading(false);
     }
@@ -46,7 +45,6 @@ export const DataCenter: React.FC = () => {
       
       alert('训练数据已生成并下载');
     } catch (error) {
-      console.error('[DataCenter] 生成训练数据失败:', error);
       alert('生成训练数据失败');
     } finally {
       setIsGenerating(false);

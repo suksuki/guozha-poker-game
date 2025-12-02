@@ -40,7 +40,6 @@ export const DraggablePanel: React.FC<DraggablePanelProps> = ({
           if (data.size) setSize(data.size);
         }
       } catch (error) {
-        console.error('加载panel位置失败:', error);
       }
     }
   }, [storageKey]);
@@ -51,7 +50,6 @@ export const DraggablePanel: React.FC<DraggablePanelProps> = ({
       try {
         localStorage.setItem(storageKey, JSON.stringify({ position: pos, size: sz }));
       } catch (error) {
-        console.error('保存panel位置失败:', error);
       }
     }
   };

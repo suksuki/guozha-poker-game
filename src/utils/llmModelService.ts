@@ -5,30 +5,54 @@
 
 /**
  * 获取Ollama中可用的模型列表
+ * @param serverUrl Ollama 服务器完整 URL（如 http://192.168.0.13:11434）
+ * @param timeout 超时时间（毫秒），默认 3000ms
  */
-export async function getAvailableOllamaModels(): Promise<string[]> {
+export async function getAvailableOllamaModels(
+  serverUrl: string = 'http://localhost:11434',
+  timeout: number = 3000
+): Promise<string[]> {
   try {
-    const response = await fetch('http://localhost:11434/api/tags');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    const response = await fetch(`${serverUrl}/api/tags`, {
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
     if (response.ok) {
       const data = await response.json();
       const models = data.models?.map((m: any) => m.name) || [];
       return models;
     }
   } catch (e) {
-    console.warn('[llmModelService] 无法获取Ollama模型列表:', e);
+    console.warn(`Failed to fetch models from ${serverUrl}:`, e);
   }
   return [];
 }
 
 /**
  * 检查Ollama服务是否可用
+ * @param serverUrl Ollama 服务器完整 URL（如 http://192.168.0.13:11434）
+ * @param timeout 超时时间（毫秒），默认 3000ms
  */
-export async function checkOllamaService(): Promise<boolean> {
+export async function checkOllamaService(
+  serverUrl: string = 'http://localhost:11434',
+  timeout: number = 3000
+): Promise<boolean> {
   try {
-    const response = await fetch('http://localhost:11434/api/tags', {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    const response = await fetch(`${serverUrl}/api/tags`, {
       method: 'GET',
-      signal: AbortSignal.timeout(3000) // 3秒超时
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
+    
     return response.ok;
   } catch (e) {
     return false;

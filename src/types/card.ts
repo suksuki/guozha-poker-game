@@ -89,7 +89,7 @@ export interface Player {
   name: string;
   type: PlayerType;
   hand: Card[];
-  score?: number; // 玩家得分（捡到的分）
+  score?: number; // 玩家得分（捡到的分）- 注意：合作模式下使用团队分数，此字段主要用于向后兼容
   wonRounds?: RoundRecord[]; // 玩家赢得的轮次记录
   isHuman?: boolean; // 是否是人类玩家（可以手动操作）
   aiConfig?: { apiKey: string; strategy?: 'aggressive' | 'conservative' | 'balanced' };
@@ -97,6 +97,7 @@ export interface Player {
   finishedRank?: number | null; // 争上游名次（出完牌的顺序，第一个出完的是第1名，立即显示）
   scoreRank?: number | null; // 分数名次（按最终分数排序的名次，游戏结束时设置）
   dunCount?: number; // 玩家出的墩数（7张及以上）
+  teamId?: number | null; // 团队ID（合作模式下使用，null表示单人模式）
 }
 
 // 游戏状态

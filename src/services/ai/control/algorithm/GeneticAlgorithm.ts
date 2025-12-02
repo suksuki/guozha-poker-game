@@ -105,7 +105,6 @@ export class GeneticAlgorithm {
       
       // 如果收敛，提前结束
       if (this.isConverged()) {
-        console.log(`[GeneticAlgorithm] 在第${gen + 1}代收敛`);
         break;
       }
     }

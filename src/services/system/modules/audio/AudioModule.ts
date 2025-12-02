@@ -25,11 +25,6 @@ export class AudioModule implements SystemModule {
     this.context = context;
     this.enabled = config.enabled;
     this.initialized = true;
-    
-    console.log('[AudioModule] 音频模块初始化完成', {
-      enabled: this.enabled,
-      announcementEnabled: config.announcement.enabled
-    });
   }
   
   configure(config: Partial<AudioConfig>): void {
@@ -65,14 +60,6 @@ export class AudioModule implements SystemModule {
     voiceConfig?: VoiceConfig,
     onStart?: () => void
   ): Promise<void> {
-    console.log('[AudioModule] announcePlay 被调用', {
-      isEnabled: this.isEnabled(),
-      enabled: this.enabled,
-      initialized: this.initialized,
-      announcementEnabled: this.config?.announcement?.enabled,
-      play: play.type,
-      hasVoiceConfig: !!voiceConfig
-    });
     
     // 报牌功能必须始终可用，直接调用 systemAnnouncementService
     // 不检查 AudioModule 的配置，确保报牌始终工作

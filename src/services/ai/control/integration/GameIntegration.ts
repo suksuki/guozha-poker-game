@@ -36,7 +36,6 @@ export class GameIntegration {
   ): void {
     this.currentGameId = gameId;
     this.playerTracker.startTrackingGame(gameId, players, config);
-    console.log('[GameIntegration] 开始追踪游戏', gameId);
   }
   
   /**
@@ -224,13 +223,6 @@ export class GameIntegration {
     
     const session = this.playerTracker.endGame(gameId, result);
     this.currentGameId = null;
-    
-    console.log('[GameIntegration] 游戏追踪结束', {
-      gameId,
-      actions: session.actions.length,
-      rounds: session.rounds.length,
-      tutorialValue: session.tutorialValue
-    });
     
     return session;
   }

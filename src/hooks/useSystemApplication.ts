@@ -65,7 +65,6 @@ export function useSystemApplication(config?: Partial<SystemConfig>): UseSystemA
         if (mounted) {
           const error = err instanceof Error ? err : new Error(String(err));
           setError(error);
-          console.error('[useSystemApplication] 系统应用初始化失败:', error);
         }
       }
     }

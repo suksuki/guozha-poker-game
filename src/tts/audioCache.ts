@@ -37,13 +37,11 @@ export class AudioCache {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => {
-        console.error('[AudioCache] IndexedDB 打开失败:', request.error);
         reject(request.error);
       };
 
       request.onsuccess = () => {
         this.db = request.result;
-        console.log('[AudioCache] IndexedDB 初始化成功');
         resolve();
       };
 
@@ -108,7 +106,6 @@ export class AudioCache {
         return result;
       }
     } catch (error) {
-      console.error('[AudioCache] 获取缓存失败:', error);
     }
 
     return null;
@@ -146,7 +143,6 @@ export class AudioCache {
       // 检查是否需要清理
       await this.cleanupIfNeeded();
     } catch (error) {
-      console.error('[AudioCache] 保存缓存失败:', error);
     }
   }
 
@@ -167,7 +163,6 @@ export class AudioCache {
       const store = transaction.objectStore(STORE_NAME);
       await store.delete(key);
     } catch (error) {
-      console.error('[AudioCache] 删除缓存失败:', error);
     }
   }
 
@@ -188,7 +183,6 @@ export class AudioCache {
       const store = transaction.objectStore(STORE_NAME);
       await store.clear();
     } catch (error) {
-      console.error('[AudioCache] 清空缓存失败:', error);
     }
   }
 
@@ -225,7 +219,6 @@ export class AudioCache {
           request.onerror = () => reject(request.error);
         });
       } catch (error) {
-        console.error('[AudioCache] 获取统计信息失败:', error);
       }
     }
 
@@ -338,7 +331,6 @@ export class AudioCache {
       // 删除过期条目
       await this.cleanupExpiredEntries();
     } catch (error) {
-      console.error('[AudioCache] 清理缓存失败:', error);
     }
   }
 
@@ -382,7 +374,6 @@ export class AudioCache {
         await this.delete(key);
       }
     } catch (error) {
-      console.error('[AudioCache] 清理旧条目失败:', error);
     }
   }
 
@@ -396,7 +387,6 @@ export class AudioCache {
 
     // 检查 IDBKeyRange 是否可用（测试环境可能没有）
     if (typeof IDBKeyRange === 'undefined') {
-      console.warn('[AudioCache] IDBKeyRange 不可用，跳过清理过期条目');
       return;
     }
 
@@ -419,7 +409,6 @@ export class AudioCache {
         };
       });
     } catch (error) {
-      console.error('[AudioCache] 清理过期条目失败:', error);
     }
   }
 }
@@ -435,7 +424,6 @@ export function getAudioCache(): AudioCache {
     audioCacheInstance = new AudioCache();
     // 异步初始化
     audioCacheInstance.init().catch((error) => {
-      console.error('[AudioCache] 初始化失败:', error);
     });
   }
   return audioCacheInstance;

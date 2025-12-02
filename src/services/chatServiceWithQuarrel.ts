@@ -35,9 +35,7 @@ class ChatServiceWithQuarrel extends ChatService {
     try {
       await this.quarrelService.init();
       this.quarrelInitialized = true;
-      console.log('[ChatServiceWithQuarrel] QuarrelVoiceService 初始化成功');
     } catch (error) {
-      console.warn('[ChatServiceWithQuarrel] QuarrelVoiceService 初始化失败，将使用原有服务:', error);
       this.useQuarrelForTaunt = false;
       this.useQuarrelForReply = false;
     }
@@ -73,13 +71,10 @@ class ChatServiceWithQuarrel extends ChatService {
           priority: 'MAIN_FIGHT',
           civility: (this as any).config?.civilityLevel || 2,
           onStart: () => {
-            console.log(`[ChatServiceWithQuarrel] ${player.name} 开始对骂`);
           },
           onEnd: () => {
-            console.log(`[ChatServiceWithQuarrel] ${player.name} 对骂结束`);
           },
           onError: (error) => {
-            console.error(`[ChatServiceWithQuarrel] ${player.name} 对骂播放失败:`, error);
             // 回退到原有服务
             this.playMessageWithOriginalService(message, player);
           }
@@ -102,7 +97,6 @@ class ChatServiceWithQuarrel extends ChatService {
           }
         }
       } catch (error) {
-        console.error('[ChatServiceWithQuarrel] QuarrelVoiceService播放失败，回退到原有服务:', error);
         // 回退到原有的语音服务
         await this.playMessageWithOriginalService(message, player);
       }
@@ -151,7 +145,6 @@ class ChatServiceWithQuarrel extends ChatService {
           civility: (this as any).config?.civilityLevel || 2,
         });
       } catch (error) {
-        console.error('[ChatServiceWithQuarrel] QuarrelVoiceService播放失败，回退到原有服务:', error);
         await this.playMessageWithOriginalService(message, player);
       }
     } else {
@@ -167,7 +160,6 @@ class ChatServiceWithQuarrel extends ChatService {
   private async playMessageWithOriginalService(message: ChatMessage, player: Player): Promise<void> {
     // 这里应该调用原有的语音服务
     // 由于原有服务可能通过其他方式播放，这里只是占位
-    console.log('[ChatServiceWithQuarrel] 使用原有语音服务播放:', message.content);
   }
 
   /**
@@ -183,10 +175,6 @@ class ChatServiceWithQuarrel extends ChatService {
     if (config.useQuarrelForReply !== undefined) {
       this.useQuarrelForReply = config.useQuarrelForReply;
     }
-    console.log('[ChatServiceWithQuarrel] QuarrelVoiceService 配置已更新:', {
-      useQuarrelForTaunt: this.useQuarrelForTaunt,
-      useQuarrelForReply: this.useQuarrelForReply,
-    });
   }
 }
 

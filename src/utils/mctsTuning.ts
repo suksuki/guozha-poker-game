@@ -247,17 +247,12 @@ export async function tuneMCTSParameters(
   let totalGameIndex = 0;
   const overallStartTime = Date.now();
   
-  console.log(`\n🚀 开始微调MCTS参数...`);
-  console.log(`📊 总配置数: ${totalConfigs}`);
-  console.log(`🎮 每个配置运行 ${tuningConfig.gamesPerConfig} 局`);
-  console.log(`🎯 总对局数: ${totalGames}`);
   
   // 估算时间（基于之前的测试：每局约8秒）
   const estimatedTimePerGame = 8; // 秒
   const estimatedTotalTime = totalGames * estimatedTimePerGame;
   const estimatedMinutes = Math.floor(estimatedTotalTime / 60);
   const estimatedSeconds = estimatedTotalTime % 60;
-  console.log(`⏱️  预计总时间: ${estimatedMinutes}分${estimatedSeconds}秒 (基于每局${estimatedTimePerGame}秒估算)\n`);
   
   // 遍历所有参数组合
   for (const explorationConstant of tuningConfig.explorationConstants) {
@@ -273,11 +268,6 @@ export async function tuneMCTSParameters(
         };
         
         const configStartTime = Date.now();
-        console.log(`\n[${configIndex}/${totalConfigs}] 测试配置:`);
-        console.log(`  探索常数: ${explorationConstant}`);
-        console.log(`  迭代次数: ${iterations}`);
-        console.log(`  模拟深度: ${simulationDepth}`);
-        console.log(`  完全信息: ${tuningConfig.perfectInformation ? '是' : '否'}`);
         
         let aiWins = 0;
         let totalScore = 0;
@@ -312,7 +302,6 @@ export async function tuneMCTSParameters(
             // 浏览器环境，使用简单的日志
             if ((game + 1) % Math.max(1, Math.floor(tuningConfig.gamesPerConfig / 10)) === 0 || game === 0) {
               const progress = ((totalGameIndex / totalGames) * 100).toFixed(1);
-              console.log(`  进度: ${game + 1}/${tuningConfig.gamesPerConfig} (总体: ${progress}%)`);
             }
           }
           
@@ -349,9 +338,6 @@ export async function tuneMCTSParameters(
         };
         
         results.push(gameResult);
-        
-        console.log(`  ✅ 完成! 耗时: ${(configTime / 1000).toFixed(1)}秒`);
-        console.log(`  结果: 胜率=${(winRate * 100).toFixed(2)}%, 平均分数=${avgScore.toFixed(2)}, 平均回合数=${avgTurns.toFixed(1)}`);
       }
     }
   }
@@ -360,15 +346,6 @@ export async function tuneMCTSParameters(
   
   // 按胜率排序
   results.sort((a, b) => b.winRate - a.winRate);
-  
-  console.log(`\n🎉 微调完成！总耗时: ${(totalTime / 1000 / 60).toFixed(1)}分钟`);
-  console.log(`\n🏆 最佳配置:`);
-  console.log(`  探索常数: ${results[0].config.explorationConstant}`);
-  console.log(`  迭代次数: ${results[0].config.iterations}`);
-  console.log(`  模拟深度: ${results[0].config.simulationDepth}`);
-  console.log(`  胜率: ${(results[0].winRate * 100).toFixed(2)}%`);
-  console.log(`  平均分数: ${results[0].avgScore.toFixed(2)}`);
-  console.log(`  平均回合数: ${results[0].avgTurns.toFixed(1)}`);
   
   return results;
 }
@@ -379,19 +356,12 @@ export async function quickTestConfig(
   playerCount: number = 4,
   games: number = 100
 ): Promise<GameResult> {
-  console.log(`\n快速测试配置:`);
-  console.log(`  探索常数: ${config.explorationConstant ?? '默认'}`);
-  console.log(`  迭代次数: ${config.iterations ?? '默认'}`);
-  console.log(`  模拟深度: ${config.simulationDepth ?? '默认'}`);
-  console.log(`  完全信息: ${config.perfectInformation ? '是' : '否'}`);
-  console.log(`运行 ${games} 局游戏...`);
   
   // 估算时间
   const estimatedTime = games * 8; // 每局约8秒
   const estimatedMinutes = Math.floor(estimatedTime / 60);
   const estimatedSeconds = estimatedTime % 60;
   if (estimatedMinutes > 0 || estimatedSeconds > 10) {
-    console.log(`预计耗时: ${estimatedMinutes > 0 ? `${estimatedMinutes}分` : ''}${estimatedSeconds}秒\n`);
   }
   
   const startTime = Date.now();
@@ -415,7 +385,6 @@ export async function quickTestConfig(
       // 浏览器环境
       if ((game + 1) % Math.max(1, Math.floor(games / 10)) === 0 || game === 0) {
         const progress = ((game + 1) / games * 100).toFixed(1);
-        console.log(`  进度: ${game + 1}/${games} (${progress}%)`);
       }
     }
     
@@ -462,9 +431,6 @@ export async function quickTestConfig(
     avgScore,
     avgTurns
   };
-  
-  console.log(`\n✅ 完成! 耗时: ${(elapsed / 1000).toFixed(1)}秒 (平均每局: ${(elapsed / games / 1000).toFixed(2)}秒)`);
-  console.log(`结果: 胜率=${(winRate * 100).toFixed(2)}%, 平均分数=${avgScore.toFixed(2)}, 平均回合数=${avgTurns.toFixed(1)}`);
   
   return gameResult;
 }
