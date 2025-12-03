@@ -6,7 +6,7 @@
 /* 语言切换器按钮（右侧固定按钮） */
 .language-switcher-toggle {
   position: fixed;
-  bottom: 500px; /* 放在最顶部，在SelfIterationManager之上 */
+  bottom: 516px;
   right: 20px;
   width: 60px;
   height: 60px;

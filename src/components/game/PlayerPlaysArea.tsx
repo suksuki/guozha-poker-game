@@ -38,7 +38,7 @@ export const PlayerPlaysArea: React.FC<PlayerPlaysAreaProps> = ({
   // 根据方向决定排列方式
   const isHorizontal = direction === 'north' || direction === 'south';
   const flexDirection = isHorizontal ? 'row' : 'column';
-  const gap = '20px'; // 出牌之间的间距
+  const gap = '8px'; // 出牌之间的间距（紧凑布局）
 
   return (
     <div 
@@ -47,7 +47,7 @@ export const PlayerPlaysArea: React.FC<PlayerPlaysAreaProps> = ({
         display: 'flex',
         flexDirection: flexDirection as 'row' | 'column',
         gap: gap,
-        alignItems: isHorizontal ? 'center' : 'flex-start',
+        alignItems: 'center', // 统一居中对齐
         justifyContent: isHorizontal ? 'flex-start' : 'flex-start'
       }}
     >

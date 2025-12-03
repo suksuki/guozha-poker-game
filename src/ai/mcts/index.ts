@@ -10,7 +10,15 @@ export { mctsChoosePlay } from '../../utils/mctsAI';
 export { simulateGame, estimateOpponentHand } from './simulation';
 
 // 导出类型
-export type { MCTSConfig, MCTSNode, SimulatedGameState } from '../types';
+export type { 
+  MCTSConfig, 
+  MCTSNode, 
+  SimulatedGameState,
+  MCTSTeamConfig,
+  TeamMCTSNode,
+  TeamSimulatedGameState,
+  TeamAction
+} from '../types';
 
 // 导出核心函数（逐步迁移）
 export { uctValue } from './uct';
@@ -19,4 +27,11 @@ export { expandNode } from './expansion';
 export { generateActions } from './actions';
 export { evaluateActionQuality, selectBestActionByHeuristic } from './evaluation';
 export { backpropagate } from './backpropagation';
+
+// 导出团队MCTS函数
+export { teamMCTS, teamMCTSChooseMultiplePlays } from './teamMCTS';
+export { generateTeamActions, evaluateStrategicPass } from './teamActions';
+export { evaluateTeamAction, normalizeTeamScore } from './teamEvaluation';
+export { teamUCTValue, selectBestTeamChild } from './teamUCT';
+export { simulateTeamGame } from './teamSimulation';
 

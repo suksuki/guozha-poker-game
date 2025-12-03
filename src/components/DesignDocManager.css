@@ -2,7 +2,7 @@
 
 .design-doc-manager-toggle {
   position: fixed;
-  bottom: 150px; /* 从90px增加到150px，保持与底部按钮的间距 */
+  bottom: 116px;
   right: 20px;
   width: 60px;
   height: 60px;

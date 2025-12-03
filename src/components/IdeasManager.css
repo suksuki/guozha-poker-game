@@ -1,6 +1,6 @@
 .ideas-manager-toggle {
   position: fixed;
-  bottom: 80px; /* 从20px增加到80px，确保按钮有足够空间，不被遮挡 */
+  bottom: 44px;
   right: 20px;
   width: 60px;
   height: 60px;

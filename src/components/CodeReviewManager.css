@@ -2,7 +2,7 @@
 
 .code-review-manager-toggle {
   position: fixed;
-  bottom: 290px; /* 从230px增加到290px，保持与底部按钮的间距 */
+  bottom: 244px;
   right: 20px;
   width: 60px;
   height: 60px;

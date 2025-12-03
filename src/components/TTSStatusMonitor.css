@@ -2,7 +2,7 @@
 
 .tts-status-monitor-toggle {
   position: fixed;
-  bottom: 220px; /* 从160px增加到220px，保持与底部按钮的间距 */
+  bottom: 180px;
   right: 20px;
   width: 60px;
   height: 60px;

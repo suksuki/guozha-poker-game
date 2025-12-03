@@ -2,7 +2,7 @@
 
 .self-iteration-manager-toggle {
   position: fixed;
-  bottom: 430px; /* 从370px增加到430px，保持与底部按钮的间距 */
+  bottom: 448px;
   right: 20px;
   width: 60px;
   height: 60px;

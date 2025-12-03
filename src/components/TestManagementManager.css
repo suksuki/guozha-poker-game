@@ -2,7 +2,7 @@
 
 .test-management-manager-toggle {
   position: fixed;
-  bottom: 360px; /* 从300px增加到360px，保持与底部按钮的间距 */
+  bottom: 380px;
   right: 20px;
   width: 60px;
   height: 60px;
