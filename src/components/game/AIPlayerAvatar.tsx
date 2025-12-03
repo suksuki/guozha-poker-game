@@ -9,6 +9,12 @@ import { i18n } from '../../i18n';
 import { Player } from '../../types/card';
 import { TeamConfig } from '../../types/team';
 import { getTeam } from '../../utils/teamManager';
+import { 
+  calculatePlayerPickedScore, 
+  calculatePlayerDunScore, 
+  calculateTeamScore, 
+  calculateTeamDunCount 
+} from '../../utils/teamScoring';
 
 export interface AIPlayerAvatarProps {
   player: Player | Omit<Player, 'hand'>;
@@ -19,6 +25,7 @@ export interface AIPlayerAvatarProps {
   showPosition?: boolean; // 是否显示位置信息（发牌时true，打牌时false）
   playerCount?: number; // 玩家总数（用于判断最后一名）
   teamConfig?: TeamConfig | null; // 团队配置（团队模式下使用）
+  allPlayers?: Player[]; // 所有玩家列表（用于计算墩分）
 }
 
 export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarProps>(({
@@ -29,11 +36,11 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
   isLastPlay = false,
   showPosition = false,
   playerCount,
-  teamConfig
+  teamConfig,
+  allPlayers = []
 }, ref) => {
   const { t } = useTranslation(['ui']);
   const actualHandCount = handCount !== undefined ? handCount : (player.hand?.length || 0);
-  const playerScore = player.score || 0;
   const playerRank = player.finishedRank ?? null;
   const dunCount = player.dunCount || 0; // 玩家出的墩数（7张及以上）
   
@@ -41,6 +48,19 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
   const playerTeam = teamConfig && player.teamId !== null && player.teamId !== undefined
     ? getTeam(player.teamId, teamConfig)
     : null;
+  
+  // 计算实时分数
+  const pickedScore = calculatePlayerPickedScore(player as Player);
+  const dunScore = calculatePlayerDunScore(player as Player, allPlayers);
+  const totalScore = pickedScore + dunScore;
+  
+  // 团队模式：计算团队总分和团队总墩数
+  const teamTotalScore = teamConfig && player.teamId !== null && player.teamId !== undefined
+    ? calculateTeamScore(player.teamId, allPlayers, teamConfig)
+    : 0;
+  const teamTotalDunCount = teamConfig && player.teamId !== null && player.teamId !== undefined
+    ? calculateTeamDunCount(player.teamId, allPlayers, teamConfig)
+    : 0;
   
   // 根据玩家ID选择emoji
   const emojis = ['🤖', '👾', '🤖', '👽', '🤖', '👻', '🤖', '🦾'];
@@ -128,15 +148,43 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
       
       {/* 状态信息面板 */}
       <div className="ai-player-status-panel">
-        <div className="status-item status-item-compact">
-          {playerTeam ? (
-            <span className="status-value">
-              {playerTeam.teamScore}分（团队），{dunCount}墩
-            </span>
-          ) : (
-            <span className="status-value">{playerScore}分，{dunCount}墩</span>
-          )}
+        {/* 个人分数 */}
+        <div className="status-item status-item-compact" style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          padding: '8px',
+          borderRadius: '8px',
+          marginBottom: '4px'
+        }}>
+          <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '2px' }}>
+            📊 个人分数
+          </div>
+          <div style={{ fontSize: '10px' }}>
+            手牌分: {pickedScore} | 墩分: {dunScore} | 总分: {totalScore}
+          </div>
+          <div style={{ fontSize: '10px' }}>
+            墩数: {dunCount}
+          </div>
         </div>
+        
+        {/* 团队分数（团队模式下显示） */}
+        {playerTeam && (
+          <div className="status-item status-item-compact" style={{
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            color: 'white',
+            padding: '8px',
+            borderRadius: '8px',
+            marginBottom: '4px'
+          }}>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '2px' }}>
+              🏆 团队分数
+            </div>
+            <div style={{ fontSize: '10px' }}>
+              总分: {teamTotalScore} | 总墩数: {teamTotalDunCount}
+            </div>
+          </div>
+        )}
+        
         <div className="status-item">
           <span className="status-label">{t('ui:aiPlayer.handLabel')}</span>
           <span className="status-value">{t('ui:aiPlayer.cards', { count: actualHandCount })}</span>

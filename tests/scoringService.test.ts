@@ -147,11 +147,11 @@ describe('scoringService - 出牌时计分', () => {
   describe('handleDunScoring', () => {
     it('应该正确处理墩的计分', () => {
       const players: Player[] = [
-        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: -100 },
-        { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: -100 },
-        { id: 2, name: '玩家3', type: PlayerType.AI, hand: [], score: -100 },
-        { id: 3, name: '玩家4', type: PlayerType.AI, hand: [], score: -100 },
-        { id: 4, name: '玩家5', type: PlayerType.AI, hand: [], score: -100 }
+        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: 0 },
+        { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: 0 },
+        { id: 2, name: '玩家3', type: PlayerType.AI, hand: [], score: 0 },
+        { id: 3, name: '玩家4', type: PlayerType.AI, hand: [], score: 0 },
+        { id: 4, name: '玩家5', type: PlayerType.AI, hand: [], score: 0 }
       ];
 
       const cards: Card[] = Array.from({ length: 7 }, (_, i) => ({
@@ -170,10 +170,10 @@ describe('scoringService - 出牌时计分', () => {
 
       // handleDunScoring 只更新其他玩家的分数（扣分），出墩玩家的分数需要通过 updatePlayerAfterPlay 更新
       // 先验证其他玩家被扣分
-      expect(result.updatedPlayers[1].score).toBe(-100 - 30); // -130
-      expect(result.updatedPlayers[2].score).toBe(-100 - 30); // -130
-      expect(result.updatedPlayers[3].score).toBe(-100 - 30); // -130
-      expect(result.updatedPlayers[4].score).toBe(-100 - 30); // -130
+      expect(result.updatedPlayers[1].score).toBe(0 - 30); // -30
+      expect(result.updatedPlayers[2].score).toBe(0 - 30); // -30
+      expect(result.updatedPlayers[3].score).toBe(0 - 30); // -30
+      expect(result.updatedPlayers[4].score).toBe(0 - 30); // -30
 
       // 验证返回的 dunScore
       expect(result.dunScore).toBe(120);
@@ -186,13 +186,13 @@ describe('scoringService - 出牌时计分', () => {
       );
       
       // 出墩玩家（索引0）应该获得120分
-      expect(player0AfterDun.score).toBe(-100 + 120); // -100 + 120 = 20
+      expect(player0AfterDun.score).toBe(0 + 120); // 0 + 120 = 120
     });
 
     it('非墩的牌不应该触发墩的计分', () => {
       const players: Player[] = [
-        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: -100 },
-        { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: -100 }
+        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: 0 },
+        { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: 0 }
       ];
 
       const cards: Card[] = [
@@ -208,8 +208,8 @@ describe('scoringService - 出牌时计分', () => {
       const result = handleDunScoring(players, 0, cards, 2, play);
 
       // 分数不应该改变
-      expect(result.updatedPlayers[0].score).toBe(-100);
-      expect(result.updatedPlayers[1].score).toBe(-100);
+      expect(result.updatedPlayers[0].score).toBe(0);
+      expect(result.updatedPlayers[1].score).toBe(0);
       expect(result.dunScore).toBe(0);
     });
   });
@@ -225,7 +225,7 @@ describe('scoringService - 出牌时计分', () => {
           { suit: Suit.HEARTS, rank: Rank.FOUR, id: 'card-2' },
           { suit: Suit.DIAMONDS, rank: Rank.FIVE, id: 'card-3' }
         ],
-        score: -100
+        score: 0
       };
 
       const cards: Card[] = [
@@ -237,7 +237,7 @@ describe('scoringService - 出牌时计分', () => {
 
       expect(updatedPlayer.hand.length).toBe(1);
       expect(updatedPlayer.hand[0].id).toBe('card-3');
-      expect(updatedPlayer.score).toBe(-100 + 50); // -50
+      expect(updatedPlayer.score).toBe(0 + 50); // 50
     });
   });
 });
@@ -248,9 +248,9 @@ describe('scoringService - 轮次结束计分', () => {
     // 这些测试已过时，应该使用 GameController 或 Round.end() 进行测试
     it.skip('应该正确分配轮次分数给获胜者', () => {
       const players: Player[] = [
-        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: -100 },
-        { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: -100 },
-        { id: 2, name: '玩家3', type: PlayerType.AI, hand: [], score: -100 }
+        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: 0 },
+        { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: 0 },
+        { id: 2, name: '玩家3', type: PlayerType.AI, hand: [], score: 0 }
       ];
 
       const findNextActivePlayer = (startIndex: number, players: Player[], playerCount: number) => {
@@ -274,7 +274,7 @@ describe('scoringService - 轮次结束计分', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result!.updatedPlayers[0].score).toBe(-100 + 25); // -75
+      expect(result!.updatedPlayers[0].score).toBe(0 + 25); // 25
       expect(result!.roundRecord.totalScore).toBe(25);
       expect(result!.roundRecord.winnerId).toBe(0);
     });
@@ -282,8 +282,8 @@ describe('scoringService - 轮次结束计分', () => {
     // 注意：handleRoundEnd 的API已更改
     it.skip('轮次分数为0时也应该记录', () => {
       const players: Player[] = [
-        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: -100 },
-        { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: -100 }
+        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: 0 },
+        { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: 0 }
       ];
 
       const findNextActivePlayer = (startIndex: number, players: Player[], playerCount: number) => {
@@ -307,14 +307,14 @@ describe('scoringService - 轮次结束计分', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result!.updatedPlayers[0].score).toBe(-100 + 0); // -100
+      expect(result!.updatedPlayers[0].score).toBe(0 + 0); // 0
       expect(result!.roundRecord.totalScore).toBe(0);
     });
 
     // 注意：handleRoundEnd 的API已更改
     it.skip('lastPlayPlayerIndex为null时应该返回null', () => {
       const players: Player[] = [
-        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: -100 }
+        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: 0 }
       ];
 
       const findNextActivePlayer = () => 0;
@@ -336,7 +336,7 @@ describe('scoringService - 轮次结束计分', () => {
 
 describe('scoringService - 游戏结束计分', () => {
   describe('initializePlayerScores', () => {
-    it('应该将所有玩家的初始分数设置为-100', () => {
+    it('应该将所有玩家的初始分数设置为0', () => {
       const players: Player[] = [
         { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: 0 },
         { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: 0 },
@@ -346,7 +346,7 @@ describe('scoringService - 游戏结束计分', () => {
       const initialized = initializePlayerScores(players);
 
       initialized.forEach(player => {
-        expect(player.score).toBe(-100);
+        expect(player.score).toBe(0);
       });
     });
   });
@@ -356,13 +356,13 @@ describe('scoringService - 游戏结束计分', () => {
     // 这些测试已过时，应该使用 GameController 进行测试
     it.skip('应该正确处理玩家出完牌后的分数分配', () => {
       const players: Player[] = [
-        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: -100 }, // 玩家0出完牌
+        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: 0 }, // 玩家0出完牌
         { id: 1, name: '玩家2', type: PlayerType.AI, hand: [
           { suit: Suit.SPADES, rank: Rank.THREE, id: 'card-1' } // 玩家1还有手牌
-        ], score: -100 },
+        ], score: 0 },
         { id: 2, name: '玩家3', type: PlayerType.AI, hand: [
           { suit: Suit.HEARTS, rank: Rank.FOUR, id: 'card-2' } // 玩家2还有手牌
-        ], score: -100 }
+        ], score: 0 }
       ];
 
       const findNextActivePlayer = (startIndex: number, players: Player[], playerCount: number) => {
@@ -391,7 +391,7 @@ describe('scoringService - 游戏结束计分', () => {
       );
 
       // 玩家0应该获得轮次分数和这一手的分牌分数
-      expect(result.updatedPlayers[0].score).toBe(-100 + 15 + 10); // -75
+      expect(result.updatedPlayers[0].score).toBe(0 + 15 + 10); // 25
       expect(result.updatedPlayers[0].finishedRank).toBe(1);
       expect(result.finishOrder).toEqual([0]);
       expect(result.isGameFinished).toBe(false); // 还有其他玩家没出完（玩家1和玩家2还有手牌）
@@ -400,12 +400,12 @@ describe('scoringService - 游戏结束计分', () => {
     // 注意：handlePlayerFinished 的API已更改
     it.skip('应该正确处理最后一名未出的分牌', () => {
       const players: Player[] = [
-        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: -100 },
-        { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: -100 },
+        { id: 0, name: '玩家1', type: PlayerType.AI, hand: [], score: 0 },
+        { id: 1, name: '玩家2', type: PlayerType.AI, hand: [], score: 0 },
         { id: 2, name: '玩家3', type: PlayerType.AI, hand: [
           { suit: Suit.SPADES, rank: Rank.KING, id: 'card-1' }, // 10分
           { suit: Suit.HEARTS, rank: Rank.TEN, id: 'card-2' } // 10分
-        ], score: -100 }
+        ], score: 0 }
       ];
 
       const findNextActivePlayer = () => null;
@@ -423,10 +423,10 @@ describe('scoringService - 游戏结束计分', () => {
       );
 
       // 最后一名（玩家2）应该减去未出的分牌分数
-      expect(result.updatedPlayers[2].score).toBe(-100 - 20); // -120
+      expect(result.updatedPlayers[2].score).toBe(0 - 20); // -20
       
       // 第二名（玩家1）应该加上最后一名未出的分牌分数
-      expect(result.updatedPlayers[1].score).toBe(-100 + 20); // -80
+      expect(result.updatedPlayers[1].score).toBe(0 + 20); // 20
     });
   });
 

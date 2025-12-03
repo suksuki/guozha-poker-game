@@ -52,7 +52,7 @@ export class GameController {
   /**
    * 初始化游戏（设置初始玩家和分数）
    */
-  initializeGame(players: Player[], initialScore: number = -100): void {
+  initializeGame(players: Player[], initialScore: number = 0): void { // 默认0分（实时显示手牌分，游戏结束时才扣除基础分100）
     // 确保 game 和 game.players 已初始化
     if (!this.game || !this.game.players) {
       return;
@@ -119,10 +119,11 @@ export class GameController {
           team.roundScore += roundScore;
           team.roundsWon += 1;
           
-          // 记录日志
-          
-          // 仍然更新玩家的wonRounds（用于统计）
+          // 重要：团队模式下也要更新玩家个人的 player.score（用于显示实时手牌分）
+          const oldScore = winner.score || 0;
+          const newScore = oldScore + roundScore;
           this.game.updatePlayer(winnerIndex, {
+            score: newScore,
             wonRounds: [...(winner.wonRounds || []), roundRecord]
           });
           
@@ -142,8 +143,6 @@ export class GameController {
       // ========== 个人模式：分数分配给个人 ==========
       const oldScore = winner.score || 0;
       const newScore = oldScore + roundScore;
-
-      // 记录分数分配日志
 
       // 通过 Game 的方法更新玩家（使用最新的玩家状态）
       this.game.updatePlayer(winnerIndex, {

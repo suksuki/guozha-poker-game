@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { RoundPlayManager } from '../src/utils/roundPlayManager';
-import { Player, Play, PlayType, RoundPlayRecord, Card, Rank, Suit } from '../src/types/card';
+import { Player, Play, CardType, RoundPlayRecord, Card, Rank, Suit } from '../src/types/card';
 
 // 创建测试用的工具函数
 function createTestPlayer(id: number, name: string, hand: Card[] = [], score: number = 0): Player {
@@ -27,8 +27,9 @@ function createTestCard(rank: Rank, suit: Suit, index: number): Card {
   };
 }
 
-function createTestPlay(type: PlayType, value: number): Play {
-  return { type, value };
+function createTestPlay(type: CardType, value: number): Play {
+  const cards: Card[] = [];
+  return { cards, type, value };
 }
 
 function createTestPlayRecord(
@@ -129,14 +130,14 @@ describe('RoundPlayManager', () => {
       
       expect(() => {
         manager.startNewRound(winnerIndex, players, 4);
-      }).toThrow('无法找到新轮次开始玩家：所有玩家都已出完牌');
+      }).toThrow('无法开始新轮次：所有玩家都已出完牌，应该结束游戏');
     });
   });
 
   describe('handlePlayerPlay', () => {
     it('应该正确处理玩家出牌', () => {
       const playerIndex = 0;
-      const play = createTestPlay(PlayType.SINGLE, 3);
+      const play = createTestPlay(CardType.SINGLE, 3);
       const playRecord = createTestPlayRecord(playerIndex, '玩家1', [players[0].hand[0]], 0);
       const playScore = 0;
 
@@ -159,7 +160,7 @@ describe('RoundPlayManager', () => {
 
     it('应该累加轮次分数', () => {
       const playerIndex = 0;
-      const play = createTestPlay(PlayType.SINGLE, 3);
+      const play = createTestPlay(CardType.SINGLE, 3);
       const playRecord = createTestPlayRecord(playerIndex, '玩家1', [players[0].hand[0]], 5);
       const playScore = 5;
 
@@ -179,7 +180,7 @@ describe('RoundPlayManager', () => {
       const playerIndex = 0;
       players[0].hand = []; // 玩家出完牌
       // 其他玩家都要不起（手牌中没有能打过单张3的牌）
-      const play = createTestPlay(PlayType.SINGLE, 3);
+      const play = createTestPlay(CardType.SINGLE, 3);
       const playRecord = createTestPlayRecord(playerIndex, '玩家1', [], 0);
       const playScore = 0;
 
@@ -199,7 +200,7 @@ describe('RoundPlayManager', () => {
   describe('handlePlayerPass', () => {
     beforeEach(() => {
       // 设置一个最后出牌
-      const play = createTestPlay(PlayType.SINGLE, 3);
+      const play = createTestPlay(CardType.SINGLE, 3);
       const playRecord = createTestPlayRecord(0, '玩家1', [], 0);
       manager.handlePlayerPlay(0, play, playRecord, 0, players, 4);
     });
@@ -233,7 +234,7 @@ describe('RoundPlayManager', () => {
   describe('endRound', () => {
     beforeEach(() => {
       // 设置轮次状态
-      const play = createTestPlay(PlayType.SINGLE, 3);
+      const play = createTestPlay(CardType.SINGLE, 3);
       const playRecord = createTestPlayRecord(0, '玩家1', [], 5);
       manager.handlePlayerPlay(0, play, playRecord, 5, players, 4);
     });
@@ -269,7 +270,7 @@ describe('RoundPlayManager', () => {
     });
 
     it('如果所有剩余玩家都要不起，应该返回true', () => {
-      const lastPlay = createTestPlay(PlayType.SINGLE, 10); // 大牌
+      const lastPlay = createTestPlay(CardType.SINGLE, 10); // 大牌
       const result = manager.checkTakeover(players, 0, lastPlay);
       // 由于其他玩家只有小牌，应该都要不起
       expect(result).toBe(true);
@@ -288,7 +289,7 @@ describe('RoundPlayManager', () => {
     it('应该重置所有状态到初始值', () => {
       // 先修改一些状态
       manager.updateCurrentPlayerIndex(2);
-      const play = createTestPlay(PlayType.SINGLE, 3);
+      const play = createTestPlay(CardType.SINGLE, 3);
       const playRecord = createTestPlayRecord(0, '玩家1', [], 5);
       manager.handlePlayerPlay(0, play, playRecord, 5, players, 4);
 

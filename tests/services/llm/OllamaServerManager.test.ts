@@ -174,19 +174,30 @@ describe('OllamaServerManager', () => {
     });
 
     it('应该能获取收藏的服务器列表', () => {
-      manager.addServer({
+      // 重新创建 manager 以确保测试隔离
+      localStorage.clear();
+      manager = new OllamaServerManager();
+      
+      // 验证本地服务器默认是收藏的
+      const allServers = manager.getAllServers();
+      const localServer = allServers.find(s => s.id === 'local');
+      expect(localServer?.isFavorite).toBe(true);
+      
+      const server1 = manager.addServer({
         name: '收藏1',
         host: '192.168.0.1',
         port: 11434,
         isFavorite: true
       });
+      expect(server1.isFavorite).toBe(true);
 
-      manager.addServer({
+      const server2 = manager.addServer({
         name: '收藏2',
         host: '192.168.0.2',
         port: 11434,
         isFavorite: true
       });
+      expect(server2.isFavorite).toBe(true);
 
       manager.addServer({
         name: '未收藏',
@@ -196,8 +207,13 @@ describe('OllamaServerManager', () => {
       });
 
       const favorites = manager.getFavoriteServers();
-      expect(favorites.length).toBeGreaterThanOrEqual(2);
+      // 应该至少有3个收藏的服务器（本地 + 收藏1 + 收藏2）
+      expect(favorites.length).toBeGreaterThanOrEqual(3);
       expect(favorites.every(s => s.isFavorite)).toBe(true);
+      // 验证具体的服务器是否在收藏列表中
+      expect(favorites.some(s => s.id === 'local')).toBe(true);
+      expect(favorites.some(s => s.name === '收藏1')).toBe(true);
+      expect(favorites.some(s => s.name === '收藏2')).toBe(true);
     });
   });
 

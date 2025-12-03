@@ -38,6 +38,7 @@ import { DirectionalPlayerLayout } from './game/DirectionalPlayerLayout';
 import { PlayerPlaysArea } from './game/PlayerPlaysArea';
 import { MultipleSuggestionsPanel } from './game/MultipleSuggestionsPanel';
 import { CommunicationInput } from './game/CommunicationInput';
+import { applyTeamFinalRules } from '../utils/teamScoring';
 import { getCurrentRoundNumber, getCurrentRoundPlays, getCurrentRoundScore, getLastPlay, getLastPlayPlayerIndex } from '../utils/gameStateUtils';
 import { communicationHandlerService } from '../services/communication/CommunicationHandlerService';
 import { subscribeToMessages } from '../services/chatService';
@@ -49,6 +50,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
   const { t } = useTranslation(['game']);
   const [showRankings, setShowRankings] = useState(false);
   const [showCumulativeScoreBoard, setShowCumulativeScoreBoard] = useState(false);
+  const [originalPlayersBeforeSettlement, setOriginalPlayersBeforeSettlement] = useState<Player[] | null>(null);
   const [validationError, setValidationError] = useState<any>(null);
   
   const { 
@@ -68,10 +70,18 @@ export const MultiPlayerGameBoard: React.FC = () => {
   useEffect(() => {
     if (game.status !== GameStatus.FINISHED) {
       setShowRankings(false);
+      setOriginalPlayersBeforeSettlement(null);
+    } else if (game.status === GameStatus.FINISHED && !originalPlayersBeforeSettlement) {
+      // 游戏刚结束时，保存原始玩家数据（用于清算）
+      // 深拷贝，包括手牌
+      setOriginalPlayersBeforeSettlement(game.players.map(p => ({ 
+        ...p, 
+        hand: [...(p.hand || [])] 
+      })));
     }
     // 游戏结束时，确保 showRankings 为 false（停留在游戏界面）
     // 只有当用户点击"查看排名"按钮时，才会设置为 true
-  }, [game.status]);
+  }, [game.status, originalPlayersBeforeSettlement]);
 
   // 监听卡牌验证错误事件
   useEffect(() => {
@@ -90,7 +100,8 @@ export const MultiPlayerGameBoard: React.FC = () => {
   useEffect(() => {
     
     // 异步预加载音效
-    soundService.preloadSounds().catch(error => {
+    soundService.preloadSounds().catch(() => {
+      // 忽略预加载错误
     });
     
     // 尝试解锁音频上下文（处理浏览器自动播放限制）
@@ -189,7 +200,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
 
   // 新游戏开始时清空已处理的消息
   useEffect(() => {
-    if (game.status === GameStatus.NOT_STARTED) {
+    if (game.status === GameStatus.WAITING) {
       communicationHandlerService.clearProcessedMessages();
     }
   }, [game.status]);
@@ -263,7 +274,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
       return;
     }
 
-    const result = await gameActions.handleSuggestMultiplePlays();
+    await gameActions.handleSuggestMultiplePlays();
     // 多方案建议会通过gameActions设置状态，MultipleSuggestionsPanel会自动显示
   };
 
@@ -335,7 +346,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
         name: isHuman ? '你' : `玩家${index + 1}`,
         type: isHuman ? PlayerType.HUMAN : PlayerType.AI,
         isHuman,
-        score: -100, // 初始分数为-100（每个人基本分100，所以初始扣除100）
+        score: 0, // 初始分数为0（实时显示手牌分，游戏结束时才扣除基础分100）
         aiConfig,
         voiceConfig: {} as any
       };
@@ -441,6 +452,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
             teamRankings={game.teamRankings}
             teamConfig={game.teamConfig}
             players={game.players}
+            winningTeamId={game.winningTeamId}
             onReset={resetGame}
             onBackToGame={() => setShowRankings(false)}
           />
@@ -557,6 +569,7 @@ export const MultiPlayerGameBoard: React.FC = () => {
             lastPlayPlayerIndex={lastPlayPlayerIndex}
             playerCount={game.playerCount}
             teamConfig={game.teamConfig}
+            allPlayers={game.players}
           />
 
         {/* 当前轮次出牌记录 - 放在AI玩家面板下面，横向排列 */}
@@ -603,7 +616,8 @@ export const MultiPlayerGameBoard: React.FC = () => {
                 humanPlayer={humanPlayer}
                 teammate={teammate}
                 isEnabled={game.status === GameStatus.PLAYING}
-                onMessageSent={(message) => {
+                onMessageSent={() => {
+                  // 消息已发送
                 }}
               />
             )}
@@ -684,7 +698,36 @@ export const MultiPlayerGameBoard: React.FC = () => {
             </button>
             <button 
               className="btn-primary" 
-              onClick={() => setShowRankings(true)}
+              onClick={() => {
+                // 团队模式：应用最终规则并计算最终分数
+                if (game.teamConfig) {
+                  // 使用保存的原始数据进行清算（避免重复清算）
+                  const playersToSettle = originalPlayersBeforeSettlement || game.players;
+                  
+                  const { teams, rankings, finalPlayers } = applyTeamFinalRules(
+                    game.teamConfig.teams,
+                    game.finishOrder || [],
+                    playersToSettle,
+                    game.teamConfig
+                  );
+                  
+                  // 更新游戏状态
+                  game.teamConfig.teams = teams;
+                  game.teamRankings = rankings;
+                  
+                  // 更新所有玩家（包括 adjustedHandScore 和 finalScore）
+                  finalPlayers.forEach((player, index) => {
+                    game.updatePlayer(index, {
+                      ...player,
+                      // 保留原始的 hand, dunCount 等字段
+                      hand: game.players[index].hand,
+                      dunCount: game.players[index].dunCount
+                    });
+                  });
+                }
+                
+                setShowRankings(true);
+              }}
               style={{
                 padding: '15px 30px',
                 fontSize: '18px',
@@ -835,12 +878,14 @@ export const MultiPlayerGameBoard: React.FC = () => {
               zIndex: 1500
             }}>
               {/* 玩家信息面板 - 放在手牌左边 */}
-              {game.status === GameStatus.PLAYING && (
+              {(game.status === GameStatus.PLAYING || game.status === GameStatus.FINISHED) && (
                 <div className="player-info-sidebar">
                   <PlayerInfo
                     player={humanPlayer}
                     isPlayerTurn={gameActions.isPlayerTurn}
                     playerCount={game.playerCount}
+                    teamConfig={game.teamConfig}
+                    allPlayers={game.players}
                   />
                 </div>
               )}

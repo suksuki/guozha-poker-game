@@ -129,12 +129,12 @@ export function calculateFinalRankings(
   });
 
   // ==================== 验证分数总和 ====================
-  // 所有玩家的分数总和应该为0（初始-100*4=-400，分牌总分+400，墩的分数总和为0，最终规则+30-30=0）
+  // 所有玩家的分数总和应该为0（初始0*4=0，分牌总分+分牌分，墩的分数总和为0，最终规则+30-30=0）
   const totalScore = rankings.reduce((sum, r) => sum + r.finalScore, 0);
   
   // 计算每个玩家的详细分数信息
   const playerScoreDetails = rankings.map(r => {
-    const initialScore = -100; // 初始分数
+    const initialScore = 0; // 初始分数
     const roundsWon = r.player.wonRounds || [];
     const totalRoundScore = roundsWon.reduce((sum, round) => sum + (round.totalScore || 0), 0);
     const scoreBeforeFinalRulesValue = scoreBeforeFinalRules.get(r.player.id) || r.finalScore; // 应用最终规则前的分数

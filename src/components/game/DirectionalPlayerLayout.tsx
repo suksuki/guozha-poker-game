@@ -3,11 +3,12 @@
  * 4人模式下，玩家分别位于东南西北四个方向
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Player, RoundPlayRecord } from '../../types/card';
 import { TeamConfig } from '../../types/team';
 import { AIPlayerAvatar } from './AIPlayerAvatar';
 import { PlayerPlaysArea } from './PlayerPlaysArea';
+import { updateAllTeamScores } from '../../utils/teamScoring';
 import './DirectionalPlayerLayout.css';
 
 interface DirectionalPlayerLayoutProps {
@@ -97,6 +98,16 @@ export const DirectionalPlayerLayout: React.FC<DirectionalPlayerLayoutProps> = (
 }) => {
   const playerPositions = calculatePlayerPositions(players, humanPlayerIndex);
   
+  // 判断游戏是否结束
+  const isGameFinished = players.some(p => p.finishedRank !== null && p.finishedRank !== undefined && p.finishedRank > 0);
+  
+  // 更新团队分数（基于成员分数之和）- 仅在游戏进行中
+  useEffect(() => {
+    if (teamConfig && !isGameFinished) {
+      updateAllTeamScores(players, teamConfig);
+    }
+  }, [players, teamConfig, isGameFinished]);
+  
   // 按玩家ID分组出牌记录
   const playsByPlayer = useMemo(() => {
     const grouped: Map<number, RoundPlayRecord[]> = new Map();
@@ -144,6 +155,7 @@ export const DirectionalPlayerLayout: React.FC<DirectionalPlayerLayoutProps> = (
               showPosition={false}
               playerCount={players.length}
               teamConfig={teamConfig}
+              allPlayers={players}
             />
             
             {/* 出牌区域 */}

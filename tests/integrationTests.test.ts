@@ -38,7 +38,7 @@ function createPlayer(id: number, name: string, hand: Card[], type: PlayerType =
     name,
     type,
     hand,
-    score: -100,
+    score: 0,
     isHuman: type === PlayerType.HUMAN
   };
 }
@@ -89,7 +89,7 @@ describe('集成测试套件', () => {
       
       // 验证玩家分数已初始化
       game.players.forEach(player => {
-        expect(player.score).toBe(-100);
+        expect(player.score).toBe(0);
       });
     });
 

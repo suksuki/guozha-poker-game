@@ -124,15 +124,15 @@ export function validateAllRoundsOnUpdate(
 
 /**
  * 初始化玩家分数
- * 每个人基本分100，所以计分时候，每个人首先扣除100，变成-100分
+ * 初始分数为0（实时显示手牌分，游戏结束时才扣除基础分100）
  * 
  * @param players 玩家数组
- * @returns 更新后的玩家数组（所有玩家的分数都设置为-100）
+ * @returns 更新后的玩家数组（所有玩家的分数都设置为0）
  */
 export function initializePlayerScores(players: Player[]): Player[] {
   return players.map(player => ({
     ...player,
-    score: -100
+    score: 0
   }));
 }
 

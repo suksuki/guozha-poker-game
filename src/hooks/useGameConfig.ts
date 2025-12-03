@@ -34,7 +34,7 @@ export function useGameConfig() {
   const [humanPlayerIndex, setHumanPlayerIndex] = useState(0);
   const [strategy, setStrategy] = useState<'aggressive' | 'conservative' | 'balanced'>('balanced');
   const [algorithm, setAlgorithm] = useState<'simple' | 'mcts'>('mcts');
-  const [dealingAlgorithm, setDealingAlgorithm] = useState<'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered'>('random');
+  const [dealingAlgorithm, setDealingAlgorithm] = useState<'random' | 'fair' | 'favor-human' | 'favor-ai' | 'balanced-score' | 'clustered' | 'bomb-friendly' | 'monte-carlo'>('random');
   const [skipDealingAnimation, setSkipDealingAnimation] = useState(false);
   const [dealingSpeed, setDealingSpeed] = useState(150); // 发牌速度（毫秒/张）
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'grouped'>('grouped'); // 排序规则
@@ -113,6 +113,18 @@ export function useGameConfig() {
   const updateAnnouncementDelay = useCallback((delay: number) => {
     setAnnouncementDelay(delay);
     localStorage.setItem('announcementDelay', delay.toString());
+  }, []);
+
+  // 关单/关双提示开关（从 localStorage 读取，默认关闭）
+  const [guanDanWarningEnabled, setGuanDanWarningEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('guanDanWarningEnabled');
+    return saved !== null ? saved === 'true' : false; // 默认关闭
+  });
+
+  // 更新关单/关双提示开关并保存到 localStorage
+  const updateGuanDanWarningEnabled = useCallback((enabled: boolean) => {
+    setGuanDanWarningEnabled(enabled);
+    localStorage.setItem('guanDanWarningEnabled', enabled.toString());
   }, []);
   
   // 训练模式配置
@@ -210,6 +222,8 @@ export function useGameConfig() {
     setAnnouncementDelay: updateAnnouncementDelay,
     teamMode,
     setTeamMode: updateTeamMode,
+    guanDanWarningEnabled,
+    setGuanDanWarningEnabled: updateGuanDanWarningEnabled,
     trainingConfig,
     setTrainingConfig,
     handleStartGame,

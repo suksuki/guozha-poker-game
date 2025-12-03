@@ -40,12 +40,13 @@ export function handleDunScoring(
       } as Player;
     }
     
+    // 注释掉扣分逻辑：player.score 应该只记录捡到的分牌，墩分通过 dunCount 单独计算
     // 从每个其他玩家扣除分数
-    newPlayers.forEach((p, idx) => {
-      if (idx !== playerIndex) {
-        p.score = (p.score || 0) - dunScoreResult.otherPlayersScore;
-      }
-    });
+    // newPlayers.forEach((p, idx) => {
+    //   if (idx !== playerIndex) {
+    //     p.score = (p.score || 0) - dunScoreResult.otherPlayersScore;
+    //   }
+    // });
     
     // 触发出墩爆炸动画（如果提供了位置）
     if (animationPosition) {
@@ -106,7 +107,9 @@ export function updatePlayerAfterPlay(
   const result = {
     ...player,
     hand: newHand,
-    score: (player.score || 0) + dunScore // 如果是墩，立即加上墩的分数
+    // 不要把墩分加到 player.score！player.score 只记录捡到的分牌（5、10、K）
+    // 墩分已经通过 dunCount 记录在 handleDunScoring 中了
+    score: player.score || 0
     // 注意：dunCount 已经在 handleDunScoring 中更新了，这里不需要再次更新
   };
   

@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { TeamRanking, TeamConfig } from '../../types/team';
 import { Player } from '../../types/card';
 import { getPlayerTeamId, getTeam } from '../../utils/teamManager';
+import { calculatePlayerPickedScore, calculatePlayerDunScore } from '../../utils/teamScoring';
 
 interface TeamResultScreenProps {
   teamRankings: TeamRanking[];
@@ -15,6 +16,7 @@ interface TeamResultScreenProps {
   players: Player[];
   onReset: () => void;
   onBackToGame?: () => void;
+  winningTeamId?: number | null;  // 可选：获胜团队ID（优先使用）
 }
 
 export const TeamResultScreen: React.FC<TeamResultScreenProps> = ({
@@ -22,14 +24,22 @@ export const TeamResultScreen: React.FC<TeamResultScreenProps> = ({
   teamConfig,
   players,
   onReset,
-  onBackToGame
+  onBackToGame,
+  winningTeamId
 }) => {
   const { t } = useTranslation(['game']);
 
-  // 找到获胜的团队
-  const winnerTeam = teamRankings.length > 0 ? teamRankings[0] : null;
+  // 找到获胜的团队（优先使用winningTeamId，否则使用teamRankings[0]）
+  const winnerTeamIdActual = winningTeamId !== undefined && winningTeamId !== null 
+    ? winningTeamId 
+    : (teamRankings.length > 0 ? teamRankings[0].team.id : null);
+  
+  const winnerTeam = winnerTeamIdActual !== null
+    ? teamRankings.find(r => r.team.id === winnerTeamIdActual) || teamRankings[0]
+    : null;
+  
   const humanPlayerTeamId = teamConfig.humanPlayerTeam;
-  const isHumanTeamWinner = winnerTeam && winnerTeam.team.id === humanPlayerTeamId;
+  const isHumanTeamWinner = winnerTeamIdActual !== null && winnerTeamIdActual === humanPlayerTeamId;
 
   // 获取团队中的所有玩家名称
   const getTeamPlayersNames = (teamId: number): string[] => {
@@ -112,7 +122,7 @@ export const TeamResultScreen: React.FC<TeamResultScreenProps> = ({
                       </div>
                     </div>
                     
-                    {/* 团队成员列表 */}
+                    {/* 团队成员列表 - 显示每个队员的详细分数 */}
                     <div style={{ 
                       marginTop: '10px', 
                       paddingTop: '10px', 
@@ -120,23 +130,55 @@ export const TeamResultScreen: React.FC<TeamResultScreenProps> = ({
                       fontSize: '14px',
                       color: '#666'
                     }}>
-                      <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>团队成员：</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>团队成员：</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {teamPlayers.map((playerName, playerIndex) => {
                           const player = players.find(p => p.name === playerName);
-                          const isHuman = player?.isHuman || false;
+                          if (!player) return null;
+                          
+                          const isHuman = player.isHuman || false;
+                          
+                          // 显示清算前的原始分数
+                          const originalHandScore = calculatePlayerPickedScore(player); // 原始手牌分
+                          const dunScore = calculatePlayerDunScore(player, players); // 墩分
+                          
+                          // 显示清算后的分数（如果有）
+                          const adjustedHandScore = (player as any).adjustedHandScore; // 转移后的手牌分
+                          const finalScore = (player as any).finalScore; // 最终分数
+                          
                           return (
-                            <span 
+                            <div 
                               key={playerIndex}
                               style={{
-                                padding: '4px 8px',
+                                padding: '8px 12px',
                                 backgroundColor: isHuman ? '#E3F2FD' : '#F5F5F5',
-                                borderRadius: '4px',
-                                color: isHuman ? '#2196F3' : '#666'
+                                borderRadius: '6px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
                               }}
                             >
-                              {playerName}{isHuman ? ' (你)' : ''}
-                            </span>
+                              <span style={{ 
+                                fontWeight: 'bold',
+                                color: isHuman ? '#2196F3' : '#333'
+                              }}>
+                                {playerName}{isHuman ? ' (你)' : ''}
+                              </span>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                  <span>手牌: {originalHandScore}</span>
+                                  {adjustedHandScore !== undefined && adjustedHandScore !== originalHandScore && (
+                                    <span style={{ color: '#FF9800', fontWeight: 'bold' }}>→ 转移后: {adjustedHandScore}</span>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                  <span>墩: {dunScore}</span>
+                                  <span style={{ fontWeight: 'bold', color: finalScore !== undefined && finalScore < 0 ? '#f44336' : '#4caf50' }}>
+                                    最终: {finalScore !== undefined ? finalScore : (originalHandScore + dunScore - 100)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
                           );
                         })}
                       </div>

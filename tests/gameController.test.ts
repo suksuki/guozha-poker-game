@@ -35,25 +35,29 @@ describe('GameController 类单元测试', () => {
     // 创建 mock Game 实例
     mockGame = {
       players: [],
+      finishOrder: [],  // 添加finishOrder字段
+      finalRankings: undefined,
+      winningTeamId: null,  // 添加winningTeamId字段
       updatePlayer: (index: number, updates: any) => {
         if (mockGame.players[index]) {
           Object.assign(mockGame.players[index], updates);
         }
       },
       updateFinishOrder: (order: number[]) => {
-        // Mock implementation
+        mockGame.finishOrder = order;  // 实际更新finishOrder
       },
       updateFinalRankings: (rankings: any) => {
-        // Mock implementation
-      }
+        mockGame.finalRankings = rankings;  // 实际更新finalRankings
+      },
+      onUpdateCallback: null
     };
     
     controller = new GameController(mockGame);
     players = [
-      createPlayer(0, '玩家1', [createCard(Suit.SPADES, Rank.FIVE)], -100),
-      createPlayer(1, '玩家2', [createCard(Suit.HEARTS, Rank.TEN)], -100),
-      createPlayer(2, '玩家3', [createCard(Suit.DIAMONDS, Rank.KING)], -100),
-      createPlayer(3, '玩家4', [createCard(Suit.CLUBS, Rank.ACE)], -100)
+      createPlayer(0, '玩家1', [createCard(Suit.SPADES, Rank.FIVE)], 0),
+      createPlayer(1, '玩家2', [createCard(Suit.HEARTS, Rank.TEN)], 0),
+      createPlayer(2, '玩家3', [createCard(Suit.DIAMONDS, Rank.KING)], 0),
+      createPlayer(3, '玩家4', [createCard(Suit.CLUBS, Rank.ACE)], 0)
     ];
     
     // 初始化 mockGame.players

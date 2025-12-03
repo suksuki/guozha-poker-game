@@ -77,6 +77,7 @@ export class Game {
   finishOrder: number[];
   finalRankings?: PlayerRanking[];
   teamRankings?: TeamRanking[];  // 团队排名（团队模式下使用）
+  winningTeamId?: number | null;  // 获胜团队ID（团队模式下使用）
 
   // ========== 轮次相关 ==========
   rounds: Round[];
@@ -130,6 +131,7 @@ export class Game {
     this.players = [];
     this.currentPlayerIndex = 0;
     this.winner = null;
+    this.winningTeamId = null;
     this.playerCount = 0;
 
     // 初始化排名相关
@@ -179,6 +181,7 @@ export class Game {
     }
     
     const previousHandCount = this.players[playerIndex].hand.length;
+    const previousScore = this.players[playerIndex].score;
     
     // 创建新的 players 数组，确保引用变化，让 React 能检测到更新
     this.players = [
@@ -188,9 +191,10 @@ export class Game {
     ];
     
     const newHandCount = this.players[playerIndex].hand.length;
+    const newScore = this.players[playerIndex].score;
     
-    // 如果真实玩家手牌数量发生变化，立即触发UI更新
-    if (previousHandCount !== newHandCount && playerIndex === this.config.humanPlayerIndex) {
+    // 如果手牌数量或分数发生变化，触发UI更新
+    if (previousHandCount !== newHandCount || previousScore !== newScore) {
       this.triggerUpdate();
     }
   }
@@ -305,6 +309,7 @@ export class Game {
     this.status = GameStatus.WAITING; // 先设为 WAITING，由外部设置为 PLAYING
     this.currentPlayerIndex = 0;
     this.winner = null;
+    this.winningTeamId = null;
     this.finishOrder = [];
     this.finalRankings = undefined;
     this.rounds = [];
@@ -316,7 +321,7 @@ export class Game {
 
     // 初始化 controller（此时 players 已经设置好了）
     // controller 会通过 game.updatePlayer 更新玩家的 score、wonRounds、finishedRank
-    this.controller.initializeGame(players, -100);
+    this.controller.initializeGame(players, 0); // 初始分数为0（实时显示手牌分，游戏结束时才扣除基础分100）
   }
 
   /**
@@ -422,7 +427,7 @@ export class Game {
         name: index === this.config.humanPlayerIndex ? '你' : `玩家${index + 1}`,
         type: index === this.config.humanPlayerIndex ? PlayerType.HUMAN : PlayerType.AI,
         hand: hand,
-        score: -100,
+        score: 0, // 初始分数为0（实时显示手牌分，游戏结束时才扣除基础分100）
         dunCount: 0, // 初始化墩数为0
         isHuman: index === this.config.humanPlayerIndex,
         teamId: teamId, // 设置团队ID
@@ -519,6 +524,7 @@ export class Game {
     this.players = [];
     this.currentPlayerIndex = 0;
     this.winner = null;
+    this.winningTeamId = null;
     this.playerCount = 0;
     this.finishOrder = [];
     this.finalRankings = undefined;
@@ -620,6 +626,59 @@ export class Game {
    */
   getAutoPlay(): boolean {
     return this.isAutoPlay;
+  }
+
+  /**
+   * 找到下一个开始新轮次的玩家（团队模式下优先队友接风）
+   * @param winnerIndex 当前轮次的赢家（接风玩家）
+   * @returns 下一个玩家的索引，如果所有人都出完则返回null
+   */
+  private findNextPlayerForNewRound(winnerIndex: number | null): number | null {
+    if (winnerIndex === null) {
+      return findNextActivePlayer(0, this.players, this.playerCount);
+    }
+
+    const winner = this.players[winnerIndex];
+    
+    // 如果接风玩家还有牌，由接风玩家开始
+    if (winner && winner.hand.length > 0) {
+      return winnerIndex;
+    }
+
+    // 接风玩家已出完牌
+    if (this.teamConfig) {
+      // 团队模式：优先找队友
+      const winnerTeamId = winner?.teamId;
+      
+      if (winnerTeamId !== null && winnerTeamId !== undefined) {
+        // 找队友中还有牌的玩家
+        for (let i = 0; i < this.players.length; i++) {
+          const player = this.players[i];
+          if (player.teamId === winnerTeamId && player.hand.length > 0) {
+            return i;
+          }
+        }
+        
+        // 【决策6】队友都出完了，检查整个团队是否都出完
+        const team = this.teamConfig.teams.find(t => t.id === winnerTeamId);
+        if (team) {
+          const teamAllFinished = team.players.every(
+            pid => this.players[pid].hand.length === 0
+          );
+          
+          if (teamAllFinished) {
+            // 整个团队出完，返回null表示游戏应该结束
+            return null;
+          }
+        }
+      }
+      
+      // 队友都出完了（但团队未全部出完），顺时针找对手
+      return findNextActivePlayer(winnerIndex, this.players, this.playerCount);
+    } else {
+      // 个人模式：顺时针找下一个有牌的玩家
+      return findNextActivePlayer(winnerIndex, this.players, this.playerCount);
+    }
   }
 
   /**
@@ -731,26 +790,29 @@ export class Game {
 
     // 检查是否正在播放报牌语音（只检查报牌通道，不检查聊天通道）
     // 报牌和聊天使用不同的通道，应该独立检查，聊天不应该阻塞游戏流程
-    try {
-      const isAnnouncementSpeaking = voiceService.isAnnouncementSpeaking();
-      if (isAnnouncementSpeaking) {
-        const initialPlayerIndex = this.currentPlayerIndex;
-        // 添加超时保护，避免无限等待
-        await Promise.race([
-          new Promise<void>((resolve) => {
-            const checkInterval = setInterval(() => {
-              // 只检查报牌通道，不检查聊天通道
-              if (!voiceService.isAnnouncementSpeaking() || this.currentPlayerIndex !== initialPlayerIndex) {
-                clearInterval(checkInterval);
-                resolve();
-              }
-            }, 100);
-          }),
-          new Promise(resolve => setTimeout(resolve, 5000)) // 5秒超时
-        ]);
+    // 【优化】托管模式下跳过等待，加快游戏速度
+    if (!this.isAutoPlay) {
+      try {
+        const isAnnouncementSpeaking = voiceService.isAnnouncementSpeaking();
+        if (isAnnouncementSpeaking) {
+          const initialPlayerIndex = this.currentPlayerIndex;
+          // 添加超时保护，避免无限等待
+          await Promise.race([
+            new Promise<void>((resolve) => {
+              const checkInterval = setInterval(() => {
+                // 只检查报牌通道，不检查聊天通道
+                if (!voiceService.isAnnouncementSpeaking() || this.currentPlayerIndex !== initialPlayerIndex) {
+                  clearInterval(checkInterval);
+                  resolve();
+                }
+              }, 100);
+            }),
+            new Promise(resolve => setTimeout(resolve, 5000)) // 5秒超时
+          ]);
+        }
+      } catch (error) {
+        // 忽略错误，继续执行
       }
-    } catch (error) {
-      // 忽略错误，继续执行
     }
 
     const currentRound = this.getCurrentRound();
@@ -934,14 +996,59 @@ export class Game {
         if (updatedPlayer.hand.length === 0) {
           this.addToFinishOrder(playerIndex);
           
-          // 检查是否只剩一个玩家还在游戏中
-          const remainingPlayers = this.players.filter(p => p.hand.length > 0);
-          if (remainingPlayers.length === 1) {
-            // 只剩一个玩家，将最后一个玩家也加入 finishOrder
-            const lastPlayerIndex = remainingPlayers[0].id;
-            if (!this.finishOrder.includes(lastPlayerIndex)) {
-              this.addToFinishOrder(lastPlayerIndex);
+          // 检查游戏是否应该结束
+          let shouldEndGame = false;
+          
+          if (this.teamConfig) {
+            // 【团队模式】检查是否有整个团队出完
+            for (const team of this.teamConfig.teams) {
+              const teamAllFinished = team.players.every(
+                pid => this.players[pid].hand.length === 0
+              );
+              
+              if (teamAllFinished) {
+                shouldEndGame = true;
+                break;
+              }
             }
+            
+            // 如果游戏结束，处理被关的玩家
+            if (shouldEndGame) {
+              const unfinishedPlayers = this.players.filter(
+                p => p.hand.length > 0
+              );
+              
+              // 按手牌数量排序（决策3）
+              unfinishedPlayers.sort((a, b) => {
+                if (a.hand.length !== b.hand.length) {
+                  return a.hand.length - b.hand.length;
+                }
+                return a.id - b.id;
+              });
+              
+              // 添加到finishOrder
+              unfinishedPlayers.forEach(p => {
+                if (!this.finishOrder.includes(p.id)) {
+                  this.addToFinishOrder(p.id);
+                }
+              });
+            }
+          } else {
+            // 【个人模式】只剩1个玩家
+            const remainingPlayers = this.players.filter(p => p.hand.length > 0);
+            
+            if (remainingPlayers.length === 1) {
+              shouldEndGame = true;
+              
+              // 只剩一个玩家，将最后一个玩家也加入 finishOrder
+              const lastPlayerIndex = remainingPlayers[0].id;
+              if (!this.finishOrder.includes(lastPlayerIndex)) {
+                this.addToFinishOrder(lastPlayerIndex);
+              }
+            }
+          }
+          
+          if (shouldEndGame) {
             
             // 结束当前轮次（如果还没结束）
             if (!updatedRound.isEnded()) {
@@ -981,6 +1088,14 @@ export class Game {
             this.calculateFinalRankings();
             this.setWinner(this.finishOrder[0]); // 第一个出完的是获胜者
             
+            // 【决策5】设置获胜团队
+            if (this.teamConfig) {
+              const winnerPlayer = this.players[this.finishOrder[0]];
+              this.winningTeamId = winnerPlayer.teamId ?? null;
+            } else {
+              this.winningTeamId = null;
+            }
+            
             // 记录本局分数到累积积分系统
             if (this.finalRankings && this.finishOrder.length > 0) {
               const gameEndTime = Date.now();
@@ -1000,8 +1115,8 @@ export class Game {
             
             this.isProcessingPlayMap.delete(playerIndex);
             return true;
-          }
-        }
+          } // end of if (shouldEndGame)
+        } // end of if (updatedPlayer.hand.length === 0)
         
         // 注意：调度逻辑现在由 onAnnouncementComplete 回调处理
         // 报牌完成后会自动调用 onPlayCompleted
@@ -1091,10 +1206,7 @@ export class Game {
             
             const endResult = endedRound.end(players, this.playerCount, winnerIndex);
             
-            // 调试日志：检查轮次分数
-            
             // 分配轮次分数（重要：必须调用 controller 分配分数）
-            // 注意：即使 roundScore 为 0，也要分配（这一轮没有分牌，但赢家仍然"捡分"）
             if (endResult.winnerIndex !== null) {
               this.controller.allocateRoundScore(
                 endedRound.roundNumber,
@@ -1103,19 +1215,15 @@ export class Game {
                 this.players,
                 endedRound.toRecord()
               );
-            } else {
             }
             
-            // 注意：不要更新 endResult.updatedPlayers，因为：
-            // 1. 分数已经由 allocateRoundScore 更新了
-            // 2. endResult.updatedPlayers 不包含分数更新，会覆盖刚刚分配的分数
-            // 3. 手牌等状态已经在出牌时更新了，不需要再次更新
-            // endResult.updatedPlayers.forEach((p, i) => {
-            //   if (i < this.players.length) {
-            //     this.updatePlayer(i, p);
-            //   }
-            // });
             this.updateRound(this.currentRoundIndex, endedRound);
+            
+            // Game 自己决定下一个玩家（团队模式下优先队友接风）
+            const actualNextPlayerIndex = this.findNextPlayerForNewRound(endResult.winnerIndex);
+            
+            // 使用actualNextPlayerIndex而不是endResult.nextPlayerIndex
+            nextPlayerIndex = actualNextPlayerIndex;
             
             // 调用记牌器结束轮次（重要：确保记牌器中的轮次状态正确更新）
             const roundRecord = endedRound.toRecord();
@@ -1173,7 +1281,57 @@ export class Game {
               await this.playNextTurn(nextPlayerIndex);
             }
           } else {
-            // 没有下一个玩家，只触发更新
+            // 【决策6】nextPlayerIndex为null → 游戏应该结束
+            // 这种情况发生在：队友接风时，整个团队都出完了
+            
+            // 检查游戏是否已经结束
+            if (this.status !== GameStatus.FINISHED) {
+              // 处理被关的玩家
+              if (this.teamConfig) {
+                const unfinishedPlayers = this.players.filter(p => p.hand.length > 0);
+                
+                // 按手牌数量排序
+                unfinishedPlayers.sort((a, b) => {
+                  if (a.hand.length !== b.hand.length) {
+                    return a.hand.length - b.hand.length;
+                  }
+                  return a.id - b.id;
+                });
+                
+                unfinishedPlayers.forEach(p => {
+                  if (!this.finishOrder.includes(p.id)) {
+                    this.addToFinishOrder(p.id);
+                  }
+                });
+              }
+              
+              // 结束游戏
+              this.updateStatus(GameStatus.FINISHED);
+              this.calculateFinalRankings();
+              this.setWinner(this.finishOrder[0]);
+              
+              // 设置获胜团队
+              if (this.teamConfig) {
+                const winnerPlayer = this.players[this.finishOrder[0]];
+                this.winningTeamId = winnerPlayer.teamId ?? null;
+              }
+              
+              // 记录累积分数
+              if (this.finalRankings && this.finishOrder.length > 0) {
+                const gameEndTime = Date.now();
+                cumulativeScoreService.recordGameScore(
+                  this.gameId,
+                  this.gameStartTime,
+                  gameEndTime,
+                  this.players,
+                  this.finalRankings,
+                  this.finishOrder,
+                  this.finishOrder[0]
+                );
+              }
+            }
+            
+            // 触发更新
             this.triggerUpdate();
           }
         }

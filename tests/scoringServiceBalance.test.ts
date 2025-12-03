@@ -24,7 +24,7 @@ describe('scoringService - 分数守恒测试', () => {
     const initialized = initializePlayerScores(players);
     const totalScore = initialized.reduce((sum, p) => sum + (p.score || 0), 0);
 
-    expect(totalScore).toBe(-400); // 初始总分应该是 -100 * 4 = -400
+    expect(totalScore).toBe(0); // 初始总分应该是 0 * 4 = 0
   });
 
   it('墩的计分应该保持分数守恒', () => {
@@ -146,7 +146,7 @@ describe('scoringService - 分数守恒测试', () => {
     ]);
 
     const initialTotal = players.reduce((sum, p) => sum + (p.score || 0), 0);
-    expect(initialTotal).toBe(-400); // 初始总分应该是 -100 * 4 = -400
+    expect(initialTotal).toBe(0); // 初始总分应该是 0 * 4 = 0
 
     // 2. 玩家0出1墩
     const dunCards: Card[] = Array.from({ length: 7 }, (_, i) => ({

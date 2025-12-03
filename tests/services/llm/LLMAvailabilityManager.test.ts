@@ -231,12 +231,22 @@ describe('LLMAvailabilityManager', () => {
     it('应该能设置检测超时时间', async () => {
       manager.setCheckTimeout(100); // 100ms 超时
 
-      // Mock 一个会超时的请求
-      global.fetch = vi.fn().mockImplementation(() =>
-        new Promise(resolve => setTimeout(() =>
-          resolve({ ok: true, json: async () => ({}) }), 200
-        ))
-      );
+      // Mock 一个会超时的请求，并正确响应 abort 信号
+      global.fetch = vi.fn().mockImplementation((url: string, options?: any) => {
+        return new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            resolve({ ok: true, json: async () => ({}) });
+          }, 200);
+          
+          // 监听 abort 信号
+          if (options?.signal) {
+            options.signal.addEventListener('abort', () => {
+              clearTimeout(timeoutId);
+              reject(new DOMException('The operation was aborted.', 'AbortError'));
+            });
+          }
+        });
+      });
 
       const result = await manager.checkAvailability('http://localhost:11434');
       expect(result).toBe(false); // 应该超时失败

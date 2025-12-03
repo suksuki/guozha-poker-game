@@ -15,6 +15,7 @@ interface AIPlayersAreaProps {
   lastPlayPlayerIndex: number | null;
   playerCount?: number; // 玩家总数（用于判断最后一名）
   teamConfig?: TeamConfig | null; // 团队配置（团队模式下使用）
+  allPlayers?: Player[]; // 所有玩家列表（用于计算墩分）
 }
 
 export const AIPlayersArea: React.FC<AIPlayersAreaProps> = ({
@@ -22,7 +23,8 @@ export const AIPlayersArea: React.FC<AIPlayersAreaProps> = ({
   currentPlayerIndex,
   lastPlayPlayerIndex,
   playerCount,
-  teamConfig
+  teamConfig,
+  allPlayers = []
 }) => {
   const aiPlayers = players.filter(player => !player.isHuman);
 
@@ -41,6 +43,7 @@ export const AIPlayersArea: React.FC<AIPlayersAreaProps> = ({
             showPosition={false}
             playerCount={playerCount}
             teamConfig={teamConfig}
+            allPlayers={allPlayers}
           />
         );
       })}

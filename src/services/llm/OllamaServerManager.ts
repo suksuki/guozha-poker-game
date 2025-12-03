@@ -351,10 +351,13 @@ export class OllamaServerManager {
     // 尝试解析完整 URL
     try {
       const url = new URL(trimmed);
+      const protocol = url.protocol.replace(':', '') as 'http' | 'https';
+      // 如果没有显式指定端口，根据协议使用默认端口
+      const defaultPort = protocol === 'https' ? 443 : 11434;
       return {
-        protocol: url.protocol.replace(':', '') as 'http' | 'https',
+        protocol,
         host: url.hostname,
-        port: url.port ? parseInt(url.port) : 11434
+        port: url.port ? parseInt(url.port) : defaultPort
       };
     } catch {
       // 不是完整 URL，继续解析

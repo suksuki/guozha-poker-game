@@ -21,9 +21,9 @@ export interface GameConfig {
  * 默认游戏配置
  */
 export const DEFAULT_GAME_CONFIG: GameConfig = {
-  announcementDelay: 1000, // 1秒
+  announcementDelay: 0, // 【优化】托管模式无延迟，改为0
   timingConfig: {
-    minIntervalBetweenPlays: 100,  // 最短间隔100ms
+    minIntervalBetweenPlays: 50,   // 【优化】最短间隔从100ms减少到50ms
     playTimeout: 30000,              // 超时30秒
     enabled: true
   }

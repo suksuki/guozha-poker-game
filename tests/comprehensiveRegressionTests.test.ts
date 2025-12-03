@@ -42,7 +42,7 @@ function createPlayer(id: number, name: string, hand: Card[], type: PlayerType =
     name,
     type,
     hand,
-    score: -100,
+    score: 0,
     isHuman: type === PlayerType.HUMAN
   };
 }

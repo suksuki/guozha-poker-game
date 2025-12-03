@@ -465,7 +465,7 @@ export const TrainingRunner: React.FC<TrainingRunnerProps> = ({
         tuningElapsedTime: tuningElapsed,
         totalElapsedTime: totalElapsed
       });
-      setIsTuning(false);
+      setIsTuning(false);      
 
       console.log('微调完成，最佳配置:', bestConfig);
       console.log('微调耗时:', formatTime(tuningElapsed));
