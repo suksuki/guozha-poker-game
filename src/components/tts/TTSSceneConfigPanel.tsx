@@ -28,7 +28,7 @@ const SceneServerSelector: React.FC<SceneServerSelectorProps> = ({
   onChange
 }) => {
   const enabledServers = servers
-    .filter(s => s.enabled && s.status?.health === 'available')
+    .filter(s => s.enabled) // 只要启用即可，不要求健康检查通过（可能还在检查中）
     .sort((a, b) => a.priority - b.priority);
 
   const handleServerSelect = (serverId: string) => {

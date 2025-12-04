@@ -68,8 +68,27 @@ class ChatService {
     const startTime = Date.now();
     
     try {
-      // 获取推荐的策略
-      const recommendedStrategy = await getRecommendedChatStrategy();
+      // 从用户配置或 localStorage 读取 API URL
+      let apiUrl = this.llmConfig?.apiUrl;
+      if (!apiUrl) {
+        // 尝试从 localStorage 读取
+        apiUrl = localStorage.getItem('llmApiUrl') || undefined;
+      }
+      
+      // 从完整 URL 中提取基础 URL（移除 /api/chat 等路径）
+      // 例如：http://115.93.10.51:11434/api/chat -> http://115.93.10.51:11434
+      let baseUrl = apiUrl;
+      if (baseUrl) {
+        try {
+          const url = new URL(baseUrl);
+          baseUrl = `${url.protocol}//${url.host}`;
+        } catch (e) {
+          // URL 解析失败，使用原始值
+        }
+      }
+      
+      // 获取推荐的策略（使用基础 URL）
+      const recommendedStrategy = await getRecommendedChatStrategy(baseUrl);
       const detectionTime = Date.now() - startTime;
       
       

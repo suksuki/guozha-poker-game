@@ -21,8 +21,8 @@ export interface LLMHealthStatus {
  * @returns 健康状态
  */
 export async function checkLLMAvailability(
-  apiUrl: string = 'http://localhost:11434',
-  timeout: number = 3000
+  apiUrl: string = 'http://115.93.10.51:11434', // 使用公司服务器
+  timeout: number = 5000 // 增加超时时间
 ): Promise<LLMHealthStatus> {
   const startTime = Date.now();
   
@@ -114,7 +114,7 @@ export async function getRecommendedChatStrategy(
  * @returns 最佳模型名称，如果没有则返回null
  */
 export async function findBestAvailableModel(
-  apiUrl: string = 'http://localhost:11434',
+  apiUrl: string = 'http://115.93.10.51:11434', // 使用公司服务器
   preferredModels: string[] = ['qwen2:0.5b', 'qwen2:1.5b', 'qwen', 'deepseek', 'llama3']
 ): Promise<string | null> {
   const status = await checkLLMAvailability(apiUrl);
@@ -161,7 +161,7 @@ export async function findBestAvailableModel(
  */
 export async function checkModelAvailable(
   modelName: string,
-  apiUrl: string = 'http://localhost:11434'
+  apiUrl: string = 'http://115.93.10.51:11434' // 使用公司服务器
 ): Promise<boolean> {
   const status = await checkLLMAvailability(apiUrl);
   return status.available && status.models.includes(modelName);

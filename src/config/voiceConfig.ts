@@ -56,7 +56,7 @@ export interface VoiceServiceConfig {
 export const DEFAULT_VOICE_SERVICE_CONFIG: VoiceServiceConfig = {
   maxQueueSize: 10, // 串行播放，减少队列长度（从20降到10），提高响应速度
   deduplicationWindow: 3000, // 3秒（从2秒增加到3秒，减少报牌频繁中断）
-  defaultTimeout: 5000 // 5秒
+  defaultTimeout: 45000 // 45秒 - 足够 LLM(5s) + TTS(2s) + 播放(5s) + 缓冲(33s)
 };
 
 // TTS服务商选择
