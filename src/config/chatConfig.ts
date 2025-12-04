@@ -86,7 +86,7 @@ export interface LLMChatConfig {
 
 export const DEFAULT_LLM_CHAT_CONFIG: LLMChatConfig = {
   provider: 'custom',
-  apiUrl: 'http://localhost:11434/api/chat', // Ollama原生API地址
+  apiUrl: 'http://115.93.10.51:11434/api/chat', // Ollama原生API地址（公网IP）
   model: 'qwen2.5:3b', // 🔥 升级到更大的模型（从0.5b -> 3b）
   temperature: 0.9, // 🔥 提高温度，让对话更有创意和变化
   maxTokens: 150, // 🔥 增加token数，允许更长更丰富的对话（从50 -> 150）

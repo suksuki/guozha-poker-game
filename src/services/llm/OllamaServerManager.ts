@@ -284,6 +284,53 @@ export class OllamaServerManager {
   }
 
   /**
+   * 检查服务器可用性
+   */
+  async checkServer(server: OllamaServerConfig): Promise<ServerCheckResult> {
+    const startTime = Date.now();
+    
+    try {
+      const url = this.getServerTagsUrl(server);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(5000) // 5秒超时
+      });
+
+      if (!response.ok) {
+        return {
+          available: false,
+          error: `HTTP ${response.status}: ${response.statusText}`
+        };
+      }
+
+      const data = await response.json();
+      const latency = Date.now() - startTime;
+      
+      const result: ServerCheckResult = {
+        available: true,
+        latency,
+        modelCount: data.models?.length || 0
+      };
+      
+      // 更新服务器状态
+      this.updateServerStatus(server.id, result);
+      
+      return result;
+    } catch (error) {
+      const result: ServerCheckResult = {
+        available: false,
+        error: error instanceof Error ? error.message : '连接失败'
+      };
+      
+      // 更新服务器状态
+      this.updateServerStatus(server.id, result);
+      
+      return result;
+    }
+  }
+
+  /**
    * 更新服务器状态（检测后）
    */
   updateServerStatus(id: string, result: ServerCheckResult): void {

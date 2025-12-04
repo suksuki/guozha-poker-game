@@ -95,7 +95,7 @@ function App() {
     // 配置 MeLo TTS（远程服务器）
     config.enableMelo = true;
     config.meloConfig = {
-      baseUrl: 'http://192.168.0.13:7860',  // MeLo TTS 服务器地址
+      baseUrl: 'http://115.93.10.51:7860',  // MeLo TTS 服务器地址（公网IP）
       timeout: 30000,
       retryCount: 2,
       defaultSpeaker: 'ZH',  // 默认中文说话人
