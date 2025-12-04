@@ -75,12 +75,18 @@ export interface RoundRecord {
 
 // 语音配置
 export interface VoiceConfig {
-  gender: 'male' | 'female'; // 性别
-  dialect: 'mandarin' | 'cantonese' | 'shanghai' | 'sichuan' | 'dongbei' | 'taiwan' | 'nanchang'; // 方言
+  gender?: 'male' | 'female'; // 性别
+  dialect?: 'mandarin' | 'cantonese' | 'shanghai' | 'sichuan' | 'dongbei' | 'taiwan' | 'nanchang'; // 方言
   rate?: number; // 语速 (0.1 - 10)
   pitch?: number; // 音调 (0 - 2)
   volume?: number; // 音量 (0 - 1)
   voiceIndex?: number; // 语音索引（用于区分不同玩家）
+  // 兼容新TTS/语音模块附加字段
+  lang?: string;
+  speaker?: string;
+  voiceStyle?: string;
+  model?: string;
+  voiceId?: string;
 }
 
 // 玩家信息
@@ -105,5 +111,25 @@ export enum GameStatus {
   WAITING = 'waiting',      // 等待开始
   PLAYING = 'playing',      // 游戏中
   FINISHED = 'finished'     // 游戏结束
+}
+
+// 统一的多人游戏状态接口（为各模块提供可选字段，兼容旧实现）
+export interface MultiPlayerGameState {
+  status?: GameStatus;
+  players: Player[];
+  aiPlayers?: Player[];
+  rounds?: RoundRecord[] | any[];
+  currentRoundIndex?: number;
+  currentPlayerIndex?: number;
+  playerCount?: number;
+  lastPlay?: Play | null;
+  lastPlayPlayerIndex?: number | null;
+  currentRoundPlays?: any[];
+  roundNumber?: number;
+  roundScore?: number;
+  totalScore?: number;
+  finishOrder?: number[];
+  gameRecord?: any;
+  [key: string]: any;
 }
 

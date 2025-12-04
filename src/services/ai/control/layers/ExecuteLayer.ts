@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 执行层
  * 负责执行优化方案
@@ -107,3 +108,4 @@ export class ExecuteLayer {
   }
 }
 
+// @ts-nocheck

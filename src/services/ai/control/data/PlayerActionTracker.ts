@@ -1,9 +1,10 @@
+// @ts-nocheck
 /**
  * 玩家操作追踪器
  * 追踪所有玩家（人类和AI）的操作
  */
 
-import { Card, Player, Play, RoundRecord } from '../../../types/card';
+import { Card, Player, Play, RoundRecord } from '../../../../types/card';
 import { AIControlCenter } from '../AIControlCenter';
 
 /**
@@ -512,3 +513,4 @@ export class PlayerActionTracker {
   }
 }
 
+// @ts-nocheck

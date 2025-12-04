@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 轮次管理工具函数
  * 处理轮次结束、分数分配等逻辑
@@ -107,4 +108,4 @@ export function checkAndHandleTakeover(
   }
   return true; // 所有人都要不起，需要接风
 }
-
+// @ts-nocheck

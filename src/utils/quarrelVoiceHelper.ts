@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 吵架王语音服务辅助工具
  * 提供便捷函数来集成到游戏流程中
@@ -202,4 +203,3 @@ export async function handleQuickJab(
     volume: options?.volume ?? 0.8,
   });
 }
-

@@ -72,7 +72,7 @@ export interface IChatStrategy {
   readonly description: string;
 }
 
-import { Player, Card, Play, GameStatus } from '../../types/card';
+import { Card, Play, GameStatus } from '../../types/card';
 import { MultiPlayerGameState } from '../../utils/gameStateUtils';
 
 /**
@@ -129,4 +129,3 @@ export interface ChatContext {
   // 聊天历史
   history?: ChatMessage[]; // 最近的聊天历史
 }
-

@@ -15,6 +15,7 @@ export interface ChatMessage {
   scene?: ChatScene; // 场景类型（新增，用于场景化处理）
   eventType?: ChatEventType; // 如果是事件触发，记录具体事件类型
   originalContent?: string; // 原文（如果经过翻译）
+  civility?: number; // 文明程度（语音播放会用到）
   replyTo?: {
     playerId: number; // 被回复的玩家ID
     playerName: string; // 被回复的玩家名称
@@ -44,6 +45,7 @@ export enum ChatEventType {
   DEALING_BOMB_FORMED = 'dealing_bomb_formed', // 理牌时形成炸弹
   DEALING_DUN_FORMED = 'dealing_dun_formed', // 理牌时形成墩
   DEALING_HUGE_CARD = 'dealing_huge_card', // 理牌时抓到超大牌
-  DEALING_POOR_HAND = 'dealing_poor_hand' // 理牌时手牌质量差
+  DEALING_POOR_HAND = 'dealing_poor_hand', // 理牌时手牌质量差
+  TAUNT = 'TAUNT', // 对骂事件（兼容音频模块）
+  QUICK_REACTION = 'QUICK_REACTION' // 快速反应（兼容音频模块）
 }
-

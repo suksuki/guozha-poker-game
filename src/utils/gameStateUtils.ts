@@ -3,21 +3,16 @@
  * 包含游戏状态相关的辅助函数
  */
 
-import { Player, GameStatus, Play, RoundPlayRecord } from '../types/card';
+import { Player, GameStatus, Play, RoundPlayRecord, MultiPlayerGameState } from '../types/card';
 import { hasPlayableCards } from './cardUtils';
 import { Round } from './Round';
 import { Game } from './Game';
 
 // ========== 类型定义 ==========
 
-/**
- * 多人游戏状态接口
- */
-export interface MultiPlayerGameState {
-  rounds: Round[];
-  players: Player[];
-  currentRoundIndex: number;
-}
+// 使用统一的MultiPlayerGameState定义（在types/card中）
+
+export type { MultiPlayerGameState } from '../types/card';
 
 // ========== 辅助方法：从 Game 实例获取数据 ==========
 

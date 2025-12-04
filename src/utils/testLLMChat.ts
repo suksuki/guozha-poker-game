@@ -3,8 +3,8 @@
  * 用于验证Ollama API是否正常工作
  */
 
-import { chatService } from '../services/chatService';
-import { Player, PlayerType } from '../types/card';
+import { chatService, checkChatStrategy } from '../services/chatService';
+import { Player, PlayerType, Suit, Rank } from '../types/card';
 import { ChatEventType } from '../types/chat';
 import { MultiPlayerGameState } from './gameStateUtils';
 import { GameStatus } from '../types/card';
@@ -102,7 +102,6 @@ export async function testLLMChat(): Promise<void> {
  * 检查当前使用的聊天策略
  */
 export function checkStrategy(): void {
-  const { checkChatStrategy } = require('../services/chatService');
   const strategy = checkChatStrategy();
   
   if (!strategy.isLLM) {

@@ -7,6 +7,7 @@ import { useEffect, useState, useRef } from 'react';
 import { SystemApplication } from '../services/system';
 import type { SystemConfig } from '../services/system/types/SystemConfig';
 import type { SystemStatus } from '../services/system/SystemApplication';
+import type { SystemModule } from '../services/system/types/SystemModule';
 
 export interface UseSystemApplicationReturn {
   systemApp: SystemApplication | null;
@@ -14,7 +15,7 @@ export interface UseSystemApplicationReturn {
   started: boolean;
   error: Error | null;
   status: SystemStatus | null;
-  getModule: <T>(name: string) => T | null;
+  getModule: <T extends SystemModule = SystemModule>(name: string) => T | null;
 }
 
 /**
@@ -87,7 +88,7 @@ export function useSystemApplication(config?: Partial<SystemConfig>): UseSystemA
     }
   }, [config, isInitialized]);
   
-  const getModule = <T,>(name: string): T | null => {
+  const getModule = <T extends SystemModule = SystemModule>(name: string): T | null => {
     if (!systemAppRef.current) {
       return null;
     }

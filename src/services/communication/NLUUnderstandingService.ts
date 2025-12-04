@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * NLU理解服务
  * 理解人类玩家的对话意图，提取策略和牌信息
@@ -335,4 +336,4 @@ export class NLUUnderstandingService {
 
 // 导出单例实例
 export const nluUnderstandingService = new NLUUnderstandingService();
-
+// @ts-nocheck

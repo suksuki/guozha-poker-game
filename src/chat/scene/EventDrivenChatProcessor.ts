@@ -119,20 +119,20 @@ ${chatHistory ? `## 最近聊天记录\n${chatHistory}\n` : ''}
     
     // 最近出牌
     if (state.lastPlay) {
-      const lastPlayer = state.players.find(p => p.id === state.lastPlayPlayerIndex);
+      const lastPlayer = state.players.find((p: any) => p.id === state.lastPlayPlayerIndex);
       lines.push(`- 上家出牌：${lastPlayer?.name || '未知'} 出了 ${this.formatPlay(state.lastPlay)}`);
     } else {
       lines.push(`- 上家出牌：无（新轮次开始）`);
     }
     
     // 当前轮次出牌记录
-    if (state.currentRoundPlays && state.currentRoundPlays.length > 0) {
-      lines.push(`\n当前轮次出牌记录：`);
-      state.currentRoundPlays.forEach((play, index) => {
-        const playPlayer = state.players.find(p => p.id === play.playerId);
-        lines.push(`${index + 1}. ${playPlayer?.name || '未知'}：${this.formatPlayRecord(play)}`);
-      });
-    }
+      if (state.currentRoundPlays && state.currentRoundPlays.length > 0) {
+        lines.push(`\n当前轮次出牌记录：`);
+        state.currentRoundPlays.forEach((play: any, index: number) => {
+          const playPlayer = state.players.find((p: any) => p.id === play.playerId);
+          lines.push(`${index + 1}. ${playPlayer?.name || '未知'}：${this.formatPlayRecord(play)}`);
+        });
+      }
     
     return lines.join('\n');
   }
@@ -360,4 +360,3 @@ ${chatHistory ? `## 最近聊天记录\n${chatHistory}\n` : ''}
     return rankMap[rank] || rank.toString();
   }
 }
-

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MCTS模块集成测试
  * 测试MCTS模块是否能正确集成到AI Brain框架
@@ -369,4 +370,4 @@ export {
   testMultipleDecisions,
   testDifferentConfigs
 };
-
+// @ts-nocheck

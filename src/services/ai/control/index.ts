@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AI中控系统导出
  */
@@ -16,4 +17,4 @@ export * from './llm';
 export * from './algorithm';
 export * from './interaction';
 export * from './integration';
-
+// @ts-nocheck

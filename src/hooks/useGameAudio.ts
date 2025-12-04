@@ -9,7 +9,7 @@ import { getGameAudioIntegration } from '../audio/GameAudioIntegration';
 import { preloadCommonAudio } from '../audio/audioPreloader';
 import { getQuarrelService } from '../ai/quarrelService';
 import { defaultSpeakerManager } from '../tts/speakers';
-import { Player } from '../types/card';
+import { Player, Card } from '../types/card';
 import { ChatMessage } from '../types/chat';
 
 export interface UseGameAudioConfig {

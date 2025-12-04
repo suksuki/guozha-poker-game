@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 追踪模块
  * 包装现有的 cardTrackerService

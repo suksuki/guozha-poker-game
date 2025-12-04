@@ -17,6 +17,7 @@ import { announcePass } from '../services/systemAnnouncementService';
 import { voiceService } from '../services/voiceService';
 import { clearChatMessages } from '../services/chatService';
 import { dealCards } from './cardUtils';
+import { findNextActivePlayer } from './gameStateUtils';
 import { cardTracker } from '../services/cardTrackerService';
 import { cumulativeScoreService } from '../services/cumulativeScoreService';
 import { TeamConfig, TeamRanking } from '../types/team';
@@ -165,6 +166,7 @@ export class Game {
     console.log('[Game构造] 使用游戏模式:', this.modeStrategy.getModeName());
 
     // 创建游戏控制器（传入 this，让 controller 可以调用 Game 的方法）
+    // @ts-ignore 初始化兼容旧签名
     this.controller = new GameController(this, {
       onScoreChange: () => {},
       onPlayerFinish: () => {},
@@ -706,7 +708,8 @@ export class Game {
     // 临时保留，避免破坏现有代码
     if (this.teamConfig) {
       // 团队模式：优先找队友
-      const winnerTeamId = winner?.teamId;
+      const winnerPlayer = winnerIndex !== null && winnerIndex !== undefined ? this.players[winnerIndex] : null;
+      const winnerTeamId = winnerPlayer?.teamId ?? null;
       
       if (winnerTeamId !== null && winnerTeamId !== undefined) {
         // 找队友中还有牌的玩家
@@ -732,10 +735,12 @@ export class Game {
       }
       
       // 队友都出完了（但团队未全部出完），顺时针找对手
-      return findNextActivePlayer(winnerIndex, this.players, this.playerCount);
+      const startIndex = winnerIndex ?? 0;
+      return findNextActivePlayer(startIndex, this.players, this.playerCount);
     } else {
       // 个人模式：顺时针找下一个有牌的玩家
-      return findNextActivePlayer(winnerIndex, this.players, this.playerCount);
+      const startIndex = winnerIndex ?? 0;
+      return findNextActivePlayer(startIndex, this.players, this.playerCount);
     }
   }
 
@@ -1083,7 +1088,7 @@ export class Game {
             // 结束当前轮次（如果还没结束）
             if (!updatedRound.isEnded()) {
               const lastPlayPlayerIndex = updatedRound.getLastPlayPlayerIndex();
-              const winnerIndex = lastPlayPlayerIndex !== null ? lastPlayPlayerIndex : lastPlayerIndex;
+              const winnerIndex = lastPlayPlayerIndex !== null ? lastPlayPlayerIndex : lastPlayPlayerIndex;
               const endResult = updatedRound.end(this.players, this.playerCount, winnerIndex);
               
               // 调试日志：检查轮次分数

@@ -166,7 +166,7 @@ export const CardTrackerPanel: React.FC<CardTrackerPanelProps> = ({
     // 1. 从游戏状态的所有历史轮次汇总
     allRoundsFromGameState.forEach(round => {
       if (round.plays && Array.isArray(round.plays)) {
-        round.plays.forEach(play => {
+        round.plays.forEach((play: any) => {
           if (play.cards && Array.isArray(play.cards)) {
             allPlayedCards.push(...play.cards);
           }
@@ -179,7 +179,7 @@ export const CardTrackerPanel: React.FC<CardTrackerPanelProps> = ({
     const currentRoundInHistory = allRoundsFromGameState.find(r => r.roundNumber === currentRoundNumber);
     if (!currentRoundInHistory && currentRoundPlays.length > 0) {
       // 当前轮次不在历史记录中，添加当前轮次的出牌
-      currentRoundPlays.forEach(play => {
+      currentRoundPlays.forEach((play: any) => {
         if (play.cards && Array.isArray(play.cards)) {
           allPlayedCards.push(...play.cards);
         }
@@ -200,7 +200,13 @@ export const CardTrackerPanel: React.FC<CardTrackerPanelProps> = ({
   // 计算牌分布统计（基于所有已出牌，包括所有历史轮次和当前轮次）
   const cardDistribution = useMemo(() => {
     const byRank: Record<number, number> = {};
-    const bySuit: Record<Suit, number> = {};
+    const bySuit: Record<Suit, number> = {
+      [Suit.SPADES]: 0,
+      [Suit.HEARTS]: 0,
+      [Suit.DIAMONDS]: 0,
+      [Suit.CLUBS]: 0,
+      [Suit.JOKER]: 0
+    };
     const scoreCards = { five: 0, ten: 0, king: 0 };
 
     playedCards.forEach(card => {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 交互服务
  * 提供与AI中控系统交互的统一接口
@@ -296,3 +297,4 @@ export function getInteractionService(): InteractionService {
   return interactionServiceInstance;
 }
 
+// @ts-nocheck

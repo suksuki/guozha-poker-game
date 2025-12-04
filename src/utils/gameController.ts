@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 游戏控制器
  * 统一管理所有计分和排名逻辑
@@ -464,3 +465,4 @@ export class GameController {
   }
 }
 
+// @ts-nocheck

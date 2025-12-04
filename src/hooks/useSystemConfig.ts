@@ -150,11 +150,11 @@ export function useSystemConfig(): UseSystemConfigReturn {
     const trackingModule = getModule<TrackingModule>('tracking');
     if (trackingModule) {
       trackingModule.configure({ 
-        cardTracker: { recordSnapshots: enabled } 
+        cardTracker: { enabled: trackingEnabled, recordSnapshots: enabled } 
       });
       setRecordSnapshotsState(enabled);
     }
-  }, [getModule]);
+  }, [getModule, trackingEnabled]);
   
   // 更新音频模块配置
   const setAudioEnabled = useCallback((enabled: boolean) => {
@@ -169,7 +169,7 @@ export function useSystemConfig(): UseSystemConfigReturn {
     const audioModule = getModule<AudioModule>('audio');
     if (audioModule) {
       audioModule.configure({ 
-        announcement: { enabled } 
+        announcement: { enabled, deduplicationWindow: 500 } 
       });
       setAnnouncementEnabledState(enabled);
     }

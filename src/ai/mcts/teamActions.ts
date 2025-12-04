@@ -48,8 +48,9 @@ export function generateTeamActions(
  * 判断一个play是否能beat另一个play
  */
 function canBeat(play: Play, lastPlay: Play): boolean {
+  const playType = play.type as any;
   // 类型必须相同（除非是炸弹或王炸）
-  if (play.type === 'bomb' || play.type === 'joker_bomb') {
+  if (playType === 'bomb' || playType === 'joker_bomb') {
     return true; // 炸弹可以压所有牌
   }
   
@@ -165,4 +166,3 @@ function willOpponentScore(state: TeamSimulatedGameState): boolean {
   
   return lastPlayTeamId !== currentTeamId && state.roundContext.roundScore > 5;
 }
-

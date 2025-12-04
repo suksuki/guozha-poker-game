@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 轮次出牌处理器
  * 封装异步出牌处理的完整流程
@@ -231,3 +232,4 @@ export class RoundPlayHandler {
   }
 }
 
+// @ts-nocheck

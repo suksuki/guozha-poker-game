@@ -59,8 +59,8 @@ export const DEFAULT_VOICE_SERVICE_CONFIG: VoiceServiceConfig = {
   defaultTimeout: 45000 // 45秒 - 足够 LLM(5s) + TTS(2s) + 播放(5s) + 缓冲(33s)
 };
 
-// TTS服务商选择
-export type TTSProvider = 'auto' | 'gpt_sovits' | 'coqui' | 'edge' | 'local' | 'browser';
+// TTS服务商选择（扩展以兼容多种实现）
+export type TTSProvider = 'auto' | 'gpt_sovits' | 'coqui' | 'edge' | 'local' | 'browser' | 'melo' | 'piper' | 'azure';
 
 // 多声道播放配置
 export interface MultiChannelConfig {
@@ -89,4 +89,3 @@ export const DEFAULT_MULTI_CHANNEL_CONFIG: MultiChannelConfig = {
   enableAudioCache: true,  // 启用音频缓存
   cacheSize: 100  // 缓存最多100个音频
 };
-

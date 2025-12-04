@@ -113,7 +113,7 @@ export class RuleBasedStrategy implements IChatStrategy {
     const dialect = player.voiceConfig?.dialect === 'cantonese' ? 'cantonese' : 'mandarin';
     
     // 简单的回复内容库（可以根据原消息类型选择不同的回复）
-    const replyTemplates: Record<string, string[]> = {
+    const replyTemplates: Record<string, Record<string, string[]>> = {
       'zh-CN': {
         'mandarin': [
           '确实',
@@ -164,4 +164,3 @@ export class RuleBasedStrategy implements IChatStrategy {
     };
   }
 }
-

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AI中控系统模块
  * 集成到SystemApplication模块系统

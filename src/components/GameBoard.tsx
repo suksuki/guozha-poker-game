@@ -88,7 +88,7 @@ export const GameBoard: React.FC = () => {
                 <option value="aggressive">激进</option>
                 <option value="conservative">保守</option>
               </select>
-              <small style={{display: 'block', color: '#666', marginTop: '5px'}>
+              <small style={{display: 'block', color: '#666', marginTop: '5px'}}>
                 策略仅影响简单算法，MCTS会自动学习最优策略
               </small>
             </div>
@@ -184,4 +184,3 @@ export const GameBoard: React.FC = () => {
     </div>
   );
 };
-

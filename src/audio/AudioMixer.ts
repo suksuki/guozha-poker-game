@@ -171,8 +171,13 @@ export class AudioMixer {
         // 如果音频时长已知，设置超时（防止 onended 不触发）
         const duration = audioBuffer.duration * 1000; // 转换为毫秒
         setTimeout(() => {
-          if (source.playbackState === source.PLAYING_STATE) {
-            source.stop();
+          const srcAny = source as any;
+          if (srcAny.playbackState === srcAny.PLAYING_STATE || typeof source.stop === 'function') {
+            try {
+              source.stop();
+            } catch {
+              // ignore
+            }
             resolve();
           }
         }, duration + 100); // 加 100ms 缓冲

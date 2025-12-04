@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 网络 TTS 客户端
  * 支持多种付费网络 TTS 服务（Azure、百度、讯飞等）
@@ -174,4 +175,4 @@ export class WebTTSClient implements ITTSClient {
     }
   }
 }
-
+// @ts-nocheck

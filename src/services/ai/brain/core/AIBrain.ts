@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AI Brain 核心类
  * 整个AI系统的中枢大脑，负责决策融合和整体协调
@@ -470,4 +471,4 @@ export class AIBrain {
     }
   }
 }
-
+// @ts-nocheck

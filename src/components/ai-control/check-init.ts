@@ -12,7 +12,7 @@ export function checkAIControlInit() {
     const systemStatus = systemApp.getStatus();
     
     if (systemStatus.errors.length > 0) {
-      systemStatus.errors.forEach(err => {
+      systemStatus.errors.forEach((err: any) => {
       });
     }
     

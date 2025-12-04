@@ -43,7 +43,9 @@ export const DEFAULT_CHAT_SERVICE_CONFIG: ChatServiceConfig = {
     [ChatEventType.DEALING_BOMB_FORMED]: 0.7, // 理牌时形成炸弹
     [ChatEventType.DEALING_DUN_FORMED]: 0.9, // 理牌时形成墩
     [ChatEventType.DEALING_HUGE_CARD]: 0.6, // 理牌时抓到超大牌
-    [ChatEventType.DEALING_POOR_HAND]: 0.4 // 理牌时手牌质量差
+    [ChatEventType.DEALING_POOR_HAND]: 0.4, // 理牌时手牌质量差
+    [ChatEventType.TAUNT]: 0.5, // 对骂
+    [ChatEventType.QUICK_REACTION]: 0.3 // 快速反应
   },
   enableVoice: true
 };

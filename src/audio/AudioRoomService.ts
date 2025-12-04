@@ -6,7 +6,7 @@
 import { getTTSServiceManager, TTSOptions } from '../tts';
 import { defaultSpeakerManager } from '../tts/speakers';
 import { Utter, Priority, Language } from './DialogueScheduler';
-import { UseAudioRoomReturn } from './useAudioRoom';
+import { useAudioRoom, UseAudioRoomReturn } from './useAudioRoom';
 
 /**
  * 音频房间服务类

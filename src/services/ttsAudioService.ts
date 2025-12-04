@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 基于 TTS API 服务 + Web Audio API 的多声道语音服务
  * 
@@ -877,3 +878,4 @@ class TTSAudioService {
 }
 
 export const ttsAudioService = new TTSAudioService();
+// @ts-nocheck

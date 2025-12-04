@@ -591,7 +591,6 @@ export const TrainingRunner: React.FC<TrainingRunnerProps> = ({
 
           {isTuning && (
             <div>
-              {console.log('渲染微调界面, isTuning:', isTuning, 'result:', result)}
               <div style={{
                 padding: '30px',
                 backgroundColor: '#fff3cd',
