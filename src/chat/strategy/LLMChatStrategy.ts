@@ -390,7 +390,12 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
    */
   private async checkAvailableModels(): Promise<string[]> {
     try {
-      const response = await fetch('http://localhost:11434/api/tags');
+      // 从配置的 API URL 中提取基础 URL
+      const apiUrl = this.config.apiUrl || 'http://localhost:11434/api/chat';
+      const baseUrl = apiUrl.replace(/\/api\/chat$/, ''); // 移除 /api/chat 后缀
+      const tagsUrl = `${baseUrl}/api/tags`;
+      
+      const response = await fetch(tagsUrl);
       if (response.ok) {
         const data = await response.json();
         const models = data.models?.map((m: any) => m.name) || [];
