@@ -266,24 +266,50 @@ class TTSAudioService {
       return null;
     }
 
-    // 根据场景选择TTS提供者（先确定提供者，用于缓存键）
+    // 根据场景选择TTS提供者
+    // 优先使用新的场景配置系统，回退到旧的localStorage配置
     let selectedProvider: TTSProvider | 'auto' = this.config.ttsProvider || 'auto';
     
     if (selectedProvider === 'auto' || !selectedProvider) {
-      // 从 localStorage 读取场景配置
-      const announcementProvider = typeof window !== 'undefined' 
-        ? (localStorage.getItem('tts_provider_announcement') as TTSProvider | null)
-        : null;
-      const chatProvider = typeof window !== 'undefined'
-        ? (localStorage.getItem('tts_provider_chat') as TTSProvider | null)
-        : null;
+      // 尝试从新的场景配置系统获取（通过TTSServiceManager）
+      const ttsManager = getTTSServiceManager();
+      const sceneConfig = ttsManager.getSceneConfig?.();
       
-      // 根据声道类型选择提供者
-      if (channel === ChannelType.ANNOUNCEMENT) {
-        selectedProvider = announcementProvider || 'azure';
+      if (sceneConfig) {
+        // 使用新的场景配置
+        if (channel === ChannelType.ANNOUNCEMENT) {
+          // 报牌场景
+          const serverIds = sceneConfig.announcementSound?.serverIds || [];
+          if (serverIds.length > 0) {
+            // 如果配置了特定服务器，使用场景化合成
+            // 这里只是标记，实际合成由TTSServiceManager处理
+            selectedProvider = 'auto'; // 使用自动选择
+          } else {
+            selectedProvider = 'piper'; // 默认使用piper
+          }
+        } else {
+          // 聊天场景
+          const serverIds = sceneConfig.chatSound?.serverIds || [];
+          if (serverIds.length > 0) {
+            selectedProvider = 'auto';
+          } else {
+            selectedProvider = 'piper';
+          }
+        }
       } else {
-        // 聊天场景（PLAYER_0 到 PLAYER_7）
-        selectedProvider = chatProvider || 'piper';
+        // 回退到旧的localStorage配置（向后兼容）
+        const announcementProvider = typeof window !== 'undefined' 
+          ? (localStorage.getItem('tts_provider_announcement') as TTSProvider | null)
+          : null;
+        const chatProvider = typeof window !== 'undefined'
+          ? (localStorage.getItem('tts_provider_chat') as TTSProvider | null)
+          : null;
+        
+        if (channel === ChannelType.ANNOUNCEMENT) {
+          selectedProvider = announcementProvider || 'piper';
+        } else {
+          selectedProvider = chatProvider || 'piper';
+        }
       }
     }
 

@@ -4,10 +4,18 @@
  */
 
 import { getTTSServiceManager } from './ttsServiceManager';
+import { MeloTTSClient } from './meloTTSClient';
 import { PiperTTSClient } from './piperTTSClient';
 import { AzureSpeechTTSClient } from './azureSpeechTTSClient';
 
 export interface TTSInitConfig {
+  enableMelo?: boolean;  // MeLo TTS（高质量多语言TTS）
+  meloConfig?: {
+    baseUrl?: string;
+    timeout?: number;
+    retryCount?: number;
+    defaultSpeaker?: string;
+  };
   enablePiper?: boolean;  // Piper TTS（轻量级本地TTS）
   piperConfig?: {
     baseUrl?: string;
@@ -30,6 +38,47 @@ export interface TTSInitConfig {
  */
 export async function initTTS(config: TTSInitConfig = {}): Promise<void> {
   const ttsManager = getTTSServiceManager();
+
+  // 配置 MeLo TTS（高质量多语言TTS）
+  if (config.enableMelo !== false) {  // 默认启用
+    const meloBaseUrl = config.meloConfig?.baseUrl || 'http://localhost:7860';
+    
+    const meloClient = new MeloTTSClient({
+      baseUrl: meloBaseUrl,
+      timeout: config.meloConfig?.timeout || 30000,
+      retryCount: config.meloConfig?.retryCount || 2,
+      defaultSpeaker: config.meloConfig?.defaultSpeaker || 'ZH',
+    });
+
+    // 检查服务是否可用
+    try {
+      const isHealthy = await meloClient.checkHealth();
+      
+      if (isHealthy) {
+        ttsManager.configureProvider('melo', {
+          provider: 'melo',
+          priority: 0,  // 最高优先级（高质量多语言TTS）
+          enabled: true,
+          config: config.meloConfig,
+        });
+        console.log('[TTS] ✅ MeLo TTS 服务可用:', meloBaseUrl);
+      } else {
+        ttsManager.configureProvider('melo', {
+          provider: 'melo',
+          enabled: false,
+        });
+        console.log('[TTS] ⚠️ MeLo TTS 服务不可用:', meloBaseUrl);
+      }
+    } catch (error) {
+      ttsManager.configureProvider('melo', {
+        provider: 'melo',
+        priority: 0,
+        enabled: true,
+        config: config.meloConfig,
+      });
+      console.log('[TTS] ⚠️ MeLo TTS 健康检查失败，但仍启用:', error);
+    }
+  }
 
   // 配置 Azure Speech Service（如果启用）
   if (config.enableAzure) {

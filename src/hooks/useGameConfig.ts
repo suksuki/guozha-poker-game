@@ -142,7 +142,8 @@ export function useGameConfig() {
     // 更新聊天服务的LLM配置
     updateChatLLMConfig({
       model: llmModel,
-      apiUrl: llmApiUrl
+      apiUrl: llmApiUrl,
+      enableMultilingual: true  // 🔥 启用多语言：LLM直接用目标语言回答
     });
 
     // 为每个AI玩家创建配置（使用本地算法，不需要API Key）

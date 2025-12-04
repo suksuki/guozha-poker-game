@@ -103,12 +103,14 @@ export const TTSStatusMonitor: React.FC = () => {
   }
 
   const providerNames: Record<TTSProvider, string> = {
+    melo: 'MeLo TTS',
     browser: '浏览器 TTS',
     piper: 'Piper TTS',
     azure: 'Azure Speech Service',
   };
 
   const providerIcons: Record<TTSProvider, string> = {
+    melo: '🎤',
     browser: '🌐',
     piper: '🎯',
     azure: '☁️',
@@ -172,6 +174,7 @@ export const TTSStatusMonitor: React.FC = () => {
                 backgroundColor: 'white',
               }}
             >
+              <option value="melo">🎤 MeLo TTS</option>
               <option value="azure">☁️ Azure Speech Service</option>
               <option value="piper">🎯 Piper TTS</option>
               <option value="browser">🌐 浏览器 TTS</option>
@@ -214,6 +217,7 @@ export const TTSStatusMonitor: React.FC = () => {
                 backgroundColor: 'white',
               }}
             >
+              <option value="melo">🎤 MeLo TTS</option>
               <option value="piper">🎯 Piper TTS</option>
               <option value="azure">☁️ Azure Speech Service</option>
               <option value="browser">🌐 浏览器 TTS</option>
@@ -235,15 +239,16 @@ export const TTSStatusMonitor: React.FC = () => {
             {Object.entries(status)
               .filter(([provider]) => {
                 // 显示所有启用的 TTS 服务
-                const mainProviders: TTSProvider[] = ['azure', 'piper', 'browser'];
+                const mainProviders: TTSProvider[] = ['melo', 'azure', 'piper', 'browser'];
                 return mainProviders.includes(provider as TTSProvider);
               })
               .sort(([a], [b]) => {
-                // 按优先级排序：azure, piper, browser
+                // 按优先级排序：melo, azure, piper, browser
                 const order: Record<string, number> = {
-                  'azure': 0,
-                  'piper': 1,
-                  'browser': 2,
+                  'melo': 0,
+                  'azure': 1,
+                  'piper': 2,
+                  'browser': 3,
                 };
                 return (order[a] ?? 999) - (order[b] ?? 999);
               })

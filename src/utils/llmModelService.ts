@@ -5,10 +5,11 @@
 
 /**
  * 获取Ollama中可用的模型列表
+ * @param baseUrl - Ollama服务器基础URL（默认为localhost:11434）
  */
-export async function getAvailableOllamaModels(): Promise<string[]> {
+export async function getAvailableOllamaModels(baseUrl: string = 'http://localhost:11434'): Promise<string[]> {
   try {
-    const response = await fetch('http://localhost:11434/api/tags');
+    const response = await fetch(`${baseUrl}/api/tags`);
     if (response.ok) {
       const data = await response.json();
       const models = data.models?.map((m: any) => m.name) || [];
@@ -21,10 +22,11 @@ export async function getAvailableOllamaModels(): Promise<string[]> {
 
 /**
  * 检查Ollama服务是否可用
+ * @param baseUrl - Ollama服务器基础URL（默认为localhost:11434）
  */
-export async function checkOllamaService(): Promise<boolean> {
+export async function checkOllamaService(baseUrl: string = 'http://localhost:11434'): Promise<boolean> {
   try {
-    const response = await fetch('http://localhost:11434/api/tags', {
+    const response = await fetch(`${baseUrl}/api/tags`, {
       method: 'GET',
       signal: AbortSignal.timeout(3000) // 3秒超时
     });

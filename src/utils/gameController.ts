@@ -285,58 +285,69 @@ export class GameController {
   }
 
   /**
-   * 计算最终分数和排名（游戏结束时调用）
-   * 支持团队模式和个人模式
+   * 计算最终分数和排名（使用策略模式）
    */
   calculateFinalScoresAndRankings(players: Player[]): {
     updatedPlayers: Player[];
     finalRankings: PlayerRanking[];
-    teamRankings?: TeamRanking[];  // 团队排名（团队模式下使用）
+    teamRankings?: TeamRanking[];
   } {
-    // 检查是否是团队模式
+    console.log('[GameController] 使用策略模式计算最终分数');
+    
+    // 使用策略模式计算分数
+    const modeStrategy = this.game.getModeStrategy();
+    console.log('[GameController] 游戏模式:', modeStrategy.getModeName());
+    
+    const result = modeStrategy.calculateFinalScores(
+      this.game.players,
+      this.game.finishOrder,
+      this.game.teamConfig
+    );
+    
+    // 更新游戏状态
+    this.game.players = result.updatedPlayers;
+    
+    // 更新团队排名（如果是团队模式）
+    if (result.teamRankings) {
+      this.game.updateTeamRankings(result.teamRankings);
+      
+      // 更新团队分数（如果有）
+      if (this.game.teamConfig && result.winningTeamId !== undefined) {
+        // teamConfig.teams 已在 applyTeamFinalRules 中更新
+      }
+    }
+    
+    // 触发游戏结束回调
+    if (this.callbacks.onGameEnd) {
+      const rankings = result.finalRankings || [];
+      this.callbacks.onGameEnd(rankings);
+      
+      // 回调中触发游戏更新
+      if (this.game.onUpdateCallback) {
+        this.game.onUpdateCallback(this.game);
+      }
+    }
+    
+    return {
+      updatedPlayers: result.updatedPlayers,
+      finalRankings: result.finalRankings || [],
+      teamRankings: result.teamRankings
+    };
+  }
+
+  /**
+   * @deprecated 保留用于兼容，已迁移到策略模式
+   */
+  private calculateFinalScoresAndRankingsOld(players: Player[]): {
+    updatedPlayers: Player[];
+    finalRankings: PlayerRanking[];
+    teamRankings?: TeamRanking[];
+  } {
+    // 旧实现保留，避免破坏现有代码
     const isTeamMode = this.game.teamConfig !== null && this.game.teamConfig !== undefined;
     
     if (isTeamMode && this.game.teamConfig) {
-      // ========== 团队模式：计算团队排名 ==========
-      // 先处理最后一名剩余分牌（团队模式下的处理）
-      this.handleLastPlayerRemainingScoreTeamMode(players);
-      
-      // 计算团队最终排名和分数
-      const teamResult = applyTeamFinalRules(
-        this.game.teamConfig.teams,
-        this.game.finishOrder,
-        this.game.players,
-        this.game.teamConfig
-      );
-      
-      // 更新团队分数
-      this.game.teamConfig.teams = teamResult.teams;
-      
-      // 更新团队排名
-      this.game.updateTeamRankings(teamResult.rankings);
-      
-      // 验证团队分数总和
-      // validateTeamScores(teamResult.teams, this.game.playerCount);
-      
-      // 触发游戏结束回调（传递团队排名）
-      if (this.callbacks.onGameEnd) {
-        // 为了保持兼容性，仍然传递PlayerRanking，但实际使用团队排名
-        const dummyRankings: PlayerRanking[] = []; // 团队模式下不返回个人排名
-        this.callbacks.onGameEnd(dummyRankings);
-        
-        // 回调中触发游戏更新
-        if (this.game.onUpdateCallback) {
-          this.game.onUpdateCallback(this.game);
-        }
-      }
-      
-      return {
-        updatedPlayers: this.game.players,
-        finalRankings: [],  // 团队模式下不返回个人排名
-        teamRankings: teamResult.rankings
-      };
-    } else {
-      // ========== 个人模式：计算个人排名 ==========
+      // 团队模式逻辑...
       // 先处理最后一名剩余分牌
       this.handleLastPlayerRemainingScore(players);
 

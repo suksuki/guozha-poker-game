@@ -3,7 +3,6 @@ import { MultiPlayerGameBoard } from './components/MultiPlayerGameBoard';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { IdeasManager } from './components/IdeasManager';
 import { DesignDocManager } from './components/DesignDocManager';
-import { TTSStatusMonitor } from './components/TTSStatusMonitor';
 import { GameRulesGuide } from './components/GameRulesGuide';
 import { CodeReviewManager } from './components/CodeReviewManager';
 import { TestManagementManager } from './components/TestManagementManager';
@@ -93,6 +92,15 @@ function App() {
   useEffect(() => {
     const config = getTTSConfigFromEnv();
     
+    // 配置 MeLo TTS（远程服务器）
+    config.enableMelo = true;
+    config.meloConfig = {
+      baseUrl: 'http://192.168.0.13:7860',  // MeLo TTS 服务器地址
+      timeout: 30000,
+      retryCount: 2,
+      defaultSpeaker: 'ZH',  // 默认中文说话人
+    };
+    
     // 配置 Azure Speech Service（如果提供了 Subscription Key）
     const azureKey = 
       import.meta.env.VITE_AZURE_SPEECH_KEY ||
@@ -116,18 +124,12 @@ function App() {
     }
     
     initTTS(config).then(() => {
-      // TTS 初始化完成后，设置默认场景配置
-      // 报牌使用 Azure，聊天使用 Piper（在 TTSStatusMonitor 中配置）
-      if (typeof window !== 'undefined') {
-        if (!localStorage.getItem('tts_provider_announcement')) {
-          localStorage.setItem('tts_provider_announcement', 'azure');
-        }
-        if (!localStorage.getItem('tts_provider_chat')) {
-          localStorage.setItem('tts_provider_chat', 'piper');
-        }
-      }
+      // TTS 初始化完成
+      console.log('✅ TTS 系统初始化完成');
+      // 场景配置现在通过新的TTS配置面板管理（游戏配置 → 🔊 TTS 语音配置）
       setTTSProvider('auto');  // 使用自动选择（根据场景）
     }).catch((error) => {
+      console.error('❌ TTS 系统初始化失败:', error);
     });
   }, []);
 
@@ -164,7 +166,6 @@ function App() {
       <MultiPlayerGameBoard />
       <IdeasManager />
       <DesignDocManager />
-      <TTSStatusMonitor />
       <GameRulesGuide />
       <CodeReviewManager />
       <TestManagementManager />

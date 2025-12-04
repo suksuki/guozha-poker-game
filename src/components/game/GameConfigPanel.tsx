@@ -12,6 +12,9 @@ import { LLMChatStrategy } from '../../chat/strategy/LLMChatStrategy';
 import { LLMChatConfig } from '../../config/chatConfig';
 import { useSystemConfig } from '../../hooks/useSystemConfig';
 import { ConfigGroupModal } from './ConfigGroupModal';
+import { TTSConfigPanel } from '../tts/TTSConfigPanel';
+import { ServerSelector } from '../llm/ServerSelector';
+import { getOllamaServerManager, OllamaServerConfig } from '../../services/llm/OllamaServerManager';
 import './GameConfigPanel.css';
 
 export type { GameMode };
@@ -215,6 +218,11 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [ollamaAvailable, setOllamaAvailable] = useState(false);
   
+  // LLM服务器管理
+  const [serverManager] = useState(() => getOllamaServerManager());
+  const [currentServer, setCurrentServer] = useState<OllamaServerConfig>(() => serverManager.getCurrentServer());
+  const [allServers, setAllServers] = useState<OllamaServerConfig[]>(() => serverManager.getAllServers());
+  
   // 测试窗口状态
   const [testMessage, setTestMessage] = useState('');
   const [testResponse, setTestResponse] = useState<string | null>(null);
@@ -238,22 +246,77 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
     e.stopPropagation();
   };
 
-  // 加载可用模型列表
+  // 加载可用模型列表（使用当前选择的服务器）
   useEffect(() => {
     const loadModels = async () => {
       setIsLoadingModels(true);
-      const isAvailable = await checkOllamaService();
+      const baseUrl = `${currentServer.protocol}://${currentServer.host}:${currentServer.port}`;
+      const isAvailable = await checkOllamaService(baseUrl);
       setOllamaAvailable(isAvailable);
       
       if (isAvailable) {
-        const models = await getAvailableOllamaModels();
+        const models = await getAvailableOllamaModels(baseUrl);
         setAvailableModels(models);
       }
       setIsLoadingModels(false);
     };
     
     loadModels();
-  }, []);
+  }, [currentServer]);
+
+  // 处理服务器切换
+  const handleServerChange = (serverId: string) => {
+    const server = serverManager.setCurrentServer(serverId);
+    if (server) {
+      setCurrentServer(server);
+      setAllServers(serverManager.getAllServers());
+      // 更新API URL
+      if (onLlmApiUrlChange) {
+        onLlmApiUrlChange(`${server.protocol}://${server.host}:${server.port}/api/chat`);
+      }
+    }
+  };
+
+  // 处理添加服务器
+  const handleAddServer = (config: Partial<OllamaServerConfig>) => {
+    const newServer = serverManager.addServer(config);
+    if (newServer) {
+      setAllServers(serverManager.getAllServers());
+      // 自动切换到新添加的服务器
+      handleServerChange(newServer.id);
+    }
+  };
+
+  // 处理删除服务器
+  const handleRemoveServer = (serverId: string) => {
+    serverManager.removeServer(serverId);
+    setAllServers(serverManager.getAllServers());
+    // 如果删除的是当前服务器，切换到默认服务器
+    if (currentServer.id === serverId) {
+      const defaultServer = serverManager.getCurrentServer();
+      setCurrentServer(defaultServer);
+      if (onLlmApiUrlChange) {
+        onLlmApiUrlChange(`${defaultServer.protocol}://${defaultServer.host}:${defaultServer.port}/api/chat`);
+      }
+    }
+  };
+
+  // 处理收藏切换
+  const handleToggleFavorite = (serverId: string) => {
+    serverManager.toggleFavorite(serverId);
+    setAllServers(serverManager.getAllServers());
+    // 如果是当前服务器，更新状态
+    if (currentServer.id === serverId) {
+      setCurrentServer(serverManager.getCurrentServer());
+    }
+  };
+
+  // 检查服务器可用性
+  const handleCheckServer = async (server: OllamaServerConfig): Promise<boolean> => {
+    const result = await serverManager.checkServer(server);
+    setAllServers(serverManager.getAllServers());
+    return result.available;
+  };
 
   // 测试大模型
   const handleTestLLM = async () => {
@@ -435,6 +498,29 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                 <div className="config-group-hint">点击查看详细设置</div>
               </div>
 
+              {/* TTS 配置组 - 卡片 */}
+              <div 
+                className="config-group clickable"
+                onClick={openModalFor('tts')}
+              >
+                <h2 className="config-group-title">🔊 TTS 语音配置</h2>
+                <div className="config-group-summary">
+                  <div className="config-group-summary-item">
+                    <span className="config-group-summary-icon">🎤</span>
+                    <span className="config-group-summary-text">多服务器管理</span>
+                  </div>
+                  <div className="config-group-summary-item">
+                    <span className="config-group-summary-icon">🔄</span>
+                    <span className="config-group-summary-text">自动回退</span>
+                  </div>
+                  <div className="config-group-summary-item">
+                    <span className="config-group-summary-icon">📱</span>
+                    <span className="config-group-summary-text">场景化配置</span>
+                  </div>
+                </div>
+                <div className="config-group-hint">点击配置TTS服务器</div>
+              </div>
+
               <button className="btn-primary" onClick={onStartGame}>
                 {t('game:actions.startGame')}
               </button>
@@ -545,10 +631,11 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                 onClick={async (e) => {
                   e.stopPropagation();
                   setIsLoadingModels(true);
-                  const isAvailable = await checkOllamaService();
+                  const baseUrl = `${currentServer.protocol}://${currentServer.host}:${currentServer.port}`;
+                  const isAvailable = await checkOllamaService(baseUrl);
                   setOllamaAvailable(isAvailable);
                   if (isAvailable) {
-                    const models = await getAvailableOllamaModels();
+                    const models = await getAvailableOllamaModels(baseUrl);
                     setAvailableModels(models);
                   }
                   setIsLoadingModels(false);
@@ -624,18 +711,24 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               )}
             </div>
           )}
-          {onLlmApiUrlChange && (
-            <div className="config-item full-width">
-              <label>{t('ui:llm.apiUrl')}</label>
-              <input
-                type="text"
-                value={llmApiUrl}
-                onChange={(e) => onLlmApiUrlChange(e.target.value)}
-                placeholder="http://localhost:11434/api/chat"
-              />
-              <small>{t('ui:llm.apiUrlHint')}</small>
-            </div>
-          )}
+          
+          {/* LLM服务器选择器 */}
+          <div className="config-item full-width">
+            <h4>Ollama 服务器</h4>
+            <ServerSelector
+              currentServer={currentServer}
+              allServers={allServers}
+              recentServers={serverManager.getRecentServers()}
+              onServerChange={handleServerChange}
+              onAddServer={handleAddServer}
+              onRemoveServer={handleRemoveServer}
+              onToggleFavorite={handleToggleFavorite}
+              onCheckServer={handleCheckServer}
+            />
+            <small style={{ display: 'block', marginTop: '8px', color: '#666' }}>
+              当前API地址: {llmApiUrl}
+            </small>
+          </div>
           
           {/* 测试窗口 */}
           <div className="llm-test-window">
@@ -836,6 +929,15 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
             </div>
           )}
         </div>
+      </ConfigGroupModal>
+
+      {/* TTS 配置模态面板 */}
+      <ConfigGroupModal 
+        isOpen={openModal === 'tts'}
+        title="🔊 TTS 语音配置"
+        onClose={closeModal}
+      >
+        <TTSConfigPanel />
       </ConfigGroupModal>
     </div>
   );

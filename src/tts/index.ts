@@ -21,6 +21,11 @@ export {
 } from './speakers';
 
 export {
+  MeloTTSClient,
+  type MeloTTSConfig,
+} from './meloTTSClient';
+
+export {
   PiperTTSClient,
   type PiperTTSConfig,
 } from './piperTTSClient';

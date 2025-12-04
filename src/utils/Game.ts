@@ -21,6 +21,7 @@ import { cardTracker } from '../services/cardTrackerService';
 import { cumulativeScoreService } from '../services/cumulativeScoreService';
 import { TeamConfig, TeamRanking } from '../types/team';
 import { createTeamConfig, getPlayerTeamId } from './teamManager';
+import { IGameModeStrategy, createGameModeStrategy, isTeamModeConfig } from './gameMode';
 
 /**
  * 游戏设置配置（用于初始化游戏）
@@ -94,6 +95,9 @@ export class Game {
   // ========== 团队模式相关 ==========
   teamConfig?: TeamConfig | null;  // 团队配置（团队模式下使用）
 
+  // ========== 游戏模式策略 ==========
+  private modeStrategy: IGameModeStrategy;  // 游戏模式策略（团队/个人）
+
   // ========== 游戏控制器（内部） ==========
   controller: GameController;
 
@@ -119,11 +123,17 @@ export class Game {
   private isProcessingPlayMap = new Map<number, number>();
 
   constructor(config?: GameSetupConfig) {
-    // 初始化配置
+    // 初始化配置（确保有默认值）
     this.config = config || {
       playerCount: 0,
       humanPlayerIndex: 0,
-      aiConfigs: []
+      aiConfigs: [],
+      dealingAlgorithm: 'random',
+      skipDealingAnimation: false,
+      dealingSpeed: 150,
+      sortOrder: 'grouped',
+      cardTrackerEnabled: false,
+      teamMode: false  // 默认个人模式
     };
 
     // 初始化游戏状态
@@ -132,11 +142,12 @@ export class Game {
     this.currentPlayerIndex = 0;
     this.winner = null;
     this.winningTeamId = null;
-    this.playerCount = 0;
+    this.playerCount = this.config.playerCount || 0;
 
     // 初始化排名相关
     this.finishOrder = [];
     this.finalRankings = undefined;
+    this.teamRankings = undefined;
 
     // 初始化轮次相关
     this.rounds = [];
@@ -145,9 +156,20 @@ export class Game {
     // 初始化游戏记录
     this.gameRecord = undefined;
     this.initialHands = undefined;
+    
+    // 初始化团队配置为null（会在startNewGame中设置）
+    this.teamConfig = null;
+
+    // 创建游戏模式策略（必须在初始化之后）
+    this.modeStrategy = createGameModeStrategy(this.config);
+    console.log('[Game构造] 使用游戏模式:', this.modeStrategy.getModeName());
 
     // 创建游戏控制器（传入 this，让 controller 可以调用 Game 的方法）
-    this.controller = new GameController(this);
+    this.controller = new GameController(this, {
+      onScoreChange: () => {},
+      onPlayerFinish: () => {},
+      onGameEnd: () => {}
+    });
     
     // 初始化控制器回调为空（可选，GameController 会检查回调是否存在）
     // 这样即使没有外部订阅，也不会出错
@@ -402,9 +424,13 @@ export class Game {
    * 这个方法处理所有游戏初始化逻辑，包括创建玩家、创建第一轮等
    */
   startNewGame(hands: Card[][]): number {
-    // 检查是否启用团队模式
-    const isTeamMode = this.config.teamMode === true && 
-                       (this.config.playerCount === 4 || this.config.playerCount === 6);
+    // 使用工厂方法判断是否团队模式
+    const isTeamMode = isTeamModeConfig(this.config);
+    
+    console.log('[startNewGame] 游戏模式:', this.modeStrategy.getModeName());
+    console.log('[startNewGame] config.teamMode:', this.config.teamMode);
+    console.log('[startNewGame] config.playerCount:', this.config.playerCount);
+    console.log('[startNewGame] isTeamMode:', isTeamMode);
     
     // 创建团队配置（如果启用团队模式）
     if (isTeamMode) {
@@ -412,8 +438,10 @@ export class Game {
         this.config.playerCount as 4 | 6,
         this.config.humanPlayerIndex
       );
+      console.log('[startNewGame] 创建团队配置:', this.teamConfig);
     } else {
       this.teamConfig = null;
+      console.log('[startNewGame] 个人模式，teamConfig = null');
     }
     
     // 创建玩家数组
@@ -629,23 +657,53 @@ export class Game {
   }
 
   /**
-   * 找到下一个开始新轮次的玩家（团队模式下优先队友接风）
+   * 找到下一个开始新轮次的玩家（使用策略模式）
    * @param winnerIndex 当前轮次的赢家（接风玩家）
    * @returns 下一个玩家的索引，如果所有人都出完则返回null
    */
   private findNextPlayerForNewRound(winnerIndex: number | null): number | null {
-    if (winnerIndex === null) {
-      return findNextActivePlayer(0, this.players, this.playerCount);
-    }
-
-    const winner = this.players[winnerIndex];
+    // 使用策略模式处理接风逻辑
+    console.log('[findNextPlayerForNewRound] 使用策略:', this.modeStrategy.getModeName());
     
-    // 如果接风玩家还有牌，由接风玩家开始
-    if (winner && winner.hand.length > 0) {
-      return winnerIndex;
-    }
+    return this.modeStrategy.findNextPlayerForNewRound(
+      winnerIndex,
+      this.players,
+      this.playerCount,
+      this.teamConfig
+    );
+  }
 
-    // 接风玩家已出完牌
+  /**
+   * 检查游戏是否应该结束（使用策略模式）
+   */
+  public shouldGameEnd(): boolean {
+    const result = this.modeStrategy.shouldGameEnd(
+      this.players,
+      this.finishOrder,
+      this.teamConfig
+    );
+    
+    if (result.shouldEnd) {
+      console.log('[Game] 游戏结束，原因:', result.reason);
+    }
+    
+    return result.shouldEnd;
+  }
+
+  /**
+   * 获取游戏模式策略（供 GameController 使用）
+   */
+  public getModeStrategy(): IGameModeStrategy {
+    return this.modeStrategy;
+  }
+
+  // ===== 保留旧方法作为兼容性，但内部使用策略 =====
+  
+  /**
+   * @deprecated 保留用于兼容，实际使用 shouldGameEnd()
+   */
+  private findNextPlayerForNewRoundOld(winnerIndex: number | null): number | null {
+    // 临时保留，避免破坏现有代码
     if (this.teamConfig) {
       // 团队模式：优先找队友
       const winnerTeamId = winner?.teamId;
@@ -996,59 +1054,31 @@ export class Game {
         if (updatedPlayer.hand.length === 0) {
           this.addToFinishOrder(playerIndex);
           
-          // 检查游戏是否应该结束
-          let shouldEndGame = false;
-          
-          if (this.teamConfig) {
-            // 【团队模式】检查是否有整个团队出完
-            for (const team of this.teamConfig.teams) {
-              const teamAllFinished = team.players.every(
-                pid => this.players[pid].hand.length === 0
-              );
-              
-              if (teamAllFinished) {
-                shouldEndGame = true;
-                break;
-              }
-            }
-            
-            // 如果游戏结束，处理被关的玩家
-            if (shouldEndGame) {
-              const unfinishedPlayers = this.players.filter(
-                p => p.hand.length > 0
-              );
-              
-              // 按手牌数量排序（决策3）
-              unfinishedPlayers.sort((a, b) => {
-                if (a.hand.length !== b.hand.length) {
-                  return a.hand.length - b.hand.length;
-                }
-                return a.id - b.id;
-              });
-              
-              // 添加到finishOrder
-              unfinishedPlayers.forEach(p => {
-                if (!this.finishOrder.includes(p.id)) {
-                  this.addToFinishOrder(p.id);
-                }
-              });
-            }
-          } else {
-            // 【个人模式】只剩1个玩家
-            const remainingPlayers = this.players.filter(p => p.hand.length > 0);
-            
-            if (remainingPlayers.length === 1) {
-              shouldEndGame = true;
-              
-              // 只剩一个玩家，将最后一个玩家也加入 finishOrder
-              const lastPlayerIndex = remainingPlayers[0].id;
-              if (!this.finishOrder.includes(lastPlayerIndex)) {
-                this.addToFinishOrder(lastPlayerIndex);
-              }
-            }
-          }
+          // 使用策略模式检查游戏是否应该结束
+          const shouldEndGame = this.shouldGameEnd();
           
           if (shouldEndGame) {
+            // 游戏结束，处理未完成的玩家
+            const unfinishedPlayers = this.players.filter(
+              p => p.hand.length > 0
+            );
+            
+            // 按手牌数量排序
+            unfinishedPlayers.sort((a, b) => {
+              if (a.hand.length !== b.hand.length) {
+                return a.hand.length - b.hand.length;
+              }
+              return a.id - b.id;
+            });
+            
+            // 添加到finishOrder
+            unfinishedPlayers.forEach(p => {
+              if (!this.finishOrder.includes(p.id)) {
+                this.addToFinishOrder(p.id);
+              }
+            });
+            
+            // 统一的游戏结束处理
             
             // 结束当前轮次（如果还没结束）
             if (!updatedRound.isEnded()) {
@@ -1198,13 +1228,22 @@ export class Game {
         // 轮次结束回调（处理接风后的轮次结束和新轮次创建）
         async (endedRound: Round, players: Player[], nextPlayerIndex: number | null, savedWinnerIndex?: number | null) => {
           
+          // 临时日志：onRoundEnd被调用
+          console.log('[onRoundEnd] 被调用');
+          console.log('[onRoundEnd] 接收参数 nextPlayerIndex:', nextPlayerIndex);
+          console.log('[onRoundEnd] 接收参数 savedWinnerIndex:', savedWinnerIndex);
+          
           // 结束当前轮次（分配分数等）
           if (!endedRound.isEnded()) {
             const winnerIndex = savedWinnerIndex !== null && savedWinnerIndex !== undefined 
               ? savedWinnerIndex 
               : (endedRound.getLastPlayPlayerIndex() ?? nextPlayerIndex ?? 0);
             
+            console.log('[onRoundEnd] 计算的 winnerIndex:', winnerIndex);
+            
             const endResult = endedRound.end(players, this.playerCount, winnerIndex);
+            
+            console.log('[onRoundEnd] endResult.winnerIndex:', endResult.winnerIndex);
             
             // 分配轮次分数（重要：必须调用 controller 分配分数）
             if (endResult.winnerIndex !== null) {
@@ -1220,7 +1259,10 @@ export class Game {
             this.updateRound(this.currentRoundIndex, endedRound);
             
             // Game 自己决定下一个玩家（团队模式下优先队友接风）
+            console.log('[队友接风] 调用 findNextPlayerForNewRound，输入 winnerIndex:', endResult.winnerIndex);
+            console.log('[队友接风] 团队配置:', this.teamConfig);
             const actualNextPlayerIndex = this.findNextPlayerForNewRound(endResult.winnerIndex);
+            console.log('[队友接风] 计算结果 actualNextPlayerIndex:', actualNextPlayerIndex);
             
             // 使用actualNextPlayerIndex而不是endResult.nextPlayerIndex
             nextPlayerIndex = actualNextPlayerIndex;
@@ -1277,8 +1319,11 @@ export class Game {
             this.triggerUpdate();
             
             // 通知RoundScheduler处理下一个玩家（无论是什么类型）
+            console.log('[新轮次] 准备调用 playNextTurn，下一个玩家索引:', nextPlayerIndex);
             if (nextPlayerIndex !== null) {
               await this.playNextTurn(nextPlayerIndex);
+            } else {
+              console.log('[新轮次] nextPlayerIndex为null，不调用playNextTurn');
             }
           } else {
             // 【决策6】nextPlayerIndex为null → 游戏应该结束
