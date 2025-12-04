@@ -2,13 +2,8 @@ import { useEffect } from 'react';
 import { MultiPlayerGameBoard } from './components/MultiPlayerGameBoard';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { IdeasManager } from './components/IdeasManager';
-import { DesignDocManager } from './components/DesignDocManager';
 import { GameRulesGuide } from './components/GameRulesGuide';
-import { CodeReviewManager } from './components/CodeReviewManager';
-import { TestManagementManager } from './components/TestManagementManager';
-import { SelfIterationManager } from './components/SelfIterationManager';
 import { IdeaConfirmationDialog } from './components/IdeaConfirmationDialog';
-import { AIControlDashboard } from './components/ai-control/AIControlDashboard';
 import { useIdeaGeneration } from './hooks/useIdeaGeneration';
 import { useGameConfigContext } from './contexts/GameConfigContext';
 import { getIdeaGenerationService, GameIdea } from './services/ideaGenerationService';
@@ -165,12 +160,7 @@ function App() {
       <LanguageSwitcher />
       <MultiPlayerGameBoard />
       <IdeasManager />
-      <DesignDocManager />
       <GameRulesGuide />
-      <CodeReviewManager />
-      <TestManagementManager />
-      <SelfIterationManager />
-      <AIControlDashboard />
       
       {/* 想法确认对话框 */}
       {currentIdea && (
