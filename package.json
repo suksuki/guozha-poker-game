@@ -28,6 +28,8 @@
     "test:ai-avatar": "vitest --run --no-coverage aiPlayerAvatar dealingAIPlayerDisplay",
     "test:comprehensive": "vitest --run --no-coverage dealingSortingRegression cardSorting aiPlayerAvatar dealingAIPlayerDisplay dealingAlgorithms",
     "test:full-regression": "vitest --run --no-coverage regression dealingSortingRegression chatServiceRegression chatAndVoiceRegression dealingFeaturesRegression",
+    "test:ai-brain": "ts-node src/services/ai/brain/test-mcts-integration.ts",
+    "test:ai-brain-quick": "ts-node src/services/ai/brain/quick-test.ts",
     "test:all": "vitest --run --no-coverage",
     "test:unit": "vitest --run --no-coverage --reporter=verbose comprehensiveUnitTests",
     "test:integration": "vitest --run --no-coverage --reporter=verbose integrationTests",
