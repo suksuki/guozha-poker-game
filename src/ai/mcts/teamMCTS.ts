@@ -252,7 +252,9 @@ function selectBestTeamAction(
       const actionDesc = action.type === 'play' 
         ? `出牌 ${action.cards.length}张`
         : `要不起 (${action.strategic ? '主动' : '被动'})`;
-      console.log(`  ${idx + 1}. ${actionDesc} - 得分:${sc.score.toFixed(1)}, 访问:${sc.visits}, 胜率:${(sc.winRate * 100).toFixed(1)}%, 平均分:${sc.avgTeamScore.toFixed(1)}`);
+      const winRate = sc.winRate ?? 0;
+      const avgScore = sc.avgTeamScore ?? 0;
+      console.log(`  ${idx + 1}. ${actionDesc} - 得分:${sc.score.toFixed(1)}, 访问:${sc.visits}, 胜率:${(winRate * 100).toFixed(1)}%, 平均分:${avgScore.toFixed(1)}`);
     });
   }
   
@@ -345,4 +347,3 @@ export function teamMCTSChooseMultiplePlays(
   scoredActions.sort((a, b) => b.score - a.score);
   return scoredActions.slice(0, topN);
 }
-

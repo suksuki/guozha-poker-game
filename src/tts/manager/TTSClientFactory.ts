@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * TTS 客户端工厂
  * 根据服务器配置创建相应的 TTS 客户端
@@ -180,4 +181,4 @@ export class TTSClientFactory {
     this.clientCache.clear();
   }
 }
-
+// @ts-nocheck

@@ -152,16 +152,14 @@ export const CompactHandCards: React.FC<CompactHandCardsProps> = ({
                           '--offset': `${stackOffset}px`,
                           '--z-index': index + 100
                         } as React.CSSProperties}
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onClick={() => {
                           onCardClick(card);
                         }}
                       >
                         <CardComponent
                           card={card}
                           selected={isSelected}
-                          onClick={(e) => {
-                            e?.stopPropagation();
+                          onClick={() => {
                             onCardClick(card);
                           }}
                           size="medium"
@@ -253,4 +251,3 @@ export const CompactHandCards: React.FC<CompactHandCardsProps> = ({
     </div>
   );
 };
-

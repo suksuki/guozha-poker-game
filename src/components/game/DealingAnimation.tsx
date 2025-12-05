@@ -462,15 +462,15 @@ export const DealingAnimation: React.FC<DealingAnimationProps> = ({
         const position = getPlayerPosition(index);
         const dealtCount = dealingState.dealtCards[index]?.length || 0;
         
-        return (
-          <AIPlayerAvatar
-            key={index}
-            player={player}
-            handCount={dealtCount}
-            position={position}
-            showPosition={true}
-            ref={el => { playerAreaRefs.current[index] = el; }}
-          />
+          return (
+            <AIPlayerAvatar
+              key={index}
+              player={player as Player & { hand?: Card[] }}
+              handCount={dealtCount}
+              position={position}
+              showPosition={true}
+              ref={el => { playerAreaRefs.current[index] = el; }}
+            />
         );
       })}
 

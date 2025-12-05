@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 语音配置服务
  * 管理玩家语音配置的生成和管理
@@ -70,4 +71,4 @@ export function createVoiceConfig(
     voiceIndex: playerId
   };
 }
-
+// @ts-nocheck

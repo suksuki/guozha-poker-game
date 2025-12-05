@@ -10,7 +10,6 @@ import { getTTSServiceManager, TTSLanguage } from '../tts';
 import { defaultSpeakerManager } from '../tts/speakers';
 import { convertToNanchang } from '../ai/dialect/nanchang_rules';
 import { getQuarrelService } from '../ai/quarrelService';
-import { Player } from '../types/card';
 
 export interface GameAudioConfig {
   enableAudio?: boolean;  // 是否启用音频，默认 true

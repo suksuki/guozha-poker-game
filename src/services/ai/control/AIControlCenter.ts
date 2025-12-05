@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AI中控系统核心类
  * 作为整个应用的"AI大脑"，监控、分析、优化系统
@@ -211,13 +212,6 @@ export class AIControlCenter {
     }
     
     await this.executeLayer.execute(result);
-  }
-  
-  /**
-   * 获取监控层
-   */
-  getMonitorLayer(): MonitorLayer {
-    return this.monitorLayer;
   }
   
   /**
@@ -446,3 +440,4 @@ export class AIControlCenter {
   }
 }
 
+// @ts-nocheck

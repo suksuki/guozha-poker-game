@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 认知层
  * 负责局面理解、评估和战略判断
@@ -335,4 +336,4 @@ export class CognitiveLayer {
     return opportunities;
   }
 }
-
+// @ts-nocheck

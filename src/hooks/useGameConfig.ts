@@ -52,8 +52,26 @@ export function useGameConfig() {
   }, []);
   
   // LLM聊天配置
-  const [llmModel, setLlmModel] = useState<string>('qwen2:0.5b'); // 当前选择的LLM模型
-  const [llmApiUrl, setLlmApiUrl] = useState<string>('http://localhost:11434/api/chat'); // LLM API地址
+  const [llmModel, setLlmModel] = useState<string>(() => {
+    const saved = localStorage.getItem('llmModel');
+    return saved || 'qwen2:0.5b'; // 默认模型
+  });
+  
+  // 更新 LLM 模型并保存到 localStorage
+  const updateLlmModel = useCallback((model: string) => {
+    setLlmModel(model);
+    localStorage.setItem('llmModel', model);
+  }, []);
+  const [llmApiUrl, setLlmApiUrl] = useState<string>(() => {
+    const saved = localStorage.getItem('llmApiUrl');
+    return saved || 'http://115.93.10.51:11434/api/chat'; // 默认使用公司服务器
+  });
+  
+  // 更新 LLM API URL 并保存到 localStorage
+  const updateLlmApiUrl = useCallback((url: string) => {
+    setLlmApiUrl(url);
+    localStorage.setItem('llmApiUrl', url);
+  }, []);
   
   // 想法生成开关（从 localStorage 读取，默认开启）
   const [ideaGenerationEnabled, setIdeaGenerationEnabled] = useState<boolean>(() => {
@@ -208,9 +226,9 @@ export function useGameConfig() {
     sortOrder,
     setSortOrder,
     llmModel,
-    setLlmModel,
+    setLlmModel: updateLlmModel,
     llmApiUrl,
-    setLlmApiUrl,
+    setLlmApiUrl: updateLlmApiUrl,
     ideaGenerationEnabled,
     setIdeaGenerationEnabled: updateIdeaGenerationEnabled,
     cardTrackerEnabled,

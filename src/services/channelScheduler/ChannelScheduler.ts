@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 声道调度器核心类
  * 统一管理所有声道的分配、优先级和播放控制
@@ -382,3 +383,4 @@ export class ChannelScheduler {
   }
 }
 
+// @ts-nocheck

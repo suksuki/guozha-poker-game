@@ -25,7 +25,11 @@ export async function initI18nFramework(
   };
 
   // 创建资源加载器
-  resourceLoader = createResourceLoader(frameworkConfig.cache);
+  resourceLoader = createResourceLoader({
+    cacheEnabled: frameworkConfig.cache.enabled,
+    maxSize: frameworkConfig.cache.maxSize,
+    ttl: frameworkConfig.cache.ttl,
+  });
 
   // 创建翻译管理器
   translationManager = createTranslationManager(i18n, frameworkConfig);
@@ -60,4 +64,3 @@ export function getResourceLoader() {
 export function isFrameworkInitialized(): boolean {
   return translationManager !== null && resourceLoader !== null;
 }
-

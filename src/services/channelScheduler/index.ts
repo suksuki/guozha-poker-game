@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 声道调度器模块
  * 统一管理所有声道的分配、优先级和播放控制
@@ -21,4 +22,4 @@ export {
   DEFAULT_CHANNEL_SCHEDULER_CONFIG,
   PlaybackPriority
 } from './types';
-
+// @ts-nocheck

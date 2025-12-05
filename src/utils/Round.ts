@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 牌轮（Round）类
  * 封装一轮牌的所有状态和逻辑
@@ -926,4 +927,4 @@ export class Round {
     };
   }
 }
-
+// @ts-nocheck

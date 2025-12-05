@@ -106,6 +106,7 @@ export function useTTSConfig() {
 
     setSceneConfig(updated);
     ttsManager.updateSceneConfig(updated);
+    ttsManager.saveAllConfiguration(); // 确保完整保存
   }, [sceneConfig, ttsManager]);
 
   // 更新全局设置

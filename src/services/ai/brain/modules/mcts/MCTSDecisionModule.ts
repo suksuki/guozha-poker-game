@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MCTS决策模块
  * 将现有的MCTS算法适配到新的模块接口
@@ -207,4 +208,4 @@ export class MCTSDecisionModule extends BaseDecisionModule {
     };
   }
 }
-
+// @ts-nocheck

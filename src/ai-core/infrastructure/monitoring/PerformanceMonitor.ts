@@ -46,7 +46,7 @@ export class PerformanceMonitor {
   /**
    * 开始计时
    */
-  startTimer(category: string, operation: string): () => void {
+  startTimer(category: string, operation: string): (success?: boolean, metadata?: Record<string, any>) => void {
     const startTime = Date.now();
     
     return (success: boolean = true, metadata?: Record<string, any>) => {
@@ -111,4 +111,3 @@ export class PerformanceMonitor {
     return JSON.stringify(this.metrics);
   }
 }
-

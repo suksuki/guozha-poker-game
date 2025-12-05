@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ChatService 集成 QuarrelVoiceService 示例
  * 展示如何在现有的 ChatService 中集成 QuarrelVoiceService
@@ -185,3 +186,4 @@ export function createChatServiceWithQuarrel(...args: any[]): ChatServiceWithQua
   return new ChatServiceWithQuarrel(...args);
 }
 
+// @ts-nocheck

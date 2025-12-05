@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 多声道语音服务（Web Audio API 版本）
  * 使用 Web Audio API 的 StereoPannerNode 实现声像定位

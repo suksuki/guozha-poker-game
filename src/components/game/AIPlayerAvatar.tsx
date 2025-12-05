@@ -17,7 +17,7 @@ import {
 } from '../../utils/teamScoring';
 
 export interface AIPlayerAvatarProps {
-  player: Player | Omit<Player, 'hand'>;
+  player: Player & { hand?: Player['hand'] };
   handCount?: number; // 手牌数量（如果player没有hand属性）
   position?: { x: number; y: number; angle: number }; // 位置信息（发牌时使用）
   isCurrent?: boolean; // 是否是当前玩家（打牌时使用）
@@ -197,4 +197,3 @@ export const AIPlayerAvatar = React.forwardRef<HTMLDivElement, AIPlayerAvatarPro
     </div>
   );
 });
-

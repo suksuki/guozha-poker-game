@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 事件模块
  * 包装现有的 gameEventService

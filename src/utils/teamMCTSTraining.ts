@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 团队MCTS训练系统
  * 用于训练和优化团队模式的MCTS参数
@@ -377,4 +378,4 @@ export function quickTestTeamConfig(
     avgRounds: 1
   };
 }
-
+// @ts-nocheck

@@ -43,7 +43,9 @@ export const DEFAULT_CHAT_SERVICE_CONFIG: ChatServiceConfig = {
     [ChatEventType.DEALING_BOMB_FORMED]: 0.7, // 理牌时形成炸弹
     [ChatEventType.DEALING_DUN_FORMED]: 0.9, // 理牌时形成墩
     [ChatEventType.DEALING_HUGE_CARD]: 0.6, // 理牌时抓到超大牌
-    [ChatEventType.DEALING_POOR_HAND]: 0.4 // 理牌时手牌质量差
+    [ChatEventType.DEALING_POOR_HAND]: 0.4, // 理牌时手牌质量差
+    [ChatEventType.TAUNT]: 0.5, // 对骂
+    [ChatEventType.QUICK_REACTION]: 0.3 // 快速反应
   },
   enableVoice: true
 };
@@ -87,13 +89,13 @@ export interface LLMChatConfig {
 export const DEFAULT_LLM_CHAT_CONFIG: LLMChatConfig = {
   provider: 'custom',
   apiUrl: 'http://115.93.10.51:11434/api/chat', // Ollama原生API地址（公网IP）
-  model: 'qwen2.5:3b', // 🔥 升级到更大的模型（从0.5b -> 3b）
+  model: 'qwen2:0.5b', // 🔥 使用小模型保证快速响应（3-5秒），游戏体验更流畅
   temperature: 0.9, // 🔥 提高温度，让对话更有创意和变化
   maxTokens: 150, // 🔥 增加token数，允许更长更丰富的对话（从50 -> 150）
   enableContext: true,
   enableHistory: true,
   maxHistoryLength: 10,
-  timeout: 5000, // 🔥 增加超时时间，给大模型更多思考时间（从3秒 -> 5秒）
+  timeout: 30000, // 🔥 增加超时时间适配大模型（30秒，qwen2.5:3b 首次加载需要 15-20 秒）
   enableMultilingual: true, // 启用LLM多语言生成（LLM直接生成目标语言，而不是生成中文再翻译）
   systemPrompt: `你是一个过炸牌游戏的AI玩家，需要根据游戏情况生成自然、生动、有趣的聊天内容。
 

@@ -29,7 +29,7 @@ export function useAudioModule(): UseAudioModuleReturn {
     } else {
       // 如果音频模块未初始化，直接调用 systemAnnouncementService
       const { announcePlay: systemAnnouncePlay } = await import('../services/systemAnnouncementService');
-      return systemAnnouncePlay(play, voiceConfig, onStart);
+      return systemAnnouncePlay(play, voiceConfig, onStart ? { onStart } : undefined);
     }
   };
   

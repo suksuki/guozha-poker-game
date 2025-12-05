@@ -41,12 +41,13 @@ export function useIdleChat({
       return;
     }
 
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const currentIndex = gameState.currentPlayerIndex ?? 0;
+    const currentPlayer = gameState.players?.[currentIndex];
     if (!currentPlayer) return;
 
     // 如果当前玩家切换了，重置计时器
-    if (lastPlayerIndexRef.current !== gameState.currentPlayerIndex) {
-      lastPlayerIndexRef.current = gameState.currentPlayerIndex;
+    if (lastPlayerIndexRef.current !== currentIndex) {
+      lastPlayerIndexRef.current = currentIndex;
       lastActionTimeRef.current = Date.now();
     }
 
@@ -68,9 +69,9 @@ export function useIdleChat({
         
         if (isQueueIdle) {
           // 随机选择一个AI玩家触发自发聊天
-          const aiPlayers = gameState.players.filter(
-            (p, idx) => p.type === PlayerType.AI && idx !== gameState.currentPlayerIndex
-          );
+            const aiPlayers = (gameState.players || []).filter(
+              (p, idx) => p.type === PlayerType.AI && idx !== currentIndex
+            );
 
           if (aiPlayers.length > 0) {
             // 随机选择一个AI玩家
@@ -110,8 +111,7 @@ export function useIdleChat({
     if (gameState.status === GameStatus.PLAYING && gameState.lastPlay) {
       // 检测到出牌，重置计时器
       lastActionTimeRef.current = Date.now();
-      lastPlayerIndexRef.current = gameState.currentPlayerIndex;
+      lastPlayerIndexRef.current = gameState.currentPlayerIndex ?? null;
     }
   }, [gameState.status, gameState.lastPlay, gameState.currentPlayerIndex]);
 }
-

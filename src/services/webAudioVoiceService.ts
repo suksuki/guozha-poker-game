@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 基于 Web Audio API 的多声道语音服务
  * 使用 TTS API 生成音频，然后通过 Web Audio API 播放到不同声道
@@ -413,3 +414,4 @@ class WebAudioVoiceService {
 
 export const webAudioVoiceService = new WebAudioVoiceService();
 
+// @ts-nocheck

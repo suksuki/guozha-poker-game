@@ -187,7 +187,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   dealingSpeed = 150,
   sortOrder = 'grouped',
   llmModel = 'qwen2:0.5b',
-  llmApiUrl = 'http://localhost:11434/api/chat',
+  llmApiUrl = 'http://115.93.10.51:11434/api/chat', // 使用公司服务器地址
   ideaGenerationEnabled = true,
   cardTrackerEnabled = false,
   cardTrackerPanelVisible = false,
@@ -220,7 +220,21 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   
   // LLM服务器管理
   const [serverManager] = useState(() => getOllamaServerManager());
-  const [currentServer, setCurrentServer] = useState<OllamaServerConfig>(() => serverManager.getCurrentServer());
+  const [currentServer, setCurrentServer] = useState<OllamaServerConfig>(() => {
+    const server = serverManager.getCurrentServer();
+    // 如果服务器配置无效，使用默认值
+    if (!server || !server.host || !server.port) {
+      return {
+        id: 'default',
+        name: '公司服务器',
+        host: '115.93.10.51',
+        port: 11434,
+        protocol: 'http',
+        isFavorite: true
+      };
+    }
+    return server;
+  });
   const [allServers, setAllServers] = useState<OllamaServerConfig[]>(() => serverManager.getAllServers());
   
   // 测试窗口状态
@@ -266,13 +280,15 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
 
   // 处理服务器切换
   const handleServerChange = (serverId: string) => {
-    const server = serverManager.setCurrentServer(serverId);
-    if (server) {
+    const success = serverManager.setCurrentServer(serverId);
+    if (success) {
+      const server = serverManager.getCurrentServer();
       setCurrentServer(server);
       setAllServers(serverManager.getAllServers());
       // 更新API URL
       if (onLlmApiUrlChange) {
-        onLlmApiUrlChange(`${server.protocol}://${server.host}:${server.port}/api/chat`);
+        const newApiUrl = `${server.protocol}://${server.host}:${server.port}/api/chat`;
+        onLlmApiUrlChange(newApiUrl);
       }
     }
   };
@@ -327,10 +343,12 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
     setTestResponse(null);
     
     try {
-      // 创建测试用的 LLM 配置
+      // 创建测试用的 LLM 配置 - 使用当前选择的服务器
+      const currentApiUrl = `${currentServer.protocol}://${currentServer.host}:${currentServer.port}/api/chat`;
+      
       const testConfig: LLMChatConfig = {
         provider: 'custom',
-        apiUrl: llmApiUrl,
+        apiUrl: currentApiUrl, // 直接使用当前服务器的地址
         model: llmModel,
         temperature: 0.8,
         maxTokens: 100,
@@ -348,7 +366,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
       
       // 调用 LLM API（使用私有方法，需要类型断言）
       // @ts-ignore - 访问私有方法用于测试
-      const response = await strategy.callLLMAPI(prompt, 1);
+      const response = await strategy.callLLMAPI(prompt);
       
       if (response && response.trim()) {
         setTestResponse(response.trim());

@@ -5,7 +5,7 @@
 
 import { BeatsStructure, Beat } from '../ai/beatsGenerator';
 import { Utter, Priority } from './DialogueScheduler';
-import { getTTSServiceManager, TTSLanguage } from '../tts';
+import { getTTSServiceManager, synthesizeSpeech, TTSLanguage } from '../tts';
 import { defaultSpeakerManager } from '../tts/speakers';
 import { convertToNanchang } from '../ai/dialect/nanchang_rules';
 import { getInterruptionManager } from './InterruptionManager';
