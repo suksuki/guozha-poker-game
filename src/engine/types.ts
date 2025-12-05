@@ -151,9 +151,27 @@ export interface IRenderer {
   /**
    * 显示聊天消息
    * @param playerId 说话的玩家ID
+   * @param playerName 玩家名称
    * @param message 消息内容
+   * @param displayTime 显示时间(ms)
    */
-  showMessage(playerId: number, message: string): void;
+  showMessage(playerId: number, playerName: string, message: string, displayTime?: number): void;
+  
+  /**
+   * 清空聊天消息
+   */
+  clearMessages?(): void;
+  
+  /**
+   * 显示聊天输入框
+   * @param onSubmit 提交回调
+   */
+  showChatInput?(onSubmit: (message: string) => void): void;
+  
+  /**
+   * 隐藏聊天输入框
+   */
+  hideChatInput?(): void;
   
   /**
    * 等待人类玩家输入

@@ -22,42 +22,68 @@ body {
 /* 游戏容器 */
 #game-root {
   width: 100%;
-  max-width: 1200px;
+  max-width: 100vw;
   height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
 }
+
+/* ==================== 默认：横屏布局（东南西北） ==================== */
 
 .poker-game {
   width: 100%;
-  height: 90vh;
+  height: 100vh;
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
+  border-radius: 0;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 150px 1fr 150px;
+  grid-template-rows: 120px 1fr 200px;
+  grid-template-areas:
+    "west north east"
+    "west play  east"
+    "south south south";
   overflow: hidden;
 }
 
-/* 对手区域 */
-.opponents-area {
-  flex: 0 0 150px;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  padding: 20px;
+/* 玩家位置通用样式 */
+.player-position {
   background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+}
+
+/* 北边（顶部）- 对家 */
+.player-north {
+  grid-area: north;
   border-bottom: 2px solid #e0e0e0;
 }
 
-.player-slot {
-  padding: 15px 25px;
+/* 南边（底部）- 当前玩家 */
+.player-south {
+  grid-area: south;
+  border-top: 2px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 20px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  min-width: 120px;
+}
+
+/* 东边（右侧）- 玩家1 */
+.player-east {
+  grid-area: east;
+  border-left: 2px solid #e0e0e0;
+}
+
+/* 西边（左侧）- 玩家3 */
+.player-west {
+  grid-area: west;
+  border-right: 2px solid #e0e0e0;
 }
 
 .player-info {
@@ -83,15 +109,16 @@ body {
   color: #999;
 }
 
-/* 出牌区域 */
+/* 出牌区域 - 中间 */
 .play-area {
-  flex: 1;
+  grid-area: play;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 40px;
   position: relative;
+  background: white;
 }
 
 .last-play {
@@ -128,6 +155,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  pointer-events: none;
 }
 
 .chat-bubble {
@@ -135,26 +163,265 @@ body {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  font-size: 14px;
+  font-size: 13px;
   transition: opacity 0.5s;
+  pointer-events: auto;
 }
 
-/* 我的手牌区域 */
-.my-hand-area {
-  flex: 0 0 200px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-top: 2px solid #e0e0e0;
+.chat-player {
+  font-weight: 600;
+  color: #667eea;
+  font-size: 11px;
+  margin-bottom: 3px;
+}
+
+.chat-text {
+  color: #333;
+  word-wrap: break-word;
+}
+
+/* 聊天输入框 */
+.chat-input-container {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  background: white;
+  padding: 12px 15px;
+  border-radius: 25px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateX(-50%) translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+.chat-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 20px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chat-input:focus {
+  border-color: #667eea;
+}
+
+.chat-send-btn {
+  padding: 8px 20px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 60px;
+}
+
+.chat-send-btn:hover {
+  background: #5568d3;
+  transform: scale(1.05);
+}
+
+.chat-send-btn:active {
+  transform: scale(0.95);
+}
+
+.chat-cancel-btn {
+  width: 32px;
+  height: 32px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.chat-cancel-btn:hover {
+  background: #d32f2f;
+  transform: scale(1.1);
+}
+
+.chat-cancel-btn:active {
+  transform: scale(0.9);
+}
+
+
+/* 工具栏 */
+.hand-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.toolbar-left, .toolbar-right {
+  display: flex;
+  gap: 5px;
+}
+
+.tool-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tool-btn:hover {
+  background: #f0f4ff;
+  border-color: #667eea;
+}
+
+.tool-btn:active {
+  transform: scale(0.95);
+}
+
+/* AI建议面板 */
+.ai-suggestions {
+  background: white;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  flex-shrink: 0;
+}
+
+.suggestion-header {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #667eea;
+  font-size: 13px;
+}
+
+.suggestion-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 6px;
+}
+
+.suggestion-item {
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.suggestion-item:hover {
+  background: #f0f4ff;
+}
+
+.suggestion-cards {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.suggestion-reason {
+  font-size: 11px;
+  color: #999;
+}
+
+/* 聊天输入区域 */
+.chat-input-area {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.btn-chat {
+  padding: 8px 15px;
+  font-size: 13px;
 }
 
 .hand-cards {
   display: flex;
-  gap: 10px;
+  flex-direction: row;
+  gap: 0;
   justify-content: center;
-  flex-wrap: wrap;
+  align-items: flex-end;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  padding: 10px;
+  -webkit-overflow-scrolling: touch;
+  min-height: 100px;
+  background: transparent;
+  border-radius: 8px;
+}
+
+/* 卡牌分组 */
+.card-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent;
+  border-radius: 8px;
+  padding: 5px 10px;
+  margin: 0;
+  position: relative;
+}
+
+.rank-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 6px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.rank-label:hover {
+  color: #5568d3;
+  background: rgba(102, 126, 234, 0.1);
+  transform: scale(1.05);
+}
+
+.group-cards {
+  display: flex;
+  gap: 0;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  position: relative;
 }
 
 .card {
@@ -170,18 +437,28 @@ body {
   cursor: pointer;
   transition: all 0.2s;
   font-size: 18px;
+  flex-shrink: 0;
+  margin-left: -25px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.card:first-child {
+  margin-left: 0;
 }
 
 .card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-15px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  z-index: 100;
 }
 
 .card.selected {
-  transform: translateY(-10px);
+  transform: translateY(-25px) scale(1.05);
   border-color: #667eea;
   background: #f0f4ff;
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  z-index: 200;
 }
 
 .card .suit {
@@ -194,11 +471,13 @@ body {
   margin-top: 5px;
 }
 
-/* 操作按钮 */
+/* 操作按钮 - 横向排列 */
 .actions {
   display: flex;
+  flex-direction: row;
   gap: 15px;
   justify-content: center;
+  align-items: center;
 }
 
 .game-btn {
@@ -246,5 +525,463 @@ body {
   font-weight: 600;
   display: none;
   z-index: 1000;
+}
+
+/* ==================== 移动端适配 ==================== */
+
+/* 移动端横屏布局（主要布局） */
+@media (max-width: 768px) and (orientation: landscape) {
+  body {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  #game-root {
+    height: 100vh;
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .poker-game {
+    height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+    grid-template-columns: 100px 1fr 100px;
+    grid-template-rows: 80px 1fr 140px;
+  }
+
+  /* 北边 - 对家 */
+  .player-north {
+    padding: 8px;
+  }
+
+  /* 南边 - 当前玩家 */
+  .player-south {
+    padding: 8px 15px;
+    gap: 8px;
+  }
+
+  /* 东边和西边 */
+  .player-east,
+  .player-west {
+    padding: 10px 5px;
+  }
+
+  .player-name {
+    font-size: 11px;
+  }
+
+  .player-cards {
+    font-size: 14px;
+  }
+
+  .player-type {
+    font-size: 10px;
+  }
+
+  /* 中间：出牌区域 */
+  .play-area {
+    padding: 10px;
+  }
+
+  .last-play {
+    padding: 15px;
+    min-width: auto;
+    margin-bottom: 10px;
+  }
+
+  .play-cards {
+    font-size: 16px;
+  }
+
+  .chat-messages {
+    position: absolute;
+    right: auto;
+    left: 50%;
+    top: 10px;
+    transform: translateX(-50%);
+    max-width: 40%;
+  }
+
+  .chat-bubble {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  /* 手牌区域 */
+  .hand-cards {
+    gap: 0;
+    overflow-x: auto;
+    padding: 8px;
+    min-height: 70px;
+    align-items: flex-end;
+  }
+
+  .card {
+    width: 45px;
+    height: 63px;
+    font-size: 14px;
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+    margin-left: -20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+
+  .card:first-child {
+    margin-left: 0;
+  }
+
+  .card:active {
+    opacity: 0.9;
+    z-index: 150;
+  }
+
+  .card.selected {
+    transform: translateY(-18px) scale(1.05);
+    z-index: 200;
+  }
+
+  .card:hover {
+    transform: translateY(-12px);
+    z-index: 100;
+  }
+
+  .card .suit {
+    font-size: 16px;
+  }
+
+  .card .rank {
+    font-size: 11px;
+    margin-top: 2px;
+  }
+
+  /* 操作按钮 - 横向排列 */
+  .actions {
+    flex-direction: row;
+    gap: 10px;
+  }
+
+  .game-btn {
+    padding: 10px 20px;
+    font-size: 13px;
+    min-height: 40px;
+    touch-action: manipulation;
+    flex: 1;
+  }
+
+  .game-btn:active {
+    opacity: 0.8;
+    transform: scale(0.95);
+  }
+
+  /* 信息提示 */
+  .info-overlay {
+    padding: 12px 25px;
+    font-size: 14px;
+    max-width: 60%;
+  }
+}
+
+/* 通用移动端优化（竖屏） */
+@media (max-width: 768px) and (orientation: portrait) {
+  body {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  #game-root {
+    height: 100vh;
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .poker-game {
+    height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+    grid-template-columns: 80px 1fr 80px;
+    grid-template-rows: 100px 1fr 200px;
+  }
+
+  /* 北边 - 对家 */
+  .player-north {
+    padding: 10px;
+  }
+
+  /* 南边 - 当前玩家 */
+  .player-south {
+    padding: 10px 15px;
+    gap: 8px;
+  }
+
+  /* 东边和西边 */
+  .player-east,
+  .player-west {
+    padding: 10px 5px;
+  }
+
+  .player-name {
+    font-size: 11px;
+  }
+
+  .player-cards {
+    font-size: 16px;
+  }
+
+  .player-type {
+    font-size: 10px;
+  }
+
+  /* 出牌区域 - 优化空间 */
+  .play-area {
+    padding: 15px 10px;
+  }
+
+  .last-play {
+    padding: 15px;
+    min-width: auto;
+    width: 90%;
+  }
+
+  .play-cards {
+    font-size: 18px;
+  }
+
+  /* 聊天消息 - 移到顶部 */
+  .chat-messages {
+    right: 10px;
+    top: 10px;
+    max-width: 60%;
+  }
+
+  .chat-bubble {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  /* 手牌区域 */
+  .hand-cards {
+    gap: 0;
+    overflow-x: auto;
+    padding: 8px;
+    min-height: 80px;
+    align-items: flex-end;
+  }
+
+  /* 卡片 - 增大触摸区域 */
+  .card {
+    width: 50px;
+    height: 70px;
+    font-size: 14px;
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+    margin-left: -22px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+
+  .card:first-child {
+    margin-left: 0;
+  }
+
+  .card:active {
+    opacity: 0.9;
+    z-index: 150;
+  }
+
+  .card.selected {
+    transform: translateY(-15px) scale(1.05);
+    z-index: 200;
+  }
+
+  .card:hover {
+    transform: translateY(-10px);
+    z-index: 100;
+  }
+
+  .card .suit {
+    font-size: 18px;
+  }
+
+  .card .rank {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+
+  /* 操作按钮 - 横向排列 */
+  .actions {
+    gap: 10px;
+    flex-direction: row;
+  }
+
+  .game-btn {
+    padding: 12px 25px;
+    font-size: 14px;
+    min-height: 44px;
+    touch-action: manipulation;
+    flex: 1;
+  }
+
+  .game-btn:active {
+    opacity: 0.8;
+    transform: scale(0.95);
+  }
+
+  /* 信息提示 - 移动端优化 */
+  .info-overlay {
+    padding: 15px 30px;
+    font-size: 16px;
+    max-width: 80%;
+  }
+}
+
+/* 竖屏提示 - 建议旋转到横屏 */
+@media (max-width: 768px) and (orientation: portrait) {
+  /* 添加旋转提示样式 */
+  .rotate-prompt {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(102, 126, 234, 0.95);
+    color: white;
+    padding: 12px 20px;
+    text-align: center;
+    font-size: 14px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    animation: slideDown 0.3s ease-out;
+  }
+
+  @keyframes slideDown {
+    from {
+      transform: translateY(-100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  .rotate-icon {
+    font-size: 24px;
+    animation: rotate 2s infinite;
+  }
+
+  @keyframes rotate {
+    0%, 100% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(90deg);
+    }
+    75% {
+      transform: rotate(90deg);
+    }
+  }
+}
+
+/* 小屏手机（<375px） */
+@media (max-width: 375px) {
+  .player-slot {
+    padding: 6px 8px;
+    min-width: 70px;
+  }
+
+  .player-name {
+    font-size: 10px;
+  }
+
+  .card {
+    width: 45px;
+    height: 63px;
+  }
+
+  .game-btn {
+    padding: 12px 25px;
+    font-size: 14px;
+    min-width: 90px;
+  }
+}
+
+/* 超大屏手机（>414px） */
+@media (min-width: 415px) and (max-width: 768px) {
+  .card {
+    width: 55px;
+    height: 77px;
+  }
+
+  .game-btn {
+    padding: 15px 35px;
+  }
+}
+
+/* 平板适配（768px-1024px） */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .poker-game {
+    height: 95vh;
+    border-radius: 16px;
+  }
+
+  .card {
+    width: 65px;
+    height: 91px;
+  }
+}
+
+/* 防止iOS Safari底部工具栏遮挡 */
+@supports (-webkit-touch-callout: none) {
+  .player-south {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+}
+
+/* 安全区域适配（刘海屏、圆角屏） */
+.poker-game {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* 禁用文本选择（移动端） */
+@media (max-width: 768px) {
+  * {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 允许输入框选择 */
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* 触摸优化 */
+@media (hover: none) and (pointer: coarse) {
+  /* 移除hover效果，避免触摸时的延迟 */
+  .card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .game-btn:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* 使用active替代hover */
+  .card:active {
+    transform: translateY(-5px) scale(0.98);
+  }
+
+  .game-btn:active {
+    transform: scale(0.96);
+  }
 }
 

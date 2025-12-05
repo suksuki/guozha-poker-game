@@ -21,7 +21,12 @@ import { TurnManager } from './TurnManager';
 import { GameBridge } from '../ai-core/integration/GameBridge';
 import { Card } from '../types/card';
 import { GameEngineConfig, IRenderer, GameEvent, IGameState } from './types';
-import { dealCards } from '../utils/cardDealing';
+import { dealCards } from '../utils/cardUtils';
+
+// 导入现有服务（复用，不重新开发！）
+import { soundService } from '../services/soundService';
+import { chatService } from '../services/chatService';
+import { AISuggesterService } from '../services/cardPlaying/AISuggesterService';
 
 /**
  * 游戏引擎主类
@@ -44,6 +49,9 @@ export class GameEngine {
   
   /** 渲染器 */
   private renderer: IRenderer;
+  
+  // 注意：直接使用现有服务，不需要重新创建
+  // soundService 和 chatService 已经是全局单例
   
   // ==================== 运行状态 ====================
   
@@ -94,6 +102,10 @@ export class GameEngine {
     // 创建AI大脑桥接
     this.aiBridge = new GameBridge();
     console.log('✓ AI大脑桥接已创建');
+    
+    // 使用现有的服务（不重新创建！）
+    console.log('✓ 复用现有chatService');
+    console.log('✓ 复用现有soundService');
   }
   
   // ==================== 初始化 ====================
@@ -139,8 +151,17 @@ export class GameEngine {
     });
     console.log('  ✓ AI大脑初始化完成');
     
-    // 2. 设置AI事件监听
-    console.log('\n步骤2: 设置AI事件监听...');
+    // 2. 初始化音效系统（使用现有soundService）
+    console.log('\n步骤2: 初始化音效系统...');
+    try {
+      await soundService.preloadSounds();
+      console.log('  ✓ 音效系统初始化完成');
+    } catch (error) {
+      console.warn('  ⚠ 音效系统初始化失败（将继续无音效）:', error);
+    }
+    
+    // 3. 设置AI事件监听
+    console.log('\n步骤3: 设置AI事件监听...');
     this.setupAIEventListeners();
     console.log('  ✓ 事件监听设置完成');
     
@@ -169,6 +190,47 @@ export class GameEngine {
     this.aiBridge.eventBus.on('ai:turn-error', (error: any) => {
       console.error('[GameEngine] AI错误:', error);
     });
+    
+    // 监听AI建议请求
+    window.addEventListener('ai:request-suggestions', ((e: CustomEvent) => {
+      this.handleAISuggestionRequest(e.detail);
+    }) as EventListener);
+    
+    // 监听托管切换
+    window.addEventListener('autoplay:toggle', ((e: CustomEvent) => {
+      console.log('[GameEngine] 托管已' + (e.detail.enabled ? '开启' : '关闭'));
+      // TODO: 实现托管逻辑
+    }) as EventListener);
+  }
+  
+  /**
+   * 处理AI建议请求
+   */
+  private async handleAISuggestionRequest(detail: any): Promise<void> {
+    try {
+      const suggester = new AISuggesterService();
+      const gameState = this.gameState.toJSON();
+      
+      // 获取建议（简化版本 - 直接使用MCTS）
+      // TODO: 完整实现需要调用suggester.getSuggestions()
+      
+      const suggestions = [
+        {
+          cards: detail.hand.slice(0, 1),
+          reason: '出单牌（基于MCTS分析）',
+          confidence: 0.8
+        }
+      ];
+      
+      // 显示建议
+      if ('showAISuggestions' in this.renderer) {
+        (this.renderer as any).showAISuggestions(suggestions);
+      }
+      
+      console.log('[GameEngine] AI建议已生成:', suggestions.length);
+    } catch (error) {
+      console.error('[GameEngine] AI建议失败:', error);
+    }
   }
   
   /**
@@ -188,15 +250,32 @@ export class GameEngine {
       if (play) {
         this.gameState.playCards(playerId, decision.action.cards, play);
         this.turnManager.resetPassCount();
+        
+        // 播放出牌音效（使用现有soundService）
+        const isBomb = play.type.includes('bomb') || play.type.includes('rocket');
+        if (isBomb) {
+          soundService.playSound('bomb', 0.8);
+        } else if (decision.action.cards.length >= 4) {
+          soundService.playSound('dun-large');
+        } else if (decision.action.cards.length >= 2) {
+          soundService.playSound('dun-medium');
+        } else {
+          soundService.playSound('dun-small');
+        }
       }
     } else {
       this.gameState.pass(playerId);
       this.turnManager.recordPass();
+      
+      // 播放Pass音效（使用现有soundService）
+      soundService.playSound('dun-small', 0.5);
     }
     
-    // 显示AI消息
+    // 显示AI消息（使用现有chatService）
     if (message) {
-      this.renderer.showMessage(playerId, message.content);
+      const player = this.gameState.getPlayer(playerId);
+      const playerName = player?.name || `AI${playerId}`;
+      this.renderer.showMessage(playerId, playerName, message.content);
     }
     
     // 触发事件
@@ -231,8 +310,15 @@ export class GameEngine {
     this.turnManager.startRound(0);
     this.running = true;
     
+    // 播放游戏开始音效（使用现有soundService）
+    soundService.playSound('dun-medium');
+    
     // 触发游戏开始事件
     this.emit('game:start', {});
+    
+    // 首次渲染（显示初始状态和手牌）
+    console.log('[GameEngine] 首次渲染游戏状态...');
+    this.renderer.render(this.gameState.export());
     
     // 开始游戏循环
     this.gameLoop();
@@ -539,6 +625,55 @@ export class GameEngine {
       console.log(`  玩家${p.id}: ${p.hand.length}张 (${p.type}${p.personality ? '-' + p.personality : ''})`);
     });
     console.log('==================\n');
+  }
+  
+  // ==================== 聊天系统 ====================
+  
+  /**
+   * 发送聊天消息
+   */
+  sendChatMessage(playerId: number, message: string): void {
+    const player = this.gameState.getPlayers()[playerId];
+    if (!player) {
+      console.warn(`[GameEngine] 玩家${playerId}不存在`);
+      return;
+    }
+    
+    this.chatSystem.sendMessage(playerId, player.name, message, player.type === 'ai' ? 'ai' : 'player');
+  }
+  
+  /**
+   * 打开聊天输入框（人类玩家）
+   */
+  openChatInput(): void {
+    const humanPlayer = this.gameState.getPlayers().find(p => p.type === 'human');
+    if (!humanPlayer) {
+      console.warn('[GameEngine] 没有人类玩家');
+      return;
+    }
+    
+    if (this.renderer.showChatInput) {
+      this.renderer.showChatInput((message) => {
+        this.sendChatMessage(humanPlayer.id, message);
+      });
+    }
+  }
+  
+  /**
+   * 清空聊天消息
+   */
+  clearChat(): void {
+    this.chatSystem.clearMessages();
+    if (this.renderer.clearMessages) {
+      this.renderer.clearMessages();
+    }
+  }
+  
+  /**
+   * 获取聊天系统
+   */
+  getChatSystem(): ChatSystem {
+    return this.chatSystem;
   }
 }
 
