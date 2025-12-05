@@ -1,0 +1,163 @@
+/**
+ * 移动端自适应样式
+ * 支持多种屏幕尺寸
+ */
+
+/* ===== 基础响应式 ===== */
+@media (max-width: 360px) {
+  /* 小屏手机 (iPhone SE) */
+  .card-small {
+    width: 35px !important;
+    height: 49px !important;
+    font-size: 12px !important;
+  }
+  
+  .card-medium {
+    width: 45px !important;
+    height: 63px !important;
+    font-size: 14px !important;
+  }
+  
+  .player-avatar {
+    width: 60px !important;
+    height: 60px !important;
+  }
+  
+  .status-panel {
+    font-size: 12px !important;
+  }
+}
+
+@media (min-width: 361px) and (max-width: 414px) {
+  /* 中等屏幕 (iPhone 8, X, 11 Pro) */
+  .card-small {
+    width: 40px !important;
+    height: 56px !important;
+  }
+  
+  .card-medium {
+    width: 50px !important;
+    height: 70px !important;
+  }
+}
+
+@media (min-width: 415px) and (max-width: 768px) {
+  /* 大屏手机/小平板 (iPhone Plus, Android) */
+  .card-medium {
+    width: 55px !important;
+    height: 77px !important;
+  }
+  
+  .card-large {
+    width: 65px !important;
+    height: 91px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  /* 平板/桌面 */
+  .game-board {
+    max-width: 768px;
+    margin: 0 auto;
+  }
+}
+
+/* ===== 横屏适配 ===== */
+@media (orientation: landscape) and (max-height: 500px) {
+  .player-info {
+    padding: 8px !important;
+  }
+  
+  .avatar {
+    width: 60px !important;
+    height: 60px !important;
+  }
+  
+  .status-panel {
+    gap: 8px !important;
+  }
+  
+  .action-buttons {
+    flex-direction: row !important;
+  }
+}
+
+/* ===== 安全区域适配 (刘海屏) ===== */
+@supports (padding: max(0px)) {
+  .game-board {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: max(0px, env(safe-area-inset-top));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+  
+  .action-buttons {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ===== 触摸优化 ===== */
+.van-button,
+.card-item,
+.avatar {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* 防止双击缩放 */
+.game-board {
+  touch-action: pan-y pinch-zoom;
+}
+
+/* ===== 性能优化 ===== */
+.card-item,
+.player-info,
+.play-area {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* 滚动优化 */
+.cards-container {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* ===== 深色模式支持 ===== */
+@media (prefers-color-scheme: dark) {
+  .game-board {
+    background: #1a1a1a;
+  }
+  
+  .card {
+    background: #2d2d2d;
+    border-color: #444;
+  }
+  
+  .status-bar {
+    background: #2d2d2d;
+    border-color: #444;
+  }
+}
+
+/* ===== 高对比度模式 ===== */
+@media (prefers-contrast: high) {
+  .card {
+    border-width: 3px !important;
+  }
+  
+  .van-button {
+    font-weight: bold !important;
+  }
+}
+
+/* ===== 减少动画模式 ===== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
