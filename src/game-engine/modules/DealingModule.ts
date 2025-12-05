@@ -6,7 +6,10 @@
 
 import { GameState } from '../state/GameState';
 import { Card, Player } from '../../types/card';
-import { dealCards } from '../../utils/cardUtils';
+import { dealCards as dealCardsUtil } from '../../utils/cardUtils';
+
+// 导出dealCards供外部使用
+export { dealCards } from '../../utils/cardUtils';
 
 /**
  * DealingModule - 发牌模块
@@ -21,7 +24,7 @@ export class DealingModule {
     algorithm?: string
   ): { updatedState: GameState; hands: Card[][] } {
     // 发牌（使用现有的dealCards函数）
-    const hands = dealCards(state.config.playerCount);
+    const hands = dealCardsUtil(state.config.playerCount);
     
     // 更新玩家手牌
     let updatedState = state;
