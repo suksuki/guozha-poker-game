@@ -82,17 +82,25 @@ wait_for_service() {
 cleanup() {
     echo -e "\n${YELLOW}正在清理资源...${NC}"
     
-    # 终止Piper TTS进程
+    # 只清理由本脚本启动的Piper TTS进程
     if [ ! -z "$PIPER_PID" ] && kill -0 "$PIPER_PID" 2>/dev/null; then
         echo -e "${YELLOW}停止Piper TTS服务 (PID: $PIPER_PID)...${NC}"
         kill "$PIPER_PID" 2>/dev/null || true
         wait "$PIPER_PID" 2>/dev/null || true
-    fi
-    
-    # 检查并清理端口占用
-    if check_port 5000; then
-        echo -e "${YELLOW}清理端口 5000...${NC}"
-        lsof -ti :5000 | xargs kill -9 2>/dev/null || true
+        
+        # 只有在我们启动了Piper时，才清理端口（防止杀死外部进程）
+        if [ "$PIPER_RUNNING" != "true" ] && check_port 5000; then
+            echo -e "${YELLOW}清理端口 5000（由本脚本启动）...${NC}"
+            lsof -ti :5000 | xargs kill -9 2>/dev/null || true
+        fi
+    elif [ "$PIPER_RUNNING" != "true" ] && [ ! -z "$PIPER_PID" ]; then
+        # 如果进程已经结束，但端口仍被占用（罕见情况）
+        if check_port 5000; then
+            echo -e "${YELLOW}清理遗留的端口 5000...${NC}"
+            lsof -ti :5000 | xargs kill -9 2>/dev/null || true
+        fi
+    else
+        echo -e "${BLUE}ℹ️  Piper TTS 不是由本脚本启动，跳过清理${NC}"
     fi
     
     echo -e "${GREEN}✅ 清理完成${NC}"
