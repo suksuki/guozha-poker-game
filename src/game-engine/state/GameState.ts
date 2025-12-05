@@ -39,6 +39,10 @@ export interface GameConfig {
   readonly playerCount: number;
   readonly humanPlayerIndex: number;
   readonly teamMode: boolean;
+  // Game.ts中的额外配置
+  readonly dealingAlgorithm?: string;
+  readonly skipDealingAnimation?: boolean;
+  readonly cardTrackerEnabled?: boolean;
 }
 
 /**
@@ -52,6 +56,14 @@ export interface GameStateSnapshot {
   currentRoundIndex: number;
   finishOrder: number[];
   timestamp: number;
+  // Game.ts中的额外状态
+  winner: number | null;
+  finalRankings?: any[];
+  teamRankings?: any[];
+  winningTeamId?: number | null;
+  initialHands?: any[][];
+  gameStartTime: number;
+  gameId: string;
 }
 
 /**
@@ -85,6 +97,15 @@ export class GameState {
   private _finishOrder: readonly number[];
   private _teamConfig: TeamConfig | null;
   
+  // ========== Game.ts迁移的状态 ==========
+  private _winner: number | null;
+  private _finalRankings: any[] | null;
+  private _teamRankings: any[] | null;
+  private _winningTeamId: number | null;
+  private _initialHands: readonly Card[][] | null;
+  private _gameStartTime: number;
+  private _gameId: string;
+  
   // ========== 事件监听器 ==========
   private eventListeners: Map<string, StateEventListener[]> = new Map();
   
@@ -99,6 +120,15 @@ export class GameState {
     this._currentRoundIndex = -1;
     this._finishOrder = Object.freeze([]);
     this._teamConfig = null;
+    
+    // 初始化新增字段
+    this._winner = null;
+    this._finalRankings = null;
+    this._teamRankings = null;
+    this._winningTeamId = null;
+    this._initialHands = null;
+    this._gameStartTime = 0;
+    this._gameId = '';
   }
   
   // ========== Getters（只读访问）==========
@@ -143,6 +173,34 @@ export class GameState {
       return undefined;
     }
     return this._players[this._currentPlayerIndex];
+  }
+  
+  get winner(): number | null {
+    return this._winner;
+  }
+  
+  get finalRankings(): any[] | null {
+    return this._finalRankings;
+  }
+  
+  get teamRankings(): any[] | null {
+    return this._teamRankings;
+  }
+  
+  get winningTeamId(): number | null {
+    return this._winningTeamId;
+  }
+  
+  get initialHands(): readonly Card[][] | null {
+    return this._initialHands;
+  }
+  
+  get gameStartTime(): number {
+    return this._gameStartTime;
+  }
+  
+  get gameId(): string {
+    return this._gameId;
   }
   
   // ========== 不可变更新方法 ==========
@@ -276,6 +334,61 @@ export class GameState {
     return newState;
   }
   
+  /**
+   * 设置获胜者
+   */
+  setWinner(winnerId: number): GameState {
+    const newState = this.clone();
+    newState._winner = winnerId;
+    return newState;
+  }
+  
+  /**
+   * 设置最终排名
+   */
+  setFinalRankings(rankings: any[]): GameState {
+    const newState = this.clone();
+    newState._finalRankings = rankings;
+    return newState;
+  }
+  
+  /**
+   * 设置团队排名
+   */
+  setTeamRankings(rankings: any[]): GameState {
+    const newState = this.clone();
+    newState._teamRankings = rankings;
+    return newState;
+  }
+  
+  /**
+   * 设置获胜团队
+   */
+  setWinningTeam(teamId: number): GameState {
+    const newState = this.clone();
+    newState._winningTeamId = teamId;
+    return newState;
+  }
+  
+  /**
+   * 设置初始手牌
+   */
+  setInitialHands(hands: Card[][]): GameState {
+    const newState = this.clone();
+    newState._initialHands = Object.freeze(hands.map(h => Object.freeze([...h])));
+    return newState;
+  }
+  
+  /**
+   * 初始化游戏会话
+   */
+  initializeGame(gameId: string, startTime?: number): GameState {
+    const newState = this.clone();
+    newState._gameId = gameId;
+    newState._gameStartTime = startTime || Date.now();
+    return newState;
+  }
+  
   // ========== 克隆和快照 ==========
   
   /**
@@ -305,7 +418,15 @@ export class GameState {
       currentPlayerIndex: this._currentPlayerIndex,
       currentRoundIndex: this._currentRoundIndex,
       finishOrder: [...this._finishOrder],
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      // 新增字段
+      winner: this._winner,
+      finalRankings: this._finalRankings ? [...this._finalRankings] : undefined,
+      teamRankings: this._teamRankings ? [...this._teamRankings] : undefined,
+      winningTeamId: this._winningTeamId,
+      initialHands: this._initialHands ? this._initialHands.map(h => [...h]) : undefined,
+      gameStartTime: this._gameStartTime,
+      gameId: this._gameId
     };
   }
   
