@@ -24,7 +24,7 @@ export interface RoundDataSnapshot {
   startTime: number;
   plays: RoundPlayRecord[];
   totalScore: number;
-  lastPlay: Play | null;
+  lastPlay: Card[] | null; // 最后出的牌
   lastPlayPlayerIndex: number | null;
   isFinished: boolean;
   endTime?: number;
@@ -48,7 +48,7 @@ export class RoundData {
   // ========== 出牌记录 ==========
   readonly plays: readonly RoundPlayRecord[];
   readonly totalScore: number;
-  readonly lastPlay: Play | null;
+  readonly lastPlay: Card[] | null; // 最后出的牌（卡牌数组）
   readonly lastPlayPlayerIndex: number | null;
   
   // ========== 结束状态 ==========
@@ -67,7 +67,7 @@ export class RoundData {
     startTime?: number;
     plays?: readonly RoundPlayRecord[];
     totalScore?: number;
-    lastPlay?: Play | null;
+    lastPlay?: Card[] | null;
     lastPlayPlayerIndex?: number | null;
     isFinished?: boolean;
     endTime?: number;
@@ -105,8 +105,8 @@ export class RoundData {
       ...this,
       plays: [...this.plays, play],
       totalScore: this.totalScore + play.score,
-      lastPlay: play.play,
-      lastPlayPlayerIndex: play.playerIndex
+      lastPlay: play.cards,
+      lastPlayPlayerIndex: play.playerId
     });
   }
   
@@ -146,10 +146,10 @@ export class RoundData {
   /**
    * 更新最后出牌（返回新的RoundData）
    */
-  updateLastPlay(play: Play, playerIndex: number): RoundData {
+  updateLastPlay(cards: Card[], playerIndex: number): RoundData {
     return new RoundData({
       ...this,
-      lastPlay: play,
+      lastPlay: cards,
       lastPlayPlayerIndex: playerIndex
     });
   }
@@ -182,14 +182,14 @@ export class RoundData {
    * 获取指定玩家的所有出牌
    */
   getPlayerPlays(playerIndex: number): readonly RoundPlayRecord[] {
-    return this.plays.filter(play => play.playerIndex === playerIndex);
+    return this.plays.filter(play => play.playerId === playerIndex);
   }
   
   /**
    * 检查玩家是否出过牌
    */
   hasPlayerPlayed(playerIndex: number): boolean {
-    return this.plays.some(play => play.playerIndex === playerIndex);
+    return this.plays.some(play => play.playerId === playerIndex);
   }
   
   // ========== 快照功能 ==========
