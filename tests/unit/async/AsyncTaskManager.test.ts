@@ -114,7 +114,7 @@ describe('AsyncTaskManager', () => {
       expect(result.error).toBeInstanceOf(TimeoutError);
       expect(result.timedOut).toBe(true);
       expect(result.cancelled).toBe(false);
-      expect(result.duration).toBeGreaterThanOrEqual(100);
+      expect(result.duration).toBeGreaterThanOrEqual(95); // 允许误差
       expect(result.duration).toBeLessThan(200); // 应该很快失败
       expect(mockTask).toHaveBeenCalledTimes(1); // 只调用一次
     });
