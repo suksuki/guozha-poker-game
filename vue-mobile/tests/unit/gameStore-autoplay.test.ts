@@ -138,14 +138,14 @@ describe('GameStore - 托管功能', () => {
   });
 
   describe('托管与手动模式切换', () => {
-    it('可以在游戏中随时切换托管状态', () => {
+    it('可以在游戏中随时切换托管状态', async () => {
       const store = useGameStore();
       store.startGame();
       
       const humanPlayer = store.humanPlayer!;
       
       // 手动出一张牌
-      const result1 = store.playCards([humanPlayer.hand[0]]);
+      const result1 = await store.playCards([humanPlayer.hand[0]]);
       expect(result1.success).toBe(true);
       
       // 切换到托管

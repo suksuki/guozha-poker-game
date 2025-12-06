@@ -379,8 +379,127 @@
         <!-- TTS配置 -->
         <van-tab title="🔊 TTS" name="tts">
           <div class="settings-content">
+            <!-- 语音播报设置 -->
+            <van-cell-group title="语音播报">
+              <van-switch
+                v-model="localVoicePlaybackSettings.enabled"
+                title="启用语音播报"
+                @change="updateVoicePlaybackSettings({ enabled: localVoicePlaybackSettings.enabled })"
+              />
+              <van-switch
+                v-model="localVoicePlaybackSettings.enableSystemAnnouncements"
+                title="系统播报"
+                :disabled="!localVoicePlaybackSettings.enabled"
+                @change="updateVoicePlaybackSettings({ enableSystemAnnouncements: localVoicePlaybackSettings.enableSystemAnnouncements })"
+              />
+              <van-switch
+                v-model="localVoicePlaybackSettings.enablePlayerChat"
+                title="玩家聊天"
+                :disabled="!localVoicePlaybackSettings.enabled"
+                @change="updateVoicePlaybackSettings({ enablePlayerChat: localVoicePlaybackSettings.enablePlayerChat })"
+              />
+              <van-cell title="音量">
+                <template #value>
+                  <van-slider
+                    v-model="localVoicePlaybackSettings.volume"
+                    :min="0"
+                    :max="1"
+                    :step="0.1"
+                    :disabled="!localVoicePlaybackSettings.enabled"
+                    @change="updateVoicePlaybackSettings({ volume: localVoicePlaybackSettings.volume })"
+                  />
+                  <span style="margin-left: 8px; min-width: 40px; display: inline-block;">
+                    {{ Math.round(localVoicePlaybackSettings.volume * 100) }}%
+                  </span>
+                </template>
+              </van-cell>
+              <van-cell title="语速">
+                <template #value>
+                  <van-slider
+                    v-model="localVoicePlaybackSettings.speed"
+                    :min="0.5"
+                    :max="2.0"
+                    :step="0.1"
+                    :disabled="!localVoicePlaybackSettings.enabled"
+                    @change="updateVoicePlaybackSettings({ speed: localVoicePlaybackSettings.speed })"
+                  />
+                  <span style="margin-left: 8px; min-width: 40px; display: inline-block;">
+                    {{ localVoicePlaybackSettings.speed.toFixed(1) }}x
+                  </span>
+                </template>
+              </van-cell>
+              <van-cell title="最大同时播放数">
+                <template #value>
+                  <van-stepper
+                    v-model="localVoicePlaybackSettings.maxConcurrentPlayers"
+                    :min="1"
+                    :max="8"
+                    :disabled="!localVoicePlaybackSettings.enabled"
+                    @change="updateVoicePlaybackSettings({ maxConcurrentPlayers: localVoicePlaybackSettings.maxConcurrentPlayers })"
+                  />
+                </template>
+                <template #label>
+                  <div style="font-size: 12px; color: #969799; margin-top: 4px;">
+                    最多支持{{ localVoicePlaybackSettings.maxConcurrentPlayers }}个玩家同时说话（1-8）
+                  </div>
+                </template>
+              </van-cell>
+              <van-cell title="支持声道数">
+                <template #value>
+                  <span style="color: #1989fa; font-weight: bold;">8个玩家声道 + 1个报牌声道</span>
+                </template>
+                <template #label>
+                  <div style="font-size: 12px; color: #969799; margin-top: 4px;">
+                    玩家0-7各占一个声道，报牌使用独立声道
+                  </div>
+                </template>
+              </van-cell>
+            </van-cell-group>
+
+            <!-- 语音播报统计 -->
+            <van-cell-group title="📊 实时统计" v-if="audioStats">
+              <van-cell title="活跃通道数" :value="`${audioStats.activeChannels}/${localVoicePlaybackSettings.maxConcurrentPlayers + 1}`">
+                <template #label>
+                  <div style="font-size: 12px; color: #969799; margin-top: 4px;">
+                    玩家通道: {{ audioStats.activeChannels }} / 报牌通道: 1
+                  </div>
+                </template>
+              </van-cell>
+              <van-cell title="队列总长度" :value="audioStats.totalQueueLength">
+                <template #label>
+                  <div style="font-size: 12px; color: #969799; margin-top: 4px;">
+                    等待播放的消息数
+                  </div>
+                </template>
+              </van-cell>
+              <van-cell 
+                v-if="audioStats.channelStates" 
+                title="声道状态" 
+                is-link
+                @click="showChannelStates = !showChannelStates"
+              >
+                <template #value>
+                  <span style="color: #1989fa;">{{ showChannelStates ? '收起' : '展开' }}</span>
+                </template>
+              </van-cell>
+              <div v-if="showChannelStates && audioStats.channelStates" style="padding: 8px 16px; background: #f7f8fa;">
+                <div 
+                  v-for="[channel, state] in Array.from(audioStats.channelStates.entries())" 
+                  :key="channel"
+                  style="padding: 4px 0; font-size: 12px; display: flex; justify-content: space-between;"
+                >
+                  <span>{{ getChannelName(channel) }}:</span>
+                  <span :style="{ color: state.isActive ? '#07c160' : '#969799' }">
+                    {{ state.isActive ? '🔊 播放中' : '🔇 空闲' }}
+                    <span v-if="state.queueLength > 0"> (队列: {{ state.queueLength }})</span>
+                    <span v-if="state.currentPlayerId !== undefined"> [玩家{{ state.currentPlayerId }}]</span>
+                  </span>
+                </div>
+              </div>
+            </van-cell-group>
+
             <!-- TTS服务器状态摘要 -->
-            <van-cell-group>
+            <van-cell-group title="TTS服务器">
               <van-cell>
                 <template #title>
                   <div class="tts-summary">
@@ -414,10 +533,20 @@
               >
                 <van-cell
                   :title="server.name"
-                  :label="`${getServerTypeLabel(server.type)} | ${server.connection.host}:${server.connection.port}`"
+                  :label="`${getServerTypeLabel(server.type)} | ${server.connection?.host || 'N/A'}:${server.connection?.port || 'N/A'}`"
                   is-link
                   @click="editTTSServer(server)"
                 >
+                  <template #label>
+                    <div>
+                      <span>{{ getServerTypeLabel(server.type) }}</span>
+                      <span v-if="server.connection"> | {{ server.connection.host }}:{{ server.connection.port }}</span>
+                      <span v-else> | N/A</span>
+                      <span v-if="server.assignedChannels && server.assignedChannels.length > 0">
+                        | 声道: {{ server.assignedChannels.join(',') }}
+                      </span>
+                    </div>
+                  </template>
                   <template #icon>
                     <span class="server-status-icon">
                       {{ getServerStatusIcon(server) }}
@@ -532,21 +661,29 @@
         </van-button>
       </div>
     </div>
-
+    
+    <!-- TTS服务器添加/编辑对话框 -->
+    <TTSServerDialog
+      v-model="showAddTTSServer"
+      :server="editingTTSServer || undefined"
+      @confirm="handleAddTTSServer"
+    />
   </van-popup>
 
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
-import { useSettingsStore } from '../stores/settingsStore';
-import { showToast, showSuccessToast, showFailToast, showConfirmDialog } from 'vant';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useSettingsStore, type VoicePlaybackSettings } from '../stores/settingsStore';
+import { showToast, showSuccessToast, showFailToast, showLoadingToast, showConfirmDialog } from 'vant';
 import type { GameSettings, UISettings, AISettings } from '../stores/settingsStore';
 import type { LLMChatConfig } from '../../../src/config/chatConfig';
-import type { TTSServerConfig } from '../../../src/tts/models/TTSServerConfig';
+import type { TTSServerConfig } from '../services/tts/types';
 import { checkLLMAvailability } from '../../../src/utils/llmHealthCheck';
 import { getAvailableOllamaModels, checkOllamaService } from '../../../src/utils/llmModelService';
 import { ollamaServerManager, type OllamaServerConfig } from '../services/ollamaServerManager';
+import { getMultiChannelAudioService } from '../services/multiChannelAudioService';
+import TTSServerDialog from './TTSServerDialog.vue';
 
 interface Props {
   modelValue: boolean;
@@ -572,6 +709,12 @@ const localGameSettings = ref<GameSettings>({ ...settingsStore.gameSettings });
 const localUISettings = ref<UISettings>({ ...settingsStore.uiSettings });
 const localAISettings = ref<AISettings>({ ...settingsStore.aiSettings });
 const localLLMConfig = ref<LLMChatConfig>({ ...settingsStore.llmConfig });
+const localVoicePlaybackSettings = ref<VoicePlaybackSettings>({ ...settingsStore.voicePlaybackSettings });
+
+// 音频统计信息
+const audioStats = ref<any>(null);
+let audioStatsTimer: number | null = null;
+const showChannelStates = ref(false);
 
 // Ollama服务器配置
 const ollamaServerMode = ref<'local' | 'lan' | 'custom'>('local');
@@ -624,6 +767,10 @@ watch(() => settingsStore.llmConfig, (val) => {
   }
 }, { deep: true });
 
+watch(() => settingsStore.voicePlaybackSettings, (val) => {
+  localVoicePlaybackSettings.value = { ...val };
+}, { deep: true });
+
 // 监听LLM配置变化，自动检测连接状态
 watch(() => localLLMConfig.value.apiUrl, async (newUrl) => {
   if (newUrl && localLLMConfig.value.provider === 'ollama') {
@@ -659,6 +806,11 @@ const updateUISettings = (updates: Partial<UISettings>) => {
 const updateAISettings = (updates: Partial<AISettings>) => {
   settingsStore.updateAISettings(updates);
   localAISettings.value = { ...settingsStore.aiSettings };
+};
+
+const updateVoicePlaybackSettings = (updates: Partial<VoicePlaybackSettings>) => {
+  settingsStore.updateVoicePlaybackSettings(updates);
+  localVoicePlaybackSettings.value = { ...settingsStore.voicePlaybackSettings };
 };
 
 const updateLLMConfig = (updates: Partial<LLMChatConfig>) => {
@@ -837,8 +989,8 @@ const updateTTSServer = (id: string, updates: Partial<TTSServerConfig>) => {
 };
 
 const editTTSServer = (server: TTSServerConfig) => {
-  // TODO: 打开编辑对话框
-  showToast('编辑TTS服务器功能开发中');
+  editingTTSServer.value = server;
+  showAddTTSServer.value = true;
 };
 
 const testTTSServer = async (server: TTSServerConfig) => {
@@ -847,70 +999,174 @@ const testTTSServer = async (server: TTSServerConfig) => {
     return;
   }
 
-  console.log('🔍 开始测试TTS服务器:', server.name);
+  if (!server.connection) {
+    showFailToast('服务器配置不完整');
+    return;
+  }
+
+  const baseUrl = `${server.connection.protocol}://${server.connection.host}:${server.connection.port}`;
+  const healthUrl = `${baseUrl}/health`;
+  
+  console.log('🔍 开始测试TTS服务器:', {
+    name: server.name,
+    type: server.type,
+    url: healthUrl,
+    connection: server.connection
+  });
   
   let loadingToast: any = null;
   try {
-    loadingToast = showToast.loading({
+    loadingToast = showLoadingToast({
       message: '正在测试连接...',
       forbidClick: true,
       duration: 0
     });
-    const baseUrl = `${server.connection.protocol}://${server.connection.host}:${server.connection.port}`;
-    const healthUrl = `${baseUrl}/health`;
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const startTime = Date.now();
-    const response = await fetch(healthUrl, {
-      method: 'GET',
-      signal: controller.signal
-    });
+    let response: Response;
+    try {
+      response = await fetch(healthUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        mode: 'cors' // 明确指定CORS模式
+      });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      throw fetchError;
+    }
     clearTimeout(timeoutId);
     const responseTime = Date.now() - startTime;
+
+    console.log('[TTS测试] 响应状态:', {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries())
+    });
 
     if (loadingToast) {
       loadingToast.close();
     }
 
     if (response.ok) {
-      showSuccessToast({
-        message: `✅ 连接成功！\n响应时间: ${responseTime}ms`,
+      // 对于MeLo TTS，检查返回的JSON中status是否为'ok'
+      let isHealthy = true;
+      let healthData: any = null;
+      
+      if (server.type === 'melo') {
+        try {
+          const data = await response.json();
+          healthData = data;
+          console.log('[TTS测试] MeLo TTS健康检查响应:', data);
+          isHealthy = data.status === 'ok';
+          
+          if (!isHealthy) {
+            console.warn('[TTS测试] 状态检查失败，返回的status不是"ok":', data);
+          }
+        } catch (e: any) {
+          console.error('[TTS测试] JSON解析失败:', e);
+          // 如果JSON解析失败，仍然认为响应ok就是健康的
+          isHealthy = true;
+        }
+      } else if (server.type === 'piper') {
+        // Piper TTS可能没有JSON响应，只要HTTP 200就认为可用
+        isHealthy = true;
+      }
+      
+      if (isHealthy) {
+        const message = healthData 
+          ? `✅ 连接成功！\n服务: ${healthData.service || 'TTS'}\n响应时间: ${responseTime}ms`
+          : `✅ 连接成功！\n响应时间: ${responseTime}ms`;
+        
+        showSuccessToast({
+          message,
+          duration: 3000
+        });
+        
+        // 更新服务器状态
+        settingsStore.updateTTSServer(server.id, {
+          status: {
+            health: 'available',
+            latency: responseTime,
+            lastCheck: Date.now()
+          }
+        });
+      } else {
+        showFailToast({
+          message: `❌ 服务不可用\n状态检查失败`,
+          duration: 3000
+        });
+        
+        settingsStore.updateTTSServer(server.id, {
+          status: {
+            health: 'unavailable',
+            latency: responseTime,
+            lastCheck: Date.now()
+          }
+        });
+      }
+    } else {
+      const errorText = await response.text().catch(() => '');
+      console.error('[TTS测试] HTTP错误:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      
+      showFailToast({
+        message: `❌ 连接失败\nHTTP ${response.status}: ${response.statusText}`,
         duration: 3000
       });
       
-      // 更新服务器状态
       settingsStore.updateTTSServer(server.id, {
         status: {
-          health: 'available',
-          latency: responseTime,
-          lastCheckTime: Date.now()
+          health: 'unavailable',
+          lastCheck: Date.now()
         }
-      });
-    } else {
-      showFailToast({
-        message: `❌ 连接失败\nHTTP ${response.status}`,
-        duration: 3000
       });
     }
   } catch (error: any) {
     if (loadingToast) {
       loadingToast.close();
     }
-    console.error('❌ TTS服务器测试失败:', error);
     
+    console.error('❌ TTS服务器测试失败:', {
+      error,
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+      url: healthUrl
+    });
+    
+    let errorMessage = '未知错误';
     if (error.name === 'AbortError') {
-      showFailToast({
-        message: '❌ 连接超时（5秒）',
-        duration: 3000
-      });
-    } else {
-      showFailToast({
-        message: `❌ 连接失败\n${error.message || '未知错误'}`,
-        duration: 3000
-      });
+      errorMessage = '连接超时（5秒）';
+    } else if (error.message) {
+      errorMessage = error.message;
+    } else if (error.toString) {
+      errorMessage = error.toString();
     }
+    
+    // 检查是否是CORS错误
+    if (errorMessage.includes('CORS') || errorMessage.includes('cors') || 
+        errorMessage.includes('fetch') || errorMessage.includes('network')) {
+      errorMessage = '网络错误或CORS问题\n请检查服务器CORS配置';
+    }
+    
+    showFailToast({
+      message: `❌ 连接失败\n${errorMessage}`,
+      duration: 4000
+    });
+    
+    settingsStore.updateTTSServer(server.id, {
+      status: {
+        health: 'unavailable',
+        lastCheck: Date.now()
+      }
+    });
   }
 };
 
@@ -1002,6 +1258,53 @@ const availableTTSServers = computed(() =>
     s.enabled && s.status?.health === 'available'
   ).length
 );
+
+// 更新音频统计信息
+const updateAudioStats = () => {
+  try {
+    const audioService = getMultiChannelAudioService();
+    audioStats.value = audioService.getStatistics();
+  } catch (error) {
+    console.error('获取音频统计信息失败:', error);
+  }
+};
+
+// 当TTS标签页激活时，开始更新统计信息
+watch(() => activeTab.value, (newTab) => {
+  if (newTab === 'tts') {
+    updateAudioStats();
+    audioStatsTimer = window.setInterval(updateAudioStats, 1000);
+  } else {
+    if (audioStatsTimer !== null) {
+      clearInterval(audioStatsTimer);
+      audioStatsTimer = null;
+    }
+  }
+});
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (audioStatsTimer !== null) {
+    clearInterval(audioStatsTimer);
+    audioStatsTimer = null;
+  }
+});
+
+// 获取声道名称
+const getChannelName = (channel: number): string => {
+  const channelNames: Record<number, string> = {
+    0: '玩家0（左）',
+    1: '玩家1（右）',
+    2: '玩家2（左中）',
+    3: '玩家3（右中）',
+    4: '玩家4（左环绕）',
+    5: '玩家5（右环绕）',
+    6: '玩家6（左后）',
+    7: '玩家7（右后）',
+    8: '报牌（中央）'
+  };
+  return channelNames[channel] || `声道${channel}`;
+};
 
 // 辅助函数 - 标签转换
 const getGameModeLabel = (mode: string) => {
@@ -1157,6 +1460,52 @@ const getServerStatusIcon = (server: TTSServerConfig) => {
 
 // TTS添加服务器弹窗
 const showAddTTSServer = ref(false);
+const editingTTSServer = ref<TTSServerConfig | null>(null);
+
+const handleAddTTSServer = (server: Partial<TTSServerConfig>) => {
+  if (editingTTSServer.value) {
+    // 更新现有服务器 - 确保connection字段完整
+    const updates: Partial<TTSServerConfig> = { ...server };
+    if (server.connection) {
+      updates.connection = {
+        ...editingTTSServer.value.connection,
+        ...server.connection
+      };
+    }
+    settingsStore.updateTTSServer(editingTTSServer.value.id, updates);
+    editingTTSServer.value = null;
+  } else {
+    // 添加新服务器 - 确保connection字段完整
+    if (!server.connection) {
+      showFailToast('服务器配置不完整：缺少connection字段');
+      return;
+    }
+    
+    const newServer: TTSServerConfig = {
+      id: server.id || `tts-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: server.name || '新TTS服务器',
+      type: (server.type || 'browser') as TTSProvider,
+      enabled: server.enabled ?? true,
+      priority: server.priority ?? 3,
+      connection: {
+        host: server.connection.host || 'localhost',
+        port: server.connection.port || (server.type === 'melo' ? 7860 : 5000),
+        protocol: server.connection.protocol || 'http'
+      },
+      providerConfig: server.providerConfig
+    };
+    settingsStore.addTTSServer(newServer);
+    
+    // 同步到TTS服务
+    import('../services/tts/ttsService').then(({ getTTSService }) => {
+      const ttsService = getTTSService();
+      ttsService.addServer(newServer);
+    }).catch(err => {
+      console.error('[SettingsPanel] 同步TTS服务器失败:', err);
+    });
+  }
+  showAddTTSServer.value = false;
+};
 </script>
 
 <style scoped>

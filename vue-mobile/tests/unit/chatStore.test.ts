@@ -2,9 +2,30 @@
  * 聊天消息Store单元测试
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useChatStore } from '../../src/stores/chatStore';
 import { setActivePinia, createPinia } from 'pinia';
+
+// Mock多通道音频服务
+vi.mock('../../src/services/multiChannelAudioService', () => {
+  return {
+    getMultiChannelAudioService: vi.fn(() => ({
+      speak: vi.fn().mockResolvedValue(undefined)
+    }))
+  };
+});
+
+// Mock AI Brain集成
+vi.mock('../../src/services/aiBrainIntegration', () => {
+  return {
+    aiBrainIntegration: {
+      onCommunicationMessage: vi.fn((callback: any) => {
+        // 存储回调以便测试时调用
+        (global as any).__aiBrainCallback = callback;
+      })
+    }
+  };
+});
 
 describe('ChatStore', () => {
   beforeEach(() => {
@@ -129,6 +150,77 @@ describe('ChatStore', () => {
       chatStore.clearMessages();
       
       expect(chatStore.messages.length).toBe(0);
+    });
+  });
+
+  describe('AI Brain集成', () => {
+    it('应该能够初始化AI Brain监听器', () => {
+      const chatStore = useChatStore();
+      
+      expect(() => {
+        chatStore.initializeAIBrainListener();
+      }).not.toThrow();
+    });
+
+    it('应该能够接收AI Brain消息并触发TTS', async () => {
+      const chatStore = useChatStore();
+      chatStore.initializeAIBrainListener();
+
+      // 模拟AI Brain发送消息
+      const { getMultiChannelAudioService } = await import('../../src/services/multiChannelAudioService');
+      const audioService = getMultiChannelAudioService();
+      
+      // 触发消息回调
+      const callback = (global as any).__aiBrainCallback;
+      if (callback) {
+        callback({
+          playerId: 1,
+          content: '测试消息',
+          intent: 'social_chat',
+          emotion: 'neutral',
+          timestamp: Date.now()
+        });
+
+        // 等待异步操作
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        // 验证消息已添加
+        expect(chatStore.messages.length).toBeGreaterThan(0);
+        expect(chatStore.messages[0].content).toBe('测试消息');
+
+        // 验证TTS被调用
+        expect(audioService.speak).toHaveBeenCalled();
+      }
+    });
+
+    it('应该根据intent设置正确的优先级', async () => {
+      const chatStore = useChatStore();
+      chatStore.initializeAIBrainListener();
+
+      const { getMultiChannelAudioService } = await import('../../src/services/multiChannelAudioService');
+      const audioService = getMultiChannelAudioService();
+
+      const callback = (global as any).__aiBrainCallback;
+      if (callback) {
+        // 测试对骂（priority = 3）
+        callback({
+          playerId: 1,
+          content: '对骂消息',
+          intent: 'taunt',
+          timestamp: Date.now()
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        // 验证优先级为3
+        expect(audioService.speak).toHaveBeenCalledWith(
+          '对骂消息',
+          undefined,
+          1,
+          3,
+          expect.any(Object)
+        );
+      }
     });
   });
 });

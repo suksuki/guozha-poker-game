@@ -52,7 +52,7 @@ describe('GameStore - 出牌功能', () => {
   });
 
   describe('出牌功能', () => {
-    it('应该能出单张牌', () => {
+    it('应该能出单张牌', async () => {
       const store = useGameStore();
       store.startGame();
       
@@ -60,13 +60,13 @@ describe('GameStore - 出牌功能', () => {
       const cardToPlay = [humanPlayer.hand[0]];
       
       const initialHandCount = humanPlayer.hand.length;
-      const result = store.playCards(cardToPlay);
+      const result = await store.playCards(cardToPlay);
       
       expect(result.success).toBe(true);
       expect(store.humanPlayer!.hand.length).toBe(initialHandCount - 1);
     });
 
-    it('应该能出对子', () => {
+    it('应该能出对子', async () => {
       const store = useGameStore();
       store.startGame();
       
@@ -87,7 +87,7 @@ describe('GameStore - 出牌功能', () => {
       
       if (pair.length === 2) {
         const initialHandCount = humanPlayer.hand.length;
-        const result = store.playCards(pair);
+        const result = await store.playCards(pair);
         
         expect(result.success).toBe(true);
         expect(store.humanPlayer!.hand.length).toBe(initialHandCount - 2);
@@ -121,17 +121,17 @@ describe('GameStore - 出牌功能', () => {
       expect(store.currentRound?.lastPlay).toBeDefined();
     });
 
-    it('应该拒绝空牌', () => {
+    it('应该拒绝空牌', async () => {
       const store = useGameStore();
       store.startGame();
       
-      const result = store.playCards([]);
+      const result = await store.playCards([]);
       
       expect(result.success).toBe(false);
       expect(result.message).toContain('无效牌型');
     });
 
-    it('应该拒绝无效牌型', () => {
+    it('应该拒绝无效牌型', async () => {
       const store = useGameStore();
       store.startGame();
       
@@ -142,41 +142,41 @@ describe('GameStore - 出牌功能', () => {
       );
       
       if (invalidCards.length === 3) {
-        const result = store.playCards(invalidCards);
+        const result = await store.playCards(invalidCards);
         expect(result.success).toBe(false);
       }
     });
   });
 
   describe('不要功能', () => {
-    it('首家不能不要', () => {
+    it('首家不能不要', async () => {
       const store = useGameStore();
       store.startGame();
       
-      const result = store.pass();
+      const result = await store.pass();
       
       // 首家出牌时不能不要
       expect(result.success).toBe(false);
     });
 
-    it('有上家出牌后可以不要', () => {
+    it('有上家出牌后可以不要', async () => {
       const store = useGameStore();
       store.startGame();
       
       // 先出一张牌
       const humanPlayer = store.humanPlayer!;
-      store.playCards([humanPlayer.hand[0]]);
+      await store.playCards([humanPlayer.hand[0]]);
       
       // 现在应该可以不要了（如果是人类玩家的回合）
       if (store.currentPlayerIndex === 0) {
-        const result = store.pass();
+        const result = await store.pass();
         expect(result).toBeDefined();
       }
     });
   });
 
   describe('游戏结束检测', () => {
-    it('玩家出完所有牌后应该记录排名', () => {
+    it('玩家出完所有牌后应该记录排名', async () => {
       const store = useGameStore();
       store.startGame();
       
@@ -185,7 +185,7 @@ describe('GameStore - 出牌功能', () => {
       
       // 模拟出完所有牌
       while (humanPlayer.hand.length > 0) {
-        const result = store.playCards([humanPlayer.hand[0]]);
+        const result = await store.playCards([humanPlayer.hand[0]]);
         if (!result.success) break;
       }
       

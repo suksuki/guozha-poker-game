@@ -192,13 +192,13 @@
                   </van-tag>
                 </div>
                 <div class="played-cards-center">
-                  <div 
+                  <CardView
                     v-for="(card, idx) in gameStore.currentRound.lastPlay" 
                     :key="`${card.id || idx}-${card.rank}-${card.suit}`"
+                    :card="card"
+                    size="medium"
                     class="played-card-center"
-                  >
-                    {{ cardDisplay(card) }}
-                  </div>
+                  />
                 </div>
                 <div class="play-info">
                   第{{ gameStore.currentRound.plays.length }}次出牌
@@ -259,7 +259,7 @@
                 :class="['card-item-landscape', { 'card-selected': isCardSelected(card.id) }]"
                 @click="toggleCard(card.id)"
               >
-                {{ cardDisplay(card) }}
+                <CardView :card="card" size="medium" />
               </div>
             </div>
           </div>
@@ -316,6 +316,7 @@ import GameResultScreen from './GameResultScreen.vue';
 import SettingsPanel from './SettingsPanel.vue';
 import ChatInput from './ChatInput.vue';
 import ChatBubble from './ChatBubble.vue';
+import CardView from './CardView.vue';
 
 const gameStore = useGameStore();
 const chatStore = useChatStore();
@@ -369,21 +370,6 @@ const canPass = computed(() => {
   return gameStore.currentRound?.lastPlay !== null;
 });
 
-const cardDisplay = (card: Card) => {
-  const suits = { 0: '♠', 1: '♥', 2: '♣', 3: '♦', 4: '🃏' };
-  
-  // Rank枚举值映射
-  const rankMap: Record<number, string> = {
-    3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10',
-    11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2',
-    16: '小王', 17: '大王'
-  };
-  
-  const suitSymbol = card.rank >= 16 ? '🃏' : (suits[card.suit as keyof typeof suits] || '');
-  const rankText = rankMap[card.rank] || card.rank.toString();
-  
-  return `${suitSymbol}${rankText}`;
-};
 
 const isCardSelected = (cardId: string) => {
   return selectedCardIds.value.includes(cardId);
@@ -642,11 +628,6 @@ const getLastPlayType = () => {
     margin: 0 auto;
   }
   
-  .card-item-landscape {
-    min-width: 55px;
-    width: 55px;
-    font-size: 15px;
-  }
 }
 
 /* 左侧玩家 */
@@ -842,18 +823,15 @@ const getLastPlayType = () => {
   align-items: center;
 }
 
-.played-card-center {
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #fff 0%, #f0f0f0 100%);
-  border: 3px solid #52c41a;
-  border-radius: 10px;
-  font-size: 20px;
-  font-weight: bold;
-  color: #333;
-  box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-  min-width: 50px;
+.play-info {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
   text-align: center;
+}
+
+.played-card-center {
   animation: cardAppear 0.3s ease-out;
+  flex-shrink: 0;
 }
 
 @keyframes cardAppear {
@@ -950,41 +928,26 @@ const getLastPlayType = () => {
 }
 
 .card-item-landscape {
-  min-width: 35px;
-  width: 35px;
-  height: 100%;
-  background: white;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: bold;
   cursor: pointer;
   transition: all 0.2s;
   user-select: none;
   flex-shrink: 0;
-}
-
-@media screen and (max-width: 900px) {
-  .card-item-landscape {
-    min-width: 30px;
-    width: 30px;
-    font-size: 10px;
-  }
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .card-item-landscape:active {
   transform: scale(0.95);
 }
 
-.card-selected {
-  background: #1989fa;
-  color: white;
-  border-color: #1989fa;
+.card-item-landscape.card-selected {
   transform: translateY(-8px);
+}
+
+.card-item-landscape.card-selected .card {
   box-shadow: 0 6px 12px rgba(25, 137, 250, 0.4);
+  border-color: #1989fa;
 }
 
 /* 聊天面板样式 */

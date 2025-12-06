@@ -1,11 +1,17 @@
 /**
  * Vue移动端 AI Brain 集成服务
  * 将AI Brain系统集成到Vue移动端游戏
+ * 
+ * ⚠️ 注意：当前使用老APP的AI Brain系统
+ * 未来计划：迁移到移动端独立的AI实现
+ * 标记：TODO - 迁移到移动端独立AI系统
  */
 
+// TODO: 迁移到移动端独立AI系统
 import { GameBridge } from '../../../src/ai-core/integration/GameBridge';
 import { MasterBrainConfig } from '../../../src/ai-core/master-brain/MasterAIBrain';
 import { GameState as AIGameState } from '../../../src/ai-core/types';
+// TODO: 迁移到移动端独立Game类
 import { Game } from '../../../src/game-engine/Game';
 import type { Card, Play } from '../../../src/types/card';
 
@@ -159,7 +165,9 @@ export class AIBrainIntegration {
 
     const gameState = this.convertGameState(game, playerId);
     const api = this.gameBridge.getAPI();
-    await api.notifyStateChange(gameState, changeType);
+    await api.notifyStateChange(gameState, changeType).catch(err => {
+      console.error(`[AIBrainIntegration] 游戏状态更新失败:`, err);
+    });
   }
   
   /**

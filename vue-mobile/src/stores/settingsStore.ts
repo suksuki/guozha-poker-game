@@ -4,10 +4,10 @@
  */
 
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import type { LLMChatConfig } from '../../../src/config/chatConfig';
-import type { TTSServerConfig } from '../../../src/tts/models/TTSServerConfig';
 import { DEFAULT_LLM_CHAT_CONFIG } from '../../../src/config/chatConfig';
+import type { TTSServerConfig } from '../services/tts/types';
 
 // ========== 游戏设置 ==========
 export interface GameSettings {
@@ -34,6 +34,16 @@ export interface AISettings {
   aiStrategy: 'balanced' | 'aggressive' | 'conservative';
   enableAIThinking: boolean;
   aiResponseDelay: number; // 毫秒
+}
+
+// ========== 语音播报设置 ==========
+export interface VoicePlaybackSettings {
+  enabled: boolean;  // 是否启用语音播报
+  volume: number;     // 音量 (0-1)
+  speed: number;      // 语速 (0.5-2.0)
+  maxConcurrentPlayers: number;  // 最多同时播放的玩家数 (1-8)
+  enableSystemAnnouncements: boolean;  // 是否启用系统播报
+  enablePlayerChat: boolean;  // 是否启用玩家聊天播报
 }
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -74,6 +84,16 @@ export const useSettingsStore = defineStore('settings', () => {
   // TTS服务器列表
   const ttsServers = ref<TTSServerConfig[]>([]);
 
+  // 语音播报设置
+  const voicePlaybackSettings = ref<VoicePlaybackSettings>({
+    enabled: true,
+    volume: 1.0,
+    speed: 1.0,
+    maxConcurrentPlayers: 3,
+    enableSystemAnnouncements: true,
+    enablePlayerChat: true
+  });
+
   // 设置面板是否打开
   const isSettingsOpen = ref(false);
 
@@ -107,6 +127,11 @@ export const useSettingsStore = defineStore('settings', () => {
       if (savedTTS) {
         ttsServers.value = JSON.parse(savedTTS);
       }
+
+      const savedVoicePlayback = localStorage.getItem('voice-playback-settings');
+      if (savedVoicePlayback) {
+        voicePlaybackSettings.value = { ...voicePlaybackSettings.value, ...JSON.parse(savedVoicePlayback) };
+      }
     } catch (error) {
       console.error('加载设置失败:', error);
     }
@@ -124,6 +149,7 @@ export const useSettingsStore = defineStore('settings', () => {
       }));
       localStorage.setItem('llm-config', JSON.stringify(llmConfig.value));
       localStorage.setItem('tts-servers', JSON.stringify(ttsServers.value));
+      localStorage.setItem('voice-playback-settings', JSON.stringify(voicePlaybackSettings.value));
     } catch (error) {
       console.error('保存设置失败:', error);
     }
@@ -174,6 +200,17 @@ export const useSettingsStore = defineStore('settings', () => {
    * 添加TTS服务器
    */
   const addTTSServer = (server: TTSServerConfig) => {
+    // 验证必需字段
+    if (server.type !== 'browser' && !server.connection) {
+      console.error('[SettingsStore] 添加TTS服务器失败：缺少connection字段', server);
+      throw new Error('TTS服务器配置不完整：缺少connection字段');
+    }
+    
+    if (server.connection && (!server.connection.host || !server.connection.port)) {
+      console.error('[SettingsStore] 添加TTS服务器失败：connection字段不完整', server);
+      throw new Error('TTS服务器配置不完整：connection字段缺少host或port');
+    }
+    
     ttsServers.value.push(server);
     saveSettings();
   };
@@ -184,7 +221,39 @@ export const useSettingsStore = defineStore('settings', () => {
   const updateTTSServer = (id: string, updates: Partial<TTSServerConfig>) => {
     const index = ttsServers.value.findIndex(s => s.id === id);
     if (index !== -1) {
-      ttsServers.value[index] = { ...ttsServers.value[index], ...updates };
+      const existing = ttsServers.value[index];
+      
+      // 如果更新了connection，需要合并；否则保留现有的connection
+      let connection = existing.connection;
+      if (updates.connection) {
+        if (existing.connection) {
+          connection = {
+            ...existing.connection,
+            ...updates.connection
+          };
+        } else {
+          connection = updates.connection;
+        }
+      }
+      
+      const updated = { 
+        ...existing, 
+        ...updates,
+        connection  // 确保connection被正确设置
+      };
+      
+      // 验证必需字段
+      if (updated.type !== 'browser' && !updated.connection) {
+        console.error('[SettingsStore] 更新TTS服务器失败：缺少connection字段', updated);
+        throw new Error('TTS服务器配置不完整：缺少connection字段');
+      }
+      
+      if (updated.connection && (!updated.connection.host || !updated.connection.port)) {
+        console.error('[SettingsStore] 更新TTS服务器失败：connection字段不完整', updated);
+        throw new Error('TTS服务器配置不完整：connection字段缺少host或port');
+      }
+      
+      ttsServers.value[index] = updated;
       saveSettings();
     }
   };
@@ -195,6 +264,27 @@ export const useSettingsStore = defineStore('settings', () => {
   const removeTTSServer = (id: string) => {
     ttsServers.value = ttsServers.value.filter(s => s.id !== id);
     saveSettings();
+  };
+
+  /**
+   * 更新语音播报设置
+   */
+  const updateVoicePlaybackSettings = async (updates: Partial<VoicePlaybackSettings>) => {
+    voicePlaybackSettings.value = { ...voicePlaybackSettings.value, ...updates };
+    saveSettings();
+    
+    // 同步到音频服务
+    try {
+      const { getMultiChannelAudioService } = await import('../services/multiChannelAudioService');
+      const audioService = getMultiChannelAudioService();
+      audioService.updateConfig({
+        enabled: voicePlaybackSettings.value.enabled,
+        maxConcurrentPlayers: voicePlaybackSettings.value.maxConcurrentPlayers,
+        masterVolume: voicePlaybackSettings.value.volume
+      });
+    } catch (error) {
+      console.error('[SettingsStore] 同步语音播报配置失败:', error);
+    }
   };
 
   /**
@@ -245,11 +335,44 @@ export const useSettingsStore = defineStore('settings', () => {
     };
     llmConfig.value = { ...DEFAULT_LLM_CHAT_CONFIG };
     ttsServers.value = [];
+    voicePlaybackSettings.value = {
+      enabled: true,
+      volume: 1.0,
+      speed: 1.0,
+      maxConcurrentPlayers: 3,
+      enableSystemAnnouncements: true,
+      enablePlayerChat: true
+    };
     saveSettings();
   };
 
   // 初始化时加载设置
   loadSettings();
+  
+  // 监听TTS服务器变化，同步到TTS服务
+  watch(ttsServers, async (newServers) => {
+    try {
+      const { updateTTSServiceConfig } = await import('../services/tts/init');
+      updateTTSServiceConfig(newServers);
+    } catch (error) {
+      console.error('[SettingsStore] 同步TTS配置失败:', error);
+    }
+  }, { deep: true });
+
+  // 监听语音播报设置变化，同步到音频服务
+  watch(voicePlaybackSettings, async (newSettings) => {
+    try {
+      const { getMultiChannelAudioService } = await import('../services/multiChannelAudioService');
+      const audioService = getMultiChannelAudioService();
+      audioService.updateConfig({
+        enabled: newSettings.enabled,
+        maxConcurrentPlayers: newSettings.maxConcurrentPlayers,
+        masterVolume: newSettings.volume
+      });
+    } catch (error) {
+      console.error('[SettingsStore] 同步语音播报配置失败:', error);
+    }
+  }, { deep: true });
 
   return {
     // 状态
@@ -258,6 +381,7 @@ export const useSettingsStore = defineStore('settings', () => {
     aiSettings,
     llmConfig,
     ttsServers,
+    voicePlaybackSettings,
     isSettingsOpen,
     
     // 计算属性
@@ -275,6 +399,7 @@ export const useSettingsStore = defineStore('settings', () => {
     addTTSServer,
     updateTTSServer,
     removeTTSServer,
+    updateVoicePlaybackSettings,
     openSettings,
     closeSettings,
     toggleSettings,
