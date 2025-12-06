@@ -5,10 +5,10 @@
 
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { aiBrainIntegration } from '../services/aiBrainIntegration';
+import { aiBrainIntegration } from '../services/ai/aiBrainIntegration';
 import { useGameStore } from './gameStore';
 import { useSettingsStore } from './settingsStore';
-import { getMultiChannelAudioService } from '../services/multiChannelAudioService';
+import { getMultiChannelAudioService } from '../services/audio/multiChannelAudioService';
 
 export interface ChatMessage {
   id: string;

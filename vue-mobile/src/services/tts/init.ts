@@ -4,7 +4,7 @@
  */
 
 import { getTTSService } from './ttsService';
-import { getMultiChannelAudioService } from '../multiChannelAudioService';
+import { getMultiChannelAudioService } from '../audio/multiChannelAudioService';
 import type { TTSServerConfig } from './types';
 
 /**

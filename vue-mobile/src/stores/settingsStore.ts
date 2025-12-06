@@ -275,7 +275,7 @@ export const useSettingsStore = defineStore('settings', () => {
     
     // 同步到音频服务
     try {
-      const { getMultiChannelAudioService } = await import('../services/multiChannelAudioService');
+      const { getMultiChannelAudioService } = await import('../services/audio/multiChannelAudioService');
       const audioService = getMultiChannelAudioService();
       audioService.updateConfig({
         enabled: voicePlaybackSettings.value.enabled,
@@ -362,7 +362,7 @@ export const useSettingsStore = defineStore('settings', () => {
   // 监听语音播报设置变化，同步到音频服务
   watch(voicePlaybackSettings, async (newSettings) => {
     try {
-      const { getMultiChannelAudioService } = await import('../services/multiChannelAudioService');
+      const { getMultiChannelAudioService } = await import('../services/audio/multiChannelAudioService');
       const audioService = getMultiChannelAudioService();
       audioService.updateConfig({
         enabled: newSettings.enabled,

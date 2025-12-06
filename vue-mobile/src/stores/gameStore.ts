@@ -15,7 +15,7 @@ import type { Card } from '../../../src/types/card';
 // TODO: 迁移到移动端独立AI策略
 import { simpleAIStrategy } from '../../../src/ai/simpleStrategy';
 import { showToast } from 'vant';
-import { aiBrainIntegration } from '../services/aiBrainIntegration';
+import { aiBrainIntegration } from '../services/ai/aiBrainIntegration';
 import { useSettingsStore } from './settingsStore';
 import { getTTSPlaybackService } from '../services/tts/ttsPlaybackService';
 import { playToSpeechText } from '../utils/playToSpeechText';
@@ -153,7 +153,7 @@ export const useGameStore = defineStore('game', () => {
               }
 
               // 检查多声道音频服务
-              const { getMultiChannelAudioService } = await import('../services/multiChannelAudioService');
+              const { getMultiChannelAudioService } = await import('../services/audio/multiChannelAudioService');
               const audioService = getMultiChannelAudioService();
               const audioStats = audioService.getStatistics();
               

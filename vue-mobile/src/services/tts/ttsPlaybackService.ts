@@ -7,7 +7,7 @@
  * 直接调用TTS客户端（piper/melo）获取音频文件，然后用Web Audio API播放（多声道）
  */
 
-import { getMultiChannelAudioService } from '../multiChannelAudioService';
+import { getMultiChannelAudioService } from '../audio/multiChannelAudioService';
 import { ChannelType } from '../../types/channel';
 import type { TTSOptions, TTSResult } from './types';
 import type { TTSServerConfig } from './types';
