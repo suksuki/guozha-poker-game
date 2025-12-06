@@ -159,6 +159,15 @@ export const useSettingsStore = defineStore('settings', () => {
   const updateLLMConfig = (updates: Partial<LLMChatConfig>) => {
     llmConfig.value = { ...llmConfig.value, ...updates };
     saveSettings();
+    
+    // 如果AI Brain已初始化，触发重新初始化（延迟执行，避免频繁初始化）
+    if ((window as any).__aiBrainReinitTimer) {
+      clearTimeout((window as any).__aiBrainReinitTimer);
+    }
+    (window as any).__aiBrainReinitTimer = setTimeout(() => {
+      // 通过事件通知gameStore重新初始化
+      window.dispatchEvent(new CustomEvent('llm-config-updated', { detail: llmConfig.value }));
+    }, 1000);
   };
 
   /**

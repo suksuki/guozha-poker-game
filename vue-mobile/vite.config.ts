@@ -19,7 +19,23 @@ export default defineConfig({
     sourcemap: false
   },
   test: {
-    environment: 'jsdom'
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: [fileURLToPath(new URL('./tests/setup.ts', import.meta.url))],
+    include: ['tests/**/*.test.ts'],
+    testTimeout: 5000, // 5秒超时
+    hookTimeout: 5000, // 5秒超时
+    teardownTimeout: 2000, // 2秒清理超时
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'text-summary', 'html'],
+      exclude: [
+        'node_modules/',
+        'tests/',
+        '*.config.*',
+        'dist/'
+      ]
+    }
   }
 });
 

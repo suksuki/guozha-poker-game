@@ -2,7 +2,7 @@
   <van-popup
     v-model:show="isOpen"
     position="center"
-    :style="{ width: '90%', maxWidth: '500px', maxHeight: '85vh', borderRadius: '16px' }"
+    :style="{ width: '90%', maxWidth: '500px', height: '85vh', maxHeight: '85vh', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }"
     closeable
     close-icon-position="top-right"
     @close="handleClose"
@@ -12,10 +12,13 @@
     <div class="settings-panel">
       <div class="settings-header">
         <h2>⚙️ 设置</h2>
+        <button class="close-button" @click="handleClose" aria-label="关闭设置">
+          ❌
+        </button>
       </div>
 
       <div class="settings-body">
-        <van-tabs v-model:active="activeTab" swipeable sticky>
+        <van-tabs v-model:active="activeTab" swipeable>
         <!-- 游戏设置 -->
         <van-tab title="🎮 游戏" name="game">
           <div class="settings-content">
@@ -55,7 +58,7 @@
         <!-- LLM配置 -->
         <van-tab title="🤖 LLM" name="llm">
           <div class="settings-content">
-            <!-- 连接状态摘要 -->
+            <!-- 连接状态 -->
             <van-cell-group>
               <van-cell title="连接状态" :value="llmConnectionStatus">
                 <template #icon>
@@ -64,25 +67,97 @@
               </van-cell>
             </van-cell-group>
 
-            <!-- 基础配置 -->
-            <van-cell-group title="📡 基础配置">
-              <van-cell title="LLM提供商">
+            <!-- LLM提供商选择 -->
+            <van-cell-group title="📡 LLM提供商">
+              <van-cell title="选择提供商">
                 <template #value>
                   <van-radio-group 
                     v-model="localLLMConfig.provider"
                     direction="horizontal"
-                    @change="updateLLMConfig({ provider: localLLMConfig.provider })"
+                    @change="handleProviderChange"
                   >
+                    <van-radio name="ollama">Ollama</van-radio>
                     <van-radio name="openai">OpenAI</van-radio>
                     <van-radio name="claude">Claude</van-radio>
                     <van-radio name="custom">自定义</van-radio>
                   </van-radio-group>
                 </template>
               </van-cell>
+            </van-cell-group>
+
+            <!-- Ollama服务器配置 -->
+            <van-cell-group v-if="localLLMConfig.provider === 'ollama'" title="🖥️ Ollama服务器配置">
+              <!-- 服务器类型 -->
+              <van-cell title="服务器类型">
+                <template #value>
+                  <van-radio-group 
+                    v-model="ollamaServerMode"
+                    direction="horizontal"
+                    @change="handleOllamaServerModeChange"
+                  >
+                    <van-radio name="local">本地</van-radio>
+                    <van-radio name="lan">局域网</van-radio>
+                    <van-radio name="custom">其他</van-radio>
+                  </van-radio-group>
+                </template>
+              </van-cell>
+
+              <!-- 局域网IP地址 -->
+              <van-field
+                v-if="ollamaServerMode === 'lan'"
+                v-model="ollamaLanIP"
+                label="IP地址"
+                placeholder="0.13 或 192.168.0.13"
+                @change="updateOllamaServerUrl"
+              >
+                <template #prefix>
+                  <span style="color: #999;">192.168.</span>
+                </template>
+              </van-field>
+
+              <!-- 自定义主机地址 -->
+              <van-field
+                v-if="ollamaServerMode === 'custom'"
+                v-model="ollamaCustomHost"
+                label="主机地址"
+                placeholder="IP或域名"
+                @change="updateOllamaServerUrl"
+              />
+
+              <!-- 端口（非本地模式） -->
+              <van-field
+                v-if="ollamaServerMode !== 'local'"
+                v-model="ollamaPort"
+                label="端口"
+                type="number"
+                placeholder="11434"
+                @change="updateOllamaServerUrl"
+              />
+
+              <!-- 当前API地址显示 -->
+              <van-cell title="当前API地址" :value="localLLMConfig.apiUrl || '未设置'" />
+
+              <!-- 测试连接按钮 -->
+              <van-cell>
+                <van-button 
+                  type="primary"
+                  size="normal"
+                  @click="testLLMConnection"
+                  :loading="isTestingConnection"
+                  block
+                  round
+                >
+                  {{ isTestingConnection ? '测试中...' : '🔍 测试连接' }}
+                </van-button>
+              </van-cell>
+            </van-cell-group>
+
+            <!-- 非Ollama的API地址配置 -->
+            <van-cell-group v-if="localLLMConfig.provider !== 'ollama'" title="🔗 API配置">
               <van-field
                 v-model="localLLMConfig.apiUrl"
                 label="API地址"
-                placeholder="http://localhost:11434/api/chat"
+                placeholder="请输入API地址"
                 @change="updateLLMConfig({ apiUrl: localLLMConfig.apiUrl })"
               >
                 <template #button>
@@ -90,18 +165,173 @@
                     size="small" 
                     type="primary"
                     @click.stop="testLLMConnection"
+                    :loading="isTestingConnection"
                   >
                     🔍 测试
                   </van-button>
                 </template>
               </van-field>
-              <van-field
-                v-model="localLLMConfig.model"
-                label="模型名称"
-                placeholder="qwen2:0.5b"
-                @change="updateLLMConfig({ model: localLLMConfig.model })"
+            </van-cell-group>
+
+            <!-- 模型选择 -->
+            <van-cell-group title="🤖 模型配置">
+              <van-cell title="当前选择" :value="localLLMConfig.model || '未选择'" />
+              
+              <!-- 刷新按钮 -->
+              <van-cell>
+                <van-button 
+                  size="small" 
+                  type="primary"
+                  @click="refreshModels"
+                  :loading="isLoadingModels"
+                  block
+                >
+                  🔄 刷新模型列表
+                </van-button>
+              </van-cell>
+              
+              <!-- 加载中 -->
+              <div v-if="isLoadingModels" class="model-loading">
+                <van-loading>加载模型中...</van-loading>
+              </div>
+              
+              <!-- 模型列表 - 直接显示，点击选择 -->
+              <div v-else-if="availableModels.length > 0" class="models-list-container">
+                <div class="models-list">
+                  <van-button
+                    v-for="model in availableModels"
+                    :key="model"
+                    :type="model === localLLMConfig.model ? 'primary' : 'default'"
+                    size="small"
+                    class="model-button"
+                    :class="{ 'model-selected': model === localLLMConfig.model }"
+                    @click="selectModel(model)"
+                  >
+                    {{ model }}
+                  </van-button>
+                </div>
+              </div>
+              
+              <!-- 无法获取模型时，显示手动输入 -->
+              <div v-else class="model-manual-input">
+                <van-field
+                  v-model="localLLMConfig.model"
+                  label="手动输入模型名称"
+                  placeholder="如: qwen2:0.5b 或 deepseek-chat"
+                  @change="updateLLMConfig({ model: localLLMConfig.model })"
+                >
+                  <template #button>
+                    <van-button 
+                      size="small" 
+                      type="primary"
+                      @click="updateLLMConfig({ model: localLLMConfig.model })"
+                    >
+                      确定
+                    </van-button>
+                  </template>
+                </van-field>
+              </div>
+            </van-cell-group>
+
+            <!-- Ollama服务器管理 -->
+            <van-cell-group v-if="localLLMConfig.provider === 'ollama'" title="🖥️ Ollama服务器管理">
+              <van-cell 
+                title="添加服务器" 
+                is-link
+                @click="showAddServerDialog = true"
+              />
+              
+              <!-- 服务器列表 -->
+              <van-cell
+                v-for="server in ollamaServers"
+                :key="server.id"
+                :title="server.name"
+                :label="`${server.host}:${server.port}`"
+                :value="server.id === currentOllamaServerId ? '当前使用' : ''"
+                is-link
+                @click="switchOllamaServer(server.id)"
+              >
+                <template #right-icon>
+                  <van-button
+                    v-if="server.id !== 'local'"
+                    size="mini"
+                    type="danger"
+                    @click.stop="removeOllamaServer(server.id)"
+                  >
+                    删除
+                  </van-button>
+                </template>
+              </van-cell>
+              
+              <van-empty
+                v-if="ollamaServers.length === 0"
+                description="暂无服务器，点击上方添加"
               />
             </van-cell-group>
+
+            <!-- LLM测试窗口 -->
+            <van-cell-group title="🧪 大模型测试">
+              <van-field
+                v-model="testMessage"
+                label="测试消息"
+                placeholder="输入测试消息，如：你好，介绍一下自己"
+                @keyup.enter="handleTestLLMChat"
+              >
+                <template #button>
+                  <van-button 
+                    size="small" 
+                    type="primary"
+                    @click="handleTestLLMChat"
+                    :loading="isTestingLLM"
+                    :disabled="!testMessage.trim() || !canTestLLM"
+                  >
+                    {{ isTestingLLM ? '测试中...' : '📤 发送' }}
+                  </van-button>
+                </template>
+              </van-field>
+              
+              <div v-if="testError" class="test-error">
+                <van-cell title="❌ 错误" :value="testError" />
+              </div>
+              
+              <div v-if="testResponse" class="test-response">
+                <van-cell title="🤖 模型回应" />
+                <div class="test-response-content">{{ testResponse }}</div>
+              </div>
+            </van-cell-group>
+            
+            <!-- 添加服务器对话框 -->
+            <van-dialog
+              v-model:show="showAddServerDialog"
+              title="添加Ollama服务器"
+              show-cancel-button
+              @confirm="handleAddOllamaServer"
+              @cancel="() => { newServerName = ''; newServerHost = ''; newServerPort = 11434; }"
+            >
+              <van-form @submit="handleAddOllamaServer">
+                <van-field
+                  v-model="newServerName"
+                  label="服务器名称"
+                  placeholder="如: 办公室服务器"
+                  clearable
+                />
+                <van-field
+                  v-model="newServerHost"
+                  label="主机地址"
+                  placeholder="IP或域名"
+                  required
+                  clearable
+                />
+                <van-field
+                  v-model.number="newServerPort"
+                  label="端口"
+                  type="number"
+                  placeholder="11434"
+                  required
+                  clearable
+                />
+              </van-form>
+            </van-dialog>
 
             <!-- 高级配置 - 可折叠 -->
             <van-collapse v-model="llmAdvancedOpen">
@@ -308,13 +538,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useSettingsStore } from '../stores/settingsStore';
-import { showToast, showConfirmDialog } from 'vant';
+import { showToast, showSuccessToast, showFailToast, showConfirmDialog } from 'vant';
 import type { GameSettings, UISettings, AISettings } from '../stores/settingsStore';
 import type { LLMChatConfig } from '../../../src/config/chatConfig';
 import type { TTSServerConfig } from '../../../src/tts/models/TTSServerConfig';
 import { checkLLMAvailability } from '../../../src/utils/llmHealthCheck';
+import { getAvailableOllamaModels, checkOllamaService } from '../../../src/utils/llmModelService';
+import { ollamaServerManager, type OllamaServerConfig } from '../services/ollamaServerManager';
 
 interface Props {
   modelValue: boolean;
@@ -333,12 +565,44 @@ const isOpen = computed({
 });
 
 const activeTab = ref('game');
+const llmAdvancedOpen = ref<string[]>([]);
 
 // 本地状态（用于双向绑定）
 const localGameSettings = ref<GameSettings>({ ...settingsStore.gameSettings });
 const localUISettings = ref<UISettings>({ ...settingsStore.uiSettings });
 const localAISettings = ref<AISettings>({ ...settingsStore.aiSettings });
 const localLLMConfig = ref<LLMChatConfig>({ ...settingsStore.llmConfig });
+
+// Ollama服务器配置
+const ollamaServerMode = ref<'local' | 'lan' | 'custom'>('local');
+const ollamaLanIP = ref('');
+const ollamaCustomHost = ref('');
+const ollamaPort = ref(11434);
+
+// 模型选择
+const showModelSelector = ref(false);
+const availableModels = ref<string[]>([]);
+const isLoadingModels = ref(false);
+const manualModelName = ref('');
+const isTestingConnection = ref(false);
+
+// LLM测试
+const testMessage = ref('');
+const isTestingLLM = ref(false);
+const testError = ref('');
+const testResponse = ref('');
+
+// 连接状态
+const llmConnectionStatus = ref('未检测');
+const llmStatusIcon = ref('⚪');
+
+// Ollama服务器管理
+const ollamaServers = ref<OllamaServerConfig[]>([]);
+const currentOllamaServerId = ref('local');
+const showAddServerDialog = ref(false);
+const newServerName = ref('');
+const newServerHost = ref('');
+const newServerPort = ref(11434);
 
 // 监听store变化
 watch(() => settingsStore.gameSettings, (val) => {
@@ -355,7 +619,31 @@ watch(() => settingsStore.aiSettings, (val) => {
 
 watch(() => settingsStore.llmConfig, (val) => {
   localLLMConfig.value = { ...val };
+  if (val.provider === 'ollama') {
+    initOllamaServerConfig();
+  }
 }, { deep: true });
+
+// 监听LLM配置变化，自动检测连接状态
+watch(() => localLLMConfig.value.apiUrl, async (newUrl) => {
+  if (newUrl && localLLMConfig.value.provider === 'ollama') {
+    // 自动检测连接状态
+    try {
+      const baseUrl = newUrl.replace('/api/chat', '');
+      const isAvailable = await checkOllamaService(baseUrl);
+      if (isAvailable) {
+        llmConnectionStatus.value = '已连接';
+        llmStatusIcon.value = '✅';
+      } else {
+        llmConnectionStatus.value = '未连接';
+        llmStatusIcon.value = '❌';
+      }
+    } catch (e) {
+      llmConnectionStatus.value = '检测失败';
+      llmStatusIcon.value = '❓';
+    }
+  }
+});
 
 // 方法
 const updateGameSettings = (updates: Partial<GameSettings>) => {
@@ -378,6 +666,172 @@ const updateLLMConfig = (updates: Partial<LLMChatConfig>) => {
   localLLMConfig.value = { ...settingsStore.llmConfig };
 };
 
+// 初始化Ollama服务器配置
+const initOllamaServerConfig = () => {
+  const apiUrl = localLLMConfig.value.apiUrl || '';
+  if (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
+    ollamaServerMode.value = 'local';
+  } else if (apiUrl.includes('192.168.')) {
+    ollamaServerMode.value = 'lan';
+    const match = apiUrl.match(/192\.168\.(\d+\.\d+)/);
+    if (match) {
+      ollamaLanIP.value = match[1];
+    }
+    const portMatch = apiUrl.match(/:(\d+)/);
+    if (portMatch) {
+      ollamaPort.value = parseInt(portMatch[1]) || 11434;
+    }
+  } else if (apiUrl) {
+    ollamaServerMode.value = 'custom';
+    try {
+      const url = new URL(apiUrl);
+      ollamaCustomHost.value = url.hostname;
+      ollamaPort.value = parseInt(url.port) || 11434;
+    } catch (e) {
+      // 解析失败，保持默认值
+    }
+  }
+};
+
+// 更新Ollama服务器URL
+const updateOllamaServerUrl = () => {
+  let host = '';
+  let port = ollamaPort.value || 11434;
+  
+  if (ollamaServerMode.value === 'local') {
+    host = 'localhost';
+  } else if (ollamaServerMode.value === 'lan') {
+    const ip = ollamaLanIP.value.trim();
+    if (ip.split('.').length === 2) {
+      host = `192.168.${ip}`;
+    } else {
+      host = ip.startsWith('192.168.') ? ip : `192.168.${ip}`;
+    }
+  } else {
+    host = ollamaCustomHost.value.trim();
+  }
+  
+  if (host) {
+    const apiUrl = `http://${host}:${port}/api/chat`;
+    updateLLMConfig({ apiUrl });
+  }
+};
+
+// 处理提供商变更
+const handleProviderChange = () => {
+  if (localLLMConfig.value.provider === 'ollama') {
+    initOllamaServerConfig();
+    // 自动加载模型列表
+    refreshModels();
+  }
+  updateLLMConfig({ provider: localLLMConfig.value.provider });
+};
+
+// 处理Ollama服务器模式变更
+const handleOllamaServerModeChange = () => {
+  updateOllamaServerUrl();
+  // 切换服务器后重新加载模型列表
+  refreshModels();
+};
+
+// 刷新模型列表
+const refreshModels = async () => {
+  if (localLLMConfig.value.provider !== 'ollama') {
+    return;
+  }
+  
+  isLoadingModels.value = true;
+  availableModels.value = [];
+  
+  try {
+    const apiUrl = localLLMConfig.value.apiUrl || 'http://localhost:11434/api/chat';
+    const baseUrl = apiUrl.replace('/api/chat', '');
+    
+    // 检查服务是否可用
+    const isAvailable = await checkOllamaService(baseUrl);
+    if (!isAvailable) {
+      showFailToast('无法连接到Ollama服务');
+      return;
+    }
+    
+    // 获取模型列表
+    const models = await getAvailableOllamaModels(baseUrl);
+    availableModels.value = models;
+    
+    if (models.length === 0) {
+      showToast('未找到可用模型');
+    }
+  } catch (error: any) {
+    console.error('获取模型列表失败:', error);
+    showFailToast(`获取模型列表失败: ${error.message}`);
+  } finally {
+    isLoadingModels.value = false;
+  }
+};
+
+// 选择模型
+const selectModel = (model: string) => {
+  if (!model.trim()) {
+    showToast('请输入模型名称');
+    return;
+  }
+  updateLLMConfig({ model: model.trim() });
+  showModelSelector.value = false;
+  manualModelName.value = '';
+};
+
+// 测试LLM聊天
+const handleTestLLMChat = async () => {
+  if (!testMessage.value.trim()) {
+    showToast('请输入测试消息');
+    return;
+  }
+  
+  if (!localLLMConfig.value.apiUrl || !localLLMConfig.value.model) {
+    showToast('请先配置API地址和模型');
+    return;
+  }
+  
+  isTestingLLM.value = true;
+  testError.value = '';
+  testResponse.value = '';
+  
+  try {
+    const apiUrl = localLLMConfig.value.apiUrl;
+    const model = localLLMConfig.value.model;
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: testMessage.value
+          }
+        ],
+        stream: false
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    testResponse.value = data.message?.content || data.response || '无响应内容';
+    showSuccessToast('测试成功');
+  } catch (error: any) {
+    testError.value = error.message || '未知错误';
+    showFailToast(`测试失败: ${testError.value}`);
+  } finally {
+    isTestingLLM.value = false;
+  }
+};
+
 const updateTTSServer = (id: string, updates: Partial<TTSServerConfig>) => {
   settingsStore.updateTTSServer(id, updates);
 };
@@ -389,7 +843,7 @@ const editTTSServer = (server: TTSServerConfig) => {
 
 const testTTSServer = async (server: TTSServerConfig) => {
   if (server.type === 'browser') {
-    showToast.success('✅ 浏览器TTS总是可用');
+    showSuccessToast('✅ 浏览器TTS总是可用');
     return;
   }
 
@@ -421,7 +875,7 @@ const testTTSServer = async (server: TTSServerConfig) => {
     }
 
     if (response.ok) {
-      showToast.success({
+      showSuccessToast({
         message: `✅ 连接成功！\n响应时间: ${responseTime}ms`,
         duration: 3000
       });
@@ -435,7 +889,7 @@ const testTTSServer = async (server: TTSServerConfig) => {
         }
       });
     } else {
-      showToast.fail({
+      showFailToast({
         message: `❌ 连接失败\nHTTP ${response.status}`,
         duration: 3000
       });
@@ -447,12 +901,12 @@ const testTTSServer = async (server: TTSServerConfig) => {
     console.error('❌ TTS服务器测试失败:', error);
     
     if (error.name === 'AbortError') {
-      showToast.fail({
+      showFailToast({
         message: '❌ 连接超时（5秒）',
         duration: 3000
       });
     } else {
-      showToast.fail({
+      showFailToast({
         message: `❌ 连接失败\n${error.message || '未知错误'}`,
         duration: 3000
       });
@@ -461,71 +915,63 @@ const testTTSServer = async (server: TTSServerConfig) => {
 };
 
 const testLLMConnection = async () => {
-  // 立即显示测试消息，确保函数被调用
-  showToast({ type: 'loading', message: '测试中...', duration: 1000 });
+  if (isTestingConnection.value) return;
   
-  console.log('🔍 testLLMConnection 被调用了！');
-  console.log('🔍 localLLMConfig.value:', localLLMConfig.value);
-  console.log('🔍 apiUrl:', localLLMConfig.value?.apiUrl);
-  
-  // 等待一下，确保用户能看到反馈
-  await new Promise(resolve => setTimeout(resolve, 100));
+  // 如果是Ollama，先确保API地址已设置
+  if (localLLMConfig.value.provider === 'ollama' && !localLLMConfig.value.apiUrl) {
+    // 自动生成API地址
+    updateOllamaServerUrl();
+  }
   
   if (!localLLMConfig.value?.apiUrl) {
-    console.log('⚠️ API地址为空，显示提示');
-    showToast({ type: 'fail', message: '请先填写API地址', duration: 2000 });
+    showFailToast('请先配置服务器地址');
     return;
   }
 
-  console.log('🔍 开始测试LLM连接:', localLLMConfig.value.apiUrl);
+  isTestingConnection.value = true;
+  llmConnectionStatus.value = '检测中...';
+  llmStatusIcon.value = '🔄';
   
-  let loadingToast: any = null;
   try {
-    loadingToast = showToast.loading({
-      message: '正在测试连接...',
-      forbidClick: true,
-      duration: 0
-    });
-
     // 提取基础URL（去掉/api/chat等路径）
     let baseUrl = localLLMConfig.value.apiUrl || '';
     if (baseUrl.includes('/api/chat')) {
       baseUrl = baseUrl.replace('/api/chat', '');
     }
     
-    console.log('🔍 测试URL:', baseUrl);
+    // 使用已有的健康检查函数（超时时间3秒）
+    const status = await checkLLMAvailability(baseUrl, 3000);
     
-    // 使用已有的健康检查函数
-    const status = await checkLLMAvailability(baseUrl, 5000);
-    
-    if (loadingToast) {
-      loadingToast.close();
-    }
-
     if (status.available) {
       llmConnectionStatus.value = `已连接 (${status.responseTime}ms, ${status.modelCount}个模型)`;
       llmStatusIcon.value = '✅';
-      showToast.success({
+      showSuccessToast({
         message: `✅ 连接成功！\n响应时间: ${status.responseTime}ms\n可用模型: ${status.modelCount}个`,
         duration: 3000
       });
+      
+      // 连接成功后自动刷新模型列表
+      if (localLLMConfig.value.provider === 'ollama') {
+        refreshModels();
+      }
     } else {
       llmConnectionStatus.value = `连接失败: ${status.error || '未知错误'}`;
       llmStatusIcon.value = '❌';
-      showToast.fail({
-        message: `❌ 连接失败\n${status.error || '未知错误'}\n响应时间: ${status.responseTime}ms`,
+      showFailToast({
+        message: `❌ 连接失败\n${status.error || '未知错误'}`,
         duration: 3000
       });
     }
   } catch (error: any) {
-    if (loadingToast) {
-      loadingToast.close();
-    }
+    llmConnectionStatus.value = `连接失败: ${error.message || '未知错误'}`;
+    llmStatusIcon.value = '❌';
     console.error('❌ LLM连接测试失败:', error);
     showToast.fail({
       message: `❌ 连接失败\n${error.message || '未知错误'}`,
       duration: 3000
     });
+  } finally {
+    isTestingConnection.value = false;
   }
 };
 
@@ -568,12 +1014,101 @@ const getGameModeLabel = (mode: string) => {
 
 const getLLMProviderLabel = (provider: string) => {
   const labels: Record<string, string> = {
+    ollama: 'Ollama',
     openai: 'OpenAI',
     claude: 'Claude',
     custom: '自定义'
   };
   return labels[provider] || provider;
 };
+
+// Ollama服务器管理
+const loadOllamaServers = () => {
+  ollamaServers.value = ollamaServerManager.getAllServers();
+  currentOllamaServerId.value = ollamaServerManager.getCurrentServer().id;
+};
+
+const switchOllamaServer = (serverId: string) => {
+  if (ollamaServerManager.setCurrentServer(serverId)) {
+    const server = ollamaServerManager.getCurrentServer();
+    const apiUrl = `${server.protocol}://${server.host}:${server.port}/api/chat`;
+    updateLLMConfig({ apiUrl });
+    loadOllamaServers();
+    refreshModels();
+    showSuccessToast('已切换到: ' + server.name);
+  }
+};
+
+const removeOllamaServer = async (serverId: string) => {
+  try {
+    await showConfirmDialog({
+      title: '确认删除',
+      message: '确定要删除此服务器吗？'
+    });
+    
+    if (ollamaServerManager.removeServer(serverId)) {
+      loadOllamaServers();
+      showSuccessToast('服务器已删除');
+    }
+  } catch {
+    // 用户取消
+  }
+};
+
+const handleAddOllamaServer = async () => {
+  console.log('🔍 handleAddOllamaServer 被调用');
+  console.log('🔍 newServerHost:', newServerHost.value);
+  console.log('🔍 newServerName:', newServerName.value);
+  console.log('🔍 newServerPort:', newServerPort.value);
+  
+  if (!newServerHost.value || !newServerHost.value.trim()) {
+    showFailToast('请输入主机地址');
+    return;
+  }
+  
+  try {
+    const server = ollamaServerManager.addServer({
+      name: newServerName.value.trim() || `${newServerHost.value}:${newServerPort.value}`,
+      host: newServerHost.value.trim(),
+      port: Number(newServerPort.value) || 11434,
+      protocol: 'http'
+    });
+    
+    console.log('🔍 addServer 返回:', server);
+    
+    if (server) {
+      loadOllamaServers();
+      // 自动切换到新服务器
+      switchOllamaServer(server.id);
+      showSuccessToast('服务器已添加');
+      
+      // 清空表单
+      newServerName.value = '';
+      newServerHost.value = '';
+      newServerPort.value = 11434;
+      showAddServerDialog.value = false;
+    } else {
+      showFailToast('添加服务器失败，请检查输入');
+    }
+  } catch (error: any) {
+    console.error('❌ 添加服务器失败:', error);
+    showFailToast(`添加失败: ${error.message || '未知错误'}`);
+  }
+};
+
+// 计算是否可以测试（只要有API地址和模型就可以测试，不需要等待连接状态）
+const canTestLLM = computed(() => {
+  return !!(localLLMConfig.value.apiUrl && localLLMConfig.value.model);
+});
+
+// 组件挂载时初始化
+onMounted(() => {
+  if (localLLMConfig.value.provider === 'ollama') {
+    initOllamaServerConfig();
+    loadOllamaServers();
+    refreshModels();
+  }
+});
 
 const getThemeLabel = (theme: string) => {
   const labels: Record<string, string> = {
@@ -625,8 +1160,30 @@ const showAddTTSServer = ref(false);
 </script>
 
 <style scoped>
-.settings-panel {
+/* 全局覆盖 Vant 组件样式 */
+:deep(.van-popup) {
+  overflow: hidden !important;
+}
+
+:deep(.van-tabs) {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.van-tabs__content) {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+:deep(.van-tab__panel) {
+  height: 100%;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+.settings-panel {
+  height: 85vh;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
@@ -641,12 +1198,37 @@ const showAddTTSServer = ref(false);
   border-bottom: 1px solid #ebedf0;
   background: #fff;
   z-index: 10;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .settings-header h2 {
   margin: 0;
   font-size: 20px;
   font-weight: bold;
+}
+
+.close-button {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-button:hover {
+  background-color: #f0f0f0;
+}
+
+.close-button:active {
+  background-color: #e0e0e0;
 }
 
 .settings-body {
@@ -663,6 +1245,7 @@ const showAddTTSServer = ref(false);
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  height: 100%;
 }
 
 .settings-body .van-tabs__wrap {
@@ -671,18 +1254,45 @@ const showAddTTSServer = ref(false);
 
 .settings-body .van-tabs__content {
   flex: 1;
-  overflow: hidden;
+  overflow: hidden; /* 父容器隐藏，子元素滚动 */
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+  height: 100%;
 }
 
 .settings-body .van-tab__panel {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: auto !important; /* 强制启用滚动 */
+  overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch; /* iOS平滑滚动 */
-  display: flex;
-  flex-direction: column;
+  min-height: 0; /* 重要：允许滚动 */
+  height: 100%;
+  max-height: 100%;
+  position: relative;
+  /* 确保滚动条可见 */
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+/* Webkit浏览器滚动条样式 */
+.settings-body .van-tab__panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-body .van-tab__panel::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.settings-body .van-tab__panel::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.settings-body .van-tab__panel::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .settings-header {
@@ -697,11 +1307,12 @@ const showAddTTSServer = ref(false);
 }
 
 .settings-content {
-  height: 100%;
-  overflow-y: auto;
+  width: 100%;
   padding: 8px;
+  padding-bottom: 20px; /* 底部留出空间 */
   background: #f7f8fa;
-  -webkit-overflow-scrolling: touch; /* iOS平滑滚动 */
+  box-sizing: border-box;
+  /* 移除 flex: 1，让内容自然撑开，由父容器滚动 */
 }
 
 /* 状态图标 */
@@ -773,6 +1384,118 @@ const showAddTTSServer = ref(false);
   margin-bottom: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+/* 模型选择器样式 */
+.model-selector {
+  padding: 16px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.model-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebedf0;
+}
+
+.model-selector-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.model-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 模型列表容器 */
+.models-list-container {
+  padding: 8px 16px 16px;
+}
+
+.models-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.model-button {
+  flex: 0 0 auto;
+  min-width: 100px;
+  margin: 0;
+}
+
+.model-button.model-selected {
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(25, 137, 250, 0.3);
+}
+
+.model-loading {
+  padding: 20px;
+  text-align: center;
+}
+
+.model-manual-input {
+  padding: 8px 16px;
+}
+
+.model-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.model-tag {
+  cursor: pointer;
+  transition: all 0.2s;
+  margin: 4px;
+}
+
+.model-tag:active {
+  transform: scale(0.95);
+}
+
+.model-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 测试窗口样式 */
+.test-error {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fee;
+  border-radius: 4px;
+}
+
+.test-response {
+  margin-top: 8px;
+}
+
+.test-response-content {
+  padding: 12px;
+  background: #f7f8fa;
+  border-radius: 4px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.5;
 }
 </style>
 

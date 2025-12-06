@@ -9,6 +9,8 @@ import { Game } from '../../../src/game-engine/Game';
 import type { Card } from '../../../src/types/card';
 import { simpleAIStrategy } from '../../../src/ai/simpleStrategy';
 import { showToast } from 'vant';
+import { aiBrainIntegration } from '../services/aiBrainIntegration';
+import { useSettingsStore } from './settingsStore';
 
 export const useGameStore = defineStore('game', () => {
   // ========== 游戏对象（新架构！）==========
@@ -52,20 +54,38 @@ export const useGameStore = defineStore('game', () => {
   /**
    * 出牌
    */
-  const playCards = (cards: Card[]) => {
+  const playCards = async (cards: Card[]) => {
     if (!game.value) return { success: false, message: '游戏未开始' };
     
     const result = game.value.playCards(currentPlayerIndex.value, cards);
+    
+    // 触发AI反应聊天（异步，不阻塞）
+    if (result.success && aiBrainInitialized.value) {
+      const playerId = currentPlayerIndex.value;
+      aiBrainIntegration.notifyStateChange(game.value, playerId, 'play').catch(err => {
+        console.error('[GameStore] 触发聊天失败:', err);
+      });
+    }
+    
     return result;
   };
   
   /**
    * 不要
    */
-  const pass = () => {
+  const pass = async () => {
     if (!game.value) return { success: false, message: '游戏未开始' };
     
     const result = game.value.pass(currentPlayerIndex.value);
+    
+    // 触发AI反应聊天（异步，不阻塞）
+    if (result.success && aiBrainInitialized.value) {
+      const playerId = currentPlayerIndex.value;
+      aiBrainIntegration.notifyStateChange(game.value, playerId, 'pass').catch(err => {
+        console.error('[GameStore] 触发聊天失败:', err);
+      });
+    }
+    
     return result;
   };
   
@@ -246,6 +266,76 @@ export const useGameStore = defineStore('game', () => {
     }
   };
   
+  // ========== AI Brain集成 ==========
+  const aiBrainInitialized = ref(false);
+
+  /**
+   * 初始化AI Brain
+   */
+  const initializeAIBrain = async () => {
+    if (aiBrainInitialized.value) return;
+
+    try {
+      const settingsStore = useSettingsStore();
+      const llmConfig = settingsStore.llmConfig;
+
+      // 根据LLM配置确定provider
+      let llmProvider: 'ollama' | 'openai' | 'claude' = 'ollama';
+      if (llmConfig.provider === 'openai') {
+        llmProvider = 'openai';
+      } else if (llmConfig.provider === 'claude') {
+        llmProvider = 'claude';
+      } else {
+        // custom 或 ollama 都使用 ollama
+        llmProvider = 'ollama';
+      }
+
+      // 处理API地址（如果是Ollama，需要转换为正确的格式）
+      let llmEndpoint = llmConfig.apiUrl || 'http://localhost:11434/api/chat';
+      if (llmProvider === 'ollama' && !llmEndpoint.includes('/api/chat')) {
+        // 如果地址不包含/api/chat，自动添加
+        if (llmEndpoint.endsWith('/')) {
+          llmEndpoint = llmEndpoint + 'api/chat';
+        } else {
+          llmEndpoint = llmEndpoint + '/api/chat';
+        }
+      }
+
+      await aiBrainIntegration.initialize({
+        llmProvider,
+        llmEndpoint,
+        llmModel: llmConfig.model || 'qwen2.5:3b',
+        enableLLM: llmConfig.enabled !== false, // 默认启用
+        timeout: llmConfig.timeout || 30000, // 使用配置的超时时间，默认30秒
+        temperature: llmConfig.temperature, // 从settingsStore读取温度参数
+        maxTokens: llmConfig.maxTokens // 从settingsStore读取最大token数
+      });
+
+      aiBrainInitialized.value = true;
+      console.log('[GameStore] AI Brain初始化完成', {
+        provider: llmProvider,
+        endpoint: llmEndpoint,
+        model: llmConfig.model
+      });
+    } catch (error) {
+      console.error('[GameStore] AI Brain初始化失败:', error);
+    }
+  };
+
+  /**
+   * 触发AI Brain聊天（游戏事件）
+   */
+  const triggerAIBrainChat = async (playerId: number, eventType: 'after_play' | 'after_pass' | 'game_event', eventData?: any) => {
+    if (!aiBrainInitialized.value || !game.value) return;
+
+    try {
+      // 通知AI Brain游戏状态变化，触发聊天
+      aiBrainIntegration.notifyStateChange(game.value, playerId);
+    } catch (error) {
+      console.error('[GameStore] 触发AI Brain聊天失败:', error);
+    }
+  };
+
   // ========== 监听玩家切换，触发AI出牌==========
   watch(currentPlayerIndex, async (newIndex) => {
     if (!game.value || status.value !== 'playing') return;
@@ -255,6 +345,10 @@ export const useGameStore = defineStore('game', () => {
     
     // 如果是AI玩家，自动出牌
     if (!currentPlayer.isHuman) {
+      // 触发AI Brain决策
+      if (aiBrainInitialized.value) {
+        await aiBrainIntegration.triggerAITurn(newIndex, game.value);
+      }
       await aiPlay(newIndex);
     } 
     // 如果是人类玩家且托管，也自动出牌
@@ -264,7 +358,38 @@ export const useGameStore = defineStore('game', () => {
       await autoPlayTurn();
     }
   });
-  
+
+  // 监听游戏状态变化，触发AI Brain
+  watch(status, (newStatus) => {
+    if (newStatus === 'playing' && !aiBrainInitialized.value) {
+      initializeAIBrain();
+    }
+  });
+
+  // 监听LLM配置更新，重新初始化AI Brain
+  if (typeof window !== 'undefined') {
+    window.addEventListener('llm-config-updated', async () => {
+      if (aiBrainInitialized.value && status.value === 'playing') {
+        console.log('[GameStore] LLM配置已更新，重新初始化AI Brain');
+        // 先关闭旧的
+        await aiBrainIntegration.shutdown();
+        aiBrainInitialized.value = false;
+        // 重新初始化
+        await initializeAIBrain();
+      }
+    });
+  }
+
+  // 监听出牌，触发AI Brain聊天
+  watch(() => currentRound.value?.lastPlay, (lastPlay, oldLastPlay) => {
+    if (!game.value || !lastPlay || lastPlay === oldLastPlay) return;
+    
+    const lastPlayerId = currentRound.value?.lastPlayerIndex;
+    if (lastPlayerId !== undefined && lastPlayerId >= 0) {
+      triggerAIBrainChat(lastPlayerId, 'after_play', { play: lastPlay });
+    }
+  });
+
   // 初始化
   initialize();
   
@@ -278,11 +403,14 @@ export const useGameStore = defineStore('game', () => {
     currentRound,
     roundScore,
     isAutoPlay,
+    aiBrainInitialized,
     startGame,
     playCards,
     pass,
     toggleAutoPlay,
     getAIRecommendation,
-    aiPlay
+    aiPlay,
+    initializeAIBrain,
+    triggerAIBrainChat
   };
 });

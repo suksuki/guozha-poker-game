@@ -66,13 +66,58 @@
         >
           💡
         </van-button>
+        <van-button 
+          size="mini" 
+          @click="showChat = !showChat" 
+          :type="showChat ? 'primary' : 'default'"
+          plain
+        >
+          💬
+        </van-button>
+      </div>
+      
+      <!-- 聊天消息显示 -->
+      <div v-if="showChat" class="chat-panel-landscape">
+        <div class="chat-messages-landscape">
+          <div 
+            v-for="msg in chatStore.recentMessages" 
+            :key="msg.id"
+            class="chat-message"
+            :class="{
+              'chat-message-human': msg.playerId === gameStore.humanPlayer?.id,
+              'chat-message-ai': msg.playerId !== gameStore.humanPlayer?.id
+            }"
+          >
+            <span class="chat-player-name">{{ getPlayerName(msg.playerId) }}:</span>
+            <span class="chat-content">{{ msg.content }}</span>
+            <span class="chat-intent" v-if="msg.intent && msg.intent !== 'social_chat'">
+              [{{ getIntentLabel(msg.intent) }}]
+            </span>
+          </div>
+          <div v-if="chatStore.recentMessages.length === 0" class="chat-empty">
+            暂无聊天消息
+          </div>
+        </div>
+        
+        <!-- 聊天输入框 -->
+        <ChatInput />
       </div>
       
       <!-- 游戏区域 - 横屏布局 -->
       <div class="game-area-landscape">
         <!-- 西侧玩家（左） -->
         <div class="player-left">
-          <div class="player-card-vertical" v-if="playerWest">
+          <div class="player-card-vertical" v-if="playerWest" style="position: relative;">
+            <!-- 聊天气泡 -->
+            <ChatBubble
+              v-if="chatStore.activeBubbles.has(playerWest.id)"
+              :content="chatStore.activeBubbles.get(playerWest.id)?.content || ''"
+              :player-id="playerWest.id"
+              :is-human="false"
+              position="right"
+              :offset-x="10"
+              :offset-y="0"
+            />
             <div class="player-avatar">🤖</div>
             <van-tag size="mini" :type="isCurrentPlayer(playerWest.id) ? 'primary' : 'default'">
               西{{ playerWest.id }}
@@ -97,7 +142,17 @@
           <!-- 北侧玩家（上） -->
           <div class="player-top">
             <template v-if="playerNorth">
-              <div class="player-info-horizontal">
+              <div class="player-info-horizontal" style="position: relative;">
+                <!-- 聊天气泡 -->
+                <ChatBubble
+                  v-if="chatStore.activeBubbles.has(playerNorth.id)"
+                  :content="chatStore.activeBubbles.get(playerNorth.id)?.content || ''"
+                  :player-id="playerNorth.id"
+                  :is-human="false"
+                  position="bottom"
+                  :offset-x="0"
+                  :offset-y="10"
+                />
                 <van-tag size="small" :type="isCurrentPlayer(playerNorth.id) ? 'primary' : 'default'">
                   🤖 {{ playerNorth.name }}
                 </van-tag>
@@ -212,7 +267,17 @@
         
         <!-- 东侧玩家（右） -->
         <div class="player-right">
-          <div class="player-card-vertical" v-if="playerEast">
+          <div class="player-card-vertical" v-if="playerEast" style="position: relative;">
+            <!-- 聊天气泡 -->
+            <ChatBubble
+              v-if="chatStore.activeBubbles.has(playerEast.id)"
+              :content="chatStore.activeBubbles.get(playerEast.id)?.content || ''"
+              :player-id="playerEast.id"
+              :is-human="false"
+              position="left"
+              :offset-x="10"
+              :offset-y="0"
+            />
             <div class="player-avatar">🤖</div>
             <van-tag size="mini" :type="isCurrentPlayer(playerEast.id) ? 'primary' : 'default'">
               东{{ playerEast.id }}
@@ -241,18 +306,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { showToast } from 'vant';
 import { useGameStore } from '../stores/gameStore';
+import { useChatStore } from '../stores/chatStore';
 import { sortCards } from '../../../src/utils/cardSorting';
 import type { Card } from '../../../src/types/card';
 import GameResultScreen from './GameResultScreen.vue';
 import SettingsPanel from './SettingsPanel.vue';
+import ChatInput from './ChatInput.vue';
+import ChatBubble from './ChatBubble.vue';
 
 const gameStore = useGameStore();
+const chatStore = useChatStore();
 const selectedCardIds = ref<string[]>([]);
 const sortMethod = ref<'default' | 'suit' | 'rank'>('default');
 const showSettings = ref(false);
+const showChat = ref(false);
 
 const openSettings = () => {
   console.log('openSettings 被调用，当前 showSettings:', showSettings.value);
@@ -388,6 +458,36 @@ const sortHand = () => {
   
   const methodNames = { default: '默认', suit: '花色', rank: '点数' };
   showToast(`已切换至${methodNames[sortMethod.value]}排序`);
+};
+
+// 初始化聊天Store
+onMounted(() => {
+  chatStore.initializeAIBrainListener();
+});
+
+// 获取玩家名称
+const getPlayerName = (playerId: number) => {
+  const player = gameStore.players.find(p => p.id === playerId);
+  return player?.name || `玩家${playerId}`;
+};
+
+// 获取玩家的最新消息
+const getPlayerLatestMessage = (playerId: number) => {
+  return chatStore.getLatestMessageByPlayer(playerId);
+};
+
+// 获取意图标签
+const getIntentLabel = (intent: string) => {
+  const labels: Record<string, string> = {
+    'tactical_signal': '战术',
+    'strategic_discuss': '策略',
+    'emotional_express': '情绪',
+    'social_chat': '闲聊',
+    'taunt': '对骂',
+    'encourage': '鼓励',
+    'celebrate': '庆祝'
+  };
+  return labels[intent] || intent;
 };
 
 const getAIRecommendation = () => {
@@ -885,6 +985,98 @@ const getLastPlayType = () => {
   border-color: #1989fa;
   transform: translateY(-8px);
   box-shadow: 0 6px 12px rgba(25, 137, 250, 0.4);
+}
+
+/* 聊天面板样式 */
+.chat-panel-landscape {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 600px;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: 12px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.chat-messages-landscape {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  max-height: 300px;
+}
+
+.chat-message {
+  color: white;
+  font-size: 13px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.chat-message-human {
+  background: rgba(25, 137, 250, 0.3);
+  border-left: 3px solid #1989fa;
+}
+
+.chat-message-ai {
+  background: rgba(255, 255, 255, 0.1);
+  border-left: 3px solid #07c160;
+}
+
+.chat-player-name {
+  font-weight: bold;
+  margin-right: 8px;
+  color: #fff;
+}
+
+.chat-message-human .chat-player-name {
+  color: #1989fa;
+}
+
+.chat-message-ai .chat-player-name {
+  color: #07c160;
+}
+
+.chat-content {
+  color: #e0e0e0;
+}
+
+.chat-intent {
+  font-size: 10px;
+  color: #999;
+  margin-left: 6px;
+  opacity: 0.7;
+}
+
+.chat-empty {
+  color: #999;
+  text-align: center;
+  padding: 20px;
+  font-size: 13px;
+}
+
+/* 聊天消息滚动条 */
+.chat-messages-landscape::-webkit-scrollbar {
+  width: 4px;
+}
+
+.chat-messages-landscape::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.chat-messages-landscape::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
 }
 
 

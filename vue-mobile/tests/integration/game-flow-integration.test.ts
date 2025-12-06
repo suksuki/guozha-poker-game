@@ -42,7 +42,7 @@ describe('游戏流程集成测试', () => {
     const startTime = Date.now();
     
     while (store.currentPlayerIndex !== 0 && (Date.now() - startTime) < maxWaitTime) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 50));
       aiTurnCount++;
       
       if (aiTurnCount > 20) break; // 最多等待20次AI出牌
@@ -65,7 +65,7 @@ describe('游戏流程集成测试', () => {
     });
     
     console.log('✅ 游戏流程测试完成');
-  }, 15000); // 增加测试超时时间
+  }, 5000); // 减少超时时间从15秒到5秒 // 增加测试超时时间
 
   it('多回合游戏流程测试', async () => {
     const store = useGameStore();
@@ -95,7 +95,7 @@ describe('游戏流程集成测试', () => {
       }
       
       // 等待AI出牌
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // 检查回合是否结束并开始新回合
       if (store.gameState && store.gameState.rounds.length > roundsPlayed) {
@@ -105,7 +105,7 @@ describe('游戏流程集成测试', () => {
     
     console.log(`✅ 完成 ${roundsPlayed} 个回合`);
     expect(roundsPlayed).toBeGreaterThan(0);
-  }, 30000);
+  }, 10000); // 减少超时时间从30秒到10秒
 
   it('不要功能集成测试', async () => {
     const store = useGameStore();
@@ -118,7 +118,7 @@ describe('游戏流程集成测试', () => {
     // 等待轮到人类玩家
     let waitCount = 0;
     while (store.currentPlayerIndex !== 0 && waitCount < 20) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 50));
       waitCount++;
     }
     
@@ -128,7 +128,7 @@ describe('游戏流程集成测试', () => {
       console.log('不要结果:', result);
       expect(result).toBeDefined();
     }
-  }, 15000);
+  }, 5000); // 减少超时时间从15秒到5秒
 
   it('托管功能集成测试', async () => {
     const store = useGameStore();
@@ -146,7 +146,7 @@ describe('游戏流程集成测试', () => {
     expect(store.isAutoPlay).toBe(true);
     
     // 等待托管自动出牌
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // 验证托管确实出了牌
     if (store.isAutoPlay && store.humanPlayer) {
@@ -159,7 +159,7 @@ describe('游戏流程集成测试', () => {
     // 关闭托管
     store.toggleAutoPlay();
     expect(store.isAutoPlay).toBe(false);
-  }, 15000);
+  }, 5000); // 减少超时时间从15秒到5秒
 
   it('AI推荐集成测试', () => {
     const store = useGameStore();

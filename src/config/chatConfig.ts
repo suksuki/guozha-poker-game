@@ -72,7 +72,7 @@ export const DEFAULT_TAUNT_CONFIG: TauntConfig = {
 
 // 大模型聊天配置
 export interface LLMChatConfig {
-  provider: 'openai' | 'claude' | 'custom'; // 模型提供商
+  provider: 'ollama' | 'openai' | 'claude' | 'custom'; // 模型提供商
   apiUrl?: string; // API地址（自定义大模型时使用，如 http://localhost:8000/v1/chat/completions）
   model?: string; // 模型名称
   apiKey?: string; // API密钥（可选，如果大模型不需要认证）

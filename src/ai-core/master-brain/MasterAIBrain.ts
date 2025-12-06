@@ -28,6 +28,8 @@ export interface MasterBrainConfig {
     enabled: boolean;
     endpoint: string;
     model: string;
+    temperature?: number; // 温度参数
+    maxTokens?: number; // 最大token数
   };
   
   // 数据收集
@@ -98,7 +100,7 @@ export class MasterAIBrain {
     
     // 创建调度器
     this.orchestrator = new AIOrchestrator(this.eventBus);
-    this.commScheduler = new CommunicationScheduler(this.eventBus);
+    this.commScheduler = new CommunicationScheduler(this.eventBus, null); // LLM服务稍后设置
     this.roundController = new RoundController(this.eventBus);
     
     console.log('[MasterAIBrain] 创建成功');
@@ -123,16 +125,32 @@ export class MasterAIBrain {
       
       // 2. 初始化LLM服务（如果启用）
       if (this.config.llm?.enabled) {
+        // 使用配置中的超时时间，默认30秒（批量生成可能需要更长时间）
+        const timeout = this.config.performance?.timeout || 30000;
+        
+        // 从配置中读取LLM参数，而不是硬编码
+        const temperature = this.config.llm.temperature ?? 0.7;
+        const maxTokens = this.config.llm.maxTokens ?? 500;
+        
         this.llmService = new UnifiedLLMService({
           provider: 'ollama',
           endpoint: this.config.llm.endpoint,
           model: this.config.llm.model,
-          defaultTemperature: 0.7,
-          defaultMaxTokens: 500,
-          timeout: 5000,
-          retryCount: 2
+          defaultTemperature: temperature,
+          defaultMaxTokens: maxTokens,
+          timeout: timeout,
+          retryCount: 2,
+          maxConcurrent: 1, // 减少到1个并发请求，避免服务器过载
+          maxQueueSize: 30, // 减少队列大小，避免请求堆积
+          cacheTTL: 5000
         });
-        console.log('[MasterAIBrain] LLM服务已启用');
+        console.log('[MasterAIBrain] LLM服务已启用', { 
+          timeout, 
+          endpoint: this.config.llm.endpoint, 
+          model: this.config.llm.model,
+          temperature,
+          maxTokens
+        });
       }
       
       // 3. 创建AI玩家
@@ -151,6 +169,17 @@ export class MasterAIBrain {
       
       // 4. 初始化调度器
       await this.orchestrator.initialize(this.aiPlayers);
+      
+      // 设置通信调度器的LLM服务和玩家池
+      this.commScheduler.setLLMService(this.llmService);
+      this.commScheduler.setPlayers(this.aiPlayers);
+      
+      // 设置玩家名字（如果有配置）
+      for (const playerConfig of this.config.aiPlayers) {
+        const playerName = (playerConfig as any).name || `AI玩家${playerConfig.id}`;
+        this.commScheduler.setPlayerName(playerConfig.id, playerName);
+      }
+      
       await this.commScheduler.initialize();
       
       // 5. 开始数据收集会话
@@ -213,12 +242,16 @@ export class MasterAIBrain {
         });
         
         if (message) {
+          // 收集完整数据用于微调（包含提示词和原始响应）
           this.dataCollector.recordCommunication({
             playerId,
             personality: player.getPersonality().preset || 'unknown',
             gameState,
             cognitive,
-            message
+            message,
+            // 从消息元数据中提取（如果存在）
+            fullPrompt: (message as any)._metadata?.fullPrompt,
+            rawLLMResponse: (message as any)._metadata?.rawResponse
           });
         }
       }
@@ -253,6 +286,89 @@ export class MasterAIBrain {
   }
   
   /**
+   * 触发批量聊天生成（用于游戏关键时刻，如出牌后）
+   * 一次LLM请求生成多个玩家的聊天
+   */
+  async triggerBatchChat(
+    gameState: GameState,
+    trigger: 'after_play' | 'after_pass' | 'game_event',
+    eventType?: string
+  ): Promise<Map<number, CommunicationMessage>> {
+    if (!this.initialized) {
+      console.warn('[MasterAIBrain] 未初始化');
+      return new Map();
+    }
+    
+    // 获取所有AI玩家ID
+    const aiPlayerIds = Array.from(this.aiPlayers.keys());
+    
+    // 构建通信上下文
+    const context: any = {
+      trigger,
+      gameState,
+      eventType
+    };
+    
+    // 批量生成聊天
+    const messages = await this.commScheduler.generateBatchMessages(aiPlayerIds, context);
+    
+    // 收集训练数据
+    if (this.config.dataCollection.enabled && messages.size > 0) {
+      for (const [playerId, message] of messages) {
+        const player = this.aiPlayers.get(playerId);
+        if (player) {
+          this.dataCollector.recordCommunication({
+            playerId,
+            personality: player.getPersonality().preset || 'unknown',
+            gameState,
+            cognitive: {},
+            message,
+            fullPrompt: (message as any)._metadata?.fullPrompt,
+            rawLLMResponse: (message as any)._metadata?.rawResponse
+          });
+        }
+      }
+    }
+    
+    return messages;
+  }
+  
+  private lastNotifyTime: number = 0;
+  private minNotifyInterval: number = 2000; // 最小通知间隔（2秒）
+  
+  /**
+   * 通知游戏状态变化（用于触发反应聊天）
+   */
+  async notifyStateChange(gameState: GameState, changeType: 'play' | 'pass' | 'event' = 'play'): Promise<void> {
+    if (!this.initialized) {
+      return;
+    }
+    
+    const now = Date.now();
+    
+    // 限制通知频率，避免请求过多
+    if (now - this.lastNotifyTime < this.minNotifyInterval) {
+      console.log('[MasterAIBrain] 通知间隔太短，跳过', {
+        timeSinceLastNotify: now - this.lastNotifyTime,
+        minInterval: this.minNotifyInterval
+      });
+      return;
+    }
+    
+    this.lastNotifyTime = now;
+    
+    // 根据变化类型触发批量聊天
+    const trigger: 'after_play' | 'after_pass' | 'game_event' = 
+      changeType === 'play' ? 'after_play' :
+      changeType === 'pass' ? 'after_pass' : 'game_event';
+    
+    // 异步触发，不阻塞游戏流程
+    this.triggerBatchChat(gameState, trigger, changeType).catch(error => {
+      console.error('[MasterAIBrain] 批量聊天生成失败:', error);
+    });
+  }
+  
+  /**
    * 导出训练数据
    */
   exportTrainingData(): string {
@@ -276,6 +392,13 @@ export class MasterAIBrain {
    */
   getPlayer(playerId: number): AIPlayer | undefined {
     return this.aiPlayers.get(playerId);
+  }
+  
+  /**
+   * 获取事件总线（供GameBridge使用）
+   */
+  getEventBus(): EventBus {
+    return this.eventBus;
   }
   
   /**

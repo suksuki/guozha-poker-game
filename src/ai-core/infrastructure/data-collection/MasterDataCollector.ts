@@ -166,7 +166,7 @@ export class MasterDataCollector {
   }
   
   /**
-   * 记录通信
+   * 记录通信（增强版，包含完整提示词和原始响应）
    */
   recordCommunication(data: {
     playerId: number;
@@ -174,6 +174,8 @@ export class MasterDataCollector {
     gameState: GameState;
     cognitive: any;
     message: any;
+    fullPrompt?: string;      // 完整提示词（用于微调）
+    rawLLMResponse?: string;  // 原始LLM响应（用于微调）
   }): string {
     const id = this.generateId();
     
@@ -187,7 +189,10 @@ export class MasterDataCollector {
       input: {
         gameState: data.gameState,
         cognitive: data.cognitive,
-        context: {}
+        context: {
+          fullPrompt: data.fullPrompt,        // 保存完整提示词
+          rawLLMResponse: data.rawLLMResponse // 保存原始响应
+        }
       },
       
       output: {

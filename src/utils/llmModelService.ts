@@ -24,12 +24,17 @@ export async function getAvailableOllamaModels(baseUrl: string = 'http://localho
  * 检查Ollama服务是否可用
  * @param baseUrl - Ollama服务器基础URL（默认为localhost:11434）
  */
-export async function checkOllamaService(baseUrl: string = 'http://localhost:11434'): Promise<boolean> {
+export async function checkOllamaService(baseUrl: string = 'http://localhost:11434', timeout: number = 3000): Promise<boolean> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
     const response = await fetch(`${baseUrl}/api/tags`, {
       method: 'GET',
-      signal: AbortSignal.timeout(3000) // 3秒超时
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     return response.ok;
   } catch (e) {
     return false;
