@@ -1,6 +1,0 @@
-{
-  "model": "qwen2:0.5b",
-  "messages": [{"role": "user", "content": "你好"}],
-  "stream": false
-}
-

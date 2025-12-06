@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:unit": "vitest run tests/unit/",
+    "test:integration": "vitest run tests/integration/",
+    "test:e2e": "vitest run tests/e2e/",
+    "test:regression": "vitest run tests/regression/",
+    "test:coverage": "vitest run --coverage",
+    "test:new": "vitest run tests/unit/async/ tests/unit/state/ tests/unit/round/ tests/unit/scheduler/ tests/unit/modules/ tests/unit/services/",
+    "perf:monitor": "ts-node scripts/performance-monitor.ts",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix"
+  }
+}
+

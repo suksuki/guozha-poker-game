@@ -53,6 +53,23 @@
 - remove-console-logs.sh, restart-*.sh
 - monitor-*.sh, debug-*.sh, verify_*.sh, organize_*.sh
 
+#### Windows脚本 → `docs/root-docs/scripts/windows/`
+- *.bat - Windows批处理脚本（start-*.bat, run-*.bat, install-*.bat）
+- *.ps1 - PowerShell脚本
+
+#### Python脚本 → `docs/root-docs/scripts/python/`
+- start-melo-tts-server.py - 启动MeLo TTS服务器
+- move_docs.py - 文档移动工具
+
+#### 测试文件 → `docs/root-docs/test-files/`
+- audio/ - 音频测试文件（*.wav）
+- json/ - JSON测试文件和测试结果（test-*.json, merged-tests-*.test.ts）
+- logs/ - 测试日志目录
+
+#### 临时文件 → `docs/root-docs/temp-files/`
+- leep 5 - Git diff输出文件
+- package.json.update - package.json备份文件
+
 #### 其他技术文档 → `docs/root-docs/`
 - ACHIEVEMENT_SHOWCASE.md
 - AI_*.md (所有AI相关文档)
@@ -90,11 +107,18 @@
         ├── status/              # 状态文档
         ├── tts/                 # TTS文档
         ├── config/              # 配置文档
-        └── scripts/             # 脚本文件
-            ├── start/           # 启动脚本
-            ├── install/         # 安装脚本
-            ├── test/            # 测试脚本
-            └── tools/           # 工具脚本
+└── scripts/             # 脚本文件
+    ├── start/           # 启动脚本
+    ├── install/        # 安装脚本
+    ├── test/           # 测试脚本
+    ├── tools/          # 工具脚本
+    ├── windows/        # Windows脚本（.bat, .ps1）
+    └── python/         # Python脚本
+├── test-files/         # 测试文件
+│   ├── audio/         # 音频测试文件
+│   ├── json/          # JSON测试文件
+│   └── logs/          # 测试日志
+└── temp-files/         # 临时文件
 ```
 
 ## 使用说明
@@ -135,7 +159,12 @@ cat docs/root-docs/status/PROJECT_STATUS.md
 
 - **移动的MD文件**: 约50+个
 - **移动的SH文件**: 约30+个
-- **总计**: 约80+个文件已整理
+- **移动的BAT文件**: 约5个
+- **移动的PS1文件**: 1个
+- **移动的PY文件**: 2个
+- **移动的测试文件**: 约10+个（.wav, .json, .test.ts）
+- **移动的临时文件**: 2个
+- **总计**: 约126个文件已整理
 
 ## 后续建议
 
