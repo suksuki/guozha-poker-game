@@ -67,6 +67,7 @@ export class RoundData {
     startTime?: number;
     plays?: readonly RoundPlayRecord[];
     totalScore?: number;
+    roundScore?: number;
     lastPlay?: Card[] | null;
     lastPlayPlayerIndex?: number | null;
     isFinished?: boolean;
@@ -81,6 +82,7 @@ export class RoundData {
     this.startTime = params.startTime ?? Date.now();
     this.plays = Object.freeze([...(params.plays || [])]);
     this.totalScore = params.totalScore ?? 0;
+    this.roundScore = params.roundScore ?? 0;
     this.lastPlay = params.lastPlay ?? null;
     this.lastPlayPlayerIndex = params.lastPlayPlayerIndex ?? null;
     this.isFinished = params.isFinished ?? false;

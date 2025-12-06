@@ -283,6 +283,27 @@ export class GameState {
   }
   
   /**
+   * 更新指定轮次
+   */
+  updateRound(index: number, updatedRound: RoundData): GameState {
+    if (index < 0 || index >= this._rounds.length) {
+      throw new Error(`Invalid round index: ${index}`);
+    }
+    
+    const newState = this.clone();
+    const newRounds = [...this._rounds];
+    newRounds[index] = updatedRound;
+    newState._rounds = Object.freeze(newRounds);
+    
+    this.emit({
+      type: 'roundUpdated',
+      data: { round: updatedRound, roundIndex: index }
+    });
+    
+    return newState;
+  }
+  
+  /**
    * 更新当前玩家索引
    */
   updateCurrentPlayer(index: number): GameState {

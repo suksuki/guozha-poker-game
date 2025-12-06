@@ -67,8 +67,11 @@ export class RoundModule {
     
     const player = players[playerIndex];
     
-    // 计算分数
+    // 计算本次出牌的分数（5/10/K）
     const scoreGained = calculateCardsScore(cards);
+    
+    // 计算墩数（如果出牌>=7张）
+    const dunCount = cards.length >= 7 ? this.calculateDunCountInternal(cards.length) : 0;
     
     // 创建出牌记录
     const playRecord: RoundPlayRecord = {
@@ -79,17 +82,33 @@ export class RoundModule {
       score: scoreGained
     };
     
-    // 更新轮次数据
+    // 添加出牌记录
     let updatedRound = roundData.addPlay(playRecord);
     
-    // 更新玩家手牌
+    // 累加本回合分数（重要：分数累加到roundScore，不是玩家score！）
+    updatedRound = new RoundData({
+      ...updatedRound,
+      roundScore: (updatedRound.roundScore || 0) + scoreGained
+    });
+    
+    console.log(`💰 本次出牌分数:${scoreGained}, 回合累计分数:${updatedRound.roundScore}`);
+    
+    // 更新玩家手牌和墩数（注意：不在这里更新分数！分数在回合结束时给赢家）
     const updatedPlayers = players.map((p, idx) => {
       if (idx === playerIndex) {
         // 从手牌中移除出的牌
         const newHand = p.hand.filter(
           handCard => !cards.some(playedCard => playedCard.id === handCard.id)
         );
-        return { ...p, hand: newHand };
+        
+        // 如果出了墩，累加墩数
+        const newDunCount = (p.dunCount || 0) + dunCount;
+        
+        if (dunCount > 0) {
+          console.log(`🏆 玩家${playerIndex}出${cards.length}张，获得${dunCount}墩！当前总墩数:${newDunCount}`);
+        }
+        
+        return { ...p, hand: newHand, dunCount: newDunCount };
       }
       return p;
     });
@@ -106,25 +125,15 @@ export class RoundModule {
       }
     }
     
-    // 检查轮次是否结束
-    const isRoundEnd = this.checkRoundEnd(updatedRound, updatedPlayers);
-    
-    if (isRoundEnd) {
-      // 找到获胜者（第一个出完的玩家）
-      const winner = updatedPlayers.find(p => p.hand.length === 0);
-      if (winner) {
-        updatedRound = updatedRound.finish({
-          winnerId: winner.id,
-          winnerName: winner.name
-        });
-      }
-    }
+    // 注意：不要在这里结束回合！
+    // 回合应该在接风轮触发时结束（在processPass中处理）
+    // 这里删除了错误的checkRoundEnd逻辑
     
     return {
       updatedRound,
       updatedPlayers,
       scoreGained,
-      isRoundEnd
+      isRoundEnd: false // 回合不在这里结束
     };
   }
   
@@ -196,6 +205,15 @@ export class RoundModule {
   }
   
   /**
+   * 计算墩数（内部方法）
+   */
+  private static calculateDunCountInternal(cardCount: number): number {
+    if (cardCount < 7) return 0;
+    // 7张=1墩, 8张=2墩, 9张=4墩, 10张=8墩...
+    return Math.pow(2, cardCount - 7);
+  }
+  
+  /**
    * 检查玩家是否可以出牌（纯函数）
    * 
    * @param roundData 轮次数据
@@ -231,22 +249,42 @@ export class RoundModule {
   }
   
   /**
-   * 找到下一个活跃玩家（纯函数）
+   * 找到下一个活跃玩家（纯函数，顺时针：东→南→西→北）
    */
   private static findNextActivePlayer(
     currentPlayerIndex: number,
     players: readonly Player[]
   ): number {
-    const totalPlayers = players.length;
+    // 玩家位置映射（按顺时针：东→南→西→北）
+    // 物理索引：0=南, 1=东, 2=北, 3=西
+    // 游戏顺序：1(东) → 0(南) → 3(西) → 2(北) → 1(东)
+    const PLAYER_ORDER = [1, 0, 3, 2]; // [东, 南, 西, 北]
+    const REVERSE_ORDER: number[] = []; // 反向映射
+    PLAYER_ORDER.forEach((orderIdx, physicalIdx) => {
+      REVERSE_ORDER[orderIdx] = physicalIdx;
+    });
     
-    for (let i = 1; i <= totalPlayers; i++) {
-      const nextIndex = (currentPlayerIndex + i) % totalPlayers;
+    const toGameOrder = (physicalIndex: number): number => REVERSE_ORDER[physicalIndex] ?? physicalIndex;
+    const toPhysicalIndex = (gameOrderIndex: number): number => PLAYER_ORDER[gameOrderIndex] ?? gameOrderIndex;
+    const getNextPlayerInOrder = (currentPhysicalIndex: number, playerCount: number): number => {
+      const currentGameOrder = toGameOrder(currentPhysicalIndex);
+      const nextGameOrder = (currentGameOrder + 1) % playerCount;
+      return toPhysicalIndex(nextGameOrder);
+    };
+    
+    const totalPlayers = players.length;
+    let nextIndex = getNextPlayerInOrder(currentPlayerIndex, totalPlayers);
+    
+    for (let i = 0; i < totalPlayers; i++) {
       const nextPlayer = players[nextIndex];
       
       // 如果玩家还有牌，就是下一个活跃玩家
       if (nextPlayer.hand.length > 0) {
         return nextIndex;
       }
+      
+      nextIndex = getNextPlayerInOrder(nextIndex, totalPlayers);
+      if (nextIndex === currentPlayerIndex) break; // 避免无限循环
     }
     
     // 如果没有活跃玩家，返回-1

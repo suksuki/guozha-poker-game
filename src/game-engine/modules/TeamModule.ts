@@ -20,7 +20,7 @@ export {
   calculatePlayerPickedScore,
   calculatePlayerDunScore,
   calculateTeamScore,
-  calculateTeamFinalScore,
+  calculateTeamDunCount,
   calculateTeamRankings,
   type TeamRanking
 } from '../../utils/teamScoring';
