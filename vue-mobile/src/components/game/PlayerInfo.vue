@@ -136,9 +136,10 @@ const rankText = computed(() => {
 
 <style scoped>
 .player-info {
-  background: #fff;
-  border-radius: 12px;
   padding: 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s;
 }
 
@@ -170,6 +171,11 @@ const rankText = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+@keyframes avatarFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
 
 .avatar-emoji {

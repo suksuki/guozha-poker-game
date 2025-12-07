@@ -113,7 +113,7 @@ if (players[nextPlayerIndex].type === PlayerType.AI) {
 ### 1. 语音合成问题 ✅ 已识别
 - **症状**：`=== 可用语音列表 (共0个) ===`
 - **原因**：Ubuntu上没有安装语音合成引擎
-- **解决方案**：运行 `./install-voice-packages.sh`
+- **解决方案**：运行 `./docs/root-docs/scripts/install/install-voice-packages.sh` 或使用符号链接 `./install-voice-packages.sh`
 
 ### 2. 音频文件问题 ✅ 已修复
 - **症状**：音频文件返回HTML（`contentType: 'text/html'`），所有文件都是1766 bytes
@@ -125,7 +125,12 @@ if (players[nextPlayerIndex].type === PlayerType.AI) {
 ### 步骤1：安装语音引擎（必须）
 
 ```bash
-chmod +x install-voice-packages.sh
+# 使用整理后的脚本路径
+chmod +x docs/root-docs/scripts/install/install-voice-packages.sh
+./docs/root-docs/scripts/install/install-voice-packages.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./install-voice-packages.sh
 ```
 
@@ -136,6 +141,11 @@ chmod +x install-voice-packages.sh
 ```bash
 # 停止当前的开发服务器（Ctrl+C）
 # 然后重新启动
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/start/start-electron.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./start-electron.sh
 ```
 
@@ -176,7 +186,7 @@ console.log('可用语音数量:', voices.length);
 
 ### 语音仍然为0
 
-1. 确认已运行 `./install-voice-packages.sh`
+1. 确认已运行 `./docs/root-docs/scripts/install/install-voice-packages.sh` 或使用符号链接 `./install-voice-packages.sh`
 2. 检查speech-dispatcher是否运行：`pgrep -x speech-dispatcher`
 3. 如果没有运行，手动启动：`speech-dispatcher -d`
 4. 重启Electron应用

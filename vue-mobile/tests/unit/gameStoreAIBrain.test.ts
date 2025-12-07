@@ -6,10 +6,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useGameStore } from '../../src/stores/gameStore';
 import { useSettingsStore } from '../../src/stores/settingsStore';
-import { aiBrainIntegration } from '../../src/services/aiBrainIntegration';
+import { aiBrainIntegration } from '../../src/services/ai/aiBrainIntegration';
 
 // Mock AI Brain集成
-vi.mock('../../src/services/aiBrainIntegration', () => {
+vi.mock('../../src/services/ai/aiBrainIntegration', () => {
   const mockInitialize = vi.fn(() => Promise.resolve());
   const mockTriggerAITurn = vi.fn(() => Promise.resolve());
   const mockNotifyStateChange = vi.fn();

@@ -5,7 +5,7 @@
 
 import { ChannelType } from '../../types/channel';
 import { VoiceConfig } from '../../types/voice';
-import { getChannelScheduler, ChannelUsage, ChannelAllocation } from './channelScheduler';
+import { getSmartChannelScheduler, ChannelUsage, ChannelAllocation } from './smartChannelScheduler';
 import { getTTSService, TTSOptions } from '../tts/ttsService';
 
 interface ChannelConfig {
@@ -15,15 +15,14 @@ interface ChannelConfig {
 }
 
 const CHANNEL_CONFIGS: Record<ChannelType, ChannelConfig> = {
-  [ChannelType.PLAYER_0]: { pan: -0.7, volume: 1.0, name: '玩家0（左）' },
-  [ChannelType.PLAYER_1]: { pan: 0.7, volume: 1.0, name: '玩家1（右）' },
-  [ChannelType.PLAYER_2]: { pan: -0.5, volume: 1.0, name: '玩家2（左中）' },
-  [ChannelType.PLAYER_3]: { pan: 0.5, volume: 1.0, name: '玩家3（右中）' },
-  [ChannelType.PLAYER_4]: { pan: -0.3, volume: 1.0, name: '玩家4（左环绕）' },
-  [ChannelType.PLAYER_5]: { pan: 0.3, volume: 1.0, name: '玩家5（右环绕）' },
-  [ChannelType.PLAYER_6]: { pan: -0.15, volume: 1.0, name: '玩家6（左后）' },
-  [ChannelType.PLAYER_7]: { pan: 0.15, volume: 1.0, name: '玩家7（右后）' },
-  [ChannelType.ANNOUNCEMENT]: { pan: 0.0, volume: 1.2, name: '系统（中央）' }
+  [ChannelType.SYSTEM]: { pan: 0.0, volume: 1.2, name: '系统（专用）' },
+  [ChannelType.PLAYER_1]: { pan: 0.7, volume: 1.0, name: '玩家声道1' },
+  [ChannelType.PLAYER_2]: { pan: -0.5, volume: 1.0, name: '玩家声道2' },
+  [ChannelType.PLAYER_3]: { pan: 0.5, volume: 1.0, name: '玩家声道3' },
+  [ChannelType.PLAYER_4]: { pan: -0.3, volume: 1.0, name: '玩家声道4' },
+  [ChannelType.PLAYER_5]: { pan: 0.3, volume: 1.0, name: '玩家声道5' },
+  [ChannelType.PLAYER_6]: { pan: -0.15, volume: 1.0, name: '玩家声道6' },
+  [ChannelType.PLAYER_7]: { pan: 0.15, volume: 1.0, name: '玩家声道7' }
 };
 
 interface PlayItem {
@@ -55,8 +54,8 @@ export class MultiChannelAudioService {
   // 每个声道的播放队列（按优先级排序）
   private channelQueues: Map<ChannelType, PlayItem[]> = new Map();
   
-  // 通道调度器
-  private channelScheduler = getChannelScheduler();
+  // 智能通道调度器
+  private channelScheduler = getSmartChannelScheduler();
   
   // TTS服务
   private ttsService = getTTSService();
@@ -65,6 +64,7 @@ export class MultiChannelAudioService {
   private maxConcurrentPlayers: number = 3;
   private enabled: boolean = true;
   private masterVolume: number = 1.0;
+  private totalPlayers: number = 4;  // 总玩家数（用于智能调度）
   
   constructor() {
     this.initAudioContext();
@@ -299,10 +299,15 @@ export class MultiChannelAudioService {
     source.onended = () => {
       console.log(`[MultiChannelAudioService] ✅ 音频播放完成: 声道=${channel}`);
       this.activeSources.delete(channel);
+      
+      // 先释放声道（通知调度器声道已释放）
+      const playerId = item.playerId;
+      this.channelScheduler.releaseChannel(channel, playerId);
+      
       item.events?.onEnd?.();
       item.resolve();
       
-      // 处理队列中的下一个
+      // 处理队列中的下一个（会减少队列长度）
       this.processNextInQueue(channel);
     };
     
@@ -349,6 +354,16 @@ export class MultiChannelAudioService {
     // 取出优先级最高的
     const nextItem = queue.shift()!;
     this.channelQueues.set(channel, queue);
+    
+    // 通知调度器队列长度已减少（因为从队列中取出了一个项目）
+    // 注意：这里直接访问调度器的内部状态来减少队列长度，不调用releaseChannel
+    // 因为releaseChannel会释放声道，但这里只是从队列中取出，声道还在使用中
+    const scheduler = this.channelScheduler as any;
+    const state = scheduler.getChannelState(channel);
+    if (state && state.queueLength > 0) {
+      state.queueLength--;
+      console.log(`[MultiChannelAudioService] 从队列中取出项目，声道${channel}队列长度减少，当前队列长度=${state.queueLength}`);
+    }
     
     // 播放
     this.playAudio(nextItem);
@@ -399,30 +414,41 @@ export class MultiChannelAudioService {
     return new Promise((resolve, reject) => {
       try {
         // 如果明确指定了channel，直接使用（不重新分配）
-        // 报牌使用ANNOUNCEMENT，聊天使用玩家声道
+        // 系统声音使用SYSTEM专用声道，聊天使用玩家声道（智能调度）
         let finalChannel = channel;
         let allocation;
+        let playerIdForRelease: number | undefined = undefined;  // 用于释放声道的playerId
         
-        if (channel === ChannelType.ANNOUNCEMENT) {
-          // 系统声道（报牌），使用SYSTEM用途
+        if (channel === ChannelType.SYSTEM) {
+          // 系统声道（报牌等），使用SYSTEM用途
+          // 系统声道专用，永远不与其他声道冲突
           allocation = this.channelScheduler.allocateChannel({
             usage: ChannelUsage.SYSTEM,
             priority
           });
           finalChannel = allocation.channel;
+          console.log(`[MultiChannelAudioService] 系统声音使用专用系统声道${finalChannel}，是否排队=${allocation.isQueued}，原因=${allocation.reason}`);
         } else {
-          // 玩家声道（聊天），使用PLAYER用途
+          // 玩家声道（聊天），使用PLAYER用途，智能调度
           // 从channel反推playerId（用于玩家声道分配）
-          const playerId = channel - ChannelType.PLAYER_0;
+          const playerId = channel - ChannelType.PLAYER_1;
+          playerIdForRelease = playerId >= 0 && playerId < 7 ? playerId : undefined;
+          // 获取总玩家数（用于智能调度）
+          const totalPlayers = this.getTotalPlayers();
           allocation = this.channelScheduler.allocateChannel({
             usage: ChannelUsage.PLAYER,
-            playerId: playerId >= 0 && playerId < 8 ? playerId : undefined,
-            priority
+            playerId: playerIdForRelease,
+            priority,
+            totalPlayers
           });
-          // 如果分配器返回了不同的声道（可能因为原声道被占用），使用分配的声道
+          // 如果分配器返回了不同的声道（智能调度），使用分配的声道
           if (allocation.channel !== channel && !allocation.isQueued) {
             finalChannel = allocation.channel;
+            // 如果声道改变了，需要重新计算playerId
+            const newPlayerId = finalChannel - ChannelType.PLAYER_1;
+            playerIdForRelease = newPlayerId >= 0 && newPlayerId < 7 ? newPlayerId : undefined;
           }
+          console.log(`[MultiChannelAudioService] 聊天智能分配到玩家声道${finalChannel}（玩家${playerIdForRelease}），是否排队=${allocation.isQueued}，原因=${allocation.reason}`);
         }
 
         // 创建播放项
@@ -431,12 +457,14 @@ export class MultiChannelAudioService {
           channel: finalChannel,
           priority,
           audioBuffer,
+          playerId: playerIdForRelease,  // 保存playerId用于释放
           resolve: () => {
-            this.channelScheduler.releaseChannel(finalChannel);
+            // 注意：实际的释放会在onended回调中进行
             resolve();
           },
           reject: (error) => {
-            this.channelScheduler.releaseChannel(finalChannel);
+            // 播放失败时也需要释放声道
+            this.channelScheduler.releaseChannel(finalChannel, playerIdForRelease);
             reject(error);
           },
           events
@@ -498,11 +526,11 @@ export class MultiChannelAudioService {
       console.log('[MultiChannelAudioService] 更新启用状态:', this.enabled);
     }
     if (config.maxConcurrentPlayers !== undefined) {
-      // 限制在1-8之间（8个玩家声道）
-      const maxPlayers = Math.max(1, Math.min(8, config.maxConcurrentPlayers));
+      // 限制在1-7之间（7个玩家声道）
+      const maxPlayers = Math.max(1, Math.min(7, config.maxConcurrentPlayers));
       this.maxConcurrentPlayers = maxPlayers;
       this.channelScheduler.setMaxConcurrentPlayers(maxPlayers);
-      console.log('[MultiChannelAudioService] 更新最大并发玩家数:', maxPlayers, '/8');
+      console.log('[MultiChannelAudioService] 更新最大并发玩家数:', maxPlayers, '/7');
     }
     if (config.masterVolume !== undefined) {
       this.masterVolume = Math.max(0, Math.min(1, config.masterVolume));
@@ -514,12 +542,29 @@ export class MultiChannelAudioService {
   }
   
   /**
+   * 获取总玩家数（用于智能调度）
+   */
+  getTotalPlayers(): number {
+    return this.totalPlayers;
+  }
+  
+  /**
+   * 更新总玩家数（用于智能调度）
+   */
+  updateTotalPlayers(totalPlayers: number): void {
+    this.totalPlayers = totalPlayers;
+    this.channelScheduler.updateTotalPlayers(totalPlayers);
+    console.log('[MultiChannelAudioService] 更新总玩家数:', totalPlayers);
+  }
+  
+  /**
    * 获取统计信息
    */
   getStatistics() {
     return {
       enabled: this.enabled,
       maxConcurrentPlayers: this.maxConcurrentPlayers,
+      totalPlayers: this.totalPlayers,
       activeChannels: this.activeSources.size,
       totalQueueLength: Array.from(this.channelQueues.values())
         .reduce((sum, queue) => sum + queue.length, 0),

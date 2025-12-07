@@ -11,6 +11,16 @@ import { useSettingsStore } from '../../src/stores/settingsStore';
 import { getTTSPlaybackService } from '../../src/services/tts/ttsPlaybackService';
 import { ChannelType } from '../../src/types/channel';
 
+// Mock AI Brain Integration
+vi.mock('../../src/services/ai/aiBrainIntegration', () => ({
+  aiBrainIntegration: {
+    initialize: vi.fn().mockResolvedValue(undefined),
+    notifyStateChange: vi.fn().mockReturnValue(Promise.resolve()),
+    triggerAITurn: vi.fn().mockReturnValue(Promise.resolve()),
+    isInitialized: false
+  }
+}));
+
 // Mock TTS服务
 vi.mock('../../src/services/tts/ttsService', () => ({
   getTTSService: vi.fn(() => ({

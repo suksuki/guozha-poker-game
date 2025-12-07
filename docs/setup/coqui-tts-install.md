@@ -14,6 +14,11 @@
 ```bash
 # 使用项目提供的脚本
 ./scripts/setup-piper-tts.sh
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/start/start-piper-tts.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./start-piper-tts.sh
 ```
 

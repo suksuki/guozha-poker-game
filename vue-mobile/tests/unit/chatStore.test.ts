@@ -7,7 +7,7 @@ import { useChatStore } from '../../src/stores/chatStore';
 import { setActivePinia, createPinia } from 'pinia';
 
 // Mock多通道音频服务
-vi.mock('../../src/services/multiChannelAudioService', () => {
+vi.mock('../../src/services/audio/multiChannelAudioService', () => {
   return {
     getMultiChannelAudioService: vi.fn(() => ({
       speak: vi.fn().mockResolvedValue(undefined)
@@ -16,7 +16,7 @@ vi.mock('../../src/services/multiChannelAudioService', () => {
 });
 
 // Mock AI Brain集成
-vi.mock('../../src/services/aiBrainIntegration', () => {
+vi.mock('../../src/services/ai/aiBrainIntegration', () => {
   return {
     aiBrainIntegration: {
       onCommunicationMessage: vi.fn((callback: any) => {

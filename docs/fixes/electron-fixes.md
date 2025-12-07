@@ -144,6 +144,11 @@ sudo apt-get install ffmpeg
 # 然后转换文件（见上面）
 
 # 5. 重启Electron应用
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/start/start-electron.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./start-electron.sh
 ```
 
@@ -366,6 +371,11 @@ ls -la public/sounds/
 # 3. 如果音频文件缺失，根据README下载
 
 # 4. 重启Electron应用
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/start/start-electron.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./start-electron.sh
 ```
 

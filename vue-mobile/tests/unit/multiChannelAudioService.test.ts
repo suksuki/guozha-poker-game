@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { MultiChannelAudioService, getMultiChannelAudioService } from '../../src/services/multiChannelAudioService';
+import { MultiChannelAudioService, getMultiChannelAudioService } from '../../src/services/audio/multiChannelAudioService';
 import { ChannelType } from '../../src/types/channel';
 
 // Mock Web Audio API
@@ -124,7 +124,7 @@ describe('MultiChannelAudioService', () => {
     it('应该能够停止指定通道', () => {
       // 由于播放是异步的，这里主要测试方法存在
       expect(() => {
-        service.stopChannel(ChannelType.PLAYER_0);
+        service.stopChannel(ChannelType.PLAYER_1);
       }).not.toThrow();
     });
 
@@ -156,7 +156,7 @@ describe('MultiChannelAudioService', () => {
 
       // 验证包含所有声道
       const channels = Array.from(channelStates.keys());
-      expect(channels).toContain(ChannelType.ANNOUNCEMENT);
+      expect(channels).toContain(ChannelType.SYSTEM);
       for (let i = 0; i < 8; i++) {
         expect(channels).toContain(i as ChannelType);
       }

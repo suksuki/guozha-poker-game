@@ -99,6 +99,9 @@ describe('MeloTTSClient', () => {
       const mockAudioBuffer = new ArrayBuffer(1000);
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
+        headers: {
+          get: vi.fn(() => 'audio/wav')
+        },
         arrayBuffer: async () => mockAudioBuffer
       });
 
@@ -121,6 +124,9 @@ describe('MeloTTSClient', () => {
       const mockAudioBuffer = new ArrayBuffer(1000);
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
+        headers: {
+          get: vi.fn(() => 'audio/wav')
+        },
         arrayBuffer: async () => mockAudioBuffer
       });
 
@@ -149,6 +155,9 @@ describe('MeloTTSClient', () => {
       const mockAudioBuffer = new ArrayBuffer(1000);
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
+        headers: {
+          get: vi.fn(() => 'audio/wav')
+        },
         arrayBuffer: async () => mockAudioBuffer
       });
 
@@ -176,6 +185,9 @@ describe('MeloTTSClient', () => {
       const mockAudioBuffer = new ArrayBuffer(1000);
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
+        headers: {
+          get: vi.fn(() => 'audio/wav')
+        },
         arrayBuffer: async () => mockAudioBuffer
       });
 
@@ -207,6 +219,9 @@ describe('MeloTTSClient', () => {
         const mockAudioBuffer = new ArrayBuffer(1000);
         (global.fetch as any).mockResolvedValueOnce({
           ok: true,
+          headers: {
+            get: vi.fn(() => 'audio/wav')
+          },
           arrayBuffer: async () => mockAudioBuffer
         });
 

@@ -10,8 +10,13 @@ WSL 正在使用 Windows 的 Node.js (`/mnt/c/Program Files/nodejs/npm`)，导�
 在 WSL Ubuntu 终端中运行：
 
 ```bash
-cd /home/jin/guozha_poker_game
-bash install-nodejs-wsl.sh
+cd /home/jin/guozha-poker-game
+# 使用整理后的脚本路径
+bash docs/root-docs/scripts/install/install-nodejs-wsl.sh
+
+# 或创建符号链接后直接运行
+./docs/root-docs/create-symlinks.sh
+./install-nodejs-wsl.sh
 ```
 
 ### 方法2：手动安装

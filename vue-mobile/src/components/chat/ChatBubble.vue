@@ -91,77 +91,105 @@ onUnmounted(() => {
 }
 
 .chat-bubble-content {
-  background: rgba(255, 255, 255, 0.95);
-  border: 2px solid #1989fa;
-  border-radius: 16px;
-  padding: 16px 20px;
-  font-size: 15px;
+  /* 泡泡风格：更明显的半透明背景 */
+  background: rgba(255, 255, 255, 0.5);
+  border: 2px solid rgba(25, 137, 250, 0.3);
+  /* 泡泡风格：更大的圆角 */
+  border-radius: 20px;
+  padding: 14px 18px;
+  font-size: 14px;
   color: #333;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  min-width: 140px;
-  max-width: 200px;
-  min-height: 140px;
+  /* 泡泡风格：柔和的阴影和模糊效果 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15),
+              0 2px 4px rgba(0, 0, 0, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(15px) saturate(180%);
+  -webkit-backdrop-filter: blur(15px) saturate(180%);
+  min-width: 120px;
+  max-width: 220px;
+  min-height: auto;
   width: fit-content;
   word-wrap: break-word;
   word-break: break-word;
-  line-height: 1.6;
+  line-height: 1.5;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  /* 短文字时保持正方形，长文字时允许适度变长 */
-  aspect-ratio: 1;
   max-height: 200px;
   overflow-wrap: anywhere;
+  /* 泡泡风格：更柔和的字体 */
+  font-weight: 500;
 }
 
 .chat-bubble-human .chat-bubble-content {
-  background: rgba(25, 137, 250, 0.95);
+  /* 人类泡泡：更明显的半透明蓝色 */
+  background: rgba(25, 137, 250, 0.5);
   color: white;
-  border-color: #1989fa;
+  border-color: rgba(25, 137, 250, 0.4);
+  box-shadow: 0 4px 12px rgba(25, 137, 250, 0.3),
+              0 2px 4px rgba(0, 0, 0, 0.15),
+              inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(15px) saturate(180%);
+  -webkit-backdrop-filter: blur(15px) saturate(180%);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .chat-bubble-ai .chat-bubble-content {
-  background: rgba(255, 255, 255, 0.95);
+  /* AI泡泡：更明显的半透明白色 */
+  background: rgba(255, 255, 255, 0.5);
   color: #333;
-  border-color: #1989fa;
+  border-color: rgba(25, 137, 250, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15),
+              0 2px 4px rgba(0, 0, 0, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(15px) saturate(180%);
+  -webkit-backdrop-filter: blur(15px) saturate(180%);
 }
 
 .chat-bubble-tail {
   position: absolute;
   width: 0;
   height: 0;
-  border: 6px solid transparent;
+  border: 8px solid transparent;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .chat-bubble[style*="bottom"] .chat-bubble-tail {
-  bottom: -12px;
+  bottom: -16px;
   left: 50%;
   transform: translateX(-50%);
-  border-top-color: #1989fa;
+  border-top-color: rgba(25, 137, 250, 0.5);
 }
 
 .chat-bubble[style*="top"] .chat-bubble-tail {
-  top: -12px;
+  top: -16px;
   left: 50%;
   transform: translateX(-50%);
-  border-bottom-color: #1989fa;
+  border-bottom-color: rgba(255, 255, 255, 0.5);
 }
 
 .chat-bubble-human .chat-bubble-tail {
-  border-top-color: #1989fa;
-  border-bottom-color: #1989fa;
+  border-top-color: rgba(25, 137, 250, 0.5);
+  border-bottom-color: rgba(25, 137, 250, 0.5);
+}
+
+.chat-bubble-ai .chat-bubble-tail {
+  border-top-color: rgba(255, 255, 255, 0.5);
+  border-bottom-color: rgba(255, 255, 255, 0.5);
 }
 
 @keyframes bubbleAppear {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.8);
+    transform: translateY(10px) scale(0.85);
+    filter: blur(4px);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+    filter: blur(0);
   }
 }
 

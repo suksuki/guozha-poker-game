@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import SettingsPanel from '../../src/components/SettingsPanel.vue';
+import SettingsPanel from '../../src/components/settings/SettingsPanel.vue';
 import { useSettingsStore } from '../../src/stores/settingsStore';
 
 // Mock Vant组件
@@ -33,7 +33,7 @@ vi.mock('vant', () => ({
 }));
 
 // Mock Ollama服务器管理器
-vi.mock('../../src/services/ollamaServerManager', () => ({
+vi.mock('../../src/services/llm/ollamaServerManager', () => ({
   ollamaServerManager: {
     getAllServers: vi.fn(() => [
       { id: 'local', name: '本地服务器', host: 'localhost', port: 11434, protocol: 'http' as const }

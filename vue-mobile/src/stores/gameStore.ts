@@ -166,28 +166,34 @@ export const useGameStore = defineStore('game', () => {
               const ttsService = getTTSPlaybackService();
               
               // 启动TTS播报（完全基于回调，不阻塞）
+              // 报牌完成后触发下一个玩家
               ttsService.speak(text, {
                 timeout: 5000,
                 fallbackTimeout: 5000,
                 priority: 4,
-                channel: ChannelType.ANNOUNCEMENT,
+                channel: ChannelType.SYSTEM,
                 enableCache: true,
                 onAudioGenerated: () => {
                   // 音频完全播放完成，触发下一个玩家
+                  // 确保用户听到完整的报牌内容后，游戏流程才继续
                   onAnnouncementComplete();
                 },
                 onStart: () => {
                   // 音频开始播放
+                  console.log('[GameStore] 报牌开始播放:', text);
                 },
                 onEnd: () => {
-                  // 音频播放完成
+                  // 音频播放完成（此时onAudioGenerated已经触发）
+                  console.log('[GameStore] 报牌播放完成:', text);
                 },
                 onError: (error) => {
                   console.error('[GameStore] 报牌错误:', error);
+                  // 即使报牌失败，也要触发下一个玩家
                   onAnnouncementComplete();
                 }
               }).catch((error) => {
                 console.error('[GameStore] 报牌异常:', error);
+                // 即使报牌异常，也要触发下一个玩家
                 onAnnouncementComplete();
               });
             } catch (error) {

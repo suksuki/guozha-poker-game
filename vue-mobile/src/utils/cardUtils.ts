@@ -55,6 +55,74 @@ export function sortCards(cards: Card[]): Card[] {
   return [...cards].sort(compareCards);
 }
 
+// 按点数排序（3,4,5...K,A,2,小王,大王）
+export function sortCardsByRank(cards: Card[]): Card[] {
+  return [...cards].sort((a, b) => {
+    // 先按点数排序
+    if (a.rank !== b.rank) {
+      return a.rank - b.rank;
+    }
+    // 同点数按花色排序
+    return a.suit.localeCompare(b.suit);
+  });
+}
+
+// 按牌大小排序（考虑2和大小王的特殊位置：大王>小王>2>A>K>...>3）
+export function sortCardsByValue(cards: Card[]): Card[] {
+  // 获取牌的排序值（用于比较大小）
+  const getCardValue = (card: Card): number => {
+    // 大王最大
+    if (card.rank === Rank.JOKER_BIG) return 1000;
+    // 小王
+    if (card.rank === Rank.JOKER_SMALL) return 999;
+    // 2
+    if (card.rank === Rank.TWO) return 998;
+    // A
+    if (card.rank === Rank.ACE) return 14;
+    // 其他牌按rank值
+    return card.rank;
+  };
+
+  return [...cards].sort((a, b) => {
+    const valueA = getCardValue(a);
+    const valueB = getCardValue(b);
+    if (valueA !== valueB) {
+      return valueB - valueA; // 从大到小
+    }
+    // 同点数按花色排序
+    return a.suit.localeCompare(b.suit);
+  });
+}
+
+// 按点数分组手牌
+export function groupCardsByRank(cards: Card[]): Map<Rank, Card[]> {
+  const groups = new Map<Rank, Card[]>();
+  cards.forEach(card => {
+    const rank = card.rank;
+    if (!groups.has(rank)) {
+      groups.set(rank, []);
+    }
+    groups.get(rank)!.push(card);
+  });
+  // 对每组内的牌按花色排序
+  groups.forEach(cardsInGroup => {
+    cardsInGroup.sort((a, b) => a.suit.localeCompare(b.suit));
+  });
+  return groups;
+}
+
+// 获取点数的显示名称
+export function getRankDisplayName(rank: Rank): string {
+  if (rank === Rank.JACK) return 'J';
+  if (rank === Rank.QUEEN) return 'Q';
+  if (rank === Rank.KING) return 'K';
+  if (rank === Rank.ACE) return 'A';
+  if (rank === Rank.TWO) return '2';
+  if (rank === Rank.JOKER_SMALL) return '小王';
+  if (rank === Rank.JOKER_BIG) return '大王';
+  return rank.toString();
+}
+
 // 识别牌型
 export function canPlayCards(cards: Card[]): Play | null {
   if (!cards || cards.length === 0) {

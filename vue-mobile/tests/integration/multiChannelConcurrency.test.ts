@@ -6,8 +6,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useSettingsStore } from '../../src/stores/settingsStore';
-import { getMultiChannelAudioService } from '../../src/services/multiChannelAudioService';
-import { ChannelScheduler, ChannelUsage } from '../../src/services/channelScheduler';
+import { getMultiChannelAudioService } from '../../src/services/audio/multiChannelAudioService';
+import { SmartChannelScheduler, ChannelUsage } from '../../src/services/audio/smartChannelScheduler';
 import { ChannelType } from '../../src/types/channel';
 
 // Mock Web Audio API
@@ -90,7 +90,7 @@ describe('多声道并发集成测试', () => {
       // 验证使用了不同的声道
       const channels = Array.from(usedChannels);
       channels.forEach(channel => {
-        expect(channel).toBeGreaterThanOrEqual(ChannelType.PLAYER_0);
+        expect(channel).toBeGreaterThanOrEqual(ChannelType.PLAYER_1);
         expect(channel).toBeLessThanOrEqual(ChannelType.PLAYER_7);
       });
 
@@ -115,7 +115,7 @@ describe('多声道并发集成测试', () => {
 
       // 验证声道范围
       allocations.forEach(allocation => {
-        expect(allocation.channel).toBeGreaterThanOrEqual(ChannelType.PLAYER_0);
+        expect(allocation.channel).toBeGreaterThanOrEqual(ChannelType.PLAYER_1);
         expect(allocation.channel).toBeLessThanOrEqual(ChannelType.PLAYER_7);
       });
 
@@ -157,7 +157,7 @@ describe('多声道并发集成测试', () => {
     });
 
     it('应该支持动态更新maxConcurrentPlayers', () => {
-      const scheduler = new ChannelScheduler(3);
+      const scheduler = new SmartChannelScheduler(3, 4);
       
       // 初始为3
       let stats = scheduler.getStatistics();
@@ -250,7 +250,7 @@ describe('多声道并发集成测试', () => {
 
       // 验证包含所有声道
       const channels = Array.from(allStates.keys());
-      expect(channels).toContain(ChannelType.ANNOUNCEMENT);
+      expect(channels).toContain(ChannelType.SYSTEM);
       for (let i = 0; i < 8; i++) {
         expect(channels).toContain(i as ChannelType);
       }
@@ -287,7 +287,7 @@ describe('多声道并发集成测试', () => {
 
   describe('报牌和聊天并发', () => {
     it('报牌和玩家聊天应该可以同时播放', () => {
-      const scheduler = new ChannelScheduler(3);
+      const scheduler = new SmartChannelScheduler(3, 4);
 
       // 分配报牌声道
       const announcementAllocation = scheduler.allocateChannel({
@@ -303,10 +303,10 @@ describe('多声道并发集成测试', () => {
       });
 
       // 两者都应该成功
-      expect(announcementAllocation.channel).toBe(ChannelType.ANNOUNCEMENT);
+      expect(announcementAllocation.channel).toBe(ChannelType.SYSTEM);
       expect(announcementAllocation.isQueued).toBe(false);
       expect(playerAllocation.isQueued).toBe(false);
-      expect(playerAllocation.channel).not.toBe(ChannelType.ANNOUNCEMENT);
+      expect(playerAllocation.channel).not.toBe(ChannelType.SYSTEM);
 
       // 清理
       scheduler.releaseChannel(announcementAllocation.channel);
@@ -314,7 +314,7 @@ describe('多声道并发集成测试', () => {
     });
 
     it('多个玩家可以同时播放（在maxConcurrentPlayers限制内）', () => {
-      const scheduler = new ChannelScheduler(3);
+      const scheduler = new SmartChannelScheduler(3, 4);
       const allocations: any[] = [];
 
       // 分配3个玩家

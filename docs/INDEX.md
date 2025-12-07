@@ -5,9 +5,20 @@
 ## 🚀 快速开始
 
 - [README.md](../README.md) - 项目主文档
-- [QUICK-START.md](../QUICK-START.md) - 快速开始指南
-- [README-RUN.md](../README-RUN.md) - 运行说明
-- [README-WINDOWS.md](../README-WINDOWS.md) - Windows用户指南
+- [快速开始](root-docs/startup/QUICK_START.md) - 5分钟上手指南
+- [WSL启动指南](root-docs/startup/WSL-START.md) - WSL环境快速启动
+- [服务启动说明](root-docs/startup/START-SERVICES.md) - 所有服务启动方式
+- [Windows用户指南](root-docs/startup/README-WINDOWS.md) - Windows环境指南
+
+### 📁 整理后的根目录文档 (`root-docs/`)
+
+- [快速访问指南](root-docs/QUICK_ACCESS.md) ⭐ - 快速查找所有文档和脚本
+- [整理完成总结](root-docs/COMPLETION_SUMMARY.md) - 文件整理工作总结
+- [启动文档](root-docs/startup/) - 所有启动相关文档
+- [项目状态](root-docs/status/) - 项目状态和总结文档
+- [TTS配置](root-docs/tts/) - TTS服务配置文档
+- [配置文档](root-docs/config/) - 各种配置指南
+- [脚本文件](root-docs/scripts/) - 所有脚本文件（启动、安装、测试、工具）
 
 ## 📁 文档分类
 

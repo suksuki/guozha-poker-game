@@ -13,7 +13,7 @@ vi.mock('../../src/services/tts/ttsService', () => ({
   }))
 }));
 
-vi.mock('../../src/services/multiChannelAudioService', () => ({
+vi.mock('../../src/services/audio/multiChannelAudioService', () => ({
   getMultiChannelAudioService: vi.fn(() => ({
     playAudioBuffer: vi.fn(),
     getAudioContext: vi.fn(() => ({
@@ -33,7 +33,7 @@ describe('TTSPlaybackService', () => {
   describe('缓存机制', () => {
     it('应该缓存相同文本的音频', async () => {
       const text = '测试文本';
-      const channel = ChannelType.ANNOUNCEMENT;
+      const channel = ChannelType.SYSTEM;
 
       // Mock TTS服务
       const { getTTSService } = await import('../../src/services/tts/ttsService');
@@ -174,7 +174,7 @@ describe('TTSPlaybackService', () => {
   describe('播放音频', () => {
     it('应该正确播放AudioBuffer', async () => {
       const audioBuffer = new ArrayBuffer(1000);
-      const channel = ChannelType.ANNOUNCEMENT;
+      const channel = ChannelType.SYSTEM;
       const priority = 4;
 
       // Mock音频服务
@@ -200,7 +200,7 @@ describe('TTSPlaybackService', () => {
 
     it('应该在AudioContext不可用时抛出错误', async () => {
       const audioBuffer = new ArrayBuffer(1000);
-      const channel = ChannelType.ANNOUNCEMENT;
+      const channel = ChannelType.SYSTEM;
       const priority = 4;
 
       // Mock音频服务（AudioContext不可用）
@@ -220,22 +220,22 @@ describe('TTSPlaybackService', () => {
 
   describe('缓存键生成', () => {
     it('应该为不同文本生成不同的缓存键', () => {
-      const key1 = (service as any).getCacheKey('文本1', ChannelType.ANNOUNCEMENT);
-      const key2 = (service as any).getCacheKey('文本2', ChannelType.ANNOUNCEMENT);
+      const key1 = (service as any).getCacheKey('文本1', ChannelType.SYSTEM);
+      const key2 = (service as any).getCacheKey('文本2', ChannelType.SYSTEM);
       
       expect(key1).not.toBe(key2);
     });
 
     it('应该为相同文本和声道生成相同的缓存键', () => {
-      const key1 = (service as any).getCacheKey('文本', ChannelType.ANNOUNCEMENT);
-      const key2 = (service as any).getCacheKey('文本', ChannelType.ANNOUNCEMENT);
+      const key1 = (service as any).getCacheKey('文本', ChannelType.SYSTEM);
+      const key2 = (service as any).getCacheKey('文本', ChannelType.SYSTEM);
       
       expect(key1).toBe(key2);
     });
 
     it('应该为不同声道生成不同的缓存键', () => {
-      const key1 = (service as any).getCacheKey('文本', ChannelType.ANNOUNCEMENT);
-      const key2 = (service as any).getCacheKey('文本', ChannelType.PLAYER_0);
+      const key1 = (service as any).getCacheKey('文本', ChannelType.SYSTEM);
+      const key2 = (service as any).getCacheKey('文本', ChannelType.PLAYER_1);
       
       expect(key1).not.toBe(key2);
     });

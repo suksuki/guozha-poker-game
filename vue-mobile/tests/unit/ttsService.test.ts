@@ -167,6 +167,19 @@ describe('TTSService', () => {
 
   describe('语音合成', () => {
     it('应该使用浏览器TTS作为后备', async () => {
+      // 确保没有其他服务器，只使用浏览器TTS
+      const servers = service.getServers();
+      servers.forEach(s => service.removeServer(s.id));
+      
+      // 确保BrowserTTSClient可用
+      const browserClient = (service as any).browserClient;
+      vi.spyOn(browserClient, 'isAvailable').mockResolvedValue(true);
+      vi.spyOn(browserClient, 'synthesize').mockResolvedValue({
+        audioBuffer: new ArrayBuffer(100),
+        duration: 1.0,
+        format: 'audio/wav'
+      });
+
       const result = await service.synthesize('测试文本');
 
       expect(result).toBeDefined();
@@ -175,18 +188,6 @@ describe('TTSService', () => {
     });
 
     it('应该尝试使用配置的服务器', async () => {
-      // Mock piper和melo客户端
-      vi.mock('../../src/services/tts/piperTTSClient', () => ({
-        PiperTTSClient: vi.fn().mockImplementation(() => ({
-          isAvailable: vi.fn().mockResolvedValue(true),
-          synthesize: vi.fn().mockResolvedValue({
-            audioBuffer: new ArrayBuffer(0),
-            duration: 1.0,
-            format: 'audio/wav'
-          })
-        }))
-      }));
-
       const server: TTSServerConfig = {
         id: 'test-1',
         name: '测试服务器',
@@ -202,22 +203,32 @@ describe('TTSService', () => {
 
       service.addServer(server);
       
+      // Mock melo客户端
+      const client = (service as any).serverClients.get('test-1');
+      if (client) {
+        vi.spyOn(client, 'isAvailable').mockResolvedValue(true);
+        vi.spyOn(client, 'synthesize').mockResolvedValue({
+          audioBuffer: new ArrayBuffer(100),
+          duration: 1.0,
+          format: 'audio/wav'
+        });
+      }
+      
       // 由于我们mock了客户端，应该能够成功
       const result = await service.synthesize('测试文本');
       expect(result).toBeDefined();
     });
 
     it('如果所有服务器都失败，应该抛出错误', async () => {
+      // 移除所有服务器
+      const servers = service.getEnabledServers();
+      servers.forEach(s => service.removeServer(s.id));
+      
       // Mock BrowserTTSClient失败
-      const mockClient = {
-        isAvailable: vi.fn().mockResolvedValue(false),
-        synthesize: vi.fn().mockRejectedValue(new Error('失败'))
-      };
+      const browserClient = (service as any).browserClient;
+      vi.spyOn(browserClient, 'isAvailable').mockResolvedValue(false);
 
-      // @ts-ignore
-      service['clients'].set('browser', mockClient);
-
-      await expect(service.synthesize('测试')).rejects.toThrow();
+      await expect(service.synthesize('测试')).rejects.toThrow('没有可用的TTS服务');
     });
   });
 

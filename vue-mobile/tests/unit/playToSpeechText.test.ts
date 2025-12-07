@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { playToSpeechText } from '../../src/utils/playToSpeechText';
-import { Play, CardType, Rank, Suit } from '../../../src/types/card';
+import { Play, CardType, Rank, Suit } from '../../src/types/card';
 
 describe('playToSpeechText', () => {
   it('应该正确转换单张牌', () => {

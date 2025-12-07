@@ -164,6 +164,11 @@ ollama list
 运行：
 ```bash
 chmod +x start-ollama.sh
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/start/start-ollama.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./start-ollama.sh
 ```
 

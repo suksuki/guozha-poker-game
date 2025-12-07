@@ -56,7 +56,7 @@ export class TTSPlaybackService {
       fallbackTimeout = 5000,  // 降级超时5秒
       enableCache = true,
       priority = 1,
-      channel = ChannelType.ANNOUNCEMENT,
+      channel = ChannelType.SYSTEM,
       onAudioGenerated,
       onStart,
       onEnd,

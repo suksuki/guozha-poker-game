@@ -25,7 +25,12 @@
 **设置步骤：**
 1. 使用项目提供的脚本安装和启动：
 ```bash
+# 使用整理后的脚本路径
 ./scripts/setup-piper-tts.sh
+./docs/root-docs/scripts/start/start-piper-tts.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./start-piper-tts.sh
 ```
 
@@ -143,7 +148,9 @@ A: **不一定**。你有三个选择：
 2. **本地TTS服务**（GPT-SoVITS、CosyVoice TTS等）- 需要启动本地服务
 3. **云端TTS**（Google TTS等）- 需要API Key
 
-**最简单的方式**：使用 Piper TTS，运行 `./scripts/setup-piper-tts.sh` 和 `./start-piper-tts.sh` 即可。
+**最简单的方式**：使用 Piper TTS，运行 `./scripts/setup-piper-tts.sh` 和 `./docs/root-docs/scripts/start/start-piper-tts.sh` 即可。
+
+> 💡 **提示**：建议运行 `./docs/root-docs/create-symlinks.sh` 创建符号链接，然后可以直接使用 `./start-piper-tts.sh`
 
 ### Q: 为什么不能用speechSynthesis？
 A: `speechSynthesis` 是浏览器的单通道队列，同一时刻只能有一个语音在播放。要实现"多AI同时说话"，必须使用TTS API生成音频文件，然后用Web Audio API并发播放。

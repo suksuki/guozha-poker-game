@@ -114,15 +114,18 @@ export class ChannelScheduler {
   
   /**
    * 分配系统声道（ANNOUNCEMENT）
+   * 注意：系统声道和玩家声道是独立的，可以同时播放
    */
   private allocateSystemChannel(request: ChannelRequest): ChannelAllocation {
     const channel = ChannelType.ANNOUNCEMENT;
     const state = this.channelStates.get(channel)!;
     
     // 系统声道优先级最高，可以中断当前播放
+    // 但系统声道和玩家声道是独立的，不会互相阻塞
     if (state.isActive && request.priority >= state.priority) {
       // 如果新请求优先级更高或相等，可以中断
       // 这里简化处理，系统声道通常优先级最高，直接分配
+      console.log(`[ChannelScheduler] 系统声道正在播放，但新请求优先级足够，直接分配`);
       return {
         channel,
         isQueued: false
@@ -132,6 +135,7 @@ export class ChannelScheduler {
     // 如果正在播放且优先级不够，加入队列
     if (state.isActive) {
       state.queueLength++;
+      console.log(`[ChannelScheduler] 系统声道正在播放，新请求加入队列，位置=${state.queueLength}`);
       return {
         channel,
         isQueued: true,
@@ -142,6 +146,7 @@ export class ChannelScheduler {
     // 声道空闲，直接分配
     state.isActive = true;
     state.priority = request.priority;
+    console.log(`[ChannelScheduler] 系统声道空闲，直接分配`);
     return {
       channel,
       isQueued: false
@@ -150,6 +155,7 @@ export class ChannelScheduler {
   
   /**
    * 分配玩家声道
+   * 注意：玩家声道和系统声道是独立的，可以同时播放
    */
   private allocatePlayerChannel(request: ChannelRequest): ChannelAllocation {
     const playerId = request.playerId ?? 0;
@@ -162,6 +168,7 @@ export class ChannelScheduler {
       if (state.isActive && state.currentPlayerId === playerId) {
         // 该玩家正在使用该声道，加入队列
         state.queueLength++;
+        console.log(`[ChannelScheduler] 玩家${playerId}的声道${assignedChannel}正在使用，加入队列，位置=${state.queueLength}`);
         return {
           channel: assignedChannel,
           isQueued: true,
@@ -186,6 +193,7 @@ export class ChannelScheduler {
       state.priority = request.priority;
       this.playerChannelMap.set(playerId, availableChannel);
       this.activePlayerCount++; // 增加活跃玩家计数
+      console.log(`[ChannelScheduler] 为玩家${playerId}分配声道${availableChannel}，当前活跃玩家数=${this.activePlayerCount}`);
       return {
         channel: availableChannel,
         isQueued: false
@@ -196,6 +204,7 @@ export class ChannelScheduler {
     const firstChannel = this.availablePlayerChannels[0];
     const state = this.channelStates.get(firstChannel)!;
     state.queueLength++;
+    console.log(`[ChannelScheduler] 所有玩家声道都在使用，玩家${playerId}加入队列，位置=${state.queueLength}`);
     return {
       channel: firstChannel,  // 临时分配，实际会在播放时重新分配
       isQueued: true,

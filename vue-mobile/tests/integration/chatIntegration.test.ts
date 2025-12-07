@@ -6,17 +6,16 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useGameStore } from '../../src/stores/gameStore';
 import { useChatStore } from '../../src/stores/chatStore';
 import { setActivePinia, createPinia } from 'pinia';
-import { aiBrainIntegration } from '../../src/services/aiBrainIntegration';
+import { aiBrainIntegration } from '../../src/services/ai/aiBrainIntegration';
 import { Game } from '../../../src/game-engine/Game';
 
 // Mock fetch for LLM calls
 global.fetch = vi.fn();
 
 // Mock AIBrainIntegration
-vi.mock('../../src/services/aiBrainIntegration', () => {
-  const mockMessages: any[] = [];
-  let messageCallback: ((msg: any) => void) | null = null;
+let messageCallback: ((msg: any) => void) | null = null;
 
+vi.mock('../../src/services/ai/aiBrainIntegration', () => {
   return {
     aiBrainIntegration: {
       initialize: vi.fn(async () => {
@@ -123,9 +122,9 @@ describe('聊天功能集成测试', () => {
       };
 
       // 直接调用回调（模拟AI Brain发送消息）
-      const callback = (aiBrainIntegration.onCommunicationMessage as any).mock.calls[0]?.[0];
-      if (callback) {
-        callback(mockMessage);
+      // initializeAIBrainListener会调用onCommunicationMessage，设置messageCallback
+      if (messageCallback) {
+        messageCallback(mockMessage);
       }
 
       // 验证气泡显示
@@ -143,9 +142,9 @@ describe('聊天功能集成测试', () => {
         { playerId: 3, content: '消息3', intent: 'social_chat', timestamp: Date.now() }
       ];
 
-      const callback = (aiBrainIntegration.onCommunicationMessage as any).mock.calls[0]?.[0];
-      if (callback) {
-        messages.forEach(msg => callback(msg));
+      // 直接调用回调（模拟AI Brain发送消息）
+      if (messageCallback) {
+        messages.forEach(msg => messageCallback!(msg));
       }
 
       // 验证所有玩家的气泡都显示
@@ -166,9 +165,9 @@ describe('聊天功能集成测试', () => {
         timestamp: Date.now()
       };
 
-      const callback = (aiBrainIntegration.onCommunicationMessage as any).mock.calls[0]?.[0];
-      if (callback) {
-        callback(mockMessage);
+      // 直接调用回调（模拟AI Brain发送消息）
+      if (messageCallback) {
+        messageCallback(mockMessage);
       }
 
       // 验证消息被存储

@@ -31,6 +31,24 @@ beforeEach(() => {
     configurable: true
   });
 
+  // Mock AudioContext
+  const mockAudioContext = {
+    createGain: vi.fn(),
+    createBufferSource: vi.fn(),
+    decodeAudioData: vi.fn(),
+    destination: {}
+  };
+  Object.defineProperty(window, 'AudioContext', {
+    value: vi.fn(() => mockAudioContext),
+    writable: true,
+    configurable: true
+  });
+  Object.defineProperty(window, 'webkitAudioContext', {
+    value: vi.fn(() => mockAudioContext),
+    writable: true,
+    configurable: true
+  });
+
   // Mock SpeechSynthesisUtterance
   global.SpeechSynthesisUtterance = vi.fn((text: string) => {
     const utterance = { ...mockUtterance, text };
@@ -60,8 +78,6 @@ describe('BrowserTTSClient', () => {
 
   describe('synthesize', () => {
     it('应该创建SpeechSynthesisUtterance并调用speechSynthesis.speak', async () => {
-      const client = new BrowserTTSClient();
-      
       // Mock utterance事件
       let utteranceInstance: any = null;
       global.SpeechSynthesisUtterance = vi.fn((text: string) => {
@@ -77,6 +93,7 @@ describe('BrowserTTSClient', () => {
         return utteranceInstance;
       }) as any;
 
+      const client = new BrowserTTSClient();
       const promise = client.synthesize('测试文本');
 
       // 模拟utterance结束
@@ -92,8 +109,6 @@ describe('BrowserTTSClient', () => {
     });
 
     it('应该应用voiceConfig参数', async () => {
-      const client = new BrowserTTSClient();
-      
       let utteranceInstance: any = null;
       global.SpeechSynthesisUtterance = vi.fn((text: string) => {
         utteranceInstance = {
@@ -108,6 +123,7 @@ describe('BrowserTTSClient', () => {
         return utteranceInstance;
       }) as any;
 
+      const client = new BrowserTTSClient();
       const promise = client.synthesize('测试', {
         voiceConfig: {
           rate: 1.2,
@@ -132,16 +148,21 @@ describe('BrowserTTSClient', () => {
     it('如果AudioContext未初始化，应该抛出错误', async () => {
       // Mock AudioContext失败
       const originalAudioContext = window.AudioContext;
+      const originalWebkitAudioContext = (window as any).webkitAudioContext;
+      
       // @ts-ignore
-      window.AudioContext = undefined;
+      delete window.AudioContext;
+      // @ts-ignore
+      delete (window as any).webkitAudioContext;
 
       const client = new BrowserTTSClient();
       
-      await expect(client.synthesize('测试')).rejects.toThrow();
+      await expect(client.synthesize('测试')).rejects.toThrow('AudioContext未初始化');
 
       // 恢复
       window.AudioContext = originalAudioContext;
-    });
+      (window as any).webkitAudioContext = originalWebkitAudioContext;
+    }, 10000);
   });
 });
 

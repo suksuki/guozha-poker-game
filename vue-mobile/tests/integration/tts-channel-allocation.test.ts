@@ -59,11 +59,11 @@ describe('TTS声道分配测试', () => {
     
     // 验证是否调用了speak，并且使用了ANNOUNCEMENT声道
     expect(speakSpy).toHaveBeenCalled();
-    const call = speakSpy.mock.calls.find(c => c[1]?.channel === ChannelType.ANNOUNCEMENT);
+    const call = speakSpy.mock.calls.find(c => c[1]?.channel === ChannelType.SYSTEM);
     expect(call).toBeDefined();
     if (call) {
       const options = call[1];
-      expect(options?.channel).toBe(ChannelType.ANNOUNCEMENT);
+      expect(options?.channel).toBe(ChannelType.SYSTEM);
       expect(options?.priority).toBe(4); // 报牌优先级最高
     }
   });
@@ -107,9 +107,9 @@ describe('TTS声道分配测试', () => {
     if (calls.length > 0) {
       const playerChannelCalls = calls.filter(c => {
         const options = c[1];
-        return options?.channel !== ChannelType.ANNOUNCEMENT &&
+        return options?.channel !== ChannelType.SYSTEM &&
                options?.channel !== undefined &&
-               options.channel >= ChannelType.PLAYER_0 &&
+               options.channel >= ChannelType.PLAYER_1 &&
                options.channel <= ChannelType.PLAYER_7;
       });
       
@@ -152,7 +152,7 @@ describe('TTS声道分配测试', () => {
     if (calls.length > 0) {
       const announcementCalls = calls.filter(c => {
         const options = c[1];
-        return options?.channel === ChannelType.ANNOUNCEMENT;
+        return options?.channel === ChannelType.SYSTEM;
       });
       
       // 系统聊天消息不应该使用ANNOUNCEMENT声道
@@ -205,12 +205,12 @@ describe('TTS声道分配测试', () => {
       expect(uniqueChannels.size).toBeGreaterThan(1);
       
       // 应该有一个ANNOUNCEMENT声道（报牌）
-      expect(channels).toContain(ChannelType.ANNOUNCEMENT);
+      expect(channels).toContain(ChannelType.SYSTEM);
       
       // 应该有一个玩家声道（聊天）
       const hasPlayerChannel = channels.some(
         ch => ch !== undefined && 
-        ch >= ChannelType.PLAYER_0 && 
+        ch >= ChannelType.PLAYER_1 && 
         ch <= ChannelType.PLAYER_7
       );
       expect(hasPlayerChannel).toBe(true);

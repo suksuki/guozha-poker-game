@@ -98,7 +98,12 @@ POST http://localhost:5000/api/tts net::ERR_CONNECTION_REFUSED
 
 1. **使用项目提供的脚本：**
    ```bash
+   # 使用整理后的脚本路径
    ./scripts/setup-piper-tts.sh
+   ./docs/root-docs/scripts/start/start-piper-tts.sh
+   
+   # 或创建符号链接后直接使用
+   ./docs/root-docs/create-symlinks.sh
    ./start-piper-tts.sh
    ```
 

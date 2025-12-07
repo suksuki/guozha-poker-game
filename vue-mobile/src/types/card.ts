@@ -24,7 +24,9 @@ export enum Rank {
   QUEEN = 12,
   KING = 13,
   ACE = 14,
-  TWO = 15
+  TWO = 15,
+  JOKER_SMALL = 16, // 小王
+  JOKER_BIG = 17    // 大王
 }
 
 export enum CardType {

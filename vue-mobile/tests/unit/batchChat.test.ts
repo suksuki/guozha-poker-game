@@ -6,11 +6,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useGameStore } from '../../src/stores/gameStore';
 import { useChatStore } from '../../src/stores/chatStore';
 import { setActivePinia, createPinia } from 'pinia';
-import { aiBrainIntegration } from '../../src/services/aiBrainIntegration';
+import { aiBrainIntegration } from '../../src/services/ai/aiBrainIntegration';
 import { Game } from '../../../src/game-engine/Game';
 
 // Mock AIBrainIntegration
-vi.mock('../../src/services/aiBrainIntegration', () => {
+let messageCallback: ((msg: any) => void) | null = null;
+
+vi.mock('../../src/services/ai/aiBrainIntegration', () => {
   return {
     aiBrainIntegration: {
       initialize: vi.fn(() => Promise.resolve()),
@@ -18,8 +20,10 @@ vi.mock('../../src/services/aiBrainIntegration', () => {
       triggerAITurn: vi.fn(() => Promise.resolve()),
       triggerBatchChat: vi.fn(() => Promise.resolve(new Map())),
       onCommunicationMessage: vi.fn((callback) => {
-        // 模拟消息回调
-        return () => {}; // 返回取消订阅函数
+        messageCallback = callback;
+        return () => {
+          messageCallback = null;
+        };
       }),
       shutdown: vi.fn(() => Promise.resolve())
     }
@@ -90,21 +94,18 @@ describe('批量聊天生成', () => {
     it('应该接收并显示AI聊天消息', () => {
       const chatStore = useChatStore();
 
-      // 模拟AI Brain发送消息
-      const mockCallback = vi.fn();
-      (aiBrainIntegration.onCommunicationMessage as any).mockImplementation((callback: any) => {
-        // 立即调用回调模拟消息
-        callback({
+      chatStore.initializeAIBrainListener();
+
+      // 模拟AI Brain发送消息（通过messageCallback）
+      if (messageCallback) {
+        messageCallback({
           playerId: 1,
           content: '测试消息',
           intent: 'social_chat',
           emotion: 'relaxed',
           timestamp: Date.now()
         });
-        return () => {};
-      });
-
-      chatStore.initializeAIBrainListener();
+      }
 
       // 应该添加消息到store
       expect(chatStore.messages.length).toBeGreaterThan(0);
@@ -114,18 +115,17 @@ describe('批量聊天生成', () => {
     it('应该自动隐藏聊天气泡', async () => {
       const chatStore = useChatStore();
 
-      // 模拟AI Brain发送消息
-      (aiBrainIntegration.onCommunicationMessage as any).mockImplementation((callback: any) => {
-        callback({
+      chatStore.initializeAIBrainListener();
+
+      // 模拟AI Brain发送消息（通过messageCallback）
+      if (messageCallback) {
+        messageCallback({
           playerId: 1,
           content: '测试消息',
           intent: 'social_chat',
           timestamp: Date.now()
         });
-        return () => {};
-      });
-
-      chatStore.initializeAIBrainListener();
+      }
 
       // 应该显示气泡
       expect(chatStore.activeBubbles.has(1)).toBe(true);

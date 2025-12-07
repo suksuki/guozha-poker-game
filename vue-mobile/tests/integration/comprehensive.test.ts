@@ -8,17 +8,17 @@ import { setActivePinia, createPinia } from 'pinia';
 import { useGameStore } from '../../src/stores/gameStore';
 import { useChatStore } from '../../src/stores/chatStore';
 import { useSettingsStore } from '../../src/stores/settingsStore';
-import { getMultiChannelAudioService } from '../../src/services/multiChannelAudioService';
+import { getMultiChannelAudioService } from '../../src/services/audio/multiChannelAudioService';
 import { getTTSPlaybackService } from '../../src/services/tts/ttsPlaybackService';
-import { getChannelScheduler } from '../../src/services/channelScheduler';
+import { getSmartChannelScheduler } from '../../src/services/audio/smartChannelScheduler';
 import { ChannelType } from '../../src/types/channel';
 
 // Mock AI Brain Integration
-vi.mock('../../src/services/aiBrainIntegration', () => ({
+vi.mock('../../src/services/ai/aiBrainIntegration', () => ({
   aiBrainIntegration: {
     initialize: vi.fn().mockResolvedValue(undefined),
-    notifyStateChange: vi.fn().mockReturnValue(Promise.resolve()),
-    triggerAITurn: vi.fn().mockReturnValue(Promise.resolve()),
+    notifyStateChange: vi.fn().mockResolvedValue(undefined),
+    triggerAITurn: vi.fn().mockResolvedValue(undefined),
     isInitialized: false
   }
 }));
@@ -126,7 +126,7 @@ describe('全面自动化测试套件', () => {
       // 验证是否调用了speak，并且使用了ANNOUNCEMENT声道
       if (speakSpy.mock.calls.length > 0) {
         const call = speakSpy.mock.calls[0];
-        expect(call[1]?.channel).toBe(ChannelType.ANNOUNCEMENT);
+        expect(call[1]?.channel).toBe(ChannelType.SYSTEM);
       }
     });
 
@@ -155,7 +155,7 @@ describe('全面自动化测试套件', () => {
       chatStore.initializeAIBrainListener();
       
       // 模拟AI Brain通信
-      const { aiBrainIntegration } = await import('../../src/services/aiBrainIntegration');
+      const { aiBrainIntegration } = await import('../../src/services/ai/aiBrainIntegration');
       // 直接调用监听器（如果可能）
       
       // 验证聊天使用玩家声道（不是ANNOUNCEMENT）
@@ -174,15 +174,15 @@ describe('全面自动化测试套件', () => {
     });
 
     it('应该能够配置最大并发玩家数', () => {
-      const scheduler = getChannelScheduler();
+      const scheduler = getSmartChannelScheduler();
       scheduler.setMaxConcurrentPlayers(5);
       
       const stats = scheduler.getStatistics();
-      expect(stats.maxConcurrentPlayers).toBe(5);
+      expect(stats.playerChannels.maxConcurrent).toBe(5);
     });
 
-    it('报牌应该独占ANNOUNCEMENT声道', () => {
-      const scheduler = getChannelScheduler();
+    it('报牌应该独占SYSTEM声道', () => {
+      const scheduler = getSmartChannelScheduler();
       
       // 分配系统声道
       const allocation1 = scheduler.allocateChannel({
@@ -190,7 +190,7 @@ describe('全面自动化测试套件', () => {
         priority: 4
       });
       
-      expect(allocation1.channel).toBe(ChannelType.ANNOUNCEMENT);
+      expect(allocation1.channel).toBe(ChannelType.SYSTEM);
       
       // 再次分配系统声道（应该排队）
       const allocation2 = scheduler.allocateChannel({
@@ -198,7 +198,7 @@ describe('全面自动化测试套件', () => {
         priority: 4
       });
       
-      expect(allocation2.channel).toBe(ChannelType.ANNOUNCEMENT);
+      expect(allocation2.channel).toBe(ChannelType.SYSTEM);
       // 如果第一个还在使用，第二个应该排队
     });
 
@@ -212,9 +212,9 @@ describe('全面自动化测试套件', () => {
         priority: 1
       });
       
-      expect(allocation1.channel).toBeGreaterThanOrEqual(ChannelType.PLAYER_0);
+      expect(allocation1.channel).toBeGreaterThanOrEqual(ChannelType.PLAYER_1);
       expect(allocation1.channel).toBeLessThanOrEqual(ChannelType.PLAYER_7);
-      expect(allocation1.channel).not.toBe(ChannelType.ANNOUNCEMENT);
+      expect(allocation1.channel).not.toBe(ChannelType.SYSTEM);
     });
   });
 
@@ -308,7 +308,7 @@ describe('全面自动化测试套件', () => {
       });
       
       // AI Brain已经在顶部mock了
-      const { aiBrainIntegration } = await import('../../src/services/aiBrainIntegration');
+      const { aiBrainIntegration } = await import('../../src/services/ai/aiBrainIntegration');
       expect(aiBrainIntegration.initialize).toBeDefined();
     });
   });

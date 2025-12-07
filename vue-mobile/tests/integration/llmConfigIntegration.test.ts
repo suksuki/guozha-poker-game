@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useSettingsStore } from '../../src/stores/settingsStore';
-import { ollamaServerManager } from '../../src/services/ollamaServerManager';
+import { ollamaServerManager } from '../../src/services/llm/ollamaServerManager';
 import { getAvailableOllamaModels, checkOllamaService } from '../../../src/utils/llmModelService';
 
 // Mock fetch

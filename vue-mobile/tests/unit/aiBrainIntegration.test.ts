@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { AIBrainIntegration } from '../../src/services/aiBrainIntegration';
+import { AIBrainIntegration } from '../../src/services/ai/aiBrainIntegration';
 import { Game } from '../../../src/game-engine/Game';
 
 // Mock fetch

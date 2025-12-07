@@ -10,7 +10,22 @@
       >
         🚀 开始新游戏（新架构版）
       </van-button>
+      <van-button 
+        type="warning" 
+        size="large"
+        block 
+        style="margin-top: 16px;"
+        @click="showTrainingPanel = true"
+      >
+        🧠 智能训练
+      </van-button>
     </div>
+    
+    <!-- 训练面板 -->
+    <TrainingPanel
+      v-if="showTrainingPanel"
+      @close="showTrainingPanel = false"
+    />
     
     <!-- 游戏结束 -->
     <GameResultScreen
@@ -105,111 +120,148 @@
       
       <!-- 游戏区域 - 横屏布局 -->
       <div class="game-area-landscape">
-        <!-- 西侧玩家（左） -->
-        <div class="player-left">
-          <div class="player-card-vertical" v-if="playerWest" style="position: relative;">
-            <!-- 聊天气泡 -->
-            <ChatBubble
-              v-if="chatStore.activeBubbles.has(playerWest.id)"
-              :content="chatStore.activeBubbles.get(playerWest.id)?.content || ''"
-              :player-id="playerWest.id"
-              :is-human="false"
-              position="right"
-              :offset-x="10"
-              :offset-y="0"
-            />
-            <div class="player-avatar">🤖</div>
-            <van-tag size="mini" :type="isCurrentPlayer(playerWest.id) ? 'primary' : 'default'">
-              西{{ playerWest.id }}
-            </van-tag>
-            <div class="player-stats-vertical">
-              <span>🎴{{ playerWest.hand.length }}</span>
-              <span v-if="playerWest.score && playerWest.score !== 0" :class="playerWest.score > 0 ? 'score-positive' : 'score-negative'">
-                💰{{ playerWest.score }}
-              </span>
-              <span v-if="playerWest.dunCount && playerWest.dunCount > 0">
-                🏆{{ playerWest.dunCount }}墩
-              </span>
+        <!-- 上层区域：包含东西玩家和中间区域 -->
+        <div class="top-area-landscape">
+          <!-- 西侧玩家（左） -->
+          <div class="player-left">
+            <div class="player-card-vertical" v-if="playerWest" style="position: relative;">
+              <!-- 聊天气泡 -->
+              <ChatBubble
+                v-if="chatStore.activeBubbles.has(playerWest.id)"
+                :content="chatStore.activeBubbles.get(playerWest.id)?.content || ''"
+                :player-id="playerWest.id"
+                :is-human="false"
+                position="right"
+                :offset-x="10"
+                :offset-y="0"
+              />
+              <div class="player-avatar">🤖</div>
+              <van-tag size="mini" :type="isCurrentPlayer(playerWest.id) ? 'primary' : 'default'">
+                西{{ playerWest.id }}
+              </van-tag>
+              <div class="player-stats-vertical">
+                <span>🎴{{ playerWest.hand.length }}</span>
+                <span v-if="playerWest.score && playerWest.score !== 0" :class="playerWest.score > 0 ? 'score-positive' : 'score-negative'">
+                  💰{{ playerWest.score }}
+                </span>
+                <span v-if="playerWest.dunCount && playerWest.dunCount > 0">
+                  🏆{{ playerWest.dunCount }}墩
+                </span>
+              </div>
+              <van-tag v-if="playerWest.finishedRank" size="mini" type="danger">
+                #{{ playerWest.finishedRank }}
+              </van-tag>
             </div>
-            <van-tag v-if="playerWest.finishedRank" size="mini" type="danger">
-              #{{ playerWest.finishedRank }}
-            </van-tag>
+          </div>
+          
+          <!-- 中间区域 -->
+          <div class="center-area-landscape">
+            <!-- 北侧玩家（上） -->
+            <div class="player-top">
+              <template v-if="playerNorth">
+                <div class="player-info-horizontal" style="position: relative;">
+                  <!-- 聊天气泡 -->
+                  <ChatBubble
+                    v-if="chatStore.activeBubbles.has(playerNorth.id)"
+                    :content="chatStore.activeBubbles.get(playerNorth.id)?.content || ''"
+                    :player-id="playerNorth.id"
+                    :is-human="false"
+                    position="bottom"
+                    :offset-x="0"
+                    :offset-y="10"
+                  />
+                  <div class="player-avatar-north">🤖</div>
+                  <van-tag size="small" :type="isCurrentPlayer(playerNorth.id) ? 'primary' : 'default'">
+                    {{ playerNorth.name }}
+                  </van-tag>
+                  <van-tag size="small" type="primary">
+                    🎴{{ playerNorth.hand.length }}
+                  </van-tag>
+                  <van-tag size="small" type="success" v-if="playerNorth.score && playerNorth.score !== 0">
+                    💰{{ playerNorth.score }}
+                  </van-tag>
+                  <van-tag size="small" type="warning" v-if="playerNorth.dunCount && playerNorth.dunCount > 0">
+                    🏆{{ playerNorth.dunCount }}墩
+                  </van-tag>
+                  <van-tag v-if="playerNorth.finishedRank" size="small" type="danger">
+                    #{{ playerNorth.finishedRank }}
+                  </van-tag>
+                </div>
+              </template>
+            </div>
+            
+            <!-- 中央出牌区 -->
+            <div class="play-area-center">
+              <template v-if="!gameStore.currentRound?.lastPlay">
+                <van-empty 
+                  description="等待首家出牌"
+                  image="search"
+                  :image-size="80"
+                />
+              </template>
+              <template v-else>
+                <div class="last-play-center">
+                  <div class="play-header">
+                    <van-tag type="primary" size="medium">
+                      {{ getLastPlayerName() }} 出牌
+                    </van-tag>
+                    <van-tag type="success" size="medium">
+                      {{ getLastPlayType() }}
+                    </van-tag>
+                  </div>
+                  <div class="played-cards-center">
+                    <CardView
+                      v-for="(card, idx) in gameStore.currentRound.lastPlay" 
+                      :key="`${card.id || idx}-${card.rank}-${card.suit}`"
+                      :card="card"
+                      size="medium"
+                      class="played-card-center"
+                    />
+                  </div>
+                  <div class="play-info">
+                    第{{ gameStore.currentRound.plays.length }}次出牌
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+          
+          <!-- 东侧玩家（右） -->
+          <div class="player-right">
+            <div class="player-card-vertical" v-if="playerEast" style="position: relative;">
+              <!-- 聊天气泡 -->
+              <ChatBubble
+                v-if="chatStore.activeBubbles.has(playerEast.id)"
+                :content="chatStore.activeBubbles.get(playerEast.id)?.content || ''"
+                :player-id="playerEast.id"
+                :is-human="false"
+                position="left"
+                :offset-x="10"
+                :offset-y="0"
+              />
+              <div class="player-avatar">🤖</div>
+              <van-tag size="mini" :type="isCurrentPlayer(playerEast.id) ? 'primary' : 'default'">
+                东{{ playerEast.id }}
+              </van-tag>
+              <div class="player-stats-vertical">
+                <span>🎴{{ playerEast.hand.length }}</span>
+                <span v-if="playerEast.score && playerEast.score !== 0" :class="playerEast.score > 0 ? 'score-positive' : 'score-negative'">
+                  💰{{ playerEast.score }}
+                </span>
+                <span v-if="playerEast.dunCount && playerEast.dunCount > 0">
+                  🏆{{ playerEast.dunCount }}墩
+                </span>
+              </div>
+              <van-tag v-if="playerEast.finishedRank" size="mini" type="danger">
+                #{{ playerEast.finishedRank }}
+              </van-tag>
+            </div>
           </div>
         </div>
         
-        <!-- 中间区域 -->
-        <div class="center-area-landscape">
-          <!-- 北侧玩家（上） -->
-          <div class="player-top">
-            <template v-if="playerNorth">
-              <div class="player-info-horizontal" style="position: relative;">
-                <!-- 聊天气泡 -->
-                <ChatBubble
-                  v-if="chatStore.activeBubbles.has(playerNorth.id)"
-                  :content="chatStore.activeBubbles.get(playerNorth.id)?.content || ''"
-                  :player-id="playerNorth.id"
-                  :is-human="false"
-                  position="bottom"
-                  :offset-x="0"
-                  :offset-y="10"
-                />
-                <van-tag size="small" :type="isCurrentPlayer(playerNorth.id) ? 'primary' : 'default'">
-                  🤖 {{ playerNorth.name }}
-                </van-tag>
-                <van-tag size="small" type="primary">
-                  🎴{{ playerNorth.hand.length }}
-                </van-tag>
-                <van-tag size="small" type="success" v-if="playerNorth.score && playerNorth.score !== 0">
-                  💰{{ playerNorth.score }}
-                </van-tag>
-                <van-tag size="small" type="warning" v-if="playerNorth.dunCount && playerNorth.dunCount > 0">
-                  🏆{{ playerNorth.dunCount }}墩
-                </van-tag>
-                <van-tag v-if="playerNorth.finishedRank" size="small" type="danger">
-                  #{{ playerNorth.finishedRank }}
-                </van-tag>
-              </div>
-            </template>
-          </div>
-          
-          <!-- 中央出牌区 -->
-          <div class="play-area-center">
-            <template v-if="!gameStore.currentRound?.lastPlay">
-              <van-empty 
-                description="等待首家出牌"
-                image="search"
-                :image-size="80"
-              />
-            </template>
-            <template v-else>
-              <div class="last-play-center">
-                <div class="play-header">
-                  <van-tag type="primary" size="medium">
-                    {{ getLastPlayerName() }} 出牌
-                  </van-tag>
-                  <van-tag type="success" size="medium">
-                    {{ getLastPlayType() }}
-                  </van-tag>
-                </div>
-                <div class="played-cards-center">
-                  <CardView
-                    v-for="(card, idx) in gameStore.currentRound.lastPlay" 
-                    :key="`${card.id || idx}-${card.rank}-${card.suit}`"
-                    :card="card"
-                    size="medium"
-                    class="played-card-center"
-                  />
-                </div>
-                <div class="play-info">
-                  第{{ gameStore.currentRound.plays.length }}次出牌
-                </div>
-              </div>
-            </template>
-          </div>
-          
-          <!-- 底部 - 南侧（你） -->
-          <div class="your-hand-landscape" v-if="playerSouth" :class="{ 'auto-play-active': gameStore.isAutoPlay }">
-            <div class="player-name-south">
+        <!-- 底部 - 南侧（你）- 全宽 -->
+        <div class="your-hand-landscape" v-if="playerSouth" :class="{ 'auto-play-active': gameStore.isAutoPlay }">
+          <div class="player-name-south">
               <van-tag type="success" size="small">🧑 {{ playerSouth.name }}</van-tag>
               <van-tag v-if="gameStore.isAutoPlay" type="warning" size="small">🤖托管</van-tag>
               <van-tag size="small" type="primary">🎴{{ playerSouth.hand.length }}</van-tag>
@@ -251,57 +303,66 @@
                   清除
                 </van-button>
               </div>
-            </div>
-            <div class="hand-cards-landscape">
-              <div 
-                v-for="card in sortedHand" 
-                :key="card.id"
-                :class="['card-item-landscape', { 'card-selected': isCardSelected(card.id) }]"
-                @click="toggleCard(card.id)"
-              >
-                <CardView :card="card" size="medium" />
-              </div>
-            </div>
           </div>
-        </div>
-        
-        <!-- 东侧玩家（右） -->
-        <div class="player-right">
-          <div class="player-card-vertical" v-if="playerEast" style="position: relative;">
-            <!-- 聊天气泡 -->
-            <ChatBubble
-              v-if="chatStore.activeBubbles.has(playerEast.id)"
-              :content="chatStore.activeBubbles.get(playerEast.id)?.content || ''"
-              :player-id="playerEast.id"
-              :is-human="false"
-              position="left"
-              :offset-x="10"
-              :offset-y="0"
-            />
-            <div class="player-avatar">🤖</div>
-            <van-tag size="mini" :type="isCurrentPlayer(playerEast.id) ? 'primary' : 'default'">
-              东{{ playerEast.id }}
-            </van-tag>
-            <div class="player-stats-vertical">
-              <span>🎴{{ playerEast.hand.length }}</span>
-              <span v-if="playerEast.score && playerEast.score !== 0" :class="playerEast.score > 0 ? 'score-positive' : 'score-negative'">
-                💰{{ playerEast.score }}
-              </span>
-              <span v-if="playerEast.dunCount && playerEast.dunCount > 0">
-                🏆{{ playerEast.dunCount }}墩
-              </span>
-            </div>
-            <van-tag v-if="playerEast.finishedRank" size="mini" type="danger">
-              #{{ playerEast.finishedRank }}
-            </van-tag>
+          <div class="hand-cards-landscape">
+              <!-- 按点数分组叠放显示 -->
+              <div 
+                v-for="rank in sortedRanks" 
+                :key="rank"
+                class="rank-group"
+              >
+                <div 
+                  class="rank-group-header"
+                  @click="toggleRankExpand(rank)"
+                >
+                  <span class="rank-name">{{ getRankDisplayName(rank) }}</span>
+                  <span class="rank-count">({{ groupedHand.get(rank)?.length || 0 }})</span>
+                  <span class="expand-icon">{{ isRankExpanded(rank) ? '▼' : '▶' }}</span>
+                </div>
+                <div 
+                  v-if="isRankExpanded(rank) || groupedHand.get(rank)?.length === 1"
+                  class="rank-group-cards"
+                >
+                  <div 
+                    v-for="card in groupedHand.get(rank)" 
+                    :key="card.id"
+                    :class="['card-item-landscape', { 'card-selected': isCardSelected(card.id) }]"
+                    @click.stop="toggleCard(card.id)"
+                  >
+                    <CardView :card="card" size="small" />
+                  </div>
+                </div>
+                <!-- 未展开时显示叠放效果 -->
+                <div 
+                  v-else
+                  class="rank-group-stacked"
+                  @click.stop="toggleRankExpand(rank)"
+                >
+                  <div 
+                    v-for="(card, index) in groupedHand.get(rank)?.slice(0, 3)" 
+                    :key="card.id"
+                    class="stacked-card"
+                    :style="{ zIndex: 3 - index, transform: `translateX(${index * 6}px) translateY(${-index * 3}px)` }"
+                    @click.stop="toggleCard(card.id)"
+                  >
+                    <CardView :card="card" size="small" />
+                  </div>
+                  <div 
+                    v-if="(groupedHand.get(rank)?.length || 0) > 3"
+                    class="stacked-more"
+                  >
+                    +{{ (groupedHand.get(rank)?.length || 0) - 3 }}
+                  </div>
+                </div>
+              </div>
           </div>
         </div>
       </div>
       
+      <!-- 设置面板 -->
+      <SettingsPanel v-model="showSettings" />
     </div>
     
-    <!-- 设置面板 -->
-    <SettingsPanel v-model="showSettings" />
   </div>
 </template>
 
@@ -310,20 +371,24 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { showToast } from 'vant';
 import { useGameStore } from '../../stores/gameStore';
 import { useChatStore } from '../../stores/chatStore';
-import { sortCards } from '../../utils/cardUtils';
+import { sortCardsByRank, sortCardsByValue, groupCardsByRank } from '../../utils/cardUtils';
+import { Rank } from '../../types/card';
 import type { Card } from '../../types/card';
 import GameResultScreen from './GameResultScreen.vue';
 import SettingsPanel from '../settings/SettingsPanel.vue';
 import ChatInput from '../chat/ChatInput.vue';
 import ChatBubble from '../chat/ChatBubble.vue';
 import CardView from '../card/CardView.vue';
+import TrainingPanel from '../training/TrainingPanel.vue';
 
 const gameStore = useGameStore();
 const chatStore = useChatStore();
 const selectedCardIds = ref<string[]>([]);
-const sortMethod = ref<'default' | 'suit' | 'rank'>('default');
+const sortMethod = ref<'rank' | 'value'>('rank'); // 默认按点数排序
 const showSettings = ref(false);
 const showChat = ref(false);
+const showTrainingPanel = ref(false);
+const expandedRanks = ref<Set<number>>(new Set()); // 展开的点数组
 
 const openSettings = () => {
   console.log('openSettings 被调用，当前 showSettings:', showSettings.value);
@@ -356,9 +421,41 @@ const playerSouth = computed(() => {
   return player;
 }); // 南 - 底部（你）
 
-const sortedHand = computed(() => {
-  if (!gameStore.humanPlayer) return [];
-  return sortCards(gameStore.humanPlayer.hand);
+// 按点数分组的手牌
+const groupedHand = computed(() => {
+  if (!gameStore.humanPlayer) return new Map();
+  const hand = gameStore.humanPlayer.hand;
+  
+  // 根据排序方式排序手牌
+  let sorted: Card[];
+  if (sortMethod.value === 'rank') {
+    sorted = sortCardsByRank(hand);
+  } else {
+    sorted = sortCardsByValue(hand);
+  }
+  
+  // 按点数分组
+  return groupCardsByRank(sorted);
+});
+
+// 获取排序后的点数列表（用于显示顺序）
+const sortedRanks = computed(() => {
+  const ranks = Array.from(groupedHand.value.keys());
+  if (sortMethod.value === 'rank') {
+    return ranks.sort((a, b) => a - b);
+  } else {
+    // 按牌大小排序：大王>小王>2>A>K>...>3
+    return ranks.sort((a, b) => {
+      const getValue = (rank: Rank): number => {
+        if (rank === Rank.JOKER_BIG) return 1000;
+        if (rank === Rank.JOKER_SMALL) return 999;
+        if (rank === Rank.TWO) return 998;
+        if (rank === Rank.ACE) return 14;
+        return rank;
+      };
+      return getValue(b) - getValue(a); // 从大到小
+    });
+  }
 });
 
 const isMyTurn = computed(() => {
@@ -437,13 +534,34 @@ const clearSelection = () => {
 };
 
 const sortHand = () => {
-  // 切换排序方式
-  const methods: Array<'default' | 'suit' | 'rank'> = ['default', 'suit', 'rank'];
-  const currentIndex = methods.indexOf(sortMethod.value);
-  sortMethod.value = methods[(currentIndex + 1) % methods.length];
-  
-  const methodNames = { default: '默认', suit: '花色', rank: '点数' };
+  // 切换排序方式：按点数 或 按牌大小
+  sortMethod.value = sortMethod.value === 'rank' ? 'value' : 'rank';
+  const methodNames = { rank: '按点数', value: '按牌大小' };
   showToast(`已切换至${methodNames[sortMethod.value]}排序`);
+};
+
+// 切换展开/收起某个点数的牌组
+const toggleRankExpand = (rank: Rank) => {
+  if (expandedRanks.value.has(rank)) {
+    expandedRanks.value.delete(rank);
+  } else {
+    expandedRanks.value.add(rank);
+  }
+};
+
+// 检查某个点数是否展开
+const isRankExpanded = (rank: Rank) => {
+  return expandedRanks.value.has(rank);
+};
+
+// 选择某个点数的所有牌
+const selectAllOfRank = (rank: Rank) => {
+  const cards = groupedHand.value.get(rank) || [];
+  cards.forEach(card => {
+    if (!selectedCardIds.value.includes(card.id)) {
+      selectedCardIds.value.push(card.id);
+    }
+  });
 };
 
 // 初始化聊天Store
@@ -474,6 +592,18 @@ const getIntentLabel = (intent: string) => {
     'celebrate': '庆祝'
   };
   return labels[intent] || intent;
+};
+
+// 获取点数显示名称（使用导入的工具函数）
+const getRankDisplayName = (rank: Rank): string => {
+  if (rank === Rank.JACK) return 'J';
+  if (rank === Rank.QUEEN) return 'Q';
+  if (rank === Rank.KING) return 'K';
+  if (rank === Rank.ACE) return 'A';
+  if (rank === Rank.TWO) return '2';
+  if (rank === Rank.JOKER_SMALL) return '小王';
+  if (rank === Rank.JOKER_BIG) return '大王';
+  return rank.toString();
 };
 
 const getAIRecommendation = () => {
@@ -606,11 +736,21 @@ const getLastPlayType = () => {
 .game-area-landscape {
   flex: 1;
   display: flex;
+  flex-direction: column;
   padding: 4px;
   gap: 4px;
   min-height: 0;
   overflow: hidden;
   width: 100%;
+}
+
+/* 上层区域：包含东西玩家和中间区域 */
+.top-area-landscape {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 确保布局适应屏幕 */
@@ -723,13 +863,11 @@ const getLastPlayType = () => {
   flex-direction: column;
   gap: 4px;
   min-width: 200px;
-  max-width: calc(100% - 120px); /* 为左右玩家留出空间 */
   overflow: hidden;
 }
 
 @media screen and (max-width: 900px) {
   .center-area-landscape {
-    max-width: calc(100% - 100px);
     gap: 2px;
   }
 }
@@ -740,9 +878,9 @@ const getLastPlayType = () => {
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.2);
-  padding: 6px 8px;
+  padding: 10px 12px;
   border-radius: 8px;
-  min-height: 50px;
+  min-height: 70px;
   height: auto;
   flex-shrink: 0;
 }
@@ -750,9 +888,15 @@ const getLastPlayType = () => {
 .player-info-horizontal {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.player-avatar-north {
+  font-size: 32px;
+  line-height: 1;
+  margin-right: 4px;
 }
 
 .player-info-horizontal .van-tag {
@@ -851,8 +995,9 @@ const getLastPlayType = () => {
   font-weight: bold;
 }
 
-/* 你的手牌 - 横屏 */
+/* 你的手牌 - 横屏 - 全宽 */
 .your-hand-landscape {
+  width: 100%;
   height: 120px;
   min-height: 120px;
   max-height: 120px;
@@ -920,11 +1065,90 @@ const getLastPlayType = () => {
 
 .hand-cards-landscape {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex: 1;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 4px;
+  align-items: flex-end;
+}
+
+/* 点数分组样式 */
+.rank-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.rank-group-header {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.rank-group-header:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.rank-name {
+  font-weight: bold;
+}
+
+.rank-count {
+  opacity: 0.8;
+}
+
+.expand-icon {
+  font-size: 8px;
+  opacity: 0.7;
+}
+
+.rank-group-cards {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+}
+
+.rank-group-stacked {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
+  min-height: 50px;
+}
+
+.stacked-card {
+  position: absolute;
+  transition: transform 0.2s;
+  cursor: pointer;
+}
+
+.stacked-card:hover {
+  transform: translateY(-4px) !important;
+  z-index: 10 !important;
+}
+
+.stacked-more {
+  position: absolute;
+  right: -16px;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: bold;
+  z-index: 5;
 }
 
 .card-item-landscape {
@@ -986,13 +1210,23 @@ const getLastPlayType = () => {
 }
 
 .chat-message-human {
-  background: rgba(25, 137, 250, 0.3);
-  border-left: 3px solid #1989fa;
+  /* 泡泡风格：更明显的半透明蓝色 */
+  background: rgba(25, 137, 250, 0.35);
+  border-left: 3px solid rgba(25, 137, 250, 0.5);
+  border-radius: 12px;
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: 0 2px 8px rgba(25, 137, 250, 0.25);
 }
 
 .chat-message-ai {
-  background: rgba(255, 255, 255, 0.1);
-  border-left: 3px solid #07c160;
+  /* 泡泡风格：更明显的半透明白色 */
+  background: rgba(255, 255, 255, 0.25);
+  border-left: 3px solid rgba(7, 193, 96, 0.5);
+  border-radius: 12px;
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .chat-player-name {

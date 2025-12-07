@@ -62,8 +62,17 @@ chmod +x check-audio-files.sh
 ### 步骤3：安装语音引擎
 
 ```bash
-# 运行安装脚本
-chmod +x install-voice-packages.sh
+# 运行安装脚本（使用整理后的路径）
+chmod +x docs/root-docs/scripts/install/install-voice-packages.sh
+./docs/root-docs/scripts/install/install-voice-packages.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/install/install-voice-packages.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./install-voice-packages.sh
 ```
 
@@ -106,6 +115,11 @@ soundService.preloadSounds().then(() => {
 ./check-audio-files.sh
 
 # 2. 安装语音引擎
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/install/install-voice-packages.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./install-voice-packages.sh
 
 # 3. 重启应用
@@ -154,10 +168,20 @@ Electron应用中听不到中文发音，控制台显示：
 ```bash
 # 1. 运行测试脚本，查看当前状态
 chmod +x test-voice.sh
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/test/test-voice.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./test-voice.sh
 
 # 2. 如果espeak未安装，运行安装脚本
 chmod +x install-voice-packages.sh
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/install/install-voice-packages.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./install-voice-packages.sh
 
 # 3. 重启Electron应用
@@ -313,6 +337,11 @@ Electron应用没有声音，控制台显示：
 chmod +x install-voice-packages.sh
 
 # 2. 运行安装脚本
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/install/install-voice-packages.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./install-voice-packages.sh
 
 # 3. 重启Electron应用
@@ -591,6 +620,11 @@ espeak "测试"  # 即使没有中文包，也能发音
 
 ```bash
 chmod +x install-voice-fix.sh
+# 使用整理后的脚本路径
+./docs/root-docs/scripts/install/install-voice-fix.sh
+
+# 或创建符号链接后直接使用
+./docs/root-docs/create-symlinks.sh
 ./install-voice-fix.sh
 ```
 

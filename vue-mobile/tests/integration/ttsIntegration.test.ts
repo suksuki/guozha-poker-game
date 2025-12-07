@@ -5,10 +5,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useChatStore } from '../../src/stores/chatStore';
-import { getMultiChannelAudioService } from '../../src/services/multiChannelAudioService';
+import { getMultiChannelAudioService } from '../../src/services/audio/multiChannelAudioService';
 import { getTTSService } from '../../src/services/tts/ttsService';
-import { getChannelScheduler } from '../../src/services/channelScheduler';
-import { ChannelUsage } from '../../src/services/channelScheduler';
+import { getSmartChannelScheduler } from '../../src/services/audio/smartChannelScheduler';
+import { ChannelUsage } from '../../src/services/audio/smartChannelScheduler';
 
 // Mock Web Audio API
 class MockAudioContext {
@@ -46,7 +46,7 @@ beforeEach(() => {
 describe('TTS系统集成', () => {
   describe('通道调度器与音频服务集成', () => {
     it('应该能够为不同玩家分配不同通道', () => {
-      const scheduler = getChannelScheduler(3);
+      const scheduler = getSmartChannelScheduler(3);
       const audioService = getMultiChannelAudioService();
 
       const allocation1 = scheduler.allocateChannel({
@@ -67,14 +67,14 @@ describe('TTS系统集成', () => {
     });
 
     it('系统消息应该使用ANNOUNCEMENT通道', () => {
-      const scheduler = getChannelScheduler();
+      const scheduler = getSmartChannelScheduler();
       
       const allocation = scheduler.allocateChannel({
         usage: ChannelUsage.SYSTEM,
         priority: 4
       });
 
-      expect(allocation.channel).toBe(8); // ANNOUNCEMENT
+      expect(allocation.channel).toBe(ChannelType.SYSTEM);
     });
   });
 

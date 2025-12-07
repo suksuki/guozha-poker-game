@@ -84,7 +84,20 @@ npm run perf:monitor
 
 ### 5分钟体验新架构
 
-查看 [QUICK_START.md](QUICK_START.md) 了解详情。
+查看 [快速开始文档](docs/root-docs/startup/QUICK_START.md) 了解详情。
+
+### WSL环境启动
+
+```bash
+# 使用整理后的启动脚本
+./docs/root-docs/scripts/start/start-wsl.sh
+
+# 或创建符号链接后直接运行
+ln -s docs/root-docs/scripts/start/start-wsl.sh start-wsl.sh
+./start-wsl.sh
+```
+
+更多启动选项请查看 [启动文档](docs/root-docs/startup/)。
 
 ---
 
@@ -205,15 +218,25 @@ npm run test:e2e
 
 9. [更新日志](CHANGELOG.md) - 所有变更
 10. [贡献指南](CONTRIBUTING.md) - 如何贡献
-11. [项目状态](PROJECT_STATUS.md) - 当前状态
-12. [终极总结](ULTIMATE_SUMMARY.md) - 完整回顾
+11. [项目状态](docs/root-docs/status/PROJECT_STATUS.md) - 当前状态
+12. [终极总结](docs/root-docs/status/ULTIMATE_SUMMARY.md) - 完整回顾
+
+### 🚀 启动和配置文档
+
+13. [WSL启动指南](docs/root-docs/startup/WSL-START.md) - WSL环境快速启动
+14. [快速开始](docs/root-docs/startup/QUICK_START.md) - 5分钟上手
+15. [服务启动说明](docs/root-docs/startup/START-SERVICES.md) - 所有服务启动方式
+16. [TTS配置指南](docs/root-docs/tts/TTS_CONFIG_GUIDE.md) - TTS服务配置
+17. [外网访问配置](docs/root-docs/config/外网访问配置指南.md) - 外网访问设置
+
+**查看所有整理后的文档 →** [docs/root-docs/](docs/root-docs/)
 
 ### 🎯 运维文档
 
 13. [生产检查清单](docs/PRODUCTION_CHECKLIST.md)
 14. [优化指南](docs/OPTIMIZATION_GUIDE.md)
 
-**查看全部26份文档 →** [docs/](docs/)
+**查看全部文档 →** [docs/](docs/) | [整理后的根目录文档](docs/root-docs/) | [快速访问指南](docs/root-docs/QUICK_ACCESS.md)
 
 ---
 

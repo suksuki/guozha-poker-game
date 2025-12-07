@@ -88,7 +88,7 @@ describe('卡牌报牌同步测试', () => {
     
     // 2. 使用了ANNOUNCEMENT声道
     const call = speakMock.mock.calls[0];
-    expect(call[1]?.channel).toBe(ChannelType.ANNOUNCEMENT);
+    expect(call[1]?.channel).toBe(ChannelType.SYSTEM);
     
     // 3. onAudioGenerated被调用（触发下一个玩家）
     expect(onAudioGeneratedCalled).toBe(true);
@@ -105,9 +105,12 @@ describe('卡牌报牌同步测试', () => {
     
     // Mock TTS服务，触发错误
     const speakMock = vi.spyOn(ttsService, 'speak').mockImplementation((text, options) => {
-      setTimeout(() => {
-        options?.onError?.(new Error('TTS失败'));
-      }, 10);
+      // 立即触发onError回调，确保错误处理
+      if (options?.onError) {
+        setTimeout(() => {
+          options.onError(new Error('TTS失败'));
+        }, 10);
+      }
       return Promise.resolve();
     });
     
@@ -116,6 +119,9 @@ describe('卡牌报牌同步测试', () => {
     
     // 出牌（即使TTS失败，也应该继续）
     const result = await gameStore.playCards(cardToPlay);
+    
+    // 等待一下确保异步操作完成
+    await new Promise(resolve => setTimeout(resolve, 50));
     
     expect(result.success).toBe(true);
     expect(speakMock).toHaveBeenCalled();

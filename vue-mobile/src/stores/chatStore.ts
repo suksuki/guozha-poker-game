@@ -109,9 +109,10 @@ export const useChatStore = defineStore('chat', () => {
           import('../types/channel'),
           import('../services/tts/ttsPlaybackService')
         ]).then(([{ ChannelType }, { getTTSPlaybackService }]) => {
-          // 确定声道：所有聊天消息都使用玩家声道（PLAYER_0-PLAYER_7）
-          // 报牌独占ANNOUNCEMENT声道，聊天不应该使用它
-          const channel = (ChannelType.PLAYER_0 + (event.playerId % 8)) as ChannelType;
+          // 确定声道：所有聊天消息都使用玩家声道（PLAYER_1-PLAYER_7，共7条）
+          // 系统声音使用SYSTEM专用声道，聊天使用玩家声道（智能调度）
+          // 使用玩家ID模7来分配，确保在7个玩家声道中均匀分布
+          const channel = (ChannelType.PLAYER_1 + (event.playerId % 7)) as ChannelType;
           const ttsService = getTTSPlaybackService();
           
           // 聊天TTS（在音频开始播放时显示气泡，不需要等待播放完成）

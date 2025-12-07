@@ -24,7 +24,18 @@ export async function aiChoosePlay(
   playerId?: number
 ): Promise<Card[] | null> {
   // 合并用户配置和默认配置
-  const mergedConfig = mergeAIConfig(config);
+  let mergedConfig = mergeAIConfig(config);
+  
+  // 如果有训练后的参数，应用它们
+  const trainedParams = ParameterApplier.getAppliedMCTSParams();
+  if (trainedParams && mergedConfig.algorithm === 'mcts') {
+    // 将训练参数合并到配置中
+    const trainedMCTSConfig = ParameterApplier.toMCTSConfig(trainedParams);
+    mergedConfig = {
+      ...mergedConfig,
+      ...trainedMCTSConfig
+    };
+  }
   
   // 如果有playerId，获取动态策略调整
   if (playerId !== undefined) {

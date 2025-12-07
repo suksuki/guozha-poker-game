@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ChannelScheduler, ChannelUsage, ChannelAllocation } from '../../src/services/channelScheduler';
+import { ChannelScheduler, ChannelUsage, ChannelAllocation } from '../../src/services/audio/channelScheduler';
 import { ChannelType } from '../../src/types/channel';
 
 describe('ChannelScheduler', () => {
@@ -92,14 +92,24 @@ describe('ChannelScheduler', () => {
     });
 
     it('如果通道被占用，应该加入队列', () => {
-      // 分配第一个
+      // 分配第一个（通道会被标记为active，currentPlayerId会被设置）
       const allocation1 = scheduler.allocateChannel({
         usage: ChannelUsage.PLAYER,
         playerId: 1,
         priority: 1
       });
+      
+      // 确保通道确实在使用中（通过检查分配结果）
+      expect(allocation1.isQueued).toBe(false);
+      expect(allocation1.channel).toBeDefined();
+      
+      // 验证通道状态（确保isActive和currentPlayerId已设置）
+      const state1 = scheduler.getChannelState(allocation1.channel);
+      expect(state1?.isActive).toBe(true);
+      expect(state1?.currentPlayerId).toBe(1);
 
-      // 同一玩家再次请求（通道被占用）
+      // 同一玩家再次请求（通道被占用，应该加入队列）
+      // 因为state.isActive && state.currentPlayerId === playerId 都为true
       const allocation2 = scheduler.allocateChannel({
         usage: ChannelUsage.PLAYER,
         playerId: 1,
@@ -225,6 +235,9 @@ describe('ChannelScheduler', () => {
         playerId: 1,
         priority: 1
       });
+      
+      // 确保第一次分配成功
+      expect(allocation1.isQueued).toBe(false);
 
       // 同一玩家再次请求（加入队列）
       const allocation2 = scheduler.allocateChannel({
@@ -233,11 +246,12 @@ describe('ChannelScheduler', () => {
         priority: 1
       });
       expect(allocation2.isQueued).toBe(true);
+      expect(allocation2.queuePosition).toBeGreaterThan(0);
 
-      // 释放通道
+      // 释放通道（应该减少队列长度）
       scheduler.releaseChannel(allocation1.channel, 1);
 
-      // 队列长度应该减少
+      // 队列长度应该减少（releaseChannel会减少队列长度）
       const state = scheduler.getChannelState(allocation1.channel);
       expect(state?.queueLength).toBe(0);
     });

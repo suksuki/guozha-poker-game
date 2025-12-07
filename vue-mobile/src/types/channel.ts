@@ -1,18 +1,23 @@
 /**
  * 声道类型定义
  * 用于多声道语音播放系统
- * 支持最多8个玩家 + 1个报牌声道
+ * 
+ * 架构：
+ * - SYSTEM = 0: 专用系统声道（报牌、系统提示等），永远不与其他声道冲突
+ * - PLAYER_1 到 PLAYER_7: 7条共享玩家声道，用于玩家聊天，智能调度分配
  */
 
 export enum ChannelType {
-  PLAYER_0 = 0,  // 玩家0：左声道
-  PLAYER_1 = 1,  // 玩家1：右声道
-  PLAYER_2 = 2,  // 玩家2：左中
-  PLAYER_3 = 3,  // 玩家3：右中
-  PLAYER_4 = 4,  // 玩家4：左环绕
-  PLAYER_5 = 5,  // 玩家5：右环绕
-  PLAYER_6 = 6,  // 玩家6：左后
-  PLAYER_7 = 7,  // 玩家7：右后
-  ANNOUNCEMENT = 8  // 报牌/系统：中央声道（独占）
+  SYSTEM = 0,      // 系统声道（专用）：报牌、系统提示等，独占，永不冲突
+  PLAYER_1 = 1,    // 玩家声道1：共享，智能分配
+  PLAYER_2 = 2,    // 玩家声道2：共享，智能分配
+  PLAYER_3 = 3,    // 玩家声道3：共享，智能分配
+  PLAYER_4 = 4,    // 玩家声道4：共享，智能分配
+  PLAYER_5 = 5,    // 玩家声道5：共享，智能分配
+  PLAYER_6 = 6,    // 玩家声道6：共享，智能分配
+  PLAYER_7 = 7     // 玩家声道7：共享，智能分配
 }
+
+// 兼容性：保留旧的ANNOUNCEMENT枚举值，映射到SYSTEM
+export const ANNOUNCEMENT = ChannelType.SYSTEM;
 

@@ -121,7 +121,13 @@ fi
 # 7. 创建启动脚本
 echo ""
 echo "📦 步骤7: 创建启动脚本..."
+# 注意：脚本已移动到 docs/root-docs/scripts/start/start-piper-tts.sh
+# 这里创建符号链接指向新位置
 cat > start-piper-tts.sh << 'EOF'
+#!/bin/bash
+# 符号链接到整理后的脚本位置
+exec "$(dirname "$0")/docs/root-docs/scripts/start/start-piper-tts.sh" "$@"
+EOF
 #!/bin/bash
 # 启动Piper TTS服务
 
@@ -138,7 +144,8 @@ echo "✅ 安装完成！"
 echo "=========================================="
 echo ""
 echo "📝 下一步："
-echo "   1. 启动服务: ./start-piper-tts.sh"
+echo "   1. 启动服务: ./docs/root-docs/scripts/start/start-piper-tts.sh"
+echo "   或使用符号链接: ./start-piper-tts.sh (如果已创建)"
 echo "   或: source venv-piper/bin/activate && python scripts/piper-tts-server.py"
 echo ""
 echo "   2. 测试服务:"
