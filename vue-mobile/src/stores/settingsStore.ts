@@ -8,6 +8,7 @@ import { ref, computed, watch } from 'vue';
 import type { LLMChatConfig } from '../../../src/config/chatConfig';
 import { DEFAULT_LLM_CHAT_CONFIG } from '../../../src/config/chatConfig';
 import type { TTSServerConfig } from '../services/tts/types';
+import { changeLanguage, getCurrentLanguage, type SupportedLocale } from '../i18n';
 
 // ========== 游戏设置 ==========
 export interface GameSettings {
@@ -116,6 +117,11 @@ export const useSettingsStore = defineStore('settings', () => {
         gameSettings.value = { ...gameSettings.value, ...parsed.gameSettings };
         uiSettings.value = { ...uiSettings.value, ...parsed.uiSettings };
         aiSettings.value = { ...aiSettings.value, ...parsed.aiSettings };
+        
+        // 加载语言设置后立即应用
+        if (uiSettings.value.language) {
+          changeLanguage(uiSettings.value.language);
+        }
       }
 
       const savedLLM = localStorage.getItem('llm-config');
@@ -168,6 +174,12 @@ export const useSettingsStore = defineStore('settings', () => {
    */
   const updateUISettings = (updates: Partial<UISettings>) => {
     uiSettings.value = { ...uiSettings.value, ...updates };
+    
+    // 如果语言改变，立即切换
+    if (updates.language && updates.language !== getCurrentLanguage()) {
+      changeLanguage(updates.language);
+    }
+    
     saveSettings();
   };
 

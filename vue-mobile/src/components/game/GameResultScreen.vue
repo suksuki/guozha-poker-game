@@ -1,8 +1,8 @@
 <template>
   <div class="game-result-screen">
     <div class="result-header">
-      <h2>🎊 游戏结束</h2>
-      <van-tag type="success" size="large">共 {{ totalRounds }} 轮</van-tag>
+      <h2>🎊 {{ $t('game.finished') }}</h2>
+      <van-tag type="success" size="large">{{ $t('game.round') }} {{ totalRounds }}</van-tag>
     </div>
 
     <!-- 冠军展示 -->
@@ -13,12 +13,12 @@
       </div>
       <div class="champion-info">
         <h3>{{ winner?.name || '未知' }}</h3>
-        <p class="champion-score">最终得分: {{ winner?.score || 0 }} 分</p>
+        <p class="champion-score">{{ $t('game.score') }}: {{ winner?.score || 0 }}</p>
       </div>
     </div>
 
     <!-- 排名列表 -->
-    <van-cell-group title="🏆 最终排名">
+    <van-cell-group :title="`🏆 ${$t('game.winner')}`">
       <van-cell
         v-for="(player, index) in sortedPlayers"
         :key="player.id"
@@ -32,7 +32,7 @@
         </template>
         <template #right-icon>
           <van-tag :type="getRankTagType(index + 1)" size="medium">
-            第 {{ index + 1 }} 名
+            {{ $t('game.round') }} {{ index + 1 }}
           </van-tag>
         </template>
       </van-cell>
@@ -40,7 +40,7 @@
 
     <!-- 详细数据 -->
     <van-collapse v-model="activeNames">
-      <van-collapse-item title="📊 详细数据" name="details">
+      <van-collapse-item :title="`📊 ${$t('game.details')}`" name="details">
         <div class="details-grid">
           <div
             v-for="player in sortedPlayers"
@@ -49,32 +49,32 @@
           >
             <h4>{{ player.name }}</h4>
             <div class="detail-item">
-              <span class="label">排名:</span>
+              <span class="label">{{ $t('game.rank') }}:</span>
               <span class="value rank-value">{{ player.finishedRank || '-' }}</span>
             </div>
             <div class="detail-item">
-              <span class="label">最终分数:</span>
+              <span class="label">{{ $t('game.score') }}:</span>
               <span class="value" :class="player.score >= 0 ? 'positive' : 'negative'">
-                {{ player.score }} 分
+                {{ player.score }}
               </span>
             </div>
             <div class="detail-item">
-              <span class="label">墩数:</span>
-              <span class="value">{{ player.dunCount || 0 }} 墩</span>
+              <span class="label">{{ $t('game.dunCount') }}:</span>
+              <span class="value">{{ player.dunCount || 0 }}</span>
             </div>
             <div class="detail-item">
-              <span class="label">剩余手牌:</span>
-              <span class="value">{{ player.hand?.length || 0 }} 张</span>
+              <span class="label">{{ $t('game.remainingCards') }}:</span>
+              <span class="value">{{ player.hand?.length || 0 }}</span>
             </div>
             <div class="detail-item" v-if="player.finishedRank">
-              <span class="label">完成顺序:</span>
-              <span class="value">第 {{ player.finishedRank }} 个出完</span>
+              <span class="label">{{ $t('game.finishOrder') }}:</span>
+              <span class="value">{{ $t('game.round') }} {{ player.finishedRank }}</span>
             </div>
           </div>
         </div>
       </van-collapse-item>
 
-      <van-collapse-item title="📈 轮次统计" name="rounds" v-if="rounds.length > 0">
+      <van-collapse-item :title="`📈 ${$t('game.roundStats')}`" name="rounds" v-if="rounds.length > 0">
         <div class="rounds-list">
           <div
             v-for="(round, index) in rounds"
@@ -82,17 +82,17 @@
             class="round-item"
           >
             <div class="round-header">
-              <span class="round-number">第 {{ round.roundNumber }} 轮</span>
+              <span class="round-number">{{ $t('game.round') }} {{ round.roundNumber }}</span>
               <span class="round-score" v-if="round.roundScore > 0">
                 +{{ round.roundScore }} 分
               </span>
               <span class="round-score" v-else-if="round.totalScore > 0">
-                +{{ round.totalScore }} 分
+                +{{ round.totalScore }} {{ $t('game.points') }}
               </span>
             </div>
             <div class="round-details" v-if="round.winnerName || round.winnerId !== undefined || round.plays?.length > 0">
               <van-tag size="mini" type="success" v-if="round.winnerName">
-                {{ round.winnerName }} 获胜
+                {{ round.winnerName }} {{ $t('game.winner') }}
               </van-tag>
               <span class="round-info" v-if="round.plays?.length">
                 {{ round.plays.length }} 次出牌
@@ -117,7 +117,7 @@
         block
         @click="$emit('restart')"
       >
-        🔄 再来一局
+        🔄 {{ $t('game.restart') }}
       </van-button>
     </div>
   </div>
@@ -125,8 +125,11 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useI18n } from '../../i18n/composable';
 import type { Player } from '../../types/card';
 import type { RoundData } from '../../../src/game-engine/round/RoundData';
+
+const { t } = useI18n();
 
 interface Props {
   players: Player[];
@@ -180,10 +183,10 @@ const getRankTagType = (rank: number): string => {
 const playerInfo = (player: Player): string => {
   const parts: string[] = [];
   if (player.dunCount) {
-    parts.push(`${player.dunCount}墩`);
+    parts.push(`${player.dunCount}${t('game.dunCount')}`);
   }
   if (player.hand?.length) {
-    parts.push(`剩余${player.hand.length}张`);
+    parts.push(`${t('game.remainingCards')}${player.hand.length}`);
   }
   return parts.join(' · ') || '-';
 };

@@ -8,7 +8,7 @@
         block 
         @click="startGame"
       >
-        🚀 开始新游戏（新架构版）
+        🚀 {{ $t('game.startNewGame') }}
       </van-button>
       <van-button 
         type="warning" 
@@ -17,7 +17,7 @@
         style="margin-top: 16px;"
         @click="showTrainingPanel = true"
       >
-        🧠 智能训练
+        🧠 {{ $t('game.intelligentTraining') }}
       </van-button>
     </div>
     
@@ -55,7 +55,7 @@
           @click="openSettings"
           plain
         >
-          设置
+          {{ $t('common.settings') }}
         </van-button>
         <van-button 
           size="mini" 
@@ -110,7 +110,7 @@
             </span>
           </div>
           <div v-if="chatStore.recentMessages.length === 0" class="chat-empty">
-            暂无聊天消息
+            {{ $t('chat.noMessages') }}
           </div>
         </div>
         
@@ -137,7 +137,7 @@
               />
               <div class="player-avatar">🤖</div>
               <van-tag size="mini" :type="isCurrentPlayer(playerWest.id) ? 'primary' : 'default'">
-                西{{ playerWest.id }}
+                {{ $t('game.directions.west') }}{{ playerWest.id }}
               </van-tag>
               <div class="player-stats-vertical">
                 <span>🎴{{ playerWest.hand.length }}</span>
@@ -194,7 +194,7 @@
             <div class="play-area-center">
               <template v-if="!gameStore.currentRound?.lastPlay">
                 <van-empty 
-                  description="等待首家出牌"
+                  :description="$t('game.waitingFirstPlayer')"
                   image="search"
                   :image-size="80"
                 />
@@ -203,7 +203,7 @@
                 <div class="last-play-center">
                   <div class="play-header">
                     <van-tag type="primary" size="medium">
-                      {{ getLastPlayerName() }} 出牌
+                      {{ getLastPlayerName() }} {{ $t('game.playCards') }}
                     </van-tag>
                     <van-tag type="success" size="medium">
                       {{ getLastPlayType() }}
@@ -219,7 +219,7 @@
                     />
                   </div>
                   <div class="play-info">
-                    第{{ gameStore.currentRound.plays.length }}次出牌
+                    {{ $t('game.round') }}{{ gameStore.currentRound.plays.length }}{{ $t('game.playCards') }}
                   </div>
                 </div>
               </template>
@@ -277,16 +277,16 @@
               
               <!-- 操作按钮 - 移到手牌上方 -->
               <div class="action-buttons-inline">
-                <van-tag v-if="isMyTurn" type="primary" size="small">你的回合</van-tag>
-                <van-tag v-else size="small">等待</van-tag>
-                <van-tag type="warning" size="small">已选: {{ selectedCardIds.length }}</van-tag>
+                <van-tag v-if="isMyTurn" type="primary" size="small">{{ $t('game.yourTurn') }}</van-tag>
+                <van-tag v-else size="small">{{ $t('game.waiting') }}</van-tag>
+                <van-tag type="warning" size="small">{{ $t('game.selected') }}: {{ selectedCardIds.length }}</van-tag>
                 <van-button 
                   type="primary"
                   size="small"
                   :disabled="!isMyTurn || selectedCardIds.length === 0"
                   @click="playSelectedCards"
                 >
-                  出牌
+                  {{ $t('game.playCards') }}
                 </van-button>
                 <van-button 
                   type="warning"
@@ -294,13 +294,13 @@
                   :disabled="!isMyTurn || !canPass"
                   @click="passRound"
                 >
-                  不要
+                  {{ $t('game.pass') }}
                 </van-button>
                 <van-button 
                   size="small"
                   @click="clearSelection"
                 >
-                  清除
+                  {{ $t('common.clear') }}
                 </van-button>
               </div>
           </div>
@@ -369,6 +369,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { showToast } from 'vant';
+import { useI18n } from '../../i18n/composable';
 import { useGameStore } from '../../stores/gameStore';
 import { useChatStore } from '../../stores/chatStore';
 import { sortCardsByRank, sortCardsByValue, groupCardsByRank } from '../../utils/cardUtils';
@@ -380,6 +381,8 @@ import ChatInput from '../chat/ChatInput.vue';
 import ChatBubble from '../chat/ChatBubble.vue';
 import CardView from '../card/CardView.vue';
 import TrainingPanel from '../training/TrainingPanel.vue';
+
+const { t } = useI18n();
 
 const gameStore = useGameStore();
 const chatStore = useChatStore();
@@ -513,7 +516,7 @@ const playSelectedCards = () => {
   
   if (result.success) {
     selectedCardIds.value = [];
-    showToast({ type: 'success', message: '✅ 出牌成功！' });
+    showToast({ type: 'success', message: `✅ ${t('game.playCards')}${t('common.success')}` });
   } else {
     showToast({ type: 'fail', message: result.message });
   }
@@ -572,7 +575,7 @@ onMounted(() => {
 // 获取玩家名称
 const getPlayerName = (playerId: number) => {
   const player = gameStore.players.find(p => p.id === playerId);
-  return player?.name || `玩家${playerId}`;
+  return player?.name || `${t('game.currentPlayer')}${playerId}`;
 };
 
 // 获取玩家的最新消息
@@ -583,13 +586,13 @@ const getPlayerLatestMessage = (playerId: number) => {
 // 获取意图标签
 const getIntentLabel = (intent: string) => {
   const labels: Record<string, string> = {
-    'tactical_signal': '战术',
-    'strategic_discuss': '策略',
-    'emotional_express': '情绪',
-    'social_chat': '闲聊',
-    'taunt': '对骂',
-    'encourage': '鼓励',
-    'celebrate': '庆祝'
+    'tactical_signal': t('chat.intent.tactical'),
+    'strategic_discuss': t('chat.intent.strategic'),
+    'emotional_express': t('chat.intent.emotional'),
+    'social_chat': t('chat.intent.social'),
+    'taunt': t('chat.intent.taunt'),
+    'encourage': t('chat.intent.encourage'),
+    'celebrate': t('chat.intent.celebrate')
   };
   return labels[intent] || intent;
 };
@@ -601,8 +604,8 @@ const getRankDisplayName = (rank: Rank): string => {
   if (rank === Rank.KING) return 'K';
   if (rank === Rank.ACE) return 'A';
   if (rank === Rank.TWO) return '2';
-  if (rank === Rank.JOKER_SMALL) return '小王';
-  if (rank === Rank.JOKER_BIG) return '大王';
+  if (rank === Rank.JOKER_SMALL) return t('cards.rank.jokerSmall');
+  if (rank === Rank.JOKER_BIG) return t('cards.rank.jokerBig');
   return rank.toString();
 };
 
@@ -613,34 +616,34 @@ const getAIRecommendation = () => {
     selectedCardIds.value = suggestion.cards.map(c => c.id);
     showToast({ 
       type: 'success', 
-      message: `💡 AI推荐: ${suggestion.cards.length}张牌` 
+      message: `💡 ${t('game.aiRecommendation')}: ${suggestion.cards.length}${t('game.selectCards')}` 
     });
   } else {
     showToast({ 
       type: 'warning', 
-      message: '💡 AI建议: 不要' 
+      message: `💡 ${t('game.aiRecommendation')}: ${t('game.pass')}` 
     });
   }
 };
 
 const toggleAutoPlay = () => {
   gameStore.toggleAutoPlay();
-  showToast(gameStore.isAutoPlay ? '🤖 已开启托管' : '手动模式');
+  showToast(gameStore.isAutoPlay ? `🤖 ${t('game.autoPlay')}` : t('game.manualPlay'));
 };
 
 const getPlayTypeText = (play: any) => {
   if (!play) return '';
   const typeNames: Record<number, string> = {
-    0: '单张',
-    1: '对子',
-    2: '三张',
-    3: '炸弹',
-    4: '顺子',
-    5: '连对',
-    6: '飞机',
-    7: '四带二'
+    0: t('game.playTypes.single'),
+    1: t('game.playTypes.pair'),
+    2: t('game.playTypes.triple'),
+    3: t('game.playTypes.bomb'),
+    4: t('game.playTypes.straight'),
+    5: t('game.playTypes.pairStraight'),
+    6: t('game.playTypes.tripleStraight'),
+    7: t('game.playTypes.fourWithTwo')
   };
-  return typeNames[play.type] || '组合牌';
+  return typeNames[play.type] || t('game.playTypes.combination');
 };
 
 const getLastPlayerName = () => {
@@ -648,7 +651,7 @@ const getLastPlayerName = () => {
     return '无';
   }
   const lastPlay = gameStore.currentRound.plays[gameStore.currentRound.plays.length - 1];
-  return lastPlay.playerName || `玩家${lastPlay.playerId}`;
+  return lastPlay.playerName || `${t('game.currentPlayer')}${lastPlay.playerId}`;
 };
 
 const getLastPlayType = () => {

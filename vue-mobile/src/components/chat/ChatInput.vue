@@ -2,7 +2,7 @@
   <div class="chat-input-container">
     <van-field
       v-model="inputText"
-      placeholder="输入聊天内容..."
+      :placeholder="$t('chat.inputPlaceholder')"
       :border="false"
       class="chat-input-field"
       @keyup.enter="sendMessage"
@@ -14,7 +14,7 @@
           @click="sendMessage"
           :disabled="!inputText.trim()"
         >
-          发送
+          {{ $t('chat.send') }}
         </van-button>
       </template>
     </van-field>
@@ -35,25 +35,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+import { useI18n } from '../../i18n/composable';
 import { useChatStore } from '../../stores/chatStore';
 import { useGameStore } from '../../stores/gameStore';
 import { showToast } from 'vant';
+
+const { t } = useI18n();
 
 const chatStore = useChatStore();
 const gameStore = useGameStore();
 
 const inputText = ref('');
-const quickPhrases = [
-  '好牌！',
-  '不要',
-  '继续',
-  '不错',
-  '厉害',
-  '哈哈',
-  '加油',
-  '稳住'
-];
+const quickPhrases = computed(() => [
+  t('chat.quickPhrases.goodCards'),
+  t('chat.quickPhrases.pass'),
+  t('chat.quickPhrases.continue'),
+  t('chat.quickPhrases.notBad'),
+  t('chat.quickPhrases.awesome'),
+  t('chat.quickPhrases.haha'),
+  t('chat.quickPhrases.cheer'),
+  t('chat.quickPhrases.steady')
+]);
 
 const sendMessage = () => {
   if (!inputText.value.trim()) {
@@ -62,7 +65,7 @@ const sendMessage = () => {
 
   const humanPlayer = gameStore.humanPlayer;
   if (!humanPlayer) {
-    showToast('游戏未开始');
+    showToast(t('game.gameNotStarted'));
     return;
   }
 

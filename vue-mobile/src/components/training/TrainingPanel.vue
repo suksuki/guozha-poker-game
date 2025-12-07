@@ -1,7 +1,7 @@
 <template>
   <div class="training-panel">
     <van-nav-bar
-      title="智能训练中心"
+      :title="$t('training.title')"
       left-arrow
       @click-left="$emit('close')"
     />
@@ -9,19 +9,19 @@
     <div class="training-content">
       <!-- 训练类型选择 -->
       <van-tabs v-model:active="activeTab" @change="onTabChange">
-        <van-tab title="打牌算法" name="decision">
+        <van-tab :title="$t('training.decisionTraining')" name="decision">
           <DecisionTrainingPanel
             :config="decisionConfig"
             @update:config="decisionConfig = $event"
           />
         </van-tab>
-        <van-tab title="聊天算法" name="chat">
+        <van-tab :title="$t('training.chatTraining')" name="chat">
           <ChatTrainingPanel
             :config="chatConfig"
             @update:config="chatConfig = $event"
           />
         </van-tab>
-        <van-tab title="混合训练" name="hybrid">
+        <van-tab :title="$t('training.hybridTraining')" name="hybrid">
           <HybridTrainingPanel
             :config="hybridConfig"
             @update:config="hybridConfig = $event"
@@ -39,7 +39,7 @@
           :disabled="isTraining"
           @click="startTraining"
         >
-          {{ isTraining ? '训练中...' : '开始训练' }}
+          {{ isTraining ? $t('training.training') : $t('training.startTraining') }}
         </van-button>
         
         <van-button
@@ -49,7 +49,7 @@
           block
           @click="pauseTraining"
         >
-          {{ isPaused ? '继续训练' : '暂停训练' }}
+          {{ isPaused ? $t('training.resumeTraining') : $t('training.pauseTraining') }}
         </van-button>
         
         <van-button
@@ -59,7 +59,7 @@
           block
           @click="stopTraining"
         >
-          停止训练
+          {{ $t('training.stopTraining') }}
         </van-button>
       </div>
       
@@ -71,35 +71,35 @@
           :pivot-text="`${progress.currentRound}/${progress.totalRounds}`"
         />
         <div class="progress-info">
-          <div>当前轮次: {{ progress.currentRound }} / {{ progress.totalRounds }}</div>
-          <div>已用时间: {{ formatTime(progress.elapsedTime) }}</div>
+          <div>{{ $t('training.currentRound') }}: {{ progress.currentRound }} / {{ progress.totalRounds }}</div>
+          <div>{{ $t('training.elapsedTime') }}: {{ formatTime(progress.elapsedTime) }}</div>
           <div v-if="progress.estimatedTimeRemaining">
-            预计剩余: {{ formatTime(progress.estimatedTimeRemaining) }}
+            {{ $t('training.estimatedTimeRemaining') }}: {{ formatTime(progress.estimatedTimeRemaining) }}
           </div>
         </div>
       </div>
       
       <!-- 训练指标 -->
       <div v-if="metrics.totalRounds > 0" class="training-metrics">
-        <van-cell-group title="训练指标">
-          <van-cell title="总轮次" :value="metrics.totalRounds" />
-          <van-cell title="总游戏数" :value="metrics.totalGames" />
-          <van-cell title="总决策数" :value="metrics.totalDecisions" />
-          <van-cell title="总聊天数" :value="metrics.totalChats" />
+        <van-cell-group :title="$t('training.metrics')">
+          <van-cell :title="$t('training.totalRounds')" :value="metrics.totalRounds" />
+          <van-cell :title="$t('training.totalGames')" :value="metrics.totalGames" />
+          <van-cell :title="$t('training.totalDecisions')" :value="metrics.totalDecisions" />
+          <van-cell :title="$t('training.totalChats')" :value="metrics.totalChats" />
           
           <van-cell
             v-if="metrics.decisionMetrics"
-            title="平均决策质量"
+            :title="$t('training.avgDecisionQuality')"
             :value="(metrics.decisionMetrics.avgQuality * 100).toFixed(1) + '%'"
           />
           <van-cell
             v-if="metrics.decisionMetrics"
-            title="胜率"
+            :title="$t('training.winRate')"
             :value="(metrics.decisionMetrics.winRate * 100).toFixed(1) + '%'"
           />
           <van-cell
             v-if="metrics.chatMetrics"
-            title="平均聊天质量"
+            :title="$t('training.avgChatQuality')"
             :value="(metrics.chatMetrics.avgQuality * 100).toFixed(1) + '%'"
           />
         </van-cell-group>
@@ -110,11 +110,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useI18n } from '../../i18n/composable';
 import { TrainingController } from '../../../../src/training/core/TrainingController';
 import { TrainingConfig, TrainingProgress, TrainingMetrics } from '../../../../src/types/training';
 import DecisionTrainingPanel from './DecisionTrainingPanel.vue';
 import ChatTrainingPanel from './ChatTrainingPanel.vue';
 import HybridTrainingPanel from './HybridTrainingPanel.vue';
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   close: [];

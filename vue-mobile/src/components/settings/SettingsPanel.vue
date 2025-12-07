@@ -591,22 +591,36 @@
         <van-tab title="🎨 UI" name="ui">
           <div class="settings-content">
             <van-cell-group>
-              <van-cell title="主题" :value="getThemeLabel(localUISettings.theme)">
+              <van-cell :title="$t('settings.language')">
+                <template #value>
+                  <van-radio-group 
+                    v-model="localUISettings.language"
+                    direction="horizontal"
+                    @change="updateUISettings({ language: localUISettings.language })"
+                  >
+                    <van-radio name="zh-CN">🇨🇳 中文</van-radio>
+                    <van-radio name="en-US">🇺🇸 English</van-radio>
+                    <van-radio name="ja-JP">🇯🇵 日本語</van-radio>
+                    <van-radio name="ko-KR">🇰🇷 한국어</van-radio>
+                  </van-radio-group>
+                </template>
+              </van-cell>
+              <van-cell :title="$t('settings.theme')" :value="getThemeLabel(localUISettings.theme)">
                 <template #value>
                   <van-radio-group 
                     v-model="localUISettings.theme"
                     direction="horizontal"
                     @change="updateUISettings({ theme: localUISettings.theme })"
                   >
-                    <van-radio name="auto">自动</van-radio>
-                    <van-radio name="light">浅色</van-radio>
-                    <van-radio name="dark">深色</van-radio>
+                    <van-radio name="auto">{{ $t('settings.auto') }}</van-radio>
+                    <van-radio name="light">{{ $t('settings.light') }}</van-radio>
+                    <van-radio name="dark">{{ $t('settings.dark') }}</van-radio>
                   </van-radio-group>
                 </template>
               </van-cell>
               <van-switch
                 v-model="localUISettings.showCardValues"
-                title="显示牌值"
+                :title="$t('settings.showCardValues')"
                 @change="updateUISettings({ showCardValues: localUISettings.showCardValues })"
               />
             </van-cell-group>
@@ -684,6 +698,7 @@ import { getAvailableOllamaModels, checkOllamaService } from '../../../../src/ut
 import { ollamaServerManager, type OllamaServerConfig } from '../../services/llm/ollamaServerManager';
 import { getMultiChannelAudioService } from '../../services/audio/multiChannelAudioService';
 import TTSServerDialog from './TTSServerDialog.vue';
+import { useI18n } from '../../i18n/composable';
 
 interface Props {
   modelValue: boolean;
@@ -695,6 +710,7 @@ const emit = defineEmits<{
 }>();
 
 const settingsStore = useSettingsStore();
+const { t } = useI18n();
 
 const isOpen = computed({
   get: () => props.modelValue,
