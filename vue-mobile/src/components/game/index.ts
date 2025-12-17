@@ -3,9 +3,20 @@
  * 统一导出所有游戏相关组件
  */
 
+// 核心游戏组件
 export { default as GameBoard } from './GameBoard.vue';
+export { default as GameBoardRefactored } from './GameBoardRefactored.vue';
 export { default as GameResultScreen } from './GameResultScreen.vue';
+
+// 可复用子组件
 export { default as PlayerCard } from './PlayerCard.vue';
 export { default as HandCards } from './HandCards.vue';
 export { default as PlayArea } from './PlayArea.vue';
 export { default as PlayerInfo } from './PlayerInfo.vue';
+
+// 新增子组件
+export { default as StartScreen } from './StartScreen.vue';
+export { default as GameToolbar } from './GameToolbar.vue';
+export { default as ChatPanel } from './ChatPanel.vue';
+export { default as DealingAnimation } from './DealingAnimation.vue';
+

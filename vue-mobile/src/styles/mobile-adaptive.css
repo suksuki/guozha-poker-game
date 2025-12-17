@@ -1,11 +1,65 @@
 /**
- * 移动端自适应样式
- * 支持多种屏幕尺寸
+ * 移动端自适应样式 - 增强版
+ * 支持多种屏幕尺寸、深色模式、动画效果
  */
+
+/* ===== CSS 变量 ===== */
+:root {
+  /* 主题色 */
+  --primary: #667eea;
+  --primary-light: #818cf8;
+  --primary-dark: #4f46e5;
+  
+  /* 功能色 */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  
+  /* 背景色 */
+  --bg-primary: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  --bg-card: rgba(255, 255, 255, 0.1);
+  --bg-glass: rgba(255, 255, 255, 0.15);
+  
+  /* 文字色 */
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  
+  /* 边框 */
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-radius-sm: 8px;
+  --border-radius-md: 12px;
+  --border-radius-lg: 16px;
+  --border-radius-xl: 24px;
+  
+  /* 阴影 */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.25);
+  --shadow-glow: 0 0 20px rgba(102, 126, 234, 0.4);
+  
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* 动画 */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+}
 
 /* ===== 基础响应式 ===== */
 @media (max-width: 360px) {
   /* 小屏手机 (iPhone SE) */
+  :root {
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+  }
+  
   .card-small {
     width: 35px !important;
     height: 49px !important;
@@ -57,7 +111,7 @@
 @media (min-width: 769px) {
   /* 平板/桌面 */
   .game-board {
-    max-width: 768px;
+    max-width: 1200px;
     margin: 0 auto;
   }
 }
@@ -99,7 +153,8 @@
 /* ===== 触摸优化 ===== */
 .van-button,
 .card-item,
-.avatar {
+.avatar,
+button {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
@@ -112,32 +167,93 @@
 /* ===== 性能优化 ===== */
 .card-item,
 .player-info,
-.play-area {
+.play-area,
+.player-card,
+.hand-cards-container {
   will-change: transform;
   transform: translateZ(0);
   backface-visibility: hidden;
 }
 
 /* 滚动优化 */
-.cards-container {
+.cards-container,
+.hand-cards-grid {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 }
 
+/* ===== 玻璃态效果 ===== */
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-color);
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ===== 动画效果 ===== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(102, 126, 234, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.6); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+.animate-slide-up { animation: slideUp 0.3s ease-out; }
+.animate-slide-down { animation: slideDown 0.3s ease-out; }
+.animate-scale-in { animation: scaleIn 0.3s ease-out; }
+.animate-pulse { animation: pulse 2s ease-in-out infinite; }
+.animate-glow { animation: glow 2s ease-in-out infinite; }
+.animate-bounce { animation: bounce 1s ease-in-out infinite; }
+
 /* ===== 深色模式支持 ===== */
 @media (prefers-color-scheme: dark) {
   .game-board {
-    background: #1a1a1a;
+    background: #0a0a0a;
   }
   
   .card {
-    background: #2d2d2d;
-    border-color: #444;
+    background: #1a1a1a;
+    border-color: #333;
   }
   
   .status-bar {
-    background: #2d2d2d;
-    border-color: #444;
+    background: #1a1a1a;
+    border-color: #333;
   }
 }
 
@@ -147,17 +263,105 @@
     border-width: 3px !important;
   }
   
-  .van-button {
+  .van-button,
+  button {
     font-weight: bold !important;
+  }
+  
+  :root {
+    --text-secondary: rgba(255, 255, 255, 0.9);
+    --text-muted: rgba(255, 255, 255, 0.7);
   }
 }
 
 /* ===== 减少动画模式 ===== */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
+/* ===== 按钮基础样式 ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  border-radius: var(--border-radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+  background: var(--bg-glass);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ===== 卡片基础样式 ===== */
+.card-base {
+  background: var(--bg-card);
+  border-radius: var(--border-radius-lg);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+}
+
+/* ===== 徽章样式 ===== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-primary {
+  background: rgba(102, 126, 234, 0.2);
+  color: #a5b4fc;
+}
+
+.badge-success {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+.badge-warning {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fde047;
+}
+
+.badge-danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
