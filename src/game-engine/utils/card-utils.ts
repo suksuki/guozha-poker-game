@@ -5,7 +5,7 @@
  * 这些都是纯函数，可以100%复用
  */
 
-// 直接导出所有纯函数
+// 直接导出所有可用的纯函数
 export {
   // 分值计算
   isScoreCard,
@@ -13,29 +13,25 @@ export {
   calculateCardsScore,
   calculateDunCount,
   calculateDunScore,
-  
+
   // 牌堆操作
   createDeck,
   shuffleDeck,
   dealCards,
-  
+
   // 牌型判断
   canPlayCards,
   canBeat,
   findPlayableCards,
-  getPlayType,
-  
+  getCardType,
+
   // 卡牌比较
   compareCards,
-  getRankValue,
-  
+
   // 其他工具
   hasPlayableCards,
-  sortCards,
-  groupCardsByRank,
-  groupCardsBySuit
+  sortCards
 } from '../../utils/cardUtils';
 
 // 重新导出类型
-export type { Play } from '../../types/card';
-
+export type { Card, Play, CardType, Suit, Rank } from '../../types/card';

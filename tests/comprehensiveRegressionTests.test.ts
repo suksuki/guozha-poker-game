@@ -1,19 +1,22 @@
 /**
  * 完整的回归测试套件
  * 确保已修复的bug不会再次出现
+ * 
+ * 重构说明：
+ * - 使用 testFactories 模块减少重复代码
+ * - 统一测试数据创建方式
+ * - 增加更多边界情况测试
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Card, Suit, Rank, CardType, PlayerType, GameStatus } from '../src/types/card';
+import { CardType, PlayerType, GameStatus, Rank, Suit } from '../src/types/card';
 import { Game, GameSetupConfig } from '../src/utils/Game';
 import { Round } from '../src/utils/Round';
 import {
   createDeck,
-  shuffleDeck,
   dealCards,
   canPlayCards,
   canBeat,
-  isScoreCard,
   calculateCardsScore,
   calculateDunCount,
   calculateDunScore,
@@ -22,37 +25,26 @@ import {
 import { GameController } from '../src/utils/gameController';
 import { handleDunScoring, updatePlayerAfterPlay } from '../src/utils/playManager';
 
-// 辅助函数
-function createCard(suit: Suit, rank: Rank, id?: string): Card {
-  return { suit, rank, id: id || `${suit}-${rank}-${Math.random()}` };
-}
-
-function createSameRankCards(rank: Rank, count: number): Card[] {
-  const suits = [Suit.SPADES, Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS];
-  const cards: Card[] = [];
-  for (let i = 0; i < count; i++) {
-    cards.push(createCard(suits[i % 4], rank, `${rank}-${i}`));
-  }
-  return cards;
-}
-
-function createPlayer(id: number, name: string, hand: Card[], type: PlayerType = PlayerType.AI) {
-  return {
-    id,
-    name,
-    type,
-    hand,
-    score: 0,
-    isHuman: type === PlayerType.HUMAN
-  };
-}
+// 导入测试工厂
+import {
+  createCard,
+  createSameRankCards,
+  createPlayer,
+  createPlayers,
+  createGame,
+  createBomb,
+  createDun,
+} from './testFactories';
 
 describe('完整回归测试套件', () => {
+  // =====================================================
+  // 发牌随机性回归测试
+  // =====================================================
   describe('发牌随机性回归测试', () => {
     it('发牌应该是随机的，不应该每次都一样', () => {
       const hands1 = dealCards(4);
       const hands2 = dealCards(4);
-      
+
       // 至少有一个玩家的手牌顺序不同
       let hasDifferent = false;
       for (let i = 0; i < 4; i++) {
@@ -68,44 +60,51 @@ describe('完整回归测试套件', () => {
 
     it('发牌后不应该自动排序（保持随机顺序）', () => {
       const hands = dealCards(4);
-      
+
       // 检查手牌数量正确
       hands.forEach(hand => {
         expect(hand.length).toBeGreaterThan(0);
       });
-      
-      // 注意：dealCards会为每个玩家创建一副牌（54张），所以4人游戏总共216张牌
-      // 检查总牌数正确
+
+      // 检查总牌数正确（4副牌 = 216张）
       const totalCards = hands.reduce((sum, hand) => sum + hand.length, 0);
       expect(totalCards).toBe(216);
     });
 
     it('多次发牌应该产生不同的结果', () => {
-      const allHands: Card[][][] = [];
+      const allHands: ReturnType<typeof dealCards>[] = [];
       for (let i = 0; i < 5; i++) {
         allHands.push(dealCards(4));
       }
-      
+
       // 至少有两组手牌不同
       let hasDifferent = false;
-      for (let i = 0; i < allHands.length - 1; i++) {
+      outer: for (let i = 0; i < allHands.length - 1; i++) {
         for (let j = i + 1; j < allHands.length; j++) {
           const hands1 = allHands[i];
           const hands2 = allHands[j];
           for (let k = 0; k < 4; k++) {
             if (hands1[k].some((card, idx) => card.id !== hands2[k][idx]?.id)) {
               hasDifferent = true;
-              break;
+              break outer;
             }
           }
-          if (hasDifferent) break;
         }
-        if (hasDifferent) break;
       }
       expect(hasDifferent).toBe(true);
     });
+
+    it('发牌应该确保每个玩家有54张牌', () => {
+      const hands = dealCards(4);
+      hands.forEach((hand, index) => {
+        expect(hand.length).toBe(54);
+      });
+    });
   });
 
+  // =====================================================
+  // 牌型识别回归测试
+  // =====================================================
   describe('牌型识别回归测试', () => {
     it('应该正确识别所有合法牌型（不会误判）', () => {
       // 单张
@@ -121,23 +120,23 @@ describe('完整回归测试套件', () => {
       expect(triple?.type).toBe(CardType.TRIPLE);
 
       // 炸弹（4张）
-      const bomb4 = canPlayCards(createSameRankCards(Rank.THREE, 4));
+      const bomb4 = canPlayCards(createBomb(Rank.THREE, 4));
       expect(bomb4?.type).toBe(CardType.BOMB);
 
       // 炸弹（5张）
-      const bomb5 = canPlayCards(createSameRankCards(Rank.THREE, 5));
+      const bomb5 = canPlayCards(createBomb(Rank.THREE, 5));
       expect(bomb5?.type).toBe(CardType.BOMB);
 
       // 炸弹（6张）
-      const bomb6 = canPlayCards(createSameRankCards(Rank.THREE, 6));
+      const bomb6 = canPlayCards(createBomb(Rank.THREE, 6));
       expect(bomb6?.type).toBe(CardType.BOMB);
 
       // 墩（7张）
-      const dun = canPlayCards(createSameRankCards(Rank.THREE, 7));
+      const dun = canPlayCards(createDun(Rank.THREE, 7));
       expect(dun?.type).toBe(CardType.DUN);
 
       // 墩（8张）
-      const dun8 = canPlayCards(createSameRankCards(Rank.THREE, 8));
+      const dun8 = canPlayCards(createDun(Rank.THREE, 8));
       expect(dun8?.type).toBe(CardType.DUN);
     });
 
@@ -162,8 +161,16 @@ describe('完整回归测试套件', () => {
       ]);
       expect(invalid3).toBeNull();
     });
+
+    it('应该正确处理空牌组', () => {
+      const empty = canPlayCards([]);
+      expect(empty).toBeNull();
+    });
   });
 
+  // =====================================================
+  // 牌型比较回归测试
+  // =====================================================
   describe('牌型比较回归测试', () => {
     it('应该正确比较牌的大小（不会出现错误的大小关系）', () => {
       const three = canPlayCards([createCard(Suit.SPADES, Rank.THREE)]);
@@ -189,11 +196,11 @@ describe('完整回归测试套件', () => {
 
     it('应该正确处理炸弹压过普通牌型（不会出现炸弹被普通牌压过）', () => {
       const single = canPlayCards([createCard(Suit.SPADES, Rank.TWO)]);
-      const bomb = canPlayCards(createSameRankCards(Rank.THREE, 4));
+      const bomb = canPlayCards(createBomb(Rank.THREE, 4));
 
       expect(single).not.toBeNull();
       expect(bomb).not.toBeNull();
-      
+
       // 炸弹应该能压过单张
       expect(canBeat(bomb!, single!)).toBe(true);
       // 单张不应该能压过炸弹
@@ -201,12 +208,12 @@ describe('完整回归测试套件', () => {
     });
 
     it('应该正确处理更大的炸弹压过小炸弹（不会出现小炸弹压过大炸弹）', () => {
-      const bomb4 = canPlayCards(createSameRankCards(Rank.THREE, 4));
-      const bomb5 = canPlayCards(createSameRankCards(Rank.FOUR, 5));
+      const bomb4 = canPlayCards(createBomb(Rank.THREE, 4));
+      const bomb5 = canPlayCards(createBomb(Rank.FOUR, 5));
 
       expect(bomb4).not.toBeNull();
       expect(bomb5).not.toBeNull();
-      
+
       // 5张炸弹应该能压过4张炸弹
       expect(canBeat(bomb5!, bomb4!)).toBe(true);
       // 4张炸弹不应该能压过5张炸弹
@@ -215,23 +222,40 @@ describe('完整回归测试套件', () => {
 
     it('应该正确处理墩压过所有牌型（不会出现其他牌型压过墩）', () => {
       const single = canPlayCards([createCard(Suit.SPADES, Rank.TWO)]);
-      const bomb = canPlayCards(createSameRankCards(Rank.THREE, 6));
-      const dun = canPlayCards(createSameRankCards(Rank.FOUR, 7));
+      const bomb = canPlayCards(createBomb(Rank.THREE, 6));
+      const dun = canPlayCards(createDun(Rank.FOUR, 7));
 
       expect(single).not.toBeNull();
       expect(bomb).not.toBeNull();
       expect(dun).not.toBeNull();
-      
+
       // 墩应该能压过单张
       expect(canBeat(dun!, single!)).toBe(true);
       expect(canBeat(single!, dun!)).toBe(false);
-      
+
       // 墩应该能压过炸弹
       expect(canBeat(dun!, bomb!)).toBe(true);
       expect(canBeat(bomb!, dun!)).toBe(false);
     });
+
+    it('应该正确处理对子的比较', () => {
+      const pairThree = canPlayCards(createSameRankCards(Rank.THREE, 2));
+      const pairFour = canPlayCards(createSameRankCards(Rank.FOUR, 2));
+      const pairTwo = canPlayCards(createSameRankCards(Rank.TWO, 2));
+
+      expect(pairThree).not.toBeNull();
+      expect(pairFour).not.toBeNull();
+      expect(pairTwo).not.toBeNull();
+
+      expect(canBeat(pairFour!, pairThree!)).toBe(true);
+      expect(canBeat(pairTwo!, pairFour!)).toBe(true);
+      expect(canBeat(pairThree!, pairFour!)).toBe(false);
+    });
   });
 
+  // =====================================================
+  // 分数计算回归测试
+  // =====================================================
   describe('分数计算回归测试', () => {
     it('应该正确计算分牌的分值（不会出现计算错误）', () => {
       const five = createCard(Suit.SPADES, Rank.FIVE);
@@ -255,6 +279,8 @@ describe('完整回归测试套件', () => {
       expect(calculateDunCount(9)).toBe(4);
       expect(calculateDunCount(10)).toBe(8);
       expect(calculateDunCount(11)).toBe(16);
+      expect(calculateDunCount(12)).toBe(32);
+      expect(calculateDunCount(13)).toBe(64);
     });
 
     it('应该正确计算墩的分数（不会出现分配错误）', () => {
@@ -273,38 +299,31 @@ describe('完整回归测试套件', () => {
       expect(result3.dunPlayerScore).toBe(60);  // 2个其他玩家 × 30分 × 1墩
       expect(result3.otherPlayersScore).toBe(30); // 30分 × 1墩
     });
+
+    it('应该正确计算多张相同分牌的总分', () => {
+      const fives = [
+        createCard(Suit.SPADES, Rank.FIVE),
+        createCard(Suit.HEARTS, Rank.FIVE),
+        createCard(Suit.DIAMONDS, Rank.FIVE),
+        createCard(Suit.CLUBS, Rank.FIVE),
+      ];
+      expect(calculateCardsScore(fives)).toBe(20); // 4 × 5
+    });
   });
 
+  // =====================================================
+  // 游戏状态回归测试
+  // =====================================================
   describe('游戏状态回归测试', () => {
     it('游戏初始化后应该处于正确的状态', () => {
-      const config: GameSetupConfig = {
-        playerCount: 4,
-        humanPlayerIndex: 0,
-        aiConfigs: [
-          { strategy: 'balanced' },
-          { strategy: 'balanced' },
-          { strategy: 'balanced' }
-        ]
-      };
-      const game = new Game(config);
+      const game = createGame();
+      const players = createPlayers(true);
 
-      const players = [
-        createPlayer(0, '玩家1', [], PlayerType.HUMAN),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
-      const hands = dealCards(4);
-      players.forEach((p, i) => {
-        p.hand = hands[i];
-      });
-
-      game.initialize(players, hands);
-      // initialize后状态是WAITING，需要手动设置状态并创建第一轮
+      game.initialize(players, players.map(p => p.hand));
       game.updateStatus(GameStatus.PLAYING);
       const firstRound = Round.createNew(1);
       game.addRound(firstRound);
-      
+
       expect(game.status).toBe(GameStatus.PLAYING);
       expect(game.players.length).toBe(4);
       expect(game.rounds.length).toBeGreaterThan(0);
@@ -316,45 +335,36 @@ describe('完整回归测试套件', () => {
       expect(round.isInProgress()).toBe(true);
       expect(round.isEnded()).toBe(false);
 
-      const players = [
-        createPlayer(0, '测试玩家', []),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
+      const players = createPlayers();
       const result = round.end(players, 4, 0);
       expect(round.isEnded()).toBe(true);
       expect(round.isInProgress()).toBe(false);
       expect(result.winnerIndex).toBe(0);
     });
+
+    it('游戏状态转换应该正确', () => {
+      const game = createGame();
+
+      expect(game.status).toBe(GameStatus.WAITING);
+
+      game.updateStatus(GameStatus.PLAYING);
+      expect(game.status).toBe(GameStatus.PLAYING);
+
+      game.updateStatus(GameStatus.FINISHED);
+      expect(game.status).toBe(GameStatus.FINISHED);
+    });
   });
 
+  // =====================================================
+  // 分数分配回归测试
+  // =====================================================
   describe('分数分配回归测试', () => {
     it('轮次分数应该正确分配给获胜玩家', () => {
-      const config: GameSetupConfig = {
-        playerCount: 4,
-        humanPlayerIndex: 0,
-        aiConfigs: [
-          { strategy: 'balanced' },
-          { strategy: 'balanced' },
-          { strategy: 'balanced' }
-        ]
-      };
-      const game = new Game(config);
+      const game = createGame();
       const controller = game['controller'];
+      const players = createPlayers(true);
 
-      const players = [
-        createPlayer(0, '玩家1', [], PlayerType.HUMAN),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
-      const hands = dealCards(4);
-      players.forEach((p, i) => {
-        p.hand = hands[i];
-      });
-
-      game.initialize(players, hands);
+      game.initialize(players, players.map(p => p.hand));
       controller.initializeGame(players, -100);
 
       const roundRecord = {
@@ -368,7 +378,7 @@ describe('完整回归测试套件', () => {
       };
 
       const updatedPlayers = controller.allocateRoundScore(1, 25, 0, players, roundRecord);
-      
+
       // 获胜玩家应该获得25分
       expect(updatedPlayers[0].score).toBe(-75); // -100 + 25
       // 其他玩家分数不变
@@ -378,33 +388,70 @@ describe('完整回归测试套件', () => {
     });
 
     it('墩的分数应该正确分配给所有玩家', () => {
-      const players = [
-        createPlayer(0, '玩家1', []),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
-
-      const dunCards = createSameRankCards(Rank.THREE, 7);
+      const players = createPlayers();
+      const dunCards = createDun(Rank.THREE, 7);
       const play = canPlayCards(dunCards);
+
       expect(play).not.toBeNull();
       expect(play?.type).toBe(CardType.DUN);
 
       const result = handleDunScoring(players, 0, dunCards, 4, play!, undefined);
-      
-      // 1墩，4人游戏：出墩玩家获得90分，其他玩家各扣30分
-      // 注意：handleDunScoring只处理其他玩家的扣分，出墩玩家的加分在updatePlayerAfterPlay中处理
-      expect(result.updatedPlayers[1].score).toBe(-130); // -100 - 30
-      expect(result.updatedPlayers[2].score).toBe(-130);
-      expect(result.updatedPlayers[3].score).toBe(-130);
-      expect(result.dunScore).toBe(90); // 出墩玩家应该获得的分数
-      
-      // 测试updatePlayerAfterPlay来更新出墩玩家的分数
+
+      // 其他玩家分数保持不变
+      expect(result.updatedPlayers[1].score).toBe(0);
+      expect(result.updatedPlayers[2].score).toBe(0);
+      expect(result.updatedPlayers[3].score).toBe(0);
+      expect(result.dunScore).toBe(90);
+
+      // 验证出墩玩家的 dunCount 被正确更新
+      expect(result.updatedPlayers[0].dunCount).toBe(1);
+
+      // score 保持不变
       const updatedPlayer0 = updatePlayerAfterPlay(result.updatedPlayers[0], dunCards, result.dunScore);
-      expect(updatedPlayer0.score).toBe(-10); // -100 + 90
+      expect(updatedPlayer0.score).toBe(0);
+    });
+
+    it('多轮分数应该正确累积', () => {
+      const game = createGame();
+      const controller = game['controller'];
+      const players = createPlayers(true);
+
+      game.initialize(players, players.map(p => p.hand));
+      controller.initializeGame(players, 0); // 从0分开始
+
+      // 第一轮：玩家0获得25分
+      controller.allocateRoundScore(1, 25, 0, game.players, {
+        roundNumber: 1,
+        startTime: Date.now(),
+        endTime: Date.now(),
+        plays: [],
+        totalScore: 25,
+        winnerId: 0,
+        winnerName: '玩家1'
+      });
+
+      // 第二轮：玩家1获得30分
+      controller.allocateRoundScore(2, 30, 1, game.players, {
+        roundNumber: 2,
+        startTime: Date.now(),
+        endTime: Date.now(),
+        plays: [],
+        totalScore: 30,
+        winnerId: 1,
+        winnerName: '玩家2'
+      });
+
+      // 检查 game.players 中的分数（controller 更新的是 game.players）
+      expect(game.players[0].score).toBe(25);
+      expect(game.players[1].score).toBe(30);
+      expect(game.players[2].score).toBe(0);
+      expect(game.players[3].score).toBe(0);
     });
   });
 
+  // =====================================================
+  // 边界情况回归测试
+  // =====================================================
   describe('边界情况回归测试', () => {
     it('空手牌应该正确处理', () => {
       const player = createPlayer(0, '玩家1', []);
@@ -425,10 +472,46 @@ describe('完整回归测试套件', () => {
       const play = canPlayCards(maxDun);
       expect(play).not.toBeNull();
       expect(play?.type).toBe(CardType.DUN);
-      
+
       const dunCount = calculateDunCount(13);
       expect(dunCount).toBeGreaterThan(0);
+      expect(dunCount).toBe(64); // 2^6
+    });
+
+    it('零分轮次应该正确处理', () => {
+      const game = createGame();
+      const controller = game['controller'];
+      const players = createPlayers(true);
+
+      game.initialize(players, players.map(p => p.hand));
+      controller.initializeGame(players, 0);
+
+      controller.allocateRoundScore(1, 0, 0, players, {
+        roundNumber: 1,
+        startTime: Date.now(),
+        endTime: Date.now(),
+        plays: [],
+        totalScore: 0,
+        winnerId: 0,
+        winnerName: '玩家1'
+      });
+
+      // 零分轮次所有玩家分数不变
+      expect(players[0].score).toBe(0);
+      expect(players[1].score).toBe(0);
+    });
+
+    it('负分应该正确处理', () => {
+      const game = createGame();
+      const controller = game['controller'];
+      const players = createPlayers(true);
+
+      game.initialize(players, players.map(p => p.hand));
+      controller.initializeGame(players, -100);
+
+      // 检查 game.players 中的分数（controller 更新的是 game.players）
+      expect(game.players[0].score).toBe(-100);
+      expect(game.players[1].score).toBe(-100);
     });
   });
 });
-

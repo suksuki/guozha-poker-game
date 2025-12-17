@@ -21,20 +21,20 @@ function App() {
   // 初始化系统应用模块
   useEffect(() => {
     let mounted = true;
-    
+
     async function initSystemApplication() {
       try {
         const systemApp = SystemApplication.getInstance();
-        
+
         // 注册所有模块
         registerAllModules(systemApp);
-        
+
         // 初始化系统应用
         await systemApp.initialize();
-        
+
         // 启动系统应用
         await systemApp.start();
-        
+
         // 检查AI中控系统初始化状态
         try {
           const aiControlModule = systemApp.getModule('ai-control');
@@ -51,14 +51,14 @@ function App() {
           }
         } catch (error) {
         }
-        
+
         if (mounted) {
           const finalStatus = systemApp.getStatus();
-          
+
           // 详细输出每个模块的状态
           Object.entries(finalStatus.modules).forEach(([name, status]) => {
           });
-          
+
           // 如果有错误，详细输出
           if (finalStatus.errors.length > 0) {
             finalStatus.errors.forEach(err => {
@@ -72,9 +72,9 @@ function App() {
         }
       }
     }
-    
+
     initSystemApplication();
-    
+
     // 清理函数：组件卸载时不清理系统应用（因为是单例，其他组件可能在使用）
     return () => {
       mounted = false;
@@ -86,27 +86,32 @@ function App() {
   // 初始化 TTS 系统
   useEffect(() => {
     const config = getTTSConfigFromEnv();
-    
+
     // 配置 MeLo TTS（远程服务器）
+    const meloBaseUrl =
+      import.meta.env.VITE_MELO_TTS_URL ||
+      (typeof window !== 'undefined' && (window as any).MELO_TTS_URL) ||
+      'http://115.93.10.51:7860';  // 默认 MeLo TTS 服务器地址
+
     config.enableMelo = true;
     config.meloConfig = {
-      baseUrl: 'http://115.93.10.51:7860',  // MeLo TTS 服务器地址（公网IP）
+      baseUrl: meloBaseUrl,
       timeout: 30000,
       retryCount: 2,
       defaultSpeaker: 'ZH',  // 默认中文说话人
     };
-    
+
     // 配置 Azure Speech Service（如果提供了 Subscription Key）
-    const azureKey = 
+    const azureKey =
       import.meta.env.VITE_AZURE_SPEECH_KEY ||
       (typeof window !== 'undefined' && (window as any).AZURE_SPEECH_KEY) ||
       null;
-    
-    const azureRegion = 
+
+    const azureRegion =
       import.meta.env.VITE_AZURE_SPEECH_REGION ||
       (typeof window !== 'undefined' && (window as any).AZURE_SPEECH_REGION) ||
       'eastus';
-    
+
     if (azureKey) {
       config.enableAzure = true;
       config.azureConfig = {
@@ -117,7 +122,7 @@ function App() {
       };
     } else {
     }
-    
+
     initTTS(config).then(() => {
       // TTS 初始化完成
       console.log('✅ TTS 系统初始化完成');
@@ -140,7 +145,7 @@ function App() {
   const handleAdoptIdea = (idea: GameIdea, documentTitle?: string) => {
     // 先清除对话框，立即响应用户操作
     clearCurrentIdea();
-    
+
     // 使用 queueMicrotask 在下一个微任务中执行，避免阻塞主线程
     queueMicrotask(() => {
       try {
@@ -161,7 +166,7 @@ function App() {
       <MultiPlayerGameBoard />
       <IdeasManager />
       <GameRulesGuide />
-      
+
       {/* 想法确认对话框 */}
       {currentIdea && (
         <IdeaConfirmationDialog

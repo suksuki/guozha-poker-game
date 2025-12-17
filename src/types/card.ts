@@ -71,6 +71,8 @@ export interface RoundRecord {
   totalScore: number; // 这一轮的总分数
   winnerId: number; // 这一轮的赢家
   winnerName: string;
+  startTime?: number; // 轮次开始时间
+  endTime?: number; // 轮次结束时间
 }
 
 // 语音配置
@@ -132,4 +134,3 @@ export interface MultiPlayerGameState {
   gameRecord?: any;
   [key: string]: any;
 }
-

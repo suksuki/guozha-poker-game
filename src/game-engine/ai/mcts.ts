@@ -32,5 +32,5 @@ export type {
   TeamMCTSNode,
   TeamSimulatedGameState,
   TeamAction
-} from '../../types';
+} from '../../ai/types';
 

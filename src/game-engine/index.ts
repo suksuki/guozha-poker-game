@@ -12,7 +12,7 @@ export type { RoundDataSnapshot, PlayResult, PassResult } from './round';
 
 // 业务模块
 export { RankingModule } from './modules/RankingModule';
-export { TeamModule } from './modules/TeamModule';
+export * as TeamModule from './modules/TeamModule';
 export { ScoreModule } from './modules/ScoreModule';
 export { DealingModule } from './modules/DealingModule';
 export { GameFlowModule } from './modules/GameFlowModule';

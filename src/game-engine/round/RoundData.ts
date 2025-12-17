@@ -30,7 +30,7 @@ export interface RoundDataSnapshot {
   endTime?: number;
   winnerId?: number;
   winnerName?: string;
-  
+
   // 接风轮标记
   isTakeoverRound: boolean;
   takeoverStartPlayerIndex: number | null;
@@ -44,24 +44,27 @@ export class RoundData {
   // ========== 基本信息 ==========
   readonly roundNumber: number;
   readonly startTime: number;
-  
+
   // ========== 出牌记录 ==========
   readonly plays: readonly RoundPlayRecord[];
   readonly totalScore: number;
   readonly lastPlay: Card[] | null; // 最后出的牌（卡牌数组）
   readonly lastPlayPlayerIndex: number | null;
-  
+
+  // ========== 轮次分数 ==========
+  readonly roundScore: number;
+
   // ========== 结束状态 ==========
   readonly isFinished: boolean;
   readonly endTime?: number;
   readonly winnerId?: number;
   readonly winnerName?: string;
-  
+
   // ========== 接风轮标记 ==========
   readonly isTakeoverRound: boolean;
   readonly takeoverStartPlayerIndex: number | null;
   readonly takeoverEndPlayerIndex: number | null;
-  
+
   constructor(params: {
     roundNumber: number;
     startTime?: number;
@@ -92,13 +95,13 @@ export class RoundData {
     this.isTakeoverRound = params.isTakeoverRound ?? false;
     this.takeoverStartPlayerIndex = params.takeoverStartPlayerIndex ?? null;
     this.takeoverEndPlayerIndex = params.takeoverEndPlayerIndex ?? null;
-    
+
     // 冻结对象，确保完全不可变
     Object.freeze(this);
   }
-  
+
   // ========== 更新方法（返回新实例）==========
-  
+
   /**
    * 添加出牌记录（返回新的RoundData）
    */
@@ -111,7 +114,7 @@ export class RoundData {
       lastPlayPlayerIndex: play.playerId
     });
   }
-  
+
   /**
    * 更新接风轮状态（返回新的RoundData）
    */
@@ -127,7 +130,7 @@ export class RoundData {
       takeoverEndPlayerIndex: params.takeoverEndPlayerIndex ?? this.takeoverEndPlayerIndex
     });
   }
-  
+
   /**
    * 标记轮次结束（返回新的RoundData）
    */
@@ -144,7 +147,7 @@ export class RoundData {
       endTime: params.endTime ?? Date.now()
     });
   }
-  
+
   /**
    * 更新最后出牌（返回新的RoundData）
    */
@@ -155,9 +158,9 @@ export class RoundData {
       lastPlayPlayerIndex: playerIndex
     });
   }
-  
+
   // ========== 查询方法 ==========
-  
+
   /**
    * 获取轮次持续时间（毫秒）
    */
@@ -165,37 +168,37 @@ export class RoundData {
     const endTime = this.endTime ?? Date.now();
     return endTime - this.startTime;
   }
-  
+
   /**
    * 获取出牌数量
    */
   getPlayCount(): number {
     return this.plays.length;
   }
-  
+
   /**
    * 获取最后N次出牌
    */
   getLastPlays(count: number): readonly RoundPlayRecord[] {
     return this.plays.slice(-count);
   }
-  
+
   /**
    * 获取指定玩家的所有出牌
    */
   getPlayerPlays(playerIndex: number): readonly RoundPlayRecord[] {
     return this.plays.filter(play => play.playerId === playerIndex);
   }
-  
+
   /**
    * 检查玩家是否出过牌
    */
   hasPlayerPlayed(playerIndex: number): boolean {
     return this.plays.some(play => play.playerId === playerIndex);
   }
-  
+
   // ========== 快照功能 ==========
-  
+
   /**
    * 导出快照
    */
@@ -216,7 +219,7 @@ export class RoundData {
       takeoverEndPlayerIndex: this.takeoverEndPlayerIndex
     };
   }
-  
+
   /**
    * 从快照恢复
    */
@@ -237,7 +240,7 @@ export class RoundData {
       takeoverEndPlayerIndex: snapshot.takeoverEndPlayerIndex
     });
   }
-  
+
   /**
    * 转换为RoundRecord（用于保存到GameState）
    */
@@ -245,7 +248,7 @@ export class RoundData {
     if (!this.isFinished) {
       throw new Error('轮次未结束，无法转换为RoundRecord');
     }
-    
+
     return {
       roundNumber: this.roundNumber,
       plays: Array.from(this.plays),

@@ -1,16 +1,20 @@
 /**
  * 集成测试套件
  * 测试模块之间的交互和完整流程
+ * 
+ * 重构说明：
+ * - 使用 testFactories 模块减少重复代码
+ * - 改进测试组织结构
+ * - 增加更多集成场景测试
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Card, Suit, Rank, CardType, PlayerType, GameStatus } from '../src/types/card';
+import { CardType, PlayerType, GameStatus, Rank, Suit } from '../src/types/card';
 import { Game, GameSetupConfig } from '../src/utils/Game';
 import { Round } from '../src/utils/Round';
 import { GameController } from '../src/utils/gameController';
 import { RoundScheduler } from '../src/utils/roundScheduler';
 import {
-  createDeck,
   dealCards,
   canPlayCards,
   canBeat,
@@ -18,75 +22,46 @@ import {
 } from '../src/utils/cardUtils';
 import { processPlayAsync } from '../src/utils/asyncPlayHandler';
 
-// 辅助函数
-function createCard(suit: Suit, rank: Rank, id?: string): Card {
-  return { suit, rank, id: id || `${suit}-${rank}-${Math.random()}` };
-}
-
-function createSameRankCards(rank: Rank, count: number): Card[] {
-  const suits = [Suit.SPADES, Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS];
-  const cards: Card[] = [];
-  for (let i = 0; i < count; i++) {
-    cards.push(createCard(suits[i % 4], rank, `${rank}-${i}`));
-  }
-  return cards;
-}
-
-function createPlayer(id: number, name: string, hand: Card[], type: PlayerType = PlayerType.AI) {
-  return {
-    id,
-    name,
-    type,
-    hand,
-    score: 0,
-    isHuman: type === PlayerType.HUMAN
-  };
-}
+// 导入测试工厂
+import {
+  createCard,
+  createSameRankCards,
+  createPlayer,
+  createHumanPlayer,
+  createPlayers,
+  createGame,
+  createRound,
+  createInitializedGame,
+} from './testFactories';
 
 describe('集成测试套件', () => {
+  // =====================================================
+  // Game + Round + GameController 集成测试
+  // =====================================================
   describe('Game + Round + GameController 集成', () => {
     let game: Game;
 
     beforeEach(() => {
-      const config: GameSetupConfig = {
-        playerCount: 4,
-        humanPlayerIndex: 0,
-        aiConfigs: [
-          { strategy: 'balanced' },
-          { strategy: 'balanced' },
-          { strategy: 'balanced' }
-        ]
-      };
-      game = new Game(config);
+      game = createGame();
     });
 
     it('应该完成完整的游戏初始化流程', () => {
-      const players = [
-        createPlayer(0, '玩家1', [], PlayerType.HUMAN),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
-      const hands = dealCards(4);
-      players.forEach((p, i) => {
-        p.hand = hands[i];
-      });
+      const players = createPlayers(true);
 
-      game.initialize(players, hands);
-      // initialize后状态是WAITING，需要手动设置状态并创建第一轮
+      game.initialize(players, players.map(p => p.hand));
       game.updateStatus(GameStatus.PLAYING);
       const firstRound = Round.createNew(1);
       game.addRound(firstRound);
-      
+
       // 验证游戏状态
       expect(game.status).toBe(GameStatus.PLAYING);
       expect(game.players.length).toBe(4);
       expect(game.rounds.length).toBeGreaterThan(0);
-      
+
       // 验证控制器已初始化
       const controller = game['controller'];
       expect(controller).not.toBeUndefined();
-      
+
       // 验证玩家分数已初始化
       game.players.forEach(player => {
         expect(player.score).toBe(0);
@@ -94,41 +69,35 @@ describe('集成测试套件', () => {
     });
 
     it('应该正确处理轮次创建和出牌流程', () => {
-      const players = [
-        createPlayer(0, '玩家1', [], PlayerType.HUMAN),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
-      const hands = dealCards(4);
-      players.forEach((p, i) => {
-        p.hand = hands[i];
-      });
+      const players = createPlayers(true);
 
-      game.initialize(players, hands);
-      // 创建第一轮
+      game.initialize(players, players.map(p => p.hand));
       const firstRound = Round.createNew(1);
       game.addRound(firstRound);
-      
+
       const currentRound = game.getCurrentRound();
       expect(currentRound).not.toBeUndefined();
       expect(currentRound?.isInProgress()).toBe(true);
-      
+
       // 模拟出牌
       const player0 = game.players[0];
       if (player0.hand.length > 0) {
         const cardsToPlay = [player0.hand[0]];
         const play = canPlayCards(cardsToPlay);
-        
+
         if (play) {
           const playRecord = {
             playerId: 0,
             playerName: player0.name,
             cards: cardsToPlay,
-            scoreCards: cardsToPlay.filter(card => card.rank === Rank.FIVE || card.rank === Rank.TEN || card.rank === Rank.KING),
+            scoreCards: cardsToPlay.filter(card =>
+              card.rank === Rank.FIVE ||
+              card.rank === Rank.TEN ||
+              card.rank === Rank.KING
+            ),
             score: calculateCardsScore(cardsToPlay)
           };
-          
+
           currentRound?.recordPlay(playRecord, play);
           expect(currentRound?.getPlayCount()).toBe(1);
         }
@@ -136,29 +105,18 @@ describe('集成测试套件', () => {
     });
 
     it('应该正确处理轮次结束和分数分配', () => {
-      const players = [
-        createPlayer(0, '玩家1', [], PlayerType.HUMAN),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
-      const hands = dealCards(4);
-      players.forEach((p, i) => {
-        p.hand = hands[i];
-      });
+      const players = createPlayers(true);
 
-      game.initialize(players, hands);
+      game.initialize(players, players.map(p => p.hand));
       const controller = game['controller'];
       controller.initializeGame(players, -100);
-      
-      // 创建第一轮
+
       const firstRound = Round.createNew(1);
       game.addRound(firstRound);
-      
+
       const currentRound = game.getCurrentRound();
       expect(currentRound).not.toBeUndefined();
-      
-      // 结束轮次前，先记录一些出牌（让轮次有分数）
+
       if (currentRound) {
         // 模拟玩家0出牌（带分牌）
         const scoreCard = createCard(Suit.SPADES, Rank.FIVE);
@@ -173,11 +131,11 @@ describe('集成测试套件', () => {
           };
           currentRound.recordPlay(playRecord, play);
         }
-        
+
         // 结束轮次
-        const result = currentRound.end(players, 4, 0);
+        currentRound.end(players, 4, 0);
         const roundRecord = currentRound.toRecord();
-        
+
         // 分配分数（轮次应该有5分）
         const updatedPlayers = controller.allocateRoundScore(
           roundRecord.roundNumber,
@@ -186,39 +144,61 @@ describe('集成测试套件', () => {
           players,
           roundRecord
         );
-        
+
         // 玩家0应该获得5分：-100 + 5 = -95
         expect(updatedPlayers[0].score).toBe(-95);
       }
     });
+
+    it('应该正确处理多轮次累积分数', () => {
+      const players = createPlayers(true);
+      game.initialize(players, players.map(p => p.hand));
+      const controller = game['controller'];
+      controller.initializeGame(game.players, 0);
+
+      // 模拟3轮游戏
+      for (let roundNum = 1; roundNum <= 3; roundNum++) {
+        const round = Round.createNew(roundNum);
+        game.addRound(round);
+
+        const scoreCard = createCard(Suit.SPADES, Rank.FIVE);
+        const play = canPlayCards([scoreCard]);
+        if (play) {
+          round.recordPlay({
+            playerId: 0,
+            playerName: game.players[0].name,
+            cards: [scoreCard],
+            scoreCards: [scoreCard],
+            score: 5
+          }, play);
+        }
+
+        round.end(game.players, 4, 0);
+        const roundRecord = round.toRecord();
+        controller.allocateRoundScore(
+          roundRecord.roundNumber,
+          roundRecord.totalScore,
+          0,
+          game.players,
+          roundRecord
+        );
+      }
+
+      // 3轮每轮5分 = 15分（检查 game.players）
+      expect(game.players[0].score).toBe(15);
+    });
   });
 
+  // =====================================================
+  // RoundScheduler + Game 集成测试
+  // =====================================================
   describe('RoundScheduler + Game 集成', () => {
     it('应该正确创建调度器并管理出牌顺序', () => {
-      const config: GameSetupConfig = {
-        playerCount: 4,
-        humanPlayerIndex: 0,
-        aiConfigs: [
-          { strategy: 'balanced' },
-          { strategy: 'balanced' },
-          { strategy: 'balanced' }
-        ]
-      };
-      const game = new Game(config);
+      const game = createGame();
+      const players = createPlayers(true);
 
-      const players = [
-        createPlayer(0, '玩家1', [], PlayerType.HUMAN),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
-      const hands = dealCards(4);
-      players.forEach((p, i) => {
-        p.hand = hands[i];
-      });
+      game.initialize(players, players.map(p => p.hand));
 
-      game.initialize(players, hands);
-      
       const schedulerConfig = {
         isAutoPlay: false,
         humanPlayerIndex: 0,
@@ -230,53 +210,58 @@ describe('集成测试套件', () => {
           players: game.players
         })
       };
-      
+
       const scheduler = new RoundScheduler(schedulerConfig);
       expect(scheduler).not.toBeUndefined();
-      
-      // 更新轮次号
+
+      // 验证调度器可以更新轮次号
       const currentRound = game.getCurrentRound();
       if (currentRound) {
         scheduler.updateRoundNumber(currentRound.roundNumber);
       }
     });
+
+    it('应该正确处理托管模式', () => {
+      const game = createGame();
+      const players = createPlayers(true);
+
+      game.initialize(players, players.map(p => p.hand));
+
+      const schedulerConfig = {
+        isAutoPlay: true, // 托管模式
+        humanPlayerIndex: 0,
+        getGameState: () => ({
+          status: game.status,
+          currentPlayerIndex: game.currentPlayerIndex,
+          rounds: game.rounds,
+          currentRoundIndex: game.currentRoundIndex,
+          players: game.players
+        })
+      };
+
+      const scheduler = new RoundScheduler(schedulerConfig);
+      expect(scheduler).not.toBeUndefined();
+    });
   });
 
+  // =====================================================
+  // 完整游戏流程集成测试
+  // =====================================================
   describe('完整游戏流程集成测试', () => {
     it('应该能够完成一轮完整的游戏流程', () => {
-      const config: GameSetupConfig = {
-        playerCount: 4,
-        humanPlayerIndex: 0,
-        aiConfigs: [
-          { strategy: 'balanced' },
-          { strategy: 'balanced' },
-          { strategy: 'balanced' }
-        ]
-      };
-      const game = new Game(config);
-
-      const players = [
-        createPlayer(0, '玩家1', [], PlayerType.HUMAN),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
-      const hands = dealCards(4);
-      players.forEach((p, i) => {
-        p.hand = hands[i];
-      });
+      const game = createGame();
+      const players = createPlayers(true);
 
       // 1. 初始化游戏
-      game.initialize(players, hands);
-      // 创建第一轮
+      game.initialize(players, players.map(p => p.hand));
       const firstRound = Round.createNew(1);
       game.addRound(firstRound);
       game.updateStatus(GameStatus.PLAYING);
-      
+
       // 2. 获取当前轮次
       const currentRound = game.getCurrentRound();
       expect(currentRound).not.toBeUndefined();
-      
+
       // 3. 模拟多个玩家出牌
       if (currentRound) {
         for (let i = 0; i < Math.min(4, game.players.length); i++) {
@@ -284,7 +269,7 @@ describe('集成测试套件', () => {
           if (player.hand.length > 0) {
             const cardsToPlay = [player.hand[0]];
             const play = canPlayCards(cardsToPlay);
-            
+
             if (play) {
               const lastPlay = currentRound.getLastPlay();
               if (lastPlay === null || canBeat(play, lastPlay)) {
@@ -292,19 +277,19 @@ describe('集成测试套件', () => {
                   playerId: i,
                   playerName: player.name,
                   cards: cardsToPlay,
-                  scoreCards: cardsToPlay.filter(card => 
-                    card.rank === Rank.FIVE || 
-                    card.rank === Rank.TEN || 
+                  scoreCards: cardsToPlay.filter(card =>
+                    card.rank === Rank.FIVE ||
+                    card.rank === Rank.TEN ||
                     card.rank === Rank.KING
                   ),
                   score: calculateCardsScore(cardsToPlay)
                 };
-                
+
                 currentRound.recordPlay(playRecord, play);
-                
+
                 // 更新玩家手牌
                 game.updatePlayer(i, {
-                  hand: player.hand.filter(card => 
+                  hand: player.hand.filter(card =>
                     !cardsToPlay.some(c => c.id === card.id)
                   )
                 });
@@ -312,38 +297,42 @@ describe('集成测试套件', () => {
             }
           }
         }
-        
+
         // 4. 验证轮次状态
         expect(currentRound.getPlayCount()).toBeGreaterThan(0);
         expect(currentRound.getTotalScore()).toBeGreaterThanOrEqual(0);
       }
     });
+
+    it('应该正确处理游戏结束', () => {
+      const game = createGame();
+      const players = createPlayers(true);
+
+      game.initialize(players, players.map(p => p.hand));
+      game.updateStatus(GameStatus.PLAYING);
+
+      // 模拟游戏结束
+      game.updateStatus(GameStatus.FINISHED);
+      expect(game.status).toBe(GameStatus.FINISHED);
+    });
   });
 
+  // =====================================================
+  // 异步出牌处理集成测试
+  // =====================================================
   describe('异步出牌处理集成', () => {
     it('应该正确处理异步出牌流程', async () => {
-      const round = Round.createNew(1, Date.now(), {
+      const round = createRound({
         minIntervalBetweenPlays: 10,
-        playTimeout: 5000, // 增加超时时间，避免测试超时
+        playTimeout: 5000,
         enabled: true
       });
 
-      const players = [
-        createPlayer(0, '玩家1', [], PlayerType.HUMAN),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
-      const hands = dealCards(4);
-      players.forEach((p, i) => {
-        p.hand = hands[i];
-      });
-
+      const players = createPlayers(true);
       const selectedCards = [players[0].hand[0]];
       const play = canPlayCards(selectedCards);
-      
+
       if (play) {
-        // 模拟异步出牌处理
         const mockUpdateState = vi.fn();
         const mockGetState = vi.fn(() => ({
           rounds: [round],
@@ -352,8 +341,6 @@ describe('集成测试套件', () => {
         }));
 
         try {
-          // 注意：processPlayAsync 需要实际的异步处理，这里可能会超时
-          // 使用更长的超时时间或跳过这个测试
           const result = await Promise.race([
             processPlayAsync(
               round,
@@ -366,61 +353,32 @@ describe('集成测试套件', () => {
               mockUpdateState,
               mockGetState
             ),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('测试超时')), 8000) // 增加到8秒，给processPlayAsync更多时间
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('测试超时')), 8000)
             )
           ]);
-          
-          // 验证处理结果
-          expect(result.status).toBe('completed');
+
+          expect((result as { status: string }).status).toBe('completed');
         } catch (error) {
-          // 某些情况下可能会失败（例如手牌不足、超时等），这是正常的
-          // 只要不抛出未处理的错误即可
-          // 确保错误被正确捕获，不会导致未处理的 Promise 拒绝
+          // 超时或其他预期错误
           if (error instanceof Error) {
-            // 如果是超时错误，这是预期的，可以接受
-            if (error.message.includes('超时') || error.message.includes('timeout')) {
-              // 超时是预期的，测试通过
-              expect(error).toBeDefined();
-            } else {
-              // 其他错误需要记录但不应该导致测试失败
-              console.warn('测试中的预期错误:', error.message);
-              expect(error).toBeDefined();
-            }
-          } else {
             expect(error).toBeDefined();
           }
         }
       }
-    }, 10000); // 增加测试超时时间
+    }, 10000);
   });
 
+  // =====================================================
+  // 分数计算和排名集成测试
+  // =====================================================
   describe('分数计算和排名集成', () => {
     it('应该正确计算和分配多轮次的分数', () => {
-      const config: GameSetupConfig = {
-        playerCount: 4,
-        humanPlayerIndex: 0,
-        aiConfigs: [
-          { strategy: 'balanced' },
-          { strategy: 'balanced' },
-          { strategy: 'balanced' }
-        ]
-      };
-      const game = new Game(config);
+      const game = createGame();
       const controller = game['controller'];
+      const players = createPlayers(true);
 
-      const players = [
-        createPlayer(0, '玩家1', [], PlayerType.HUMAN),
-        createPlayer(1, '玩家2', []),
-        createPlayer(2, '玩家3', []),
-        createPlayer(3, '玩家4', [])
-      ];
-      const hands = dealCards(4);
-      players.forEach((p, i) => {
-        p.hand = hands[i];
-      });
-
-      game.initialize(players, hands);
+      game.initialize(players, players.map(p => p.hand));
       controller.initializeGame(players, -100);
 
       // 模拟多轮次分数分配
@@ -442,7 +400,7 @@ describe('集成测试套件', () => {
           players,
           roundRecord
         );
-        
+
         // 更新玩家数组
         players.forEach((p, i) => {
           p.score = updatedPlayers[i].score;
@@ -450,14 +408,89 @@ describe('集成测试套件', () => {
       }
 
       // 验证分数已正确分配
-      const totalScore = players.reduce((sum, p) => sum + p.score, 0);
+      const totalScore = players.reduce((sum, p) => sum + (p.score || 0), 0);
       // 初始分数总和应该是 -400 (4个玩家 × -100)
       // 第1轮：玩家0获得25分，总和 = -400 + 25 = -375
       // 第2轮：玩家1获得50分，总和 = -375 + 50 = -325
       // 第3轮：玩家2获得75分，总和 = -325 + 75 = -250
-      // 注意：每轮的分数是递增的（25 * roundNum）
       expect(totalScore).toBe(-250);
+    });
+
+    it('应该正确处理单个获胜者的多轮累积', () => {
+      const game = createGame();
+      const controller = game['controller'];
+      const players = createPlayers(true);
+
+      game.initialize(players, players.map(p => p.hand));
+      controller.initializeGame(game.players, 0);
+
+      // 同一个玩家连续赢3轮
+      for (let roundNum = 1; roundNum <= 3; roundNum++) {
+        controller.allocateRoundScore(roundNum, 10, 0, game.players, {
+          roundNumber: roundNum,
+          startTime: Date.now(),
+          endTime: Date.now(),
+          plays: [],
+          totalScore: 10,
+          winnerId: 0,
+          winnerName: '玩家1'
+        });
+      }
+
+      // 检查 game.players 中的分数
+      expect(game.players[0].score).toBe(30);
+      expect(game.players[1].score).toBe(0);
+      expect(game.players[2].score).toBe(0);
+      expect(game.players[3].score).toBe(0);
+    });
+  });
+
+  // =====================================================
+  // 玩家状态管理集成测试
+  // =====================================================
+  describe('玩家状态管理集成', () => {
+    it('应该正确更新玩家手牌', () => {
+      const game = createGame();
+      const players = createPlayers(true);
+
+      game.initialize(players, players.map(p => p.hand));
+
+      const initialHandSize = game.players[0].hand.length;
+      const cardsToRemove = [game.players[0].hand[0]];
+
+      game.updatePlayer(0, {
+        hand: game.players[0].hand.filter(c =>
+          !cardsToRemove.some(r => r.id === c.id)
+        )
+      });
+
+      expect(game.players[0].hand.length).toBe(initialHandSize - 1);
+    });
+
+    it('应该正确更新玩家分数', () => {
+      const game = createGame();
+      const players = createPlayers(true);
+
+      game.initialize(players, players.map(p => p.hand));
+
+      game.updatePlayer(0, { score: 100 });
+      expect(game.players[0].score).toBe(100);
+
+      game.updatePlayer(0, { score: -50 });
+      expect(game.players[0].score).toBe(-50);
+    });
+
+    it('应该正确处理玩家完成状态', () => {
+      const game = createGame();
+      const players = createPlayers(true);
+
+      game.initialize(players, players.map(p => p.hand));
+
+      // 模拟玩家出完牌
+      game.updatePlayer(0, { hand: [], finishedRank: 1 });
+
+      expect(game.players[0].hand.length).toBe(0);
+      expect(game.players[0].finishedRank).toBe(1);
     });
   });
 });
-
