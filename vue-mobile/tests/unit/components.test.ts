@@ -1,10 +1,9 @@
 /**
  * 组件单元测试
- * 测试新创建的可复用组件
+ * 测试新创建的可复用组件和游戏逻辑模块
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { Rank, Suit } from '../../src/types/card';
 import {
@@ -20,7 +19,7 @@ import {
 } from '../testFactories';
 
 // Mock i18n
-vi.mock('../src/i18n/composable', () => ({
+vi.mock('../../src/i18n/composable', () => ({
     useI18n: () => ({
         t: (key: string) => key,
     }),
@@ -77,14 +76,14 @@ describe('测试工厂模块', () => {
             expect(player.hand).toEqual([]);
             expect(player.score).toBe(0);
             expect(player.dunCount).toBe(0);
-            expect(player.isHuman).toBe(false);
+            expect(player.type).toBe('ai');
         });
 
         it('应该创建4人游戏玩家组', () => {
             const players = createPlayers();
             expect(players.length).toBe(4);
-            expect(players[0].isHuman).toBe(true);
-            expect(players[1].isHuman).toBe(false);
+            expect(players[0].type).toBe('human');
+            expect(players[1].type).toBe('ai');
         });
 
         it('应该为玩家生成手牌', () => {
@@ -129,21 +128,21 @@ describe('游戏逻辑模块', () => {
 
     describe('出牌验证', () => {
         it('空牌应该验证失败', async () => {
-            const { validatePlay } = await import('../src/utils/gameLogic');
+            const { validatePlay } = await import('../../src/utils/gameLogic');
             const result = validatePlay([], null);
             expect(result.valid).toBe(false);
             expect(result.message).toBe('请选择要出的牌');
         });
 
         it('单张牌应该验证成功', async () => {
-            const { validatePlay } = await import('../src/utils/gameLogic');
+            const { validatePlay } = await import('../../src/utils/gameLogic');
             const cards = [createCard(Suit.SPADES, Rank.THREE)];
             const result = validatePlay(cards, null);
             expect(result.valid).toBe(true);
         });
 
         it('对子应该验证成功', async () => {
-            const { validatePlay } = await import('../src/utils/gameLogic');
+            const { validatePlay } = await import('../../src/utils/gameLogic');
             const cards = createSameRankCards(Rank.FIVE, 2);
             const result = validatePlay(cards, null);
             expect(result.valid).toBe(true);
@@ -152,24 +151,26 @@ describe('游戏逻辑模块', () => {
 
     describe('过牌判断', () => {
         it('第一个出牌者不能过牌', async () => {
-            const { canPass } = await import('../src/utils/gameLogic');
+            const { canPass } = await import('../../src/utils/gameLogic');
             expect(canPass(null, true)).toBe(false);
         });
 
         it('有上一手牌时可以过牌', async () => {
-            const { canPass } = await import('../src/utils/gameLogic');
+            const { canPass } = await import('../../src/utils/gameLogic');
+            const { CardType } = await import('../../src/types/card');
             const lastPlay = {
+                type: CardType.SINGLE,
                 cards: [createCard(Suit.SPADES, Rank.THREE)],
-                type: 'single',
-                value: 3,
+                rank: Rank.THREE,
+                length: 1,
             };
-            expect(canPass(lastPlay as any, false)).toBe(true);
+            expect(canPass(lastPlay, false)).toBe(true);
         });
     });
 
     describe('分数计算', () => {
         it('应该正确计算分牌分数', async () => {
-            const { calculatePlayScore } = await import('../src/utils/gameLogic');
+            const { calculatePlayScore } = await import('../../src/utils/gameLogic');
             const cards = [
                 createCard(Suit.SPADES, Rank.FIVE),
                 createCard(Suit.HEARTS, Rank.TEN),
@@ -179,7 +180,7 @@ describe('游戏逻辑模块', () => {
         });
 
         it('非分牌应该返回0', async () => {
-            const { calculatePlayScore } = await import('../src/utils/gameLogic');
+            const { calculatePlayScore } = await import('../../src/utils/gameLogic');
             const cards = [createCard(Suit.SPADES, Rank.THREE)];
             expect(calculatePlayScore(cards)).toBe(0);
         });
@@ -187,13 +188,13 @@ describe('游戏逻辑模块', () => {
 
     describe('下一个玩家计算', () => {
         it('应该正确计算下一个玩家', async () => {
-            const { getNextPlayerIndex } = await import('../src/utils/gameLogic');
+            const { getNextPlayerIndex } = await import('../../src/utils/gameLogic');
             expect(getNextPlayerIndex(0, 4)).toBe(1);
             expect(getNextPlayerIndex(3, 4)).toBe(0);
         });
 
         it('应该跳过已完成的玩家', async () => {
-            const { getNextPlayerIndex } = await import('../src/utils/gameLogic');
+            const { getNextPlayerIndex } = await import('../../src/utils/gameLogic');
             expect(getNextPlayerIndex(0, 4, [1])).toBe(2);
             expect(getNextPlayerIndex(0, 4, [1, 2])).toBe(3);
         });
