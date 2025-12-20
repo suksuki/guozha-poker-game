@@ -379,26 +379,26 @@ const openSettings = () => {
 const playerEast = computed(() => {
   // Logic: Player 3 is East (Team B)
   const player = gameStore.players[3];
-  // console.log('东侧玩家(index 3):', player);
+  //
   return player;
 }); // 东 - 右侧
 
 const playerNorth = computed(() => {
   const player = gameStore.players[2];
-  // console.log('北侧玩家(index 2):', player);
+  //
   return player;
 }); // 北 - 顶部  
 
 const playerWest = computed(() => {
   // Logic: Player 1 is West (Team B)
   const player = gameStore.players[1];
-  // console.log('西侧玩家(index 1):', player);
+  //
   return player;
 }); // 西 - 左侧
 
 const playerSouth = computed(() => {
   const player = gameStore.humanPlayer;
-  // console.log('南侧玩家(你):', player);
+  //
   return player;
 }); // 南 - 底部（你）
 
@@ -504,7 +504,6 @@ const onDealingSkip = () => {
 };
 
 const playSelectedCards = async () => {
-  console.log('🎴 点击出牌按钮');
   
   if (selectedCardIds.value.length === 0) {
     showToast('请先选择要出的牌');

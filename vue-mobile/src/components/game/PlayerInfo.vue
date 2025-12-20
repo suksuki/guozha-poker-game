@@ -59,15 +59,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Player } from '../../types/card';
-import { TeamConfig } from '../../../src/types/team';
+import { Player } from '@/core/types/card';
+import { TeamConfig } from '@/core/types/team';
 import {
   calculatePlayerPickedScore,
   calculatePlayerDunScore,
   calculateTeamScore,
   calculateTeamDunCount
-} from '../../../src/utils/teamScoring';
-import { getPlayerTeamId } from '../../../src/utils/teamManager';
+} from '@/core/utils/teamScoring';
+import { getPlayerTeamId } from '@/core/utils/teamManager';
 import { Tag, Cell, NoticeBar } from 'vant';
 
 interface Props {

@@ -10,8 +10,8 @@
  */
 
 import { aiBrainIntegration } from '../ai/aiBrainIntegration';
-import type { Card } from '../../../../src/types/card';
-import { Game } from '../../../../src/game-engine/Game';
+import type { Card } from '@/core/types/card';
+import { Game } from '@/core/game-engine/Game';
 
 // 游戏事件类型定义
 export interface PlayerPlayedEventDetail {
@@ -53,7 +53,6 @@ class ChatSchedulerService {
      */
     initialize(getGameInstance: () => Game | null): void {
         if (this.isInitialized) {
-            console.warn('[ChatSchedulerService] 已经初始化，跳过');
             return;
         }
 
@@ -68,22 +67,18 @@ class ChatSchedulerService {
         window.addEventListener('guozha:player-passed', this.boundHandlePlayerPassed);
 
         this.isInitialized = true;
-        console.log('[ChatSchedulerService] 初始化完成，开始监听游戏事件');
     }
 
     /**
      * 处理玩家出牌事件
      */
     private handlePlayerPlayed(detail: PlayerPlayedEventDetail): void {
-        console.log('[ChatSchedulerService] 收到出牌事件:', detail);
 
         // 临时关闭聊天（调试用）
-        console.log('[ChatSchedulerService] 聊天已临时关闭（调试用）');
         return;
-        
+
         // 检查是否应该触发聊天
         if (!this.shouldTriggerChat(detail.playType)) {
-            console.log('[ChatSchedulerService] 概率检查未通过，跳过聊天');
             return;
         }
 
@@ -95,15 +90,12 @@ class ChatSchedulerService {
      * 处理玩家不要事件
      */
     private handlePlayerPassed(detail: PlayerPassedEventDetail): void {
-        console.log('[ChatSchedulerService] 收到不要事件:', detail);
 
         // 临时关闭聊天（调试用）
-        console.log('[ChatSchedulerService] 聊天已临时关闭（调试用）');
         return;
-        
+
         // 不要事件的聊天概率降低
         if (!this.shouldTriggerChat('pass')) {
-            console.log('[ChatSchedulerService] 概率检查未通过，跳过聊天');
             return;
         }
 
@@ -120,7 +112,6 @@ class ChatSchedulerService {
 
         // 1. 检查最小间隔
         if (now - this.lastChatTime < this.minChatInterval) {
-            console.log('[ChatSchedulerService] 间隔太短，跳过');
             return false;
         }
 
@@ -141,7 +132,6 @@ class ChatSchedulerService {
         const roll = Math.random();
         const triggered = roll < probability;
 
-        console.log(`[ChatSchedulerService] 概率检查: ${(probability * 100).toFixed(1)}%, roll=${roll.toFixed(3)}, triggered=${triggered}`);
 
         return triggered;
     }
@@ -153,14 +143,12 @@ class ChatSchedulerService {
         const game = this.getGameInstance?.();
 
         if (!game) {
-            console.warn('[ChatSchedulerService] 无法获取游戏实例，跳过聊天');
             return;
         }
 
         // 更新最后聊天时间
         this.lastChatTime = Date.now();
 
-        console.log(`[ChatSchedulerService] 触发AI聊天: playerId=${playerId}, actionType=${actionType}`);
 
         // 使用 setTimeout 将其推入下一个事件循环，确保完全不阻塞主线程
         // 完全异步执行，不等待结果，避免阻塞游戏流程
@@ -168,7 +156,6 @@ class ChatSchedulerService {
         setTimeout(() => {
             // 不等待，完全异步执行
             aiBrainIntegration.notifyStateChange(game as any, playerId, actionType).catch(error => {
-                console.error('[ChatSchedulerService] 触发聊天失败:', error);
             });
         }, 0);
     }
@@ -186,10 +173,6 @@ class ChatSchedulerService {
         if (config.minChatInterval !== undefined) {
             this.minChatInterval = Math.max(1000, config.minChatInterval);
         }
-        console.log('[ChatSchedulerService] 配置已更新:', {
-            chatProbability: this.chatProbability,
-            minChatInterval: this.minChatInterval
-        });
     }
 
     /**
@@ -218,7 +201,6 @@ class ChatSchedulerService {
         this.getGameInstance = null;
         this.isInitialized = false;
 
-        console.log('[ChatSchedulerService] 已销毁');
     }
 }
 

@@ -49,7 +49,6 @@ export function loadFromStorage<T>(key: string, defaultValue: T): T {
             return JSON.parse(stored) as T;
         }
     } catch (error) {
-        console.error(`[Storage] 加载 ${key} 失败:`, error);
     }
     return defaultValue;
 }
@@ -64,7 +63,6 @@ export function saveToStorage<T>(key: string, value: T): boolean {
         localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
         return true;
     } catch (error) {
-        console.error(`[Storage] 保存 ${key} 失败:`, error);
         return false;
     }
 }
@@ -78,7 +76,6 @@ export function removeFromStorage(key: string): boolean {
         localStorage.removeItem(STORAGE_PREFIX + key);
         return true;
     } catch (error) {
-        console.error(`[Storage] 删除 ${key} 失败:`, error);
         return false;
     }
 }
@@ -95,7 +92,6 @@ export function clearAllStorage(): void {
             }
         });
     } catch (error) {
-        console.error('[Storage] 清除所有存储失败:', error);
     }
 }
 
@@ -190,7 +186,6 @@ class EventBus {
                 try {
                     callback(...args);
                 } catch (error) {
-                    console.error(`[EventBus] 事件 ${event} 回调执行失败:`, error);
                 }
             });
         }

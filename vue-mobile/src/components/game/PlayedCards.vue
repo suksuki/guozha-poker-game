@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import CardView from '../card/CardView.vue';
-import type { Card } from '../../types/card';
+import type { Card } from '@/core/types/card';
 import { useI18n } from '../../i18n/composable';
 
 const props = defineProps<{

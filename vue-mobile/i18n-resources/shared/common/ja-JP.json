@@ -1,0 +1,25 @@
+{
+  "buttons": {
+    "confirm": "確認",
+    "cancel": "キャンセル",
+    "back": "戻る",
+    "start": "開始",
+    "pause": "一時停止",
+    "continue": "続ける",
+    "restart": "再開",
+    "close": "閉じる"
+  },
+  "status": {
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "failed": "失敗",
+    "waiting": "待機中..."
+  },
+  "messages": {
+    "confirm": "確認",
+    "warning": "警告",
+    "info": "情報",
+    "error": "エラー"
+  }
+}

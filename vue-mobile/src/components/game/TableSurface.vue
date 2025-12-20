@@ -37,7 +37,7 @@
 
 <script setup lang="ts">
 import PlayedCards from './PlayedCards.vue';
-import type { Card } from '../../types/card';
+import type { Card } from '@/core/types/card';
 
 defineProps<{
   cardsNorth?: Card[];

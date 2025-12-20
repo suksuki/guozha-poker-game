@@ -111,8 +111,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useI18n } from '../../i18n/composable';
-import { TrainingController } from '../../../../src/training/core/TrainingController';
-import { TrainingConfig, TrainingProgress, TrainingMetrics } from '../../../../src/types/training';
+import { TrainingController } from '@/core/training/core/TrainingController';
+import { TrainingConfig, TrainingProgress, TrainingMetrics } from '@/core/types/training';
 import DecisionTrainingPanel from './DecisionTrainingPanel.vue';
 import ChatTrainingPanel from './ChatTrainingPanel.vue';
 import HybridTrainingPanel from './HybridTrainingPanel.vue';
@@ -222,7 +222,6 @@ const startTraining = async () => {
   
   const config = getCurrentConfig();
   if (!config) {
-    console.error('配置无效');
     return;
   }
   
@@ -233,7 +232,6 @@ const startTraining = async () => {
     await controller.startTraining(config as TrainingConfig);
     isTraining.value = false;
   } catch (error) {
-    console.error('训练失败:', error);
     isTraining.value = false;
   }
 };

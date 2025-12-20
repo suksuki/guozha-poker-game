@@ -147,8 +147,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { Suit, Rank } from '../../types/card';
-import type { Card } from '../../types/card';
+import { Suit, Rank } from '@/core/types/card';
+import type { Card } from '@/core/types/card';
 
 // Props
 const props = defineProps<{

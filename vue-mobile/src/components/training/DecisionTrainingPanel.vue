@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { TrainingConfig } from '../../../../src/types/training';
+import { TrainingConfig } from '@/core/types/training';
 
 const props = defineProps<{
   config: Partial<TrainingConfig>;

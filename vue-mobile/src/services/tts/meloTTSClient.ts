@@ -66,11 +66,8 @@ export class MeloTTSClient implements ITTSClient {
 
       // 检查Content-Type
       const contentType = response.headers.get('Content-Type') || '';
-      console.log('[MeloTTS] 响应Content-Type:', contentType);
-      console.log('[MeloTTS] 响应状态:', response.status, response.statusText);
       
       const arrayBuffer = await response.arrayBuffer();
-      console.log('[MeloTTS] 音频数据大小:', arrayBuffer.byteLength, 'bytes');
       
       if (!arrayBuffer || arrayBuffer.byteLength === 0) {
         throw new Error('MeLo TTS API 返回空音频数据');
@@ -78,7 +75,6 @@ export class MeloTTSClient implements ITTSClient {
 
       // 估算时长（假设采样率44.1kHz，16bit，单声道）
       const estimatedDuration = arrayBuffer.byteLength / (44100 * 2);
-      console.log('[MeloTTS] 估算时长:', estimatedDuration, '秒');
 
       return {
         audioBuffer: arrayBuffer,

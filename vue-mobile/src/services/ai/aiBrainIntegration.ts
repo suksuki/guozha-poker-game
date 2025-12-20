@@ -8,13 +8,13 @@
  */
 
 // TODO: 迁移到移动端独立AI系统
-import { GameBridge } from '../../../../src/ai-core/integration/GameBridge';
-import { MasterBrainConfig } from '../../../../src/ai-core/master-brain/MasterAIBrain';
-import { GameState as AIGameState } from '../../../../src/ai-core/types';
+import { GameBridge } from '@/core/ai-core/integration/GameBridge';
+import { MasterBrainConfig } from '@/core/ai-core/master-brain/MasterAIBrain';
+import { GameState as AIGameState } from '@/core/ai-core/types';
 // TODO: 迁移到移动端独立Game类
-import { Game } from '../../../../src/game-engine/Game';
-import type { Card, Play } from '../../../../src/types/card';
-import { canPlayCards } from '../../../../src/utils/cardUtils';
+import { Game } from '@/core/game-engine/Game';
+import type { Card, Play } from '@/core/types/card';
+import { canPlayCards } from '@/core/utils/cardUtils';
 
 /**
  * AI Brain集成服务
@@ -38,7 +38,6 @@ export class AIBrainIntegration {
     maxTokens?: number; // 最大token数
   }): Promise<void> {
     if (this.isInitialized) {
-      console.warn('[AIBrainIntegration] 已经初始化，跳过');
       return;
     }
 
@@ -78,7 +77,6 @@ export class AIBrainIntegration {
         try {
           listener(event);
         } catch (error) {
-          console.error('[AIBrainIntegration] 通知监听器失败', error);
         }
       });
     });
@@ -92,14 +90,12 @@ export class AIBrainIntegration {
         try {
           listener(event);
         } catch (error) {
-          console.error('[AIBrainIntegration] 通知决策监听器失败', error);
         }
       });
     });
     (this as any)._unsubscribeTurn = unsubscribeTurn;
 
     this.isInitialized = true;
-    console.log('[AIBrainIntegration] AI Brain初始化完成');
   }
 
   /**
@@ -193,7 +189,6 @@ export class AIBrainIntegration {
     const gameState = this.convertGameState(game, playerId);
     const api = this.gameBridge.getAPI();
     await api.notifyStateChange(gameState, changeType).catch(err => {
-      console.error(`[AIBrainIntegration] 游戏状态更新失败:`, err);
     });
   }
 
@@ -266,12 +261,10 @@ export class AIBrainIntegration {
     timeout?: number;
   }): void {
     if (!this.gameBridge || !this.isInitialized) {
-      console.warn('[AIBrainIntegration] AI Brain未初始化，无法更新LLM配置');
       return;
     }
 
     this.gameBridge.getAPI().updateLLMConfig(updates);
-    console.log('[AIBrainIntegration] LLM配置已动态更新', updates);
   }
 
   /**
@@ -283,7 +276,6 @@ export class AIBrainIntegration {
       this.gameBridge = null;
       this.isInitialized = false;
       this.communicationListeners.clear();
-      console.log('[AIBrainIntegration] AI Brain已关闭');
     }
   }
 }

@@ -17,7 +17,6 @@ describe('GameStore - 玩家信息显示', () => {
       store.startGame();
       
       store.players.forEach((player, index) => {
-        console.log(`玩家${index}:`, player);
         
         expect(player.id).toBe(index);
         expect(player.name).toBeDefined();
@@ -73,7 +72,6 @@ describe('GameStore - 玩家信息显示', () => {
       if (humanPlayer.hand.length === 0) {
         const updatedPlayer = store.players[0];
         expect(updatedPlayer.finishedRank).toBeGreaterThan(0);
-        console.log(`玩家排名: 第${updatedPlayer.finishedRank}名`);
       }
     });
 
@@ -130,13 +128,6 @@ describe('GameStore - 玩家信息显示', () => {
       
       // 西 = 玩家3
       expect(store.players[3]).toBeDefined();
-      
-      console.log('四个方位玩家:', {
-        南: store.players[0].name,
-        东: store.players[1].name,
-        北: store.players[2].name,
-        西: store.players[3].name
-      });
     });
   });
 });

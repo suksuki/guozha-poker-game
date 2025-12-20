@@ -15,7 +15,6 @@ describe('游戏流程集成测试', () => {
     const store = useGameStore();
     
     // 1. 开始游戏
-    console.log('🎮 步骤1: 开始游戏');
     store.startGame();
     
     expect(store.status).toBe('playing');
@@ -23,7 +22,6 @@ describe('游戏流程集成测试', () => {
     expect(store.currentRound).toBeDefined();
     
     // 2. 第一次出牌
-    console.log('🎮 步骤2: 人类玩家出牌');
     const humanPlayer = store.humanPlayer!;
     const initialHandCount = humanPlayer.hand.length;
     const cardToPlay = [humanPlayer.hand[0]];
@@ -36,7 +34,6 @@ describe('游戏流程集成测试', () => {
     expect(store.currentRound?.plays.length).toBeGreaterThan(0);
     
     // 3. 等待AI玩家出牌
-    console.log('🎮 步骤3: 等待AI玩家出牌');
     let aiTurnCount = 0;
     const maxWaitTime = 10000; // 最多等待10秒
     const startTime = Date.now();
@@ -48,30 +45,24 @@ describe('游戏流程集成测试', () => {
       if (aiTurnCount > 20) break; // 最多等待20次AI出牌
     }
     
-    console.log(`AI出牌次数: ${aiTurnCount}`);
     // 至少应该有1次出牌（人类玩家的），AI可能没有出牌
     expect(store.currentRound?.plays.length).toBeGreaterThanOrEqual(1);
     
     // 4. 验证回合数据更新
-    console.log('🎮 步骤4: 验证回合数据');
     expect(store.currentRound?.plays.length).toBeGreaterThanOrEqual(1);
     expect(store.gameState?.rounds.length).toBeGreaterThanOrEqual(1);
     
     // 5. 验证玩家状态
-    console.log('🎮 步骤5: 验证玩家状态');
     store.players.forEach((player, index) => {
-      console.log(`玩家${index}: ${player.name}, 手牌: ${player.hand.length}张, 分数: ${player.score}`);
       expect(player.hand).toBeDefined();
       expect(player.score).toBeGreaterThanOrEqual(0);
     });
     
-    console.log('✅ 游戏流程测试完成');
   }, 5000); // 减少超时时间从15秒到5秒 // 增加测试超时时间
 
   it('多回合游戏流程测试', async () => {
     const store = useGameStore();
     
-    console.log('🎮 多回合测试开始');
     store.startGame();
     
     let roundsPlayed = 0;
@@ -84,7 +75,6 @@ describe('游戏流程集成测试', () => {
       const humanPlayer = store.humanPlayer;
       
       if (!humanPlayer || humanPlayer.hand.length === 0) {
-        console.log('人类玩家已出完牌');
         break;
       }
       
@@ -93,7 +83,6 @@ describe('游戏流程集成测试', () => {
         const result = await store.playCards([humanPlayer.hand[0]]);
         
         if (result.success) {
-          console.log(`回合${roundsPlayed + 1}: 出牌成功`);
           roundsPlayed++;
         }
       }
@@ -103,7 +92,6 @@ describe('游戏流程集成测试', () => {
       
       // 检查回合是否结束并开始新回合
       if (store.gameState && store.gameState.rounds.length > roundsPlayed) {
-        console.log(`新回合已开始，总回合数: ${store.gameState.rounds.length}`);
       }
       
       // 如果游戏结束，提前退出
@@ -112,7 +100,6 @@ describe('游戏流程集成测试', () => {
       }
     }
     
-    console.log(`✅ 完成 ${roundsPlayed} 个回合`);
     expect(roundsPlayed).toBeGreaterThan(0);
   }, 8000); // 增加超时时间到8秒
 
@@ -134,7 +121,6 @@ describe('游戏流程集成测试', () => {
     // 现在尝试不要
     if (store.currentPlayerIndex === 0 && store.currentRound?.lastPlay) {
       const result = await store.pass();
-      console.log('不要结果:', result);
       expect(result).toBeDefined();
     }
   }, 5000); // 减少超时时间从15秒到5秒
@@ -160,7 +146,6 @@ describe('游戏流程集成测试', () => {
     // 验证托管确实出了牌
     if (store.isAutoPlay && store.humanPlayer) {
       const newHandCount = store.humanPlayer.hand.length;
-      console.log(`托管前手牌: ${initialHandCount}, 托管后: ${newHandCount}`);
       // 托管应该减少了手牌（或者不要了）
       expect(newHandCount <= initialHandCount).toBe(true);
     }
@@ -177,7 +162,6 @@ describe('游戏流程集成测试', () => {
     const recommendation = store.getAIRecommendation();
     
     if (recommendation && recommendation.cards) {
-      console.log(`AI推荐出牌: ${recommendation.cards.length}张`);
       
       // 推荐的牌应该在人类玩家手中
       const humanHand = store.humanPlayer!.hand;
@@ -186,7 +170,6 @@ describe('游戏流程集成测试', () => {
         expect(found).toBe(true);
       });
     } else {
-      console.log('AI建议: 不要');
     }
   });
 });

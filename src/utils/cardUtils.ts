@@ -26,7 +26,7 @@ export function calculateDunCount(cardCount: number): number {
   if (cardCount < 7) {
     return 0; // 少于7张不是墩
   }
-  
+
   // 7张 = 1墩 (2^0)
   // 8张 = 2墩 (2^1)
   // 9张 = 4墩 (2^2)
@@ -46,16 +46,16 @@ export function calculateDunScore(dunCount: number, totalPlayers: number, dunPla
   if (dunCount === 0) {
     return { dunPlayerScore: 0, otherPlayersScore: 0 };
   }
-  
+
   const otherPlayersCount = totalPlayers - 1;
   const scorePerDun = 30;
-  
+
   // 出墩玩家获得的分数 = 其他玩家数 × 30分 × 墩数
   const dunPlayerScore = otherPlayersCount * scorePerDun * dunCount;
-  
+
   // 每个其他玩家扣除的分数 = 30分 × 墩数
   const otherPlayersScore = scorePerDun * dunCount;
-  
+
   return { dunPlayerScore, otherPlayersScore };
 }
 
@@ -117,10 +117,10 @@ function getRandomValue(): number {
 // 洗牌（使用改进的 Fisher-Yates 算法，多次洗牌确保随机性）
 export function shuffleDeck(deck: Card[]): Card[] {
   let shuffled = [...deck];
-  
+
   // 多次洗牌以增加随机性（蒙特卡洛方法：多次随机操作）
   const shuffleRounds = 5; // 洗5次，确保完全随机
-  
+
   for (let round = 0; round < shuffleRounds; round++) {
     // Fisher-Yates 洗牌算法（从后往前）
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -128,7 +128,7 @@ export function shuffleDeck(deck: Card[]): Card[] {
       const j = Math.floor(getRandomValue() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    
+
     // 额外的随机操作：随机交换一些牌（增加随机性）
     const swapCount = Math.floor(shuffled.length * 0.5); // 随机交换50%的牌
     for (let k = 0; k < swapCount; k++) {
@@ -138,12 +138,12 @@ export function shuffleDeck(deck: Card[]): Card[] {
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
     }
-    
+
     // 随机切牌（Riffle Shuffle 模拟）
     const cutPoint = Math.floor(getRandomValue() * shuffled.length);
     shuffled = [...shuffled.slice(cutPoint), ...shuffled.slice(0, cutPoint)];
   }
-  
+
   return shuffled;
 }
 
@@ -160,12 +160,22 @@ export function sortCards(cards: Card[]): Card[] {
   return [...cards].sort(compareCards);
 }
 
+// 按点数排序（仅按 rank 排序，不考虑花色）
+export function sortCardsByRank(cards: Card[]): Card[] {
+  return [...cards].sort((a, b) => a.rank - b.rank);
+}
+
+// 按分值排序（5分、10分、K=10分，其他=0分）
+export function sortCardsByValue(cards: Card[]): Card[] {
+  return [...cards].sort((a, b) => getCardScore(b) - getCardScore(a));
+}
+
 // 发牌（蒙特卡洛模拟：将所有牌混在一起洗牌，然后分发给玩家）
 export function dealCards(playerCount: number): Card[][] {
   // 第一步：创建所有牌（playerCount副牌）
   const allCards: Card[] = [];
   const timestamp = Date.now();
-  
+
   for (let deckIndex = 0; deckIndex < playerCount; deckIndex++) {
     const deck = createDeck();
     // 为每张牌生成唯一ID
@@ -179,10 +189,10 @@ export function dealCards(playerCount: number): Card[][] {
       allCards.push(card);
     });
   }
-  
+
   // 第二步：蒙特卡洛模拟洗牌 - 将所有牌彻底混在一起
   let shuffled = shuffleDeck(allCards);
-  
+
   // 第三步：多次洗牌确保随机性（蒙特卡洛方法）
   const monteCarloRounds = 7; // 洗7次，确保完全随机
   for (let round = 0; round < monteCarloRounds; round++) {
@@ -191,11 +201,11 @@ export function dealCards(playerCount: number): Card[][] {
       const j = Math.floor(getRandomValue() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    
+
     // 随机切牌（模拟真实洗牌）
     const cutPoint = Math.floor(getRandomValue() * shuffled.length);
     shuffled = [...shuffled.slice(cutPoint), ...shuffled.slice(0, cutPoint)];
-    
+
     // 随机交换（增加随机性）
     const swapCount = Math.floor(shuffled.length * 0.3);
     for (let k = 0; k < swapCount; k++) {
@@ -206,25 +216,25 @@ export function dealCards(playerCount: number): Card[][] {
       }
     }
   }
-  
+
   // 第四步：分发给每个玩家（按顺序发牌）
   const hands: Card[][] = [];
   const cardsPerPlayer = Math.floor(shuffled.length / playerCount);
-  
+
   for (let i = 0; i < playerCount; i++) {
     const startIndex = i * cardsPerPlayer;
     const endIndex = (i === playerCount - 1) ? shuffled.length : (i + 1) * cardsPerPlayer;
     const playerHand = shuffled.slice(startIndex, endIndex);
-    
+
     // 为每张牌添加玩家信息到ID（确保唯一性和可追溯性）
     playerHand.forEach((card, cardIndexInHand) => {
       // 在现有ID基础上添加玩家信息
       card.id = `${card.id}-player${i}-hand${cardIndexInHand}`;
     });
-    
+
     hands.push(playerHand);
   }
-  
+
   return hands;
 }
 
@@ -234,7 +244,7 @@ export function getCardType(cards: Card[]): { type: CardType; value: number } | 
 
   const sorted = sortCards(cards);
   const rankCounts = new Map<Rank, number>();
-  
+
   sorted.forEach(card => {
     rankCounts.set(card.rank, (rankCounts.get(card.rank) || 0) + 1);
   });
@@ -250,7 +260,7 @@ export function getCardType(cards: Card[]): { type: CardType; value: number } | 
   // 检查是否有大小王混合（4张以下的大小王必须分别出）
   const hasJokers = totalJokers > 0;
   const hasNormalCards = uniqueRanks.some(r => r !== Rank.JOKER_SMALL && r !== Rank.JOKER_BIG);
-  
+
   // 如果大小王总数 < 4，且混合了普通牌，不允许
   if (hasJokers && totalJokers < 4 && hasNormalCards) {
     return null;
@@ -376,7 +386,7 @@ export function canBeat(play: Play, lastPlay: Play | null): boolean {
 // 从手牌中查找可以出的牌
 export function findPlayableCards(hand: Card[], lastPlay: Play | null): Card[][] {
   const playable: Card[][] = [];
-  
+
   if (!lastPlay) {
     // 没有上家出牌，可以出任何合法牌型
     // 这里简化处理，返回所有单张、对子、三张等
@@ -509,7 +519,7 @@ export function findPlayableCards(hand: Card[], lastPlay: Play | null): Card[][]
           }
         }
       }
-      
+
       // 重要：检查炸弹/墩是否可以压过单张、对子、三张
       // 炸弹可以压任何非炸弹、非墩的牌型（单张、对子、三张）
       if (lastPlay.type !== CardType.BOMB && lastPlay.type !== CardType.DUN) {
@@ -585,7 +595,7 @@ export function findPlayableCards(hand: Card[], lastPlay: Play | null): Card[][]
         }
       }
     }
-    
+
     // 重要：大小王炸弹/墩也可以压过单张、对子、三张
     if (totalJokers >= 4) {
       if (lastPlay.type !== CardType.BOMB && lastPlay.type !== CardType.DUN) {
@@ -593,8 +603,8 @@ export function findPlayableCards(hand: Card[], lastPlay: Play | null): Card[][]
         const jokerPlay = canPlayCards(allJokers);
         if (jokerPlay && canBeat(jokerPlay, lastPlay)) {
           // 避免重复添加
-          const alreadyAdded = playable.some(play => 
-            play.length === allJokers.length && 
+          const alreadyAdded = playable.some(play =>
+            play.length === allJokers.length &&
             play.every(card => allJokers.some(j => j.id === card.id))
           );
           if (!alreadyAdded) {
@@ -614,10 +624,10 @@ export function hasPlayableCards(hand: Card[], lastPlay: Play | null): boolean {
     // 没有上家出牌，可以出任何牌，所以总是有能出的牌
     return hand.length > 0;
   }
-  
+
   // 查找所有可以出的牌
   const playableCards = findPlayableCards(hand, lastPlay);
-  
+
   // 如果有任何可以打过的牌，返回 true
   return playableCards.length > 0;
 }

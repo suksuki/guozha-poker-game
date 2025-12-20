@@ -26,7 +26,6 @@ const getSavedLanguage = (): SupportedLocale => {
       return saved as SupportedLocale;
     }
   } catch (error) {
-    console.error('读取语言设置失败:', error);
   }
   
   // 默认使用浏览器语言
@@ -57,7 +56,6 @@ export const changeLanguage = (locale: SupportedLocale): void => {
   try {
     localStorage.setItem('app-language', locale);
   } catch (error) {
-    console.error('保存语言设置失败:', error);
   }
 };
 

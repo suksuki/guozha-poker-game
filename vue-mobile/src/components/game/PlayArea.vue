@@ -53,7 +53,7 @@
 import { computed } from 'vue';
 import { useI18n } from '../../i18n/composable';
 import CardView from '../card/CardView.vue';
-import type { Card } from '../../types/card';
+import type { Card } from '@/core/types/card';
 
 // Props
 const props = defineProps<{

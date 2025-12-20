@@ -78,12 +78,10 @@ export class TTSPlaybackService {
             onAudioGenerated?.();
             onEnd?.();
           }, onError).catch(err => {
-            console.error('[TTSPlayback] 播放缓存音频失败:', err);
             onError?.(err);
           });
           return Promise.resolve();
         } else {
-          console.warn(`[TTSPlayback] ⚠️ 缓存音频无效（空数据），重新生成`);
           // 删除无效缓存
           this.audioCache.delete(cacheKey);
         }
@@ -94,7 +92,6 @@ export class TTSPlaybackService {
     const audioResult = await this.generateAudioWithFallback(text, timeout, fallbackTimeout, channel);
     
     if (!audioResult) {
-      console.warn('[TTSPlayback] ⚠️ 所有TTS服务器都失败或不可用');
     }
 
     // TTS文件返回后，等待音频解码、播放并完全播放完成，在onEnd回调中触发onAudioGenerated
@@ -121,19 +118,16 @@ export class TTSPlaybackService {
         onEnd?.();
       }, (err) => {
         // 播放失败时，也触发onAudioGenerated，确保游戏流程继续
-        console.error('[TTSPlayback] 播放音频失败:', err);
         onAudioGenerated?.();
         onError?.(err);
       }).catch(err => {
         // 播放异常时，也触发onAudioGenerated，确保游戏流程继续
-        console.error('[TTSPlayback] 播放音频异常:', err);
         onAudioGenerated?.();
         onError?.(err);
       });
       return Promise.resolve();
     } else {
       // 所有TTS都失败，但仍然触发回调让游戏继续
-      console.warn('[TTSPlayback] ⚠️ 所有TTS服务都失败，但触发回调让游戏继续');
       const error = new Error('所有TTS服务都不可用');
       onError?.(error);
       // 即使失败，也触发onAudioGenerated，确保游戏流程继续
@@ -179,7 +173,6 @@ export class TTSPlaybackService {
     filteredServers.sort((a, b) => a.priority - b.priority);
     
     if (filteredServers.length === 0) {
-      console.warn('[TTSPlayback] 没有可用的TTS服务器（piper/melo）');
       return null;
     }
     
@@ -213,7 +206,6 @@ export class TTSPlaybackService {
         ]);
         
         if (!isAvailable) {
-          console.warn(`[TTSPlayback] TTS服务器 ${server.name} 不可用，尝试下一个`);
           continue;
         }
         
@@ -227,17 +219,14 @@ export class TTSPlaybackService {
         if (result) {
           return result;
         } else {
-          console.warn(`[TTSPlayback] TTS服务器 ${server.name} 合成超时，尝试下一个`);
           continue;
         }
       } catch (error) {
-        console.warn(`[TTSPlayback] TTS服务器 ${server.name} 失败:`, error);
         continue;
       }
     }
     
     // 所有服务器都失败
-    console.warn('[TTSPlayback] 所有TTS服务器都失败');
     return null;
   }
 
@@ -256,7 +245,6 @@ export class TTSPlaybackService {
     // 检查音频数据是否有效
     if (!audioBuffer || audioBuffer.byteLength === 0) {
       const error = new Error('音频数据为空');
-      console.error('[TTSPlayback] 音频数据无效:', error);
       onError?.(error);
       throw error;
     }
@@ -265,7 +253,6 @@ export class TTSPlaybackService {
     const audioContext = audioService.getAudioContext();
     if (!audioContext) {
       const error = new Error('AudioContext不可用');
-      console.error('[TTSPlayback] AudioContext不可用');
       onError?.(error);
       throw error;
     }
@@ -284,14 +271,12 @@ export class TTSPlaybackService {
             onEnd?.();
           },
           onError: (err) => {
-            console.error('[TTSPlayback] 音频播放错误:', err);
             onError?.(err);
           }
         }
       );
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error('[TTSPlayback] 播放音频失败:', err);
       onError?.(err);
       throw err;
     }
@@ -328,7 +313,6 @@ export class TTSPlaybackService {
       }
     }
     if (clearedCount > 0) {
-      console.log(`[TTSPlayback] 清除 ${clearedCount} 个过期或无效缓存`);
     }
   }
   
@@ -338,7 +322,6 @@ export class TTSPlaybackService {
   clearAllCache(): void {
     const count = this.audioCache.size;
     this.audioCache.clear();
-    console.log(`[TTSPlayback] 清除所有缓存 (${count} 个)`);
   }
 }
 

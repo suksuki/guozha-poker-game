@@ -143,8 +143,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useI18n } from '../../i18n/composable';
-import type { Player } from '../../types/card';
-import type { RoundData } from '../../../../src/game-engine/round/RoundData';
+import type { Player } from '@/core/types/card';
+import type { RoundData } from '@/core/game-engine/round/RoundData';
 
 const { t } = useI18n();
 

@@ -1,0 +1,25 @@
+{
+  "buttons": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "back": "Back",
+    "start": "Start",
+    "pause": "Pause",
+    "continue": "Continue",
+    "restart": "Restart",
+    "close": "Close"
+  },
+  "status": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "failed": "Failed",
+    "waiting": "Waiting..."
+  },
+  "messages": {
+    "confirm": "Confirm",
+    "warning": "Warning",
+    "info": "Info",
+    "error": "Error"
+  }
+}

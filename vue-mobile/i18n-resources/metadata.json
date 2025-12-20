@@ -1,0 +1,33 @@
+{
+  "version": "1.0.0",
+  "languages": [
+    {
+      "code": "zh-CN",
+      "name": "中文",
+      "flag": "🇨🇳"
+    },
+    {
+      "code": "en-US",
+      "name": "English",
+      "flag": "🇺🇸"
+    },
+    {
+      "code": "ko-KR",
+      "name": "한국어",
+      "flag": "🇰🇷"
+    },
+    {
+      "code": "ja-JP",
+      "name": "日本語",
+      "flag": "🇯🇵"
+    }
+  ],
+  "defaultLanguage": "zh-CN",
+  "namespaceStrategy": {
+    "component": "component",
+    "feature": "feature",
+    "shared": "shared"
+  },
+  "lastUpdated": "2024-12-01T00:00:00Z"
+}
+

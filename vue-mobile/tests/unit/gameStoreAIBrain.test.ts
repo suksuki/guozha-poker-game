@@ -14,14 +14,15 @@ vi.mock('../../src/services/ai/aiBrainIntegration', () => {
   const mockTriggerAITurn = vi.fn(() => Promise.resolve());
   const mockNotifyStateChange = vi.fn();
   const mockShutdown = vi.fn(() => Promise.resolve());
-  
+
   return {
     aiBrainIntegration: {
       initialize: mockInitialize,
       triggerAITurn: mockTriggerAITurn,
       notifyStateChange: mockNotifyStateChange,
       shutdown: mockShutdown,
-      onCommunicationMessage: vi.fn(() => () => {})
+      onCommunicationMessage: vi.fn(() => () => { }),
+      onAIDecision: vi.fn(() => () => { })
     }
   };
 });
@@ -39,7 +40,7 @@ describe('GameStore AI Brain集成', () => {
     it('应该在游戏开始时初始化AI Brain', async () => {
       const gameStore = useGameStore();
       const settingsStore = useSettingsStore();
-      
+
       // 设置LLM配置
       settingsStore.updateLLMConfig({
         provider: 'ollama',
@@ -60,7 +61,7 @@ describe('GameStore AI Brain集成', () => {
     it('应该使用settingsStore中的LLM配置', async () => {
       const gameStore = useGameStore();
       const settingsStore = useSettingsStore();
-      
+
       settingsStore.updateLLMConfig({
         provider: 'ollama',
         apiUrl: 'http://192.168.0.13:11434/api/chat',
@@ -78,7 +79,7 @@ describe('GameStore AI Brain集成', () => {
   describe('AI回合触发', () => {
     it('应该在AI玩家回合时触发AI Brain', async () => {
       const gameStore = useGameStore();
-      
+
       gameStore.startGame();
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -91,7 +92,7 @@ describe('GameStore AI Brain集成', () => {
   describe('游戏事件触发聊天', () => {
     it('应该能够触发AI Brain聊天', async () => {
       const gameStore = useGameStore();
-      
+
       gameStore.startGame();
       await new Promise(resolve => setTimeout(resolve, 10));
 

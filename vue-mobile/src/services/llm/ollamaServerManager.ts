@@ -73,7 +73,6 @@ export class OllamaServerManager {
         this.loadDefaults();
       }
     } catch (error) {
-      console.error('加载Ollama服务器配置失败:', error);
       this.loadDefaults();
     }
   }
@@ -100,7 +99,6 @@ export class OllamaServerManager {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (error) {
-      console.error('保存Ollama服务器配置失败:', error);
     }
   }
 
@@ -109,7 +107,6 @@ export class OllamaServerManager {
    */
   addServer(config: Partial<OllamaServerConfig>): OllamaServerConfig | null {
     if (this.servers.size >= this.maxServers) {
-      console.warn('服务器数量已达上限');
       return null;
     }
 

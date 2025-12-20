@@ -438,15 +438,15 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useSettingsStore, type VoicePlaybackSettings } from '../../stores/settingsStore';
 import { showToast, showSuccessToast, showFailToast, showLoadingToast, showConfirmDialog, type TagType } from 'vant';
 import type { GameSettings, UISettings, AISettings } from '../../stores/settingsStore';
-import type { LLMChatConfig } from '../../../../src/config/chatConfig';
+import type { LLMChatConfig } from '../../core/config/chatConfig';
 import type { TTSServerConfig, TTSProvider } from '../../services/tts/types';
-import { checkLLMAvailability } from '../../../../src/utils/llmHealthCheck';
-import { getAvailableOllamaModels, checkOllamaService } from '../../../../src/utils/llmModelService';
+import { checkLLMAvailability } from '../../core/utils/llmHealthCheck';
+import { getAvailableOllamaModels, checkOllamaService } from '../../core/utils/llmModelService';
 import { ollamaServerManager, type OllamaServerConfig } from '../../services/llm/ollamaServerManager';
 import { getMultiChannelAudioService } from '../../services/audio/multiChannelAudioService';
 import TTSServerDialog from './TTSServerDialog.vue';
 import { useI18n } from '../../i18n/composable';
-import { AIConfigStore } from '../../../../src/ai/config/AIConfigStore';
+import { AIConfigStore } from '../../core/ai/config/AIConfigStore';
 
 interface Props {
   modelValue: boolean;
@@ -690,7 +690,6 @@ const refreshModels = async () => {
       showToast('未找到可用模型');
     }
   } catch (error: any) {
-    console.error('获取模型列表失败:', error);
     showFailToast(`获取模型列表失败: ${error.message}`);
   } finally {
     isLoadingModels.value = false;
@@ -785,13 +784,7 @@ const testTTSServer = async (server: TTSServerConfig) => {
   const baseUrl = `${server.connection.protocol}://${server.connection.host}:${server.connection.port}`;
   const healthUrl = `${baseUrl}/health`;
   
-  console.log('🔍 开始测试TTS服务器:', {
-    name: server.name,
-    type: server.type,
-    url: healthUrl,
-    connection: server.connection
-  });
-  
+
   let loadingToast: any = null;
   try {
     loadingToast = showLoadingToast({
@@ -818,12 +811,6 @@ const testTTSServer = async (server: TTSServerConfig) => {
     clearTimeout(timeoutId);
     const responseTime = Date.now() - startTime;
 
-    console.log('[TTS测试] 响应状态:', {
-      ok: response.ok,
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
-    });
 
     if (loadingToast) {
       loadingToast.close();
@@ -838,14 +825,11 @@ const testTTSServer = async (server: TTSServerConfig) => {
         try {
           const data = await response.json();
           healthData = data;
-          console.log('[TTS测试] MeLo TTS健康检查响应:', data);
           isHealthy = data.status === 'ok';
           
           if (!isHealthy) {
-            console.warn('[TTS测试] 状态检查失败，返回的status不是"ok":', data);
           }
         } catch (e: any) {
-          console.error('[TTS测试] JSON解析失败:', e);
           // 如果JSON解析失败，仍然认为响应ok就是健康的
           isHealthy = true;
         }
@@ -888,12 +872,6 @@ const testTTSServer = async (server: TTSServerConfig) => {
       }
     } else {
       const errorText = await response.text().catch(() => '');
-      console.error('[TTS测试] HTTP错误:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText
-      });
-      
       showFailToast({
         message: `❌ 连接失败\nHTTP ${response.status}: ${response.statusText}`,
         duration: 3000
@@ -910,14 +888,6 @@ const testTTSServer = async (server: TTSServerConfig) => {
     if (loadingToast) {
       loadingToast.close();
     }
-    
-    console.error('❌ TTS服务器测试失败:', {
-      error,
-      name: error?.name,
-      message: error?.message,
-      stack: error?.stack,
-      url: healthUrl
-    });
     
     let errorMessage = '未知错误';
     if (error.name === 'AbortError') {
@@ -997,7 +967,6 @@ const testLLMConnection = async () => {
   } catch (error: any) {
     llmConnectionStatus.value = `连接失败: ${error.message || '未知错误'}`;
     llmStatusIcon.value = '❌';
-    console.error('❌ LLM连接测试失败:', error);
     showFailToast({
       message: `❌ 连接失败\n${error.message || '未知错误'}`,
       duration: 3000
@@ -1041,7 +1010,6 @@ const updateAudioStats = () => {
     const audioService = getMultiChannelAudioService();
     audioStats.value = audioService.getStatistics();
   } catch (error) {
-    console.error('获取音频统计信息失败:', error);
   }
 };
 
@@ -1135,10 +1103,6 @@ const removeOllamaServer = async (serverId: string) => {
 };
 
 const handleAddOllamaServer = async () => {
-  console.log('🔍 handleAddOllamaServer 被调用');
-  console.log('🔍 newServerHost:', newServerHost.value);
-  console.log('🔍 newServerName:', newServerName.value);
-  console.log('🔍 newServerPort:', newServerPort.value);
   
   if (!newServerHost.value || !newServerHost.value.trim()) {
     showFailToast('请输入主机地址');
@@ -1153,7 +1117,6 @@ const handleAddOllamaServer = async () => {
       protocol: 'http'
     });
     
-    console.log('🔍 addServer 返回:', server);
     
     if (server) {
       loadOllamaServers();
@@ -1170,7 +1133,6 @@ const handleAddOllamaServer = async () => {
       showFailToast('添加服务器失败，请检查输入');
     }
   } catch (error: any) {
-    console.error('❌ 添加服务器失败:', error);
     showFailToast(`添加失败: ${error.message || '未知错误'}`);
   }
 };
@@ -1280,7 +1242,6 @@ const handleAddTTSServer = (server: Partial<TTSServerConfig>) => {
       const ttsService = getTTSService();
       ttsService.addServer(newServer);
     }).catch(err => {
-      console.error('[SettingsPanel] 同步TTS服务器失败:', err);
     });
   }
   showAddTTSServer.value = false;

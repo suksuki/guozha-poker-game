@@ -86,9 +86,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import CardView from '../card/CardView.vue';
-import { sortCardsByRank, sortCardsByValue } from '../../utils/cardUtils';
-import { Rank } from '../../types/card';
-import type { Card } from '../../types/card';
+import { sortCardsByRank, sortCardsByValue } from '@/core/utils/cardUtils';
+import { Rank } from '@/core/types/card';
+import type { Card } from '@/core/types/card';
 
 // Props
 const props = defineProps<{

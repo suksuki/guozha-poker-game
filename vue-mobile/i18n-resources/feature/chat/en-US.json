@@ -1,0 +1,132 @@
+{
+  "note": "Chat content needs to be written separately for each language culture, not just translation",
+  "random": [
+    "Not bad hand!",
+    "Watch how I play",
+    "Haha, interesting",
+    "Need to be careful this round",
+    "Good luck",
+    "Watch me",
+    "This round is solid",
+    "A bit nervous",
+    "Take it slow",
+    "No rush",
+    "Good cards!",
+    "This round is interesting",
+    "Let's see who's better",
+    "Come on!",
+    "I'm going to win this"
+  ],
+  "bigDun": [
+    "Wow! Such a big dun!",
+    "Oh my! So many cards!",
+    "Amazing!",
+    "This dun is huge!",
+    "Incredible!",
+    "This dun is really big!",
+    "Wow!",
+    "Unbelievable!",
+    "Oh my god!",
+    "So big!",
+    "Too exaggerated!",
+    "How to play this!"
+  ],
+  "scoreStolen": [
+    "Oh no! My points!",
+    "My points were stolen!",
+    "So annoying!",
+    "My points!",
+    "What a pity!",
+    "Points are gone!",
+    "Oh no!",
+    "My score cards!"
+  ],
+  "scoreEatenCurse": [
+    "Damn! My points!",
+    "Crap! Points were eaten!",
+    "Oh no! My points!",
+    "Damn! Points are gone!",
+    "Shit! My score cards!",
+    "Fuck! Points were stolen!",
+    "Damn! So annoying!",
+    "Damn! Too unfair!",
+    "Crap! My points!",
+    "Damn! Points were eaten!"
+  ],
+  "urgePlay": [
+    "Play faster!",
+    "Hurry up!",
+    "Come on, play!",
+    "Stop stalling!",
+    "Play your cards!",
+    "What are you waiting for!",
+    "Hurry!",
+    "Stop thinking, just play!",
+    "Play faster!",
+    "Play quickly!",
+    "Stop delaying!",
+    "Faster!"
+  ],
+  "goodPlay": [
+    "Good play!",
+    "Nice hand!",
+    "Beautiful!",
+    "Well played!",
+    "Impressive!",
+    "Good!",
+    "Not bad!",
+    "This hand is good!"
+  ],
+  "finishFirst": [
+    "I'm first!",
+    "Haha, I'm first!",
+    "First place! Awesome!",
+    "I won!",
+    "First place secured!",
+    "Awesome! First!",
+    "Hahaha, first!",
+    "First place!"
+  ],
+  "finishMiddle": [
+    "So annoying!",
+    "Sigh, that's it",
+    "Finally finished",
+    "So tired",
+    "Finally done",
+    "Sigh, no choice",
+    "That's it",
+    "Finished"
+  ],
+  "dunPlayed": [
+    "Scared now!",
+    "Watch my big dun!",
+    "Haha, big dun!",
+    "This dun is big enough!",
+    "Scared!",
+    "Big dun coming!",
+    "See how you play!",
+    "This dun will get you!"
+  ],
+  "taunt": [
+    "You can't do it",
+    "Too weak",
+    "Is that all?",
+    "You can't beat me",
+    "Too easy",
+    "Watch how I handle you",
+    "You're done",
+    "I'm going to win this",
+    "You're going to lose",
+    "Too simple",
+    "You can't do it",
+    "Watch my power",
+    "You're too weak",
+    "I'm going to win this",
+    "Just wait and see"
+  ],
+  "default": [
+    "Not bad",
+    "OK",
+    "Good"
+  ]
+}

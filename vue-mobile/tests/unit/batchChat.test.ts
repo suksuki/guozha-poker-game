@@ -63,11 +63,9 @@ describe('批量聊天生成', () => {
           expect(aiBrainIntegration.notifyStateChange).toHaveBeenCalled();
         } else {
           // 如果出牌失败，跳过测试（可能是牌不合法）
-          console.log('出牌失败，跳过测试:', result.message);
         }
       } else {
         // 如果没有手牌，跳过测试
-        console.log('没有手牌，跳过测试');
       }
     });
 

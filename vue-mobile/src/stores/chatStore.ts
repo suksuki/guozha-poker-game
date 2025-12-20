@@ -67,7 +67,6 @@ export const useChatStore = defineStore('chat', () => {
       if (gameStore.game) {
         // 使用 (gameStore.game as any) 规避 Pinia 响应式包装导致的类型不匹配
         aiBrainIntegration.sendUserMessage(message.playerId, message.content, gameStore.game as any).catch(err => {
-          console.error('[ChatStore] 转发消息给 AI Brain 失败:', err);
         });
       }
     }
@@ -124,7 +123,7 @@ export const useChatStore = defineStore('chat', () => {
           // 确定声道：所有聊天消息都使用玩家声道（PLAYER_1-PLAYER_7，共7条）
           // 系统声音使用SYSTEM专用声道，聊天使用玩家声道（智能调度）
           // 使用玩家ID模7来分配，确保在7个玩家声道中均匀分布
-          const channel = (ChannelType.PLAYER_1 + (event.playerId % 7)) as ChannelType;
+          const channel = (ChannelType.PLAYER_1 + (event.playerId % 7)) as typeof ChannelType[keyof typeof ChannelType];
           const ttsService = getTTSPlaybackService();
 
           // 聊天TTS（在音频开始播放时显示气泡，不需要等待播放完成）
@@ -161,17 +160,14 @@ export const useChatStore = defineStore('chat', () => {
               // 音频播放完成
             },
             onError: (error) => {
-              console.error(`[ChatStore] TTS播放失败 (玩家${event.playerId}):`, error);
               clearTimeout(timeoutId);
               displayBubble();
             }
           }).catch((error) => {
-            console.error(`[ChatStore] TTS播放异常 (玩家${event.playerId}):`, error);
             clearTimeout(timeoutId);
             displayBubble();
           });
         }).catch((error) => {
-          console.error(`[ChatStore] TTS服务初始化失败 (玩家${event.playerId}):`, error);
           // 如果TTS服务不可用，直接显示消息和气泡
           addMessage(newMessage);
           activeBubbles.value.set(event.playerId, newMessage);

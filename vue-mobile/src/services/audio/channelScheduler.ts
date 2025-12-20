@@ -9,7 +9,7 @@
  * 5. 不同声道可以同时播放（真正的多声道）
  */
 
-import { ChannelType } from '../../types/channel';
+import { ChannelType, ANNOUNCEMENT } from '../../types/channel';
 
 /**
  * 声道用途类型
@@ -53,13 +53,12 @@ interface ChannelState {
 export class ChannelScheduler {
   // 声道状态映射
   private channelStates: Map<ChannelType, ChannelState> = new Map();
-  
+
   // 玩家到声道的映射（用于玩家声道分配）
   private playerChannelMap: Map<number, ChannelType> = new Map();
-  
-  // 可用的玩家声道池（PLAYER_0 到 PLAYER_7）
+
+  // 可用的玩家声道池（PLAYER_1 到 PLAYER_7）
   private availablePlayerChannels: ChannelType[] = [
-    ChannelType.PLAYER_0,
     ChannelType.PLAYER_1,
     ChannelType.PLAYER_2,
     ChannelType.PLAYER_3,
@@ -68,29 +67,29 @@ export class ChannelScheduler {
     ChannelType.PLAYER_6,
     ChannelType.PLAYER_7,
   ];
-  
+
   // 最大并发玩家数（默认3个，可配置）
   private maxConcurrentPlayers: number = 3;
-  
+
   // 当前活跃的玩家数（用于统计）
   private activePlayerCount: number = 0;
-  
+
   constructor(maxConcurrentPlayers: number = 3) {
     this.maxConcurrentPlayers = maxConcurrentPlayers;
     this.initializeChannels();
   }
-  
+
   /**
    * 初始化所有声道状态
    */
   private initializeChannels(): void {
-    // 初始化系统声道（ANNOUNCEMENT）
-    this.channelStates.set(ChannelType.ANNOUNCEMENT, {
+    // 初始化系统声道（SYSTEM）
+    this.channelStates.set(ChannelType.SYSTEM, {
       isActive: false,
       queueLength: 0,
       priority: 0
     });
-    
+
     // 初始化所有玩家声道
     this.availablePlayerChannels.forEach(channel => {
       this.channelStates.set(channel, {
@@ -100,7 +99,7 @@ export class ChannelScheduler {
       });
     });
   }
-  
+
   /**
    * 分配声道
    */
@@ -111,64 +110,60 @@ export class ChannelScheduler {
       return this.allocatePlayerChannel(request);
     }
   }
-  
+
   /**
    * 分配系统声道（ANNOUNCEMENT）
    * 注意：系统声道和玩家声道是独立的，可以同时播放
    */
   private allocateSystemChannel(request: ChannelRequest): ChannelAllocation {
-    const channel = ChannelType.ANNOUNCEMENT;
+    const channel = ChannelType.SYSTEM;
     const state = this.channelStates.get(channel)!;
-    
+
     // 系统声道优先级最高，可以中断当前播放
     // 但系统声道和玩家声道是独立的，不会互相阻塞
     if (state.isActive && request.priority >= state.priority) {
       // 如果新请求优先级更高或相等，可以中断
       // 这里简化处理，系统声道通常优先级最高，直接分配
-      console.log(`[ChannelScheduler] 系统声道正在播放，但新请求优先级足够，直接分配`);
       return {
         channel,
         isQueued: false
       };
     }
-    
+
     // 如果正在播放且优先级不够，加入队列
     if (state.isActive) {
       state.queueLength++;
-      console.log(`[ChannelScheduler] 系统声道正在播放，新请求加入队列，位置=${state.queueLength}`);
       return {
         channel,
         isQueued: true,
         queuePosition: state.queueLength
       };
     }
-    
+
     // 声道空闲，直接分配
     state.isActive = true;
     state.priority = request.priority;
-    console.log(`[ChannelScheduler] 系统声道空闲，直接分配`);
     return {
       channel,
       isQueued: false
     };
   }
-  
+
   /**
    * 分配玩家声道
    * 注意：玩家声道和系统声道是独立的，可以同时播放
    */
   private allocatePlayerChannel(request: ChannelRequest): ChannelAllocation {
     const playerId = request.playerId ?? 0;
-    
+
     // 检查该玩家是否已经有分配的声道
     let assignedChannel = this.playerChannelMap.get(playerId);
-    
+
     if (assignedChannel) {
       const state = this.channelStates.get(assignedChannel)!;
       if (state.isActive && state.currentPlayerId === playerId) {
         // 该玩家正在使用该声道，加入队列
         state.queueLength++;
-        console.log(`[ChannelScheduler] 玩家${playerId}的声道${assignedChannel}正在使用，加入队列，位置=${state.queueLength}`);
         return {
           channel: assignedChannel,
           isQueued: true,
@@ -181,10 +176,10 @@ export class ChannelScheduler {
         assignedChannel = undefined;
       }
     }
-    
+
     // 查找空闲的玩家声道
     const availableChannel = this.findAvailablePlayerChannel();
-    
+
     if (availableChannel !== null) {
       // 找到空闲声道，分配给该玩家
       const state = this.channelStates.get(availableChannel)!;
@@ -193,25 +188,23 @@ export class ChannelScheduler {
       state.priority = request.priority;
       this.playerChannelMap.set(playerId, availableChannel);
       this.activePlayerCount++; // 增加活跃玩家计数
-      console.log(`[ChannelScheduler] 为玩家${playerId}分配声道${availableChannel}，当前活跃玩家数=${this.activePlayerCount}`);
       return {
         channel: availableChannel,
         isQueued: false
       };
     }
-    
+
     // 所有玩家声道都在使用，加入队列（使用第一个可用声道的队列）
     const firstChannel = this.availablePlayerChannels[0];
     const state = this.channelStates.get(firstChannel)!;
     state.queueLength++;
-    console.log(`[ChannelScheduler] 所有玩家声道都在使用，玩家${playerId}加入队列，位置=${state.queueLength}`);
     return {
       channel: firstChannel,  // 临时分配，实际会在播放时重新分配
       isQueued: true,
       queuePosition: state.queueLength
     };
   }
-  
+
   /**
    * 查找可用的玩家声道
    */
@@ -220,7 +213,7 @@ export class ChannelScheduler {
     if (this.activePlayerCount >= this.maxConcurrentPlayers) {
       return null;
     }
-    
+
     // 查找空闲声道
     for (const channel of this.availablePlayerChannels) {
       const state = this.channelStates.get(channel)!;
@@ -228,22 +221,22 @@ export class ChannelScheduler {
         return channel;
       }
     }
-    
+
     // 所有声道都被占用，返回null（需要排队）
     return null;
   }
-  
+
   /**
    * 释放声道
    */
   releaseChannel(channel: ChannelType, playerId?: number): void {
     const state = this.channelStates.get(channel);
     if (!state) return;
-    
+
     const wasActive = state.isActive;
     state.isActive = false;
     state.priority = 0;
-    
+
     // 如果是玩家声道，清除玩家映射并减少活跃计数
     if (playerId !== undefined && this.availablePlayerChannels.includes(channel)) {
       if (this.playerChannelMap.get(playerId) === channel) {
@@ -254,36 +247,35 @@ export class ChannelScheduler {
         this.activePlayerCount = Math.max(0, this.activePlayerCount - 1);
       }
     }
-    
+
     // 如果队列中有等待的，减少队列长度
     if (state.queueLength > 0) {
       state.queueLength--;
     }
   }
-  
+
   /**
    * 更新最大并发数
    */
   setMaxConcurrentPlayers(max: number): void {
     // 限制在1-8之间（8个玩家声道）
     this.maxConcurrentPlayers = Math.max(1, Math.min(max, 8));
-    console.log(`[ChannelScheduler] 更新最大并发玩家数: ${this.maxConcurrentPlayers}`);
   }
-  
+
   /**
    * 获取声道状态
    */
   getChannelState(channel: ChannelType): ChannelState | undefined {
     return this.channelStates.get(channel);
   }
-  
+
   /**
    * 获取所有声道状态
    */
   getAllChannelStates(): Map<ChannelType, ChannelState> {
     return new Map(this.channelStates);
   }
-  
+
   /**
    * 获取统计信息
    */
@@ -294,8 +286,8 @@ export class ChannelScheduler {
       activeChannels: states.filter(s => s.isActive).length,
       totalQueueLength: states.reduce((sum, s) => sum + s.queueLength, 0),
       maxConcurrentPlayers: this.maxConcurrentPlayers,
-      activePlayerChannels: states.filter(s => 
-        s.isActive && this.availablePlayerChannels.some(ch => 
+      activePlayerChannels: states.filter(s =>
+        s.isActive && this.availablePlayerChannels.some(ch =>
           this.channelStates.get(ch) === s
         )
       ).length

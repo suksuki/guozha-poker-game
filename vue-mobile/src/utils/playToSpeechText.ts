@@ -3,8 +3,8 @@
  * 简化版本，用于移动端
  */
 
-import type { Play } from '../types/card';
-import { CardType, Rank } from '../types/card';
+import type { Play } from '@/core/types/card';
+import { CardType, Rank } from '@/core/types/card';
 
 // Rank到中文的映射
 const rankToChinese: Record<Rank, string> = {

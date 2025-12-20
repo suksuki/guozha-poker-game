@@ -116,7 +116,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onUnmounted, onMounted } from 'vue';
-import { AIConfigStore } from '../../../../src/ai/config/AIConfigStore';
+import { AIConfigStore } from '@/core/ai/config/AIConfigStore';
 
 // 模拟参数类型
 interface AIParams {

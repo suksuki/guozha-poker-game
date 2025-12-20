@@ -25,7 +25,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Card, Suit, Rank } from '../../types/card';
+import { Card, Suit, Rank } from '@/core/types/card';
 
 interface Props {
   card: Card;

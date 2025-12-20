@@ -1,0 +1,35 @@
+{
+  "ranks": {
+    "three": "三",
+    "four": "四",
+    "five": "五",
+    "six": "六",
+    "seven": "七",
+    "eight": "八",
+    "nine": "九",
+    "ten": "十",
+    "jack": "钩",
+    "queen": "圈圈",
+    "king": "K",
+    "ace": "桌桌",
+    "two": "喔喔",
+    "jokerSmall": "小王",
+    "jokerBig": "大王",
+    "unknown": "未知"
+  },
+  "types": {
+    "single": "单张",
+    "pair": "对子",
+    "triple": "三个",
+    "bomb": "炸弹",
+    "dun": "墩",
+    "unknown": "未知牌型"
+  },
+  "speech": {
+    "pair": "对{{rank}}",
+    "triple": "三个{{rank}}",
+    "bomb": "{{count}}个{{rank}}",
+    "dun": "{{count}}个{{rank}}",
+    "default": "{{count}}张牌"
+  }
+}

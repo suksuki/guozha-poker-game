@@ -17,7 +17,6 @@ export class BrowserTTSClient implements ITTSClient {
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     } catch (error) {
-      console.warn('[BrowserTTSClient] AudioContext初始化失败:', error);
     }
   }
   

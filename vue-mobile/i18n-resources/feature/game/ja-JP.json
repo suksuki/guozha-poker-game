@@ -1,0 +1,53 @@
+{
+  "title": "過炸ポーカーゲーム（マルチプレイヤー）",
+  "status": {
+    "waiting": "開始待ち",
+    "playing": "ゲーム中",
+    "finished": "ゲーム終了",
+    "yourTurn": "あなたのターン",
+    "waitingOthers": "他のプレイヤー待ち"
+  },
+  "actions": {
+    "play": "カードを出す",
+    "playWithCount": "カードを出す ({{count}})",
+    "pass": "パス",
+    "mustPlay": "必ず出す",
+    "aiSuggest": "🤖 AI提案",
+    "aiThinking": "AI思考中...",
+    "startGame": "ゲーム開始"
+  },
+  "hints": {
+    "mustPlay": "出せるカードがあります。必ず出してください！",
+    "mustPlayTitle": "出せるカードがあります。必ず出してください！"
+  },
+  "result": {
+    "winner": "勝者",
+    "rank": "{{rank}}位",
+    "gameOver": "ゲーム終了",
+    "finalScore": "最終スコア",
+    "youWon": "🎉 あなたの勝ちです！",
+    "playerWon": "😢 {{name}}の勝ちです",
+    "finalRankings": "最終順位",
+    "score": "{{score}}点",
+    "ranking": "順位: {{rank}}",
+    "you": "(あなた)",
+    "playAgain": "もう一度",
+    "downloadRecord": "ゲーム記録をダウンロード",
+    "viewRankings": "順位を見る",
+    "backToGame": "ゲームに戻る"
+  },
+  "error": {
+    "title": "ゲーム状態エラー",
+    "message": "プレイヤーデータが正しく読み込まれませんでした。ゲームを再開してください",
+    "backToStart": "開始画面に戻る"
+  },
+  "modes": {
+    "game": "🎮 ゲームモード",
+    "training": "🏋️ トレーニングモード"
+  },
+  "playArea": {
+    "playerPlayed": "{{name}} カードを出す:",
+    "roundScore": "ラウンドスコア: {{score}}点",
+    "noPlay": "有効なカードタイプを出すことができます"
+  }
+}

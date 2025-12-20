@@ -47,31 +47,31 @@ export class MultiChannelAudioService {
   private masterGain: GainNode | null = null;
   private channelGains: Map<ChannelType, GainNode> = new Map();
   private channelPanners: Map<ChannelType, StereoPannerNode> = new Map();
-  
+
   // 当前正在播放的音频源（每个声道一个）
   private activeSources: Map<ChannelType, AudioBufferSourceNode> = new Map();
-  
+
   // 每个声道的播放队列（按优先级排序）
   private channelQueues: Map<ChannelType, PlayItem[]> = new Map();
-  
+
   // 智能通道调度器
   private channelScheduler = getSmartChannelScheduler();
-  
+
   // TTS服务
   private ttsService = getTTSService();
-  
+
   // 配置
   private maxConcurrentPlayers: number = 3;
   private enabled: boolean = true;
   private masterVolume: number = 1.0;
   private totalPlayers: number = 4;  // 总玩家数（用于智能调度）
-  
+
   constructor() {
     this.initAudioContext();
     // 初始化时从设置中读取配置（如果可用）
     this.loadSettingsFromStore();
   }
-  
+
   /**
    * 从设置Store加载配置（如果可用）
    */
@@ -81,59 +81,51 @@ export class MultiChannelAudioService {
       const { useSettingsStore } = await import('../../stores/settingsStore');
       const settingsStore = useSettingsStore();
       const voiceSettings = settingsStore.voicePlaybackSettings;
-      
+
       // 应用设置
       this.updateConfig({
         enabled: voiceSettings.enabled,
         maxConcurrentPlayers: voiceSettings.maxConcurrentPlayers,
         masterVolume: voiceSettings.volume
       });
-      
-      console.log('[MultiChannelAudioService] 已从设置加载配置:', {
-        enabled: voiceSettings.enabled,
-        maxConcurrentPlayers: voiceSettings.maxConcurrentPlayers,
-        masterVolume: voiceSettings.volume
-      });
     } catch (error) {
       // 设置Store可能还未初始化，使用默认值
-      console.log('[MultiChannelAudioService] 使用默认配置');
     }
   }
-  
+
   /**
    * 初始化 Web Audio API
    */
   private initAudioContext(): void {
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
+
       // 创建主音量控制
       this.masterGain = this.audioContext.createGain();
       this.masterGain.gain.value = this.masterVolume;
       this.masterGain.connect(this.audioContext.destination);
-      
+
       // 为每个声道创建节点
       Object.keys(CHANNEL_CONFIGS).forEach((key) => {
         const channel = parseInt(key) as ChannelType;
         const config = CHANNEL_CONFIGS[channel];
-        
+
         const gainNode = this.audioContext!.createGain();
         gainNode.gain.value = config.volume;
-        
+
         const pannerNode = this.audioContext!.createStereoPanner();
         pannerNode.pan.value = config.pan;
-        
+
         gainNode.connect(pannerNode);
         pannerNode.connect(this.masterGain!);
-        
+
         this.channelGains.set(channel, gainNode);
         this.channelPanners.set(channel, pannerNode);
       });
     } catch (error) {
-      console.error('[MultiChannelAudioService] AudioContext初始化失败:', error);
     }
   }
-  
+
   /**
    * 播放语音（异步TTS调用）
    */
@@ -153,7 +145,7 @@ export class MultiChannelAudioService {
       events?.onError?.(error);
       return Promise.reject(error);
     }
-    
+
     return new Promise(async (resolve, reject) => {
       try {
         // 1. 确定通道用途和分配通道
@@ -163,9 +155,9 @@ export class MultiChannelAudioService {
           playerId,
           priority
         });
-        
+
         const channel = allocation.channel;
-        
+
         // 2. 异步生成TTS音频
         let audioBuffer: AudioBuffer | null = null;
         try {
@@ -174,29 +166,23 @@ export class MultiChannelAudioService {
             voiceConfig,
             useCache: true
           };
-          
-          console.log('[MultiChannelAudioService] 调用TTS合成, text:', text, 'channel:', channel);
+
           const ttsResult = await this.ttsService.synthesize(text, ttsOptions, channel);
-          console.log('[MultiChannelAudioService] TTS合成成功, 格式:', ttsResult.format, '时长:', ttsResult.duration, '数据大小:', ttsResult.audioBuffer.byteLength);
-          
+
           // 将ArrayBuffer转换为AudioBuffer
           try {
             audioBuffer = await this.audioContext!.decodeAudioData(ttsResult.audioBuffer.slice(0));
-            console.log('[MultiChannelAudioService] 音频解码成功');
           } catch (decodeError) {
-            console.error('[MultiChannelAudioService] 音频解码失败:', decodeError);
-            console.error('[MultiChannelAudioService] 音频数据前100字节:', new Uint8Array(ttsResult.audioBuffer.slice(0, 100)));
             throw decodeError;
           }
         } catch (error) {
-          console.error('[MultiChannelAudioService] TTS生成失败:', error);
           this.channelScheduler.releaseChannel(channel, playerId);
           const ttsError = new Error(`TTS生成失败: ${error}`);
           events?.onError?.(ttsError);
           reject(ttsError);
           return;
         }
-        
+
         if (!audioBuffer) {
           this.channelScheduler.releaseChannel(channel, playerId);
           const error = new Error('音频生成失败');
@@ -204,7 +190,7 @@ export class MultiChannelAudioService {
           reject(error);
           return;
         }
-        
+
         // 3. 创建播放项
         const playItem: PlayItem = {
           text,
@@ -223,7 +209,7 @@ export class MultiChannelAudioService {
           },
           events
         };
-        
+
         // 4. 如果通道空闲，立即播放；否则加入队列
         if (!allocation.isQueued && !this.activeSources.has(channel)) {
           this.playAudio(playItem);
@@ -236,125 +222,113 @@ export class MultiChannelAudioService {
       }
     });
   }
-  
+
   /**
    * 播放音频
    */
   private playAudio(item: PlayItem): void {
     if (!this.audioContext || !item.audioBuffer) {
       const error = new Error('AudioContext或音频数据不可用');
-      console.error('[MultiChannelAudioService] ❌ 播放失败:', error);
       item.reject(error);
       return;
     }
-    
+
     const channel = item.channel;
     const config = CHANNEL_CONFIGS[channel];
-    
+
     // 检查AudioContext状态
     if (this.audioContext.state === 'suspended') {
-      console.warn('[MultiChannelAudioService] ⚠️ AudioContext处于suspended状态，尝试恢复...');
       this.audioContext.resume().then(() => {
-        console.log('[MultiChannelAudioService] ✅ AudioContext已恢复');
         // 递归调用，重新播放
         this.playAudio(item);
       }).catch(err => {
-        console.error('[MultiChannelAudioService] ❌ AudioContext恢复失败:', err);
         item.reject(err);
       });
       return;
     }
-    
-    console.log(`[MultiChannelAudioService] 开始播放音频: 声道=${channel}, 优先级=${item.priority}, AudioContext状态=${this.audioContext.state}`);
-    console.log(`[MultiChannelAudioService] 音频信息: 采样率=${item.audioBuffer.sampleRate}Hz, 时长=${item.audioBuffer.duration.toFixed(2)}s, 声道数=${item.audioBuffer.numberOfChannels}`);
-    
+
+
     // 创建音频源
     const source = this.audioContext.createBufferSource();
     source.buffer = item.audioBuffer;
-    
+
     // 获取声道节点
     const gainNode = this.channelGains.get(channel);
     const pannerNode = this.channelPanners.get(channel);
-    
+
     if (!gainNode || !pannerNode) {
       const error = new Error(`声道 ${channel} 的节点不存在`);
-      console.error('[MultiChannelAudioService] ❌', error);
       item.reject(error);
       return;
     }
-    
+
     // 设置音量（考虑voiceConfig中的音量）
     const volume = (item.voiceConfig?.volume ?? 1.0) * config.volume * this.masterVolume;
     gainNode.gain.value = volume;
-    console.log(`[MultiChannelAudioService] 音量设置: 声道音量=${config.volume}, 主音量=${this.masterVolume}, 最终音量=${volume}`);
-    
+
     // 连接音频节点
     source.connect(gainNode);
-    
+
     // 保存音频源
     item.source = source;
     this.activeSources.set(channel, source);
-    
+
     // 设置事件监听
     source.onended = () => {
-      console.log(`[MultiChannelAudioService] ✅ 音频播放完成: 声道=${channel}`);
       this.activeSources.delete(channel);
-      
+
       // 先释放声道（通知调度器声道已释放）
       const playerId = item.playerId;
       this.channelScheduler.releaseChannel(channel, playerId);
-      
+
       item.events?.onEnd?.();
       item.resolve();
-      
+
       // 处理队列中的下一个（会减少队列长度）
       this.processNextInQueue(channel);
     };
-    
+
     // 开始播放
     try {
-      console.log(`[MultiChannelAudioService] 调用source.start(0)播放音频...`);
       source.start(0);
-      console.log(`[MultiChannelAudioService] ✅ source.start()调用成功`);
       item.events?.onStart?.();
     } catch (error) {
-      console.error('[MultiChannelAudioService] ❌ source.start()失败:', error);
       this.activeSources.delete(channel);
       item.reject(error as Error);
       item.events?.onError?.(error as Error);
     }
   }
-  
+
   /**
    * 添加到声道队列
    */
   private addToChannelQueue(item: PlayItem): void {
     const queue = this.channelQueues.get(item.channel) || [];
-    
+
     // 按优先级插入（优先级高的在前）
     let insertIndex = queue.findIndex(q => q.priority < item.priority);
     if (insertIndex === -1) {
       insertIndex = queue.length;
     }
-    
+
     queue.splice(insertIndex, 0, item);
     this.channelQueues.set(item.channel, queue);
   }
-  
+
   /**
    * 处理队列中的下一个
    */
   private processNextInQueue(channel: ChannelType): void {
     const queue = this.channelQueues.get(channel) || [];
-    
+
     if (queue.length === 0) {
       return;
     }
-    
+
     // 取出优先级最高的
     const nextItem = queue.shift()!;
     this.channelQueues.set(channel, queue);
-    
+
     // 通知调度器队列长度已减少（因为从队列中取出了一个项目）
     // 注意：这里直接访问调度器的内部状态来减少队列长度，不调用releaseChannel
     // 因为releaseChannel会释放声道，但这里只是从队列中取出，声道还在使用中
@@ -362,13 +336,12 @@ export class MultiChannelAudioService {
     const state = scheduler.getChannelState(channel);
     if (state && state.queueLength > 0) {
       state.queueLength--;
-      console.log(`[MultiChannelAudioService] 从队列中取出项目，声道${channel}队列长度减少，当前队列长度=${state.queueLength}`);
     }
-    
+
     // 播放
     this.playAudio(nextItem);
   }
-  
+
   /**
    * 停止指定声道的播放
    */
@@ -382,7 +355,7 @@ export class MultiChannelAudioService {
       }
       this.activeSources.delete(channel);
     }
-    
+
     // 清空队列
     const queue = this.channelQueues.get(channel) || [];
     queue.forEach(item => {
@@ -391,7 +364,7 @@ export class MultiChannelAudioService {
     });
     this.channelQueues.set(channel, []);
   }
-  
+
   /**
    * 直接播放AudioBuffer（用于已生成的音频）
    */
@@ -418,7 +391,7 @@ export class MultiChannelAudioService {
         let finalChannel = channel;
         let allocation;
         let playerIdForRelease: number | undefined = undefined;  // 用于释放声道的playerId
-        
+
         if (channel === ChannelType.SYSTEM) {
           // 系统声道（报牌等），使用SYSTEM用途
           // 系统声道专用，永远不与其他声道冲突
@@ -427,7 +400,6 @@ export class MultiChannelAudioService {
             priority
           });
           finalChannel = allocation.channel;
-          console.log(`[MultiChannelAudioService] 系统声音使用专用系统声道${finalChannel}，是否排队=${allocation.isQueued}，原因=${allocation.reason}`);
         } else {
           // 玩家声道（聊天），使用PLAYER用途，智能调度
           // 从channel反推playerId（用于玩家声道分配）
@@ -448,7 +420,6 @@ export class MultiChannelAudioService {
             const newPlayerId = finalChannel - ChannelType.PLAYER_1;
             playerIdForRelease = newPlayerId >= 0 && newPlayerId < 7 ? newPlayerId : undefined;
           }
-          console.log(`[MultiChannelAudioService] 聊天智能分配到玩家声道${finalChannel}（玩家${playerIdForRelease}），是否排队=${allocation.isQueued}，原因=${allocation.reason}`);
         }
 
         // 创建播放项
@@ -502,7 +473,7 @@ export class MultiChannelAudioService {
       }
     });
     this.activeSources.clear();
-    
+
     // 清空所有队列
     this.channelQueues.forEach((queue) => {
       queue.forEach(item => {
@@ -512,7 +483,7 @@ export class MultiChannelAudioService {
     });
     this.channelQueues.clear();
   }
-  
+
   /**
    * 更新配置
    */
@@ -523,40 +494,36 @@ export class MultiChannelAudioService {
   }): void {
     if (config.enabled !== undefined) {
       this.enabled = config.enabled;
-      console.log('[MultiChannelAudioService] 更新启用状态:', this.enabled);
     }
     if (config.maxConcurrentPlayers !== undefined) {
       // 限制在1-7之间（7个玩家声道）
       const maxPlayers = Math.max(1, Math.min(7, config.maxConcurrentPlayers));
       this.maxConcurrentPlayers = maxPlayers;
       this.channelScheduler.setMaxConcurrentPlayers(maxPlayers);
-      console.log('[MultiChannelAudioService] 更新最大并发玩家数:', maxPlayers, '/7');
     }
     if (config.masterVolume !== undefined) {
       this.masterVolume = Math.max(0, Math.min(1, config.masterVolume));
       if (this.masterGain) {
         this.masterGain.gain.value = this.masterVolume;
       }
-      console.log('[MultiChannelAudioService] 更新主音量:', this.masterVolume);
     }
   }
-  
+
   /**
    * 获取总玩家数（用于智能调度）
    */
   getTotalPlayers(): number {
     return this.totalPlayers;
   }
-  
+
   /**
    * 更新总玩家数（用于智能调度）
    */
   updateTotalPlayers(totalPlayers: number): void {
     this.totalPlayers = totalPlayers;
     this.channelScheduler.updateTotalPlayers(totalPlayers);
-    console.log('[MultiChannelAudioService] 更新总玩家数:', totalPlayers);
   }
-  
+
   /**
    * 获取统计信息
    */

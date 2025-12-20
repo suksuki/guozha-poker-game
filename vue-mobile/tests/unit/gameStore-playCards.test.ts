@@ -30,7 +30,6 @@ describe('GameStore - 出牌功能', () => {
       
       store.players.forEach((player, index) => {
         expect(player.hand.length).toBeGreaterThan(0);
-        console.log(`玩家${index} 手牌数: ${player.hand.length}`);
       });
     });
 

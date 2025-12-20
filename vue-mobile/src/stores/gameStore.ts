@@ -1,29 +1,28 @@
 /**
  * Pinia游戏状态Store
  * 
- * ⚠️ 注意：当前使用老APP的Game类
- * 未来计划：迁移到移动端独立的Game实现
- * 标记：TODO - 迁移到移动端独立Game类
+ * ⚠️ 注意：已迁移至移动端独立Core
+ * 
+ * 标记：已迁移
  */
 
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-// TODO: 迁移到移动端独立Game类
-import { Game } from '../../../src/game-engine/Game';
-// TODO: 迁移到移动端独立类型
-import type { Card } from '../../../src/types/card';
-// TODO: 迁移到移动端独立AI策略
-import { simpleAIStrategy } from '../../../src/ai/simpleStrategy';
+// 移动端独立Game类
+import { Game } from '@/core/game-engine/Game';
+// 移动端独立类型
+import type { Card } from '@/core/types/card';
+// 移动端独立AI策略
+import { simpleAIStrategy } from '@/core/ai/simpleStrategy';
 import { showToast } from 'vant';
 import { aiBrainIntegration } from '../services/ai/aiBrainIntegration';
 import { useSettingsStore } from './settingsStore';
 import { getTTSPlaybackService } from '../services/tts/ttsPlaybackService';
 import { playToSpeechText } from '../utils/playToSpeechText';
 import { getAIRecommendation as getAIRecommendationUtil } from '../utils/gameLogic';
-import { canPlayCards } from '../../../src/utils/cardUtils';
-import type { Play } from '../../../src/types/card';
-// TODO: 迁移到移动端独立工具函数（已创建，但gameStore仍使用老APP版本）
-import { canPlayCards } from '../../../src/utils/cardUtils';
+import type { Play } from '@/core/types/card';
+// 移动端独立工具函数
+import { canPlayCards } from '@/core/utils/cardUtils';
 import { ChannelType } from '../types/channel';
 
 export const useGameStore = defineStore('game', () => {
@@ -39,9 +38,7 @@ export const useGameStore = defineStore('game', () => {
   const aiDecisionTimeouts = new Map<number, NodeJS.Timeout>();
 
   // 初始化
-  // TODO: 迁移到移动端独立Game类
-  // 初始化
-  // TODO: 迁移到移动端独立Game类
+  // 已迁移到移动端独立Game类
   const initialize = (initConfig?: { teamMode?: boolean }) => {
     const config = {
       playerCount: 4,
@@ -49,7 +46,7 @@ export const useGameStore = defineStore('game', () => {
       teamMode: initConfig?.teamMode || false,
       gameMode: (initConfig?.teamMode ? 'team' : 'individual') as 'individual' | 'team'
     };
-    // 当前使用老APP的Game类，未来将迁移到移动端独立实现
+    // 使用独立的Game类
     game.value = new Game(config);
     triggerUpdate();
   };
@@ -105,7 +102,6 @@ export const useGameStore = defineStore('game', () => {
 
     game.value!.startGame();
     triggerUpdate();
-    console.log('✅ 游戏已开始！');
 
     // 初始化AI Brain（如果还没有初始化）
     if (!aiBrainInitialized.value) {
@@ -114,7 +110,6 @@ export const useGameStore = defineStore('game', () => {
 
     // 触发第一回合流程（处理语音播报和AI首家出牌）
     const initialPlayerIndex = game.value!.currentPlayerIndex;
-    console.log(`🚀 触发首个回合流程: 玩家${initialPlayerIndex}`);
 
     // 首回合直接触发下一位玩家操作（不需要报牌）
     const firstPlayer = game.value!.players[initialPlayerIndex];
@@ -122,7 +117,7 @@ export const useGameStore = defineStore('game', () => {
       // 首家是AI，稍微延迟后触发AI出牌（给UI渲染时间）
       setTimeout(() => {
         if (aiBrainInitialized.value && game.value) {
-          aiBrainIntegration.triggerAITurn(initialPlayerIndex, game.value as any).catch(() => {});
+          aiBrainIntegration.triggerAITurn(initialPlayerIndex, game.value as any).catch(() => { });
         }
       }, 300);
     }
@@ -163,7 +158,7 @@ export const useGameStore = defineStore('game', () => {
           const timeoutId = setTimeout(() => {
             if (game.value && game.value.currentPlayerIndex === nextPlayerIndex) {
               aiDecisionTimeouts.delete(nextPlayerIndex);
-              pass(nextPlayerIndex).catch(() => {});
+              pass(nextPlayerIndex).catch(() => { });
             } else {
               aiDecisionTimeouts.delete(nextPlayerIndex);
             }
@@ -179,15 +174,15 @@ export const useGameStore = defineStore('game', () => {
               aiDecisionTimeouts.delete(nextPlayerIndex);
             }
             // 如果触发失败，尝试自动pass以继续游戏
-            pass(nextPlayerIndex).catch(() => {});
+            pass(nextPlayerIndex).catch(() => { });
           });
         } else {
           // AI Brain未初始化，自动pass
-          pass(nextPlayerIndex).catch(() => {});
+          pass(nextPlayerIndex).catch(() => { });
         }
       } else if (nextPlayer && nextPlayer.isHuman && isAutoPlay.value) {
         setTimeout(() => {
-          autoPlayTurn().catch(() => {});
+          autoPlayTurn().catch(() => { });
         }, 600);
       }
     };
@@ -305,12 +300,12 @@ export const useGameStore = defineStore('game', () => {
     try {
       const lastPlayCards = currentRound.value?.lastPlay;
       let lastPlay: Play | null = null;
-      
+
       // 将 lastPlayCards (Card[]) 转换为 Play 对象
       if (lastPlayCards && Array.isArray(lastPlayCards) && lastPlayCards.length > 0) {
         lastPlay = canPlayCards(lastPlayCards);
       }
-      
+
       return getAIRecommendationUtil(humanPlayer.value.hand, lastPlay);
     } catch (error) {
       return null;
@@ -374,7 +369,7 @@ export const useGameStore = defineStore('game', () => {
               });
             }
           }
-        }).catch(() => {});
+        }).catch(() => { });
       } else {
         // AI无推荐，强制出一张
         if (humanPlayer.value && humanPlayer.value.hand.length > 0) {
@@ -382,7 +377,7 @@ export const useGameStore = defineStore('game', () => {
             if (result.success) {
               showToast({ type: 'success', message: '🤖 托管出单张', duration: 1500 });
             }
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
     } else {
@@ -391,7 +386,7 @@ export const useGameStore = defineStore('game', () => {
         if (result.success) {
           showToast({ message: '🤖 托管自动不要', duration: 1500 });
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   };
 
@@ -470,15 +465,15 @@ export const useGameStore = defineStore('game', () => {
             if (action.cards && Array.isArray(action.cards) && action.cards.length > 0) {
               playCards(action.cards, playerId).catch(() => {
                 // 出牌失败时，自动pass以继续游戏
-                pass(playerId).catch(() => {});
+                pass(playerId).catch(() => { });
               });
             } else {
-              pass(playerId).catch(() => {});
+              pass(playerId).catch(() => { });
             }
           } else if (action.type === 'pass_turn' || action.type === 'pass') {
-            pass(playerId).catch(() => {});
+            pass(playerId).catch(() => { });
           } else {
-            pass(playerId).catch(() => {});
+            pass(playerId).catch(() => { });
           }
         }
         // 处理 2: 老架构或简化 Decision 对象
@@ -492,7 +487,7 @@ export const useGameStore = defineStore('game', () => {
               aiDecisionTimeouts.delete(playerId);
             }
             playCards(cards, playerId).catch(() => {
-              pass(playerId).catch(() => {});
+              pass(playerId).catch(() => { });
             });
           } else {
             const timeout = aiDecisionTimeouts.get(playerId);
@@ -500,7 +495,7 @@ export const useGameStore = defineStore('game', () => {
               clearTimeout(timeout);
               aiDecisionTimeouts.delete(playerId);
             }
-            pass(playerId).catch(() => {});
+            pass(playerId).catch(() => { });
           }
         } else if (decision && (decision.type === 'pass_turn' || decision.type === 'pass')) {
           const timeout = aiDecisionTimeouts.get(playerId);
@@ -508,21 +503,20 @@ export const useGameStore = defineStore('game', () => {
             clearTimeout(timeout);
             aiDecisionTimeouts.delete(playerId);
           }
-          pass(playerId).catch(() => {});
+          pass(playerId).catch(() => { });
         } else {
           const timeout = aiDecisionTimeouts.get(playerId);
           if (timeout) {
             clearTimeout(timeout);
             aiDecisionTimeouts.delete(playerId);
           }
-          pass(playerId).catch(() => {});
+          pass(playerId).catch(() => { });
         }
       });
 
 
       aiBrainInitialized.value = true;
     } catch (error) {
-      // AI Brain初始化失败
     }
   };
 

@@ -72,7 +72,7 @@
 import { computed } from 'vue';
 import { useI18n } from '../../i18n/composable';
 import ChatBubble from '../chat/ChatBubble.vue';
-import type { Player } from '../../types/card';
+import type { Player } from '@/core/types/card';
 import type { ChatMessage } from '../../stores/chatStore';
 
 // Props

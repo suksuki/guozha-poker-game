@@ -5,8 +5,8 @@
 
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
-import type { LLMChatConfig } from '../../../src/config/chatConfig';
-import { DEFAULT_LLM_CHAT_CONFIG } from '../../../src/config/chatConfig';
+import type { LLMChatConfig } from '@/core/config/chatConfig';
+import { DEFAULT_LLM_CHAT_CONFIG } from '@/core/config/chatConfig';
 import type { TTSServerConfig } from '../services/tts/types';
 import { changeLanguage, getCurrentLanguage, type SupportedLocale } from '../i18n';
 
@@ -141,7 +141,6 @@ export const useSettingsStore = defineStore('settings', () => {
         voicePlaybackSettings.value = { ...voicePlaybackSettings.value, ...JSON.parse(savedVoicePlayback) };
       }
     } catch (error) {
-      console.error('加载设置失败:', error);
     }
   };
 
@@ -159,7 +158,6 @@ export const useSettingsStore = defineStore('settings', () => {
       localStorage.setItem('tts-servers', JSON.stringify(ttsServers.value));
       localStorage.setItem('voice-playback-settings', JSON.stringify(voicePlaybackSettings.value));
     } catch (error) {
-      console.error('保存设置失败:', error);
     }
   };
 
@@ -216,12 +214,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const addTTSServer = (server: TTSServerConfig) => {
     // 验证必需字段
     if (server.type !== 'browser' && !server.connection) {
-      console.error('[SettingsStore] 添加TTS服务器失败：缺少connection字段', server);
       throw new Error('TTS服务器配置不完整：缺少connection字段');
     }
 
     if (server.connection && (!server.connection.host || !server.connection.port)) {
-      console.error('[SettingsStore] 添加TTS服务器失败：connection字段不完整', server);
       throw new Error('TTS服务器配置不完整：connection字段缺少host或port');
     }
 
@@ -258,12 +254,10 @@ export const useSettingsStore = defineStore('settings', () => {
 
       // 验证必需字段
       if (updated.type !== 'browser' && !updated.connection) {
-        console.error('[SettingsStore] 更新TTS服务器失败：缺少connection字段', updated);
         throw new Error('TTS服务器配置不完整：缺少connection字段');
       }
 
       if (updated.connection && (!updated.connection.host || !updated.connection.port)) {
-        console.error('[SettingsStore] 更新TTS服务器失败：connection字段不完整', updated);
         throw new Error('TTS服务器配置不完整：connection字段缺少host或port');
       }
 
@@ -297,7 +291,6 @@ export const useSettingsStore = defineStore('settings', () => {
         masterVolume: voicePlaybackSettings.value.volume
       });
     } catch (error) {
-      console.error('[SettingsStore] 同步语音播报配置失败:', error);
     }
   };
 
@@ -370,7 +363,6 @@ export const useSettingsStore = defineStore('settings', () => {
       const { updateTTSServiceConfig } = await import('../services/tts/init');
       updateTTSServiceConfig(newServers);
     } catch (error) {
-      console.error('[SettingsStore] 同步TTS配置失败:', error);
     }
   }, { deep: true });
 
@@ -385,7 +377,6 @@ export const useSettingsStore = defineStore('settings', () => {
         masterVolume: newSettings.volume
       });
     } catch (error) {
-      console.error('[SettingsStore] 同步语音播报配置失败:', error);
     }
   }, { deep: true });
 

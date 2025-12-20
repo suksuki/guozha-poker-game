@@ -157,7 +157,6 @@ export class SmartChannelScheduler {
     // 系统声道优先级最高，可以中断当前播放
     if (state.isActive && request.priority >= state.priority) {
       // 如果新请求优先级更高或相等，可以中断
-      console.log(`[SmartChannelScheduler] 系统声道正在播放，但新请求优先级足够，直接分配`);
       return {
         channel,
         isQueued: false,
@@ -168,7 +167,6 @@ export class SmartChannelScheduler {
     // 如果正在播放且优先级不够，加入队列
     if (state.isActive) {
       state.queueLength++;
-      console.log(`[SmartChannelScheduler] 系统声道正在播放，新请求加入队列，位置=${state.queueLength}`);
       return {
         channel,
         isQueued: true,
@@ -182,7 +180,6 @@ export class SmartChannelScheduler {
     state.priority = request.priority;
     state.lastUsedTime = Date.now();
     state.usageCount++;
-    console.log(`[SmartChannelScheduler] 系统声道空闲，直接分配`);
     return {
       channel,
       isQueued: false,
@@ -204,7 +201,6 @@ export class SmartChannelScheduler {
       if (state.isActive && state.currentPlayerId === playerId) {
         // 该玩家正在使用该声道，加入队列
         state.queueLength++;
-        console.log(`[SmartChannelScheduler] 玩家${playerId}的声道${assignedChannel}正在使用，加入队列，位置=${state.queueLength}`);
         return {
           channel: assignedChannel,
           isQueued: true,
@@ -232,7 +228,6 @@ export class SmartChannelScheduler {
       state.usageCount++;
       this.playerChannelMap.set(playerId, availableChannel);
       this.activePlayerCount++;
-      console.log(`[SmartChannelScheduler] 为玩家${playerId}智能分配声道${availableChannel}，当前活跃玩家数=${this.activePlayerCount}/${this.maxConcurrentPlayers}`);
       return {
         channel: availableChannel,
         isQueued: false,
@@ -244,7 +239,6 @@ export class SmartChannelScheduler {
     const bestQueueChannel = this.findBestQueueChannel();
     const state = this.channelStates.get(bestQueueChannel)!;
     state.queueLength++;
-    console.log(`[SmartChannelScheduler] 所有玩家声道都在使用，玩家${playerId}加入声道${bestQueueChannel}的队列，位置=${state.queueLength}`);
     return {
       channel: bestQueueChannel,
       isQueued: true,
@@ -354,7 +348,6 @@ export class SmartChannelScheduler {
   setMaxConcurrentPlayers(max: number): void {
     // 限制在1-7之间（7个玩家声道）
     this.maxConcurrentPlayers = Math.max(1, Math.min(max, 7));
-    console.log(`[SmartChannelScheduler] 更新最大并发玩家数: ${this.maxConcurrentPlayers} (总玩家数: ${this.totalPlayers})`);
   }
   
   /**

@@ -3,9 +3,10 @@
  * 抽取游戏逻辑相关的工具函数，减少gameStore的复杂度
  */
 
-import type { Card, Play, Player } from '../types/card';
-import { canPlayCards, canBeat, calculateCardsScore, isScoreCard, findPlayableCards } from '../../../src/utils/cardUtils';
-import { ChannelType } from '../types/channel';
+import type { Card, Play, Player } from '@/core/types/card';
+import { CardType } from '@/core/types/card';
+import { canPlayCards, canBeat, calculateCardsScore, isScoreCard, findPlayableCards } from '@/core/utils/cardUtils';
+import { ChannelType, ANNOUNCEMENT } from '../types/channel';
 
 // =====================================================
 // 出牌验证
@@ -74,7 +75,7 @@ export function getAIRecommendation(
 ): { cards: Card[]; play: Play } | null {
     // 使用 findPlayableCards 来查找所有可出的牌（支持拆牌）
     const playableCards = findPlayableCards(hand, lastPlay);
-    
+
     if (playableCards.length === 0) {
         return null; // 没有可出的牌，建议过牌
     }
@@ -135,22 +136,22 @@ export function generatePlayAnnouncement(
     cards: Card[],
     play: Play
 ): string {
-    const typeNames: Record<number, string> = {
-        0: '单张',
-        1: '对子',
-        2: '三张',
-        3: '炸弹',
-        4: '墩',
+    const typeNames: Record<CardType, string> = {
+        [CardType.SINGLE]: '单张',
+        [CardType.PAIR]: '对子',
+        [CardType.TRIPLE]: '三张',
+        [CardType.BOMB]: '炸弹',
+        [CardType.DUN]: '墩',
     };
 
     const typeName = typeNames[play.type] || '组合';
     const cardCount = cards.length;
 
     // 简单的报牌文字
-    if (play.type === 3) { // BOMB
+    if (play.type === CardType.BOMB) {
         return `${cardCount}张炸弹！`;
     }
-    if (play.type === 4) { // DUN
+    if (play.type === CardType.DUN) {
         return `${cardCount}张墩！太厉害了！`;
     }
 
@@ -175,7 +176,7 @@ export function getPlayerChannel(playerId: number): ChannelType {
  * 获取系统公告声道
  */
 export function getAnnouncementChannel(): ChannelType {
-    return ChannelType.ANNOUNCEMENT;
+    return ANNOUNCEMENT as ChannelType;
 }
 
 // =====================================================

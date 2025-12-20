@@ -1,0 +1,136 @@
+// 扑克牌花色
+export enum Suit {
+  SPADES = 'spades',    // 黑桃
+  HEARTS = 'hearts',    // 红桃
+  DIAMONDS = 'diamonds', // 方块
+  CLUBS = 'clubs',      // 梅花
+  JOKER = 'joker'       // 大小王（特殊花色）
+}
+
+// 扑克牌点数
+export enum Rank {
+  THREE = 3,
+  FOUR = 4,
+  FIVE = 5,
+  SIX = 6,
+  SEVEN = 7,
+  EIGHT = 8,
+  NINE = 9,
+  TEN = 10,
+  JACK = 11,
+  QUEEN = 12,
+  KING = 13,
+  ACE = 14,
+  TWO = 15,  // 2是最大的单牌
+  JOKER_SMALL = 16, // 小王
+  JOKER_BIG = 17    // 大王
+}
+
+// 单张牌
+export interface Card {
+  suit: Suit;
+  rank: Rank;
+  id: string; // 唯一标识
+}
+
+// 牌型类型
+export enum CardType {
+  SINGLE = 'single',           // 单张
+  PAIR = 'pair',               // 对子
+  TRIPLE = 'triple',           // 三张
+  BOMB = 'bomb',               // 炸弹（四张及以上相同）
+  DUN = 'dun'                  // 墩（七张及以上相同）
+}
+
+// 出牌组合
+export interface Play {
+  cards: Card[];
+  type: CardType;
+  value: number; // 用于比较大小
+}
+
+// 玩家类型
+export enum PlayerType {
+  HUMAN = 'human',
+  AI = 'ai'
+}
+
+// 轮次出牌记录
+export interface RoundPlayRecord {
+  playerId: number;
+  playerName: string;
+  cards: Card[];
+  scoreCards: Card[]; // 这一手牌中的分牌
+  score: number; // 这一手牌的分值
+}
+
+// 轮次记录（一轮的所有出牌）
+export interface RoundRecord {
+  roundNumber: number;
+  plays: RoundPlayRecord[]; // 这一轮的所有出牌
+  totalScore: number; // 这一轮的总分数
+  winnerId: number; // 这一轮的赢家
+  winnerName: string;
+  startTime?: number; // 轮次开始时间
+  endTime?: number; // 轮次结束时间
+}
+
+// 语音配置
+export interface VoiceConfig {
+  gender?: 'male' | 'female'; // 性别
+  dialect?: 'mandarin' | 'cantonese' | 'shanghai' | 'sichuan' | 'dongbei' | 'taiwan' | 'nanchang'; // 方言
+  rate?: number; // 语速 (0.1 - 10)
+  pitch?: number; // 音调 (0 - 2)
+  volume?: number; // 音量 (0 - 1)
+  voiceIndex?: number; // 语音索引（用于区分不同玩家）
+  // 兼容新TTS/语音模块附加字段
+  lang?: string;
+  speaker?: string;
+  voiceStyle?: string;
+  model?: string;
+  voiceId?: string;
+}
+
+// 玩家信息
+export interface Player {
+  id: number;
+  name: string;
+  type: PlayerType;
+  hand: Card[];
+  score?: number; // 玩家得分（捡到的分）- 注意：合作模式下使用团队分数，此字段主要用于向后兼容
+  wonRounds?: RoundRecord[]; // 玩家赢得的轮次记录
+  isHuman?: boolean; // 是否是人类玩家（可以手动操作）
+  aiConfig?: { apiKey: string; strategy?: 'aggressive' | 'conservative' | 'balanced' };
+  voiceConfig?: VoiceConfig; // 语音配置（用于语音提示和将来的聊天功能）
+  finishedRank?: number | null; // 争上游名次（出完牌的顺序，第一个出完的是第1名，立即显示）
+  scoreRank?: number | null; // 分数名次（按最终分数排序的名次，游戏结束时设置）
+  dunCount?: number; // 玩家出的墩数（7张及以上）
+  teamId?: number | null; // 团队ID（合作模式下使用，null表示单人模式）
+}
+
+// 游戏状态
+export enum GameStatus {
+  WAITING = 'waiting',      // 等待开始
+  PLAYING = 'playing',      // 游戏中
+  FINISHED = 'finished'     // 游戏结束
+}
+
+// 统一的多人游戏状态接口（为各模块提供可选字段，兼容旧实现）
+export interface MultiPlayerGameState {
+  status?: GameStatus;
+  players: Player[];
+  aiPlayers?: Player[];
+  rounds?: RoundRecord[] | any[];
+  currentRoundIndex?: number;
+  currentPlayerIndex?: number;
+  playerCount?: number;
+  lastPlay?: Play | null;
+  lastPlayPlayerIndex?: number | null;
+  currentRoundPlays?: any[];
+  roundNumber?: number;
+  roundScore?: number;
+  totalScore?: number;
+  finishOrder?: number[];
+  gameRecord?: any;
+  [key: string]: any;
+}
