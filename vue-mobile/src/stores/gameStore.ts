@@ -19,6 +19,9 @@ import { aiBrainIntegration } from '../services/ai/aiBrainIntegration';
 import { useSettingsStore } from './settingsStore';
 import { getTTSPlaybackService } from '../services/tts/ttsPlaybackService';
 import { playToSpeechText } from '../utils/playToSpeechText';
+import { getAIRecommendation as getAIRecommendationUtil } from '../utils/gameLogic';
+import { canPlayCards } from '../../../src/utils/cardUtils';
+import type { Play } from '../../../src/types/card';
 // TODO: 迁移到移动端独立工具函数（已创建，但gameStore仍使用老APP版本）
 import { canPlayCards } from '../../../src/utils/cardUtils';
 import { ChannelType } from '../types/channel';
@@ -26,405 +29,343 @@ import { ChannelType } from '../types/channel';
 export const useGameStore = defineStore('game', () => {
   // ========== 游戏对象（新架构！）==========
   const game = ref<Game | null>(null);
-  
+  const stateVersion = ref(0);
+
+  const triggerUpdate = () => {
+    stateVersion.value++;
+  };
+
+  // AI决策超时保护Map（存储每个玩家的超时定时器）
+  const aiDecisionTimeouts = new Map<number, NodeJS.Timeout>();
+
   // 初始化
   // TODO: 迁移到移动端独立Game类
-  const initialize = () => {
+  // 初始化
+  // TODO: 迁移到移动端独立Game类
+  const initialize = (initConfig?: { teamMode?: boolean }) => {
     const config = {
       playerCount: 4,
       humanPlayerIndex: 0,
-      teamMode: false,
-      gameMode: 'individual' as 'individual' | 'team'
+      teamMode: initConfig?.teamMode || false,
+      gameMode: (initConfig?.teamMode ? 'team' : 'individual') as 'individual' | 'team'
     };
     // 当前使用老APP的Game类，未来将迁移到移动端独立实现
     game.value = new Game(config);
+    triggerUpdate();
   };
-  
-  // ========== 计算属性（通过Game访问）==========
-  const gameState = computed(() => game.value?.state || null);
-  const status = computed(() => game.value?.status || 'waiting');
-  const currentPlayerIndex = computed(() => game.value?.currentPlayerIndex || 0);
-  const players = computed(() => game.value?.players || []);
-  const humanPlayer = computed(() => game.value?.humanPlayer);
-  const currentRound = computed(() => game.value?.currentRound);
-  const roundScore = computed(() => game.value?.roundScore || 0);
-  
+
+  // ========== 计算属性（通过Game访问，响应stateVersion）==========
+  const gameState = computed(() => {
+    stateVersion.value;
+    return game.value?.state || null;
+  });
+  const status = computed(() => {
+    stateVersion.value;
+    return game.value?.status || 'waiting';
+  });
+  const currentPlayerIndex = computed(() => {
+    stateVersion.value;
+    return game.value?.currentPlayerIndex ?? 0;
+  });
+  const players = computed(() => {
+    stateVersion.value;
+    return game.value?.players || [];
+  });
+
+  const rounds = computed(() => {
+    stateVersion.value;
+    return game.value?.state.rounds || [];
+  });
+  const humanPlayer = computed(() => {
+    stateVersion.value;
+    return game.value?.humanPlayer || null;
+  });
+  const currentRound = computed(() => {
+    stateVersion.value;
+    return game.value?.currentRound || null;
+  });
+  const roundScore = computed(() => {
+    stateVersion.value;
+    return game.value?.roundScore || 0;
+  });
+
   // ========== 游戏操作==========
-  
+
   /**
-   * 开始游戏
-   */
-  const startGame = async () => {
-    if (!game.value) {
-      initialize();
+    * 开始游戏
+    */
+  const startGame = async (config?: { teamMode?: boolean }) => {
+    // 如果没有game实例或者提供了新的配置，重新初始化
+    if (!game.value || config) {
+      initialize(config);
+    } else if (game.value.status === 'finished') {
+      // 如果游戏已结束且没有新配置，重置游戏（复用当前配置）
+      game.value.reset();
     }
-    
+
     game.value!.startGame();
+    triggerUpdate();
     console.log('✅ 游戏已开始！');
-    
+
     // 初始化AI Brain（如果还没有初始化）
     if (!aiBrainInitialized.value) {
       await initializeAIBrain();
     }
+
+    // 触发第一回合流程（处理语音播报和AI首家出牌）
+    const initialPlayerIndex = game.value!.currentPlayerIndex;
+    console.log(`🚀 触发首个回合流程: 玩家${initialPlayerIndex}`);
+
+    // 首回合直接触发下一位玩家操作（不需要报牌）
+    const firstPlayer = game.value!.players[initialPlayerIndex];
+    if (firstPlayer && !firstPlayer.isHuman) {
+      // 首家是AI，稍微延迟后触发AI出牌（给UI渲染时间）
+      setTimeout(() => {
+        if (aiBrainInitialized.value && game.value) {
+          aiBrainIntegration.triggerAITurn(initialPlayerIndex, game.value as any).catch(() => {});
+        }
+      }, 300);
+    }
+    // 如果首家是人类，等待人类操作
   };
-  
+
+  /**
+   * 统一处理出牌/不要后的后续逻辑（报牌、AI反应、触发下一位）
+   */
+  const advanceGameFlow = (_actingPlayerId: number, actionType: 'play' | 'pass', cards?: Card[]) => {
+    if (!game.value) return;
+
+    // 1. 记录下一个玩家索引（在报牌完成前，下一个玩家还不能出牌）
+    const nextPlayerIndex = game.value.currentPlayerIndex;
+    const nextPlayer = game.value.players[nextPlayerIndex];
+
+    // 定义"步骤完成"后的回调，确保无论是否播报语音，最终都会执行
+    const onActionComplete = () => {
+      if (!game.value) return;
+
+      // 检查玩家是否已出完牌（不应该触发已完成玩家的操作）
+      if (nextPlayer && nextPlayer.hand.length === 0) {
+        return;
+      }
+
+      // 聊天逻辑已移至 ChatSchedulerService，此处只处理回合切换
+
+      // (2) 触发下一个玩家的操作（事件驱动）
+      if (nextPlayer && !nextPlayer.isHuman) {
+        if (aiBrainInitialized.value) {
+          // 清除之前的超时（如果有）
+          const existingTimeout = aiDecisionTimeouts.get(nextPlayerIndex);
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+          }
+
+          // 设置超时保护：35秒后如果还没收到决策，自动pass（比LLM超时30秒多5秒缓冲）
+          const timeoutId = setTimeout(() => {
+            if (game.value && game.value.currentPlayerIndex === nextPlayerIndex) {
+              aiDecisionTimeouts.delete(nextPlayerIndex);
+              pass(nextPlayerIndex).catch(() => {});
+            } else {
+              aiDecisionTimeouts.delete(nextPlayerIndex);
+            }
+          }, 35000);
+          aiDecisionTimeouts.set(nextPlayerIndex, timeoutId);
+
+          // 触发AI决策
+          aiBrainIntegration.triggerAITurn(nextPlayerIndex, game.value as any).catch(() => {
+            // 清除超时
+            const timeout = aiDecisionTimeouts.get(nextPlayerIndex);
+            if (timeout) {
+              clearTimeout(timeout);
+              aiDecisionTimeouts.delete(nextPlayerIndex);
+            }
+            // 如果触发失败，尝试自动pass以继续游戏
+            pass(nextPlayerIndex).catch(() => {});
+          });
+        } else {
+          // AI Brain未初始化，自动pass
+          pass(nextPlayerIndex).catch(() => {});
+        }
+      } else if (nextPlayer && nextPlayer.isHuman && isAutoPlay.value) {
+        setTimeout(() => {
+          autoPlayTurn().catch(() => {});
+        }, 600);
+      }
+    };
+
+    // 2. 处理语音播报
+    let speechText = '';
+    if (actionType === 'pass') {
+      speechText = '不要';
+    } else if (cards && cards.length > 0) {
+      const play = canPlayCards(cards);
+      if (play) {
+        speechText = playToSpeechText(play as any);
+      }
+    }
+
+    const settingsStore = useSettingsStore();
+    const voiceSettings = settingsStore.voicePlaybackSettings;
+
+    if (speechText && voiceSettings.enabled) {
+      try {
+        const ttsService = getTTSPlaybackService();
+        // 播报语音，在音频开始播放时推进流程（不等播完）
+        ttsService.speak(speechText, {
+          timeout: 4000,
+          fallbackTimeout: 3000,
+          priority: 4,
+          channel: ChannelType.SYSTEM,
+          onStart: () => {
+            onActionComplete();
+          },
+          onError: () => {
+            onActionComplete();
+          }
+        }).catch(() => {
+          onActionComplete();
+        });
+      } catch (error) {
+        onActionComplete();
+      }
+    } else {
+      // 无需播报或未启用，直接推进
+      onActionComplete();
+    }
+  };
+
   /**
    * 出牌
    * 移动端独立实现报牌功能，完全基于回调机制，不依赖老APP的报牌逻辑
+   * @param cards 要出的牌
+   * @param playerIndex 可选，指定出牌玩家。如果不传，默认使用currentPlayerIndex
    */
-  const playCards = async (cards: Card[]) => {
+  const playCards = async (cards: Card[], playerIndex?: number) => {
     if (!game.value) return { success: false, message: '游戏未开始' };
-    
-    // 1. 先执行出牌逻辑（调用老APP的Game类，但不修改老APP代码）
-    const result = game.value.playCards(currentPlayerIndex.value, cards);
-    
+
+    const actingPlayerIndex = playerIndex !== undefined ? playerIndex : currentPlayerIndex.value;
+
+    // 1. 先执行出牌逻辑
+    const result = game.value.playCards(actingPlayerIndex, cards);
+
     if (!result.success) {
       return result;
     }
-    
-    // 2. 出牌成功后，记录下一个玩家索引（在报牌完成前，下一个玩家还不能出牌）
-    const nextPlayerIndex = game.value.currentPlayerIndex;
-    const nextPlayer = game.value.players[nextPlayerIndex];
-    
-    // 3. 在移动端框架内独立处理报牌
-    // 报牌逻辑完全在移动端实现，与老APP隔离
-    const currentRound = game.value.currentRound;
-    const lastPlay = currentRound?.lastPlay;
-    
-    // 报牌完成回调：在音频完全播放完成后触发下一个玩家的操作（事件驱动+回调）
-    const onAnnouncementComplete = () => {
-      
-      // 1. 触发AI反应聊天（异步，不阻塞）
-      if (aiBrainInitialized.value && game.value) {
-        const playerId = currentPlayerIndex.value;
-        aiBrainIntegration.notifyStateChange(game.value as any, playerId, 'play').catch(err => {
-          console.error('[GameStore] 触发聊天失败:', err);
-        });
-      }
-      
-      // 2. 触发AI Brain聊天（通过回调，不依赖watch）
-      if (lastPlay && aiBrainInitialized.value) {
-        const lastPlayerId = currentRound?.lastPlayPlayerIndex;
-        if (lastPlayerId !== undefined && lastPlayerId !== null && lastPlayerId >= 0) {
-          triggerAIBrainChat(lastPlayerId, 'after_play', { play: lastPlay });
-        }
-      }
-      
-      // 3. 通过回调触发下一个玩家的操作（事件驱动）
-      if (nextPlayer && !nextPlayer.isHuman) {
-        // 触发AI Brain决策
-        if (aiBrainInitialized.value && game.value) {
-          aiBrainIntegration.triggerAITurn(nextPlayerIndex, game.value as any).catch(err => {
-            console.error('[GameStore] 触发AI Brain决策失败:', err);
-          });
-        }
-        // 立即触发AI出牌
-        aiPlay(nextPlayerIndex).catch(err => {
-          console.error('[GameStore] AI出牌失败:', err);
-        });
-      } else if (nextPlayer && nextPlayer.isHuman && isAutoPlay.value) {
-        // 人类玩家托管模式
-        setTimeout(() => {
-          autoPlayTurn().catch(err => {
-            console.error('[GameStore] 托管出牌失败:', err);
-          });
-        }, 800);
-      }
-    };
-    
-    if (lastPlay) {
-      // 将Card[]转换为Play对象
-      const play = canPlayCards(lastPlay);
-      if (play) {
-        // 转换为语音文本
-        const text = playToSpeechText(play as any);
-        if (text && text.trim() !== '') {
-          // 检查设置和服务
-          const settingsStore = useSettingsStore();
-          const voiceSettings = settingsStore.voicePlaybackSettings;
-          
-          // 异步检查并播报（完全基于回调，不阻塞）
-          (async () => {
-            try {
-              // 检查语音播报是否启用
-              if (!voiceSettings.enabled) {
-                onAnnouncementComplete();
-                return;
-              }
 
-              // 检查多声道音频服务
-              const { getMultiChannelAudioService } = await import('../services/audio/multiChannelAudioService');
-              const audioService = getMultiChannelAudioService();
-              const audioStats = audioService.getStatistics();
-              
-              if (!audioStats.enabled) {
-                onAnnouncementComplete();
-                return;
-              }
+    // 更新版本以触发响应式
+    triggerUpdate();
 
-              // 获取TTS播报服务
-              const ttsService = getTTSPlaybackService();
-              
-              // 启动TTS播报（完全基于回调，不阻塞）
-              // 报牌完成后触发下一个玩家
-              ttsService.speak(text, {
-                timeout: 5000,
-                fallbackTimeout: 5000,
-                priority: 4,
-                channel: ChannelType.SYSTEM,
-                enableCache: true,
-                onAudioGenerated: () => {
-                  // 音频完全播放完成，触发下一个玩家
-                  // 确保用户听到完整的报牌内容后，游戏流程才继续
-                  onAnnouncementComplete();
-                },
-                onStart: () => {
-                  // 音频开始播放
-                  console.log('[GameStore] 报牌开始播放:', text);
-                },
-                onEnd: () => {
-                  // 音频播放完成（此时onAudioGenerated已经触发）
-                  console.log('[GameStore] 报牌播放完成:', text);
-                },
-                onError: (error) => {
-                  console.error('[GameStore] 报牌错误:', error);
-                  // 即使报牌失败，也要触发下一个玩家
-                  onAnnouncementComplete();
-                }
-              }).catch((error) => {
-                console.error('[GameStore] 报牌异常:', error);
-                // 即使报牌异常，也要触发下一个玩家
-                onAnnouncementComplete();
-              });
-            } catch (error) {
-              console.error('[GameStore] 报牌初始化失败:', error);
-              onAnnouncementComplete();
-            }
-          })();
-        } else {
-          // 没有报牌文本，直接触发下一个玩家
-          onAnnouncementComplete();
-        }
-      } else {
-        // 无法识别牌型，直接触发下一个玩家
-        onAnnouncementComplete();
-      }
-    } else {
-      // 没有出牌记录，直接触发下一个玩家
-      onAnnouncementComplete();
-    }
-    
+    // 2. 发射游戏事件（供聊天调度器监听）
+    const play = canPlayCards(cards);
+    window.dispatchEvent(new CustomEvent('guozha:player-played', {
+      detail: { playerId: actingPlayerIndex, cards, playType: play?.type }
+    }));
+
+    // 3. 推进游戏流程（异步处理语音和下一位）
+    advanceGameFlow(actingPlayerIndex, 'play', cards);
     return { success: true };
   };
-  
+
   /**
    * 不要
+   * @param playerIndex 可选，指定玩家。如果不传，默认使用currentPlayerIndex
    */
-  const pass = async () => {
+  const pass = async (playerIndex?: number) => {
     if (!game.value) return { success: false, message: '游戏未开始' };
-    
-    const result = game.value.pass(currentPlayerIndex.value);
-    
+
+    const actingPlayerIndex = playerIndex !== undefined ? playerIndex : currentPlayerIndex.value;
+    const result = game.value.pass(actingPlayerIndex);
+
     if (!result.success) {
       return result;
     }
-    
-      // 触发AI反应聊天（异步，不阻塞）
-      if (aiBrainInitialized.value && game.value) {
-        const playerId = currentPlayerIndex.value;
-        aiBrainIntegration.notifyStateChange(game.value as any, playerId, 'pass').catch(err => {
-          console.error('[GameStore] 触发聊天失败:', err);
-        });
-      }
-    
-    // 事件驱动：不要后，触发下一个玩家（通过回调，不依赖watch）
-    const nextPlayerIndex = game.value.currentPlayerIndex;
-    const nextPlayer = game.value.players[nextPlayerIndex];
-    
-    if (nextPlayer && !nextPlayer.isHuman) {
-      // 触发AI Brain决策
-      if (aiBrainInitialized.value && game.value) {
-        aiBrainIntegration.triggerAITurn(nextPlayerIndex, game.value as any).catch(err => {
-          console.error('[GameStore] 触发AI Brain决策失败:', err);
-        });
-      }
-      aiPlay(nextPlayerIndex).catch(err => {
-        console.error('[GameStore] AI出牌失败:', err);
-      });
-    } else if (nextPlayer && nextPlayer.isHuman && isAutoPlay.value) {
-      // 人类玩家托管模式
-      setTimeout(() => {
-        autoPlayTurn().catch(err => {
-          console.error('[GameStore] 托管出牌失败:', err);
-        });
-      }, 800);
-    }
-    
+
+    // 更新版本以触发响应式
+    triggerUpdate();
+
+    // 推进流程（包含"不要"的语音和下一位触发）
+    advanceGameFlow(actingPlayerIndex, 'pass');
+    // 发射游戏事件（供聊天调度器监听）
+    window.dispatchEvent(new CustomEvent('guozha:player-passed', {
+      detail: { playerId: actingPlayerIndex }
+    }));
+
     return result;
   };
-  
+
   // ========== AI功能==========
-  
+
   /**
-   * AI推荐
+   * AI推荐（使用 gameLogic.ts 中的 getAIRecommendation，支持拆牌）
    */
   const getAIRecommendation = () => {
     if (!game.value || !humanPlayer.value) {
       return null;
     }
-    
+
     try {
-      const lastPlay = currentRound.value?.lastPlay;
-      const lastPlayCards = Array.isArray(lastPlay) ? lastPlay : null;
-      const cards = simpleAIStrategy(
-        humanPlayer.value.hand,
-        lastPlayCards as any, // 类型断言，因为simpleAIStrategy接受Card[]或null
-        'balanced'
-      );
-      return cards ? { cards } : null;
+      const lastPlayCards = currentRound.value?.lastPlay;
+      let lastPlay: Play | null = null;
+      
+      // 将 lastPlayCards (Card[]) 转换为 Play 对象
+      if (lastPlayCards && Array.isArray(lastPlayCards) && lastPlayCards.length > 0) {
+        lastPlay = canPlayCards(lastPlayCards);
+      }
+      
+      return getAIRecommendationUtil(humanPlayer.value.hand, lastPlay);
     } catch (error) {
-      console.error('AI推荐失败:', error);
       return null;
     }
   };
-  
+
   /**
-   * AI自动出牌
+   * AI自动出牌 (DEPRECATED: 迁移到AI Brain决策监听)
    */
-  const aiPlay = async (playerId: number) => {
-    if (!game.value) return;
-    
-    const player = game.value.players[playerId];
-    if (!player || player.isHuman) return;
-    
-    // 检查回合是否已结束
-    if (currentRound.value?.isFinished) {
-      console.log(`⏭️ 回合已结束，跳过AI ${player.name}的操作`);
-      return;
-    }
-    
-    // 模拟思考时间
-    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
-    
-    // 再次检查回合状态
-    if (currentRound.value?.isFinished) {
-      console.log(`⏭️ 等待期间回合已结束，跳过AI ${player.name}的操作`);
-      return;
-    }
-    
-    try {
-      // 重新获取最新的currentRound（因为新轮可能刚刚创建）
-      const latestRound = game.value?.currentRound;
-      const lastPlay = latestRound?.lastPlay || null;
-      
-      // 1. 检查是否有牌可出（强制出牌规则）
-      const hasPlayable = game.value.hasPlayableCards(playerId);
-      // 首家判断：lastPlay为null或空数组
-      const isFirstPlay = !lastPlay || (Array.isArray(lastPlay) && lastPlay.length === 0);
-      
-      console.log(`🤖 ${player.name}: 有牌可出=${hasPlayable}, 是首家=${isFirstPlay}, lastPlay=${lastPlay ? `${Array.isArray(lastPlay) ? lastPlay.length : 'object'}张` : 'null'}`);
-      
-      // 首家必须出牌！
-      if (isFirstPlay) {
-        console.log(`🏁 ${player.name} 是首家，必须出牌！`);
-        // 直接出牌，不检查hasPlayable
-      } else if (!hasPlayable) {
-        // 不是首家且没有牌可出，自动不要
-        pass().then(result => {
-          if (result.success) {
-            console.log(`🤖 ${player.name} 不要`);
-          }
-        });
-        return;
-      }
-      
-      // 2. 有牌可出或首家，获取AI建议
-      // 将lastPlay转换为Card[]格式（simpleAIStrategy需要Card[]或null）
-      const lastPlayCards = Array.isArray(lastPlay) ? lastPlay : null;
-      const cards = simpleAIStrategy(
-        player.hand,
-        lastPlayCards as any, // 类型断言，因为simpleAIStrategy接受Card[]或null
-        'balanced'
-      );
-      
-      if (cards && cards.length > 0) {
-        // AI出牌
-        playCards(cards).then(result => {
-          if (result.success) {
-            console.log(`🤖 ${player.name} 出牌:`, cards.length, '张');
-          } else {
-            // AI推荐失败，强制出一张（特别是首家）
-            if (isFirstPlay && player.hand.length > 0) {
-              console.log(`🤖 ${player.name} 首家AI推荐失败，强制出单张`);
-              playCards([player.hand[0]]);
-            }
-          }
-        });
-      } else {
-        // AI无推荐，强制出一张（特别是首家）
-        if (isFirstPlay && player.hand.length > 0) {
-          console.log(`🤖 ${player.name} 首家无推荐，强制出单张`);
-          playCards([player.hand[0]]);
-        } else if (hasPlayable && player.hand.length > 0) {
-          console.log(`🤖 ${player.name} 有牌可出但AI无推荐，强制出单张`);
-          playCards([player.hand[0]]);
-        }
-      }
-    } catch (error) {
-      console.error(`AI ${player.name} 出牌失败:`, error);
-    }
-  };
-  
+  // const legacyAiPlay = async (playerId: number) => { ... };
+
   // ========== 托管功能==========
   const isAutoPlay = ref(false);
-  
+
   const toggleAutoPlay = () => {
     isAutoPlay.value = !isAutoPlay.value;
-    
+
     // 如果开启托管且当前是人类玩家回合，立即触发托管出牌
     if (isAutoPlay.value && game.value && status.value === 'playing') {
       const currentPlayer = game.value.players[currentPlayerIndex.value];
       if (currentPlayer && currentPlayer.isHuman) {
-        console.log('🤖 托管开启，立即触发自动出牌');
         setTimeout(() => {
           autoPlayTurn();
         }, 500);
       }
     }
   };
-  
+
   /**
    * 托管自动出牌
    */
   const autoPlayTurn = async () => {
     if (!game.value || !humanPlayer.value) return;
-    
-    console.log('🤖 托管自动出牌中...');
-    
+
     const lastPlay = currentRound.value?.lastPlay;
     const isFirstPlay = !lastPlay || lastPlay.length === 0;
     const isTakeover = currentRound.value?.isTakeoverRound || false;
-    
+
     // 检查是否有牌可出
     const hasPlayable = game.value.hasPlayableCards(0);
-    
-    console.log(`托管: 首家=${isFirstPlay}, 接风=${isTakeover}, 有牌可出=${hasPlayable}`);
-    
+
     if (isFirstPlay || isTakeover || hasPlayable) {
       // 必须出牌或有牌可出
       const suggestion = getAIRecommendation();
-      
+
       if (suggestion && suggestion.cards && suggestion.cards.length > 0) {
         playCards(suggestion.cards).then(result => {
           if (result.success) {
-            showToast({ 
-              type: 'success', 
+            showToast({
+              type: 'success',
               message: `🤖 托管出牌: ${suggestion.cards.length}张`,
               duration: 1500
             });
           } else {
             // AI推荐失败，强制出一张
-            console.log('🤖 AI推荐失败，强制出单张');
             if (humanPlayer.value && humanPlayer.value.hand.length > 0) {
               playCards([humanPlayer.value.hand[0]]).then(singleResult => {
                 if (singleResult.success) {
@@ -433,14 +374,16 @@ export const useGameStore = defineStore('game', () => {
               });
             }
           }
-        });
+        }).catch(() => {});
       } else {
         // AI无推荐，强制出一张
-        playCards([humanPlayer.value.hand[0]]).then(result => {
-          if (result.success) {
-            showToast({ type: 'success', message: '🤖 托管出单张', duration: 1500 });
-          }
-        });
+        if (humanPlayer.value && humanPlayer.value.hand.length > 0) {
+          playCards([humanPlayer.value.hand[0]]).then(result => {
+            if (result.success) {
+              showToast({ type: 'success', message: '🤖 托管出单张', duration: 1500 });
+            }
+          }).catch(() => {});
+        }
       }
     } else {
       // 无牌可出，不要
@@ -448,10 +391,10 @@ export const useGameStore = defineStore('game', () => {
         if (result.success) {
           showToast({ message: '🤖 托管自动不要', duration: 1500 });
         }
-      });
+      }).catch(() => {});
     }
   };
-  
+
   // ========== AI Brain集成 ==========
   const aiBrainInitialized = ref(false);
 
@@ -477,8 +420,11 @@ export const useGameStore = defineStore('game', () => {
       }
 
       // 处理API地址（如果是Ollama，需要转换为正确的格式）
+      // UnifiedLLMService 使用 messages 数组格式，对应 /api/chat 端点
       let llmEndpoint = llmConfig.apiUrl || 'http://localhost:11434/api/chat';
       if (llmProvider === 'ollama' && !llmEndpoint.includes('/api/chat')) {
+        // 先移除可能存在的 /api/generate 后缀
+        llmEndpoint = llmEndpoint.replace(/\/api\/generate\/?$/, '');
         // 如果地址不包含/api/chat，自动添加
         if (llmEndpoint.endsWith('/')) {
           llmEndpoint = llmEndpoint + 'api/chat';
@@ -497,46 +443,131 @@ export const useGameStore = defineStore('game', () => {
         maxTokens: llmConfig.maxTokens // 从settingsStore读取最大token数
       });
 
+      // 订阅AI决策结果，完成闭环
+      aiBrainIntegration.onAIDecision((event) => {
+        const { playerId, decision } = event;
+
+        // 清除该玩家的超时定时器
+        const timeout = aiDecisionTimeouts.get(playerId);
+        if (timeout) {
+          clearTimeout(timeout);
+          aiDecisionTimeouts.delete(playerId);
+        }
+
+        // 只有当前是该AI的回合才执行（避免过期的决策）
+        if (!game.value) {
+          return;
+        }
+
+        if (game.value.currentPlayerIndex !== playerId) {
+          return;
+        }
+
+        // 处理 1: 新架构 Decision 对象 (带有 action 属性)
+        if (decision && decision.action) {
+          const action = decision.action;
+          if (action.type === 'play_card' || action.type === 'play') {
+            if (action.cards && Array.isArray(action.cards) && action.cards.length > 0) {
+              playCards(action.cards, playerId).catch(() => {
+                // 出牌失败时，自动pass以继续游戏
+                pass(playerId).catch(() => {});
+              });
+            } else {
+              pass(playerId).catch(() => {});
+            }
+          } else if (action.type === 'pass_turn' || action.type === 'pass') {
+            pass(playerId).catch(() => {});
+          } else {
+            pass(playerId).catch(() => {});
+          }
+        }
+        // 处理 2: 老架构或简化 Decision 对象
+        else if (decision && (decision.type === 'play_card' || decision.type === 'play')) {
+          const cards = decision.cards || decision.playerAction?.cards;
+          if (cards && Array.isArray(cards) && cards.length > 0) {
+            // 清除超时定时器
+            const timeout = aiDecisionTimeouts.get(playerId);
+            if (timeout) {
+              clearTimeout(timeout);
+              aiDecisionTimeouts.delete(playerId);
+            }
+            playCards(cards, playerId).catch(() => {
+              pass(playerId).catch(() => {});
+            });
+          } else {
+            const timeout = aiDecisionTimeouts.get(playerId);
+            if (timeout) {
+              clearTimeout(timeout);
+              aiDecisionTimeouts.delete(playerId);
+            }
+            pass(playerId).catch(() => {});
+          }
+        } else if (decision && (decision.type === 'pass_turn' || decision.type === 'pass')) {
+          const timeout = aiDecisionTimeouts.get(playerId);
+          if (timeout) {
+            clearTimeout(timeout);
+            aiDecisionTimeouts.delete(playerId);
+          }
+          pass(playerId).catch(() => {});
+        } else {
+          const timeout = aiDecisionTimeouts.get(playerId);
+          if (timeout) {
+            clearTimeout(timeout);
+            aiDecisionTimeouts.delete(playerId);
+          }
+          pass(playerId).catch(() => {});
+        }
+      });
+
+
       aiBrainInitialized.value = true;
-      console.log('[GameStore] AI Brain初始化完成');
     } catch (error) {
-      console.error('[GameStore] AI Brain初始化失败:', error);
+      // AI Brain初始化失败
     }
   };
 
   /**
-   * 触发AI Brain聊天（游戏事件）
+   * 触发AI Brain聊天（Deprecated: 已整合到 advanceGameFlow）
    */
-  const triggerAIBrainChat = async (playerId: number, _eventType: 'after_play' | 'after_pass' | 'game_event', _eventData?: any) => {
-    if (!aiBrainInitialized.value || !game.value) return;
-
-    try {
-      // 通知AI Brain游戏状态变化，触发聊天
-      aiBrainIntegration.notifyStateChange(game.value as any, playerId);
-    } catch (error) {
-      console.error('[GameStore] 触发AI Brain聊天失败:', error);
-    }
+  const triggerAIBrainChat = async (_playerId: number, _eventType: 'after_play' | 'after_pass' | 'game_event', _eventData?: any) => {
+    // 已集成到 advanceGameFlow 中，此函数仅预留以防前端组件引用
   };
 
   // ========== 事件驱动：移除所有watch，改用明确的回调机制 ==========
-  
-  // 监听LLM配置更新，重新初始化AI Brain（这个是配置更新事件，保留）
+
+  // 监听LLM配置更新，动态更新AI Brain的LLM配置（无需重启）
   if (typeof window !== 'undefined') {
     window.addEventListener('llm-config-updated', async () => {
-      if (aiBrainInitialized.value && status.value === 'playing') {
-        console.log('[GameStore] LLM配置已更新，重新初始化AI Brain');
-        // 先关闭旧的
-        await aiBrainIntegration.shutdown();
-        aiBrainInitialized.value = false;
-        // 重新初始化
-        await initializeAIBrain();
+      if (aiBrainInitialized.value) {
+        const settingsStore = useSettingsStore();
+        const llmConfig = settingsStore.llmConfig;
+
+        // 处理API地址（如果是Ollama，需要转换为正确的格式）
+        let llmEndpoint = llmConfig.apiUrl || 'http://localhost:11434/api/chat';
+        if (!llmEndpoint.includes('/api/chat')) {
+          llmEndpoint = llmEndpoint.replace(/\/api\/generate\/?$/, '');
+          if (llmEndpoint.endsWith('/')) {
+            llmEndpoint = llmEndpoint + 'api/chat';
+          } else {
+            llmEndpoint = llmEndpoint + '/api/chat';
+          }
+        }
+
+        // 使用新的动态更新方法（无需重启AI Brain）
+        aiBrainIntegration.updateLLMConfig({
+          endpoint: llmEndpoint,
+          model: llmConfig.model || 'qwen2.5:3b',
+          temperature: llmConfig.temperature,
+          maxTokens: llmConfig.maxTokens,
+          timeout: llmConfig.timeout || 30000
+        });
       }
     });
   }
 
   // 初始化
   initialize();
-  
+
   return {
     game,
     gameState,
@@ -548,12 +579,12 @@ export const useGameStore = defineStore('game', () => {
     roundScore,
     isAutoPlay,
     aiBrainInitialized,
+    rounds,
     startGame,
     playCards,
     pass,
     toggleAutoPlay,
     getAIRecommendation,
-    aiPlay,
     initializeAIBrain,
     triggerAIBrainChat
   };

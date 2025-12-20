@@ -225,7 +225,50 @@
 
 ---
 
-### 2. 多声道语音系统
+### 3. 高级 AI 交互与双向通信 (Advanced AI Interaction)
+
+#### 3.1 双向通信架构 (Bi-directional Communication)
+
+**背景：**
+传统的 AI 只能单向输出聊天（“只说不听”）。升级后的架构支持 AI 接收并解析玩家的消息，实现真正的双向互动。
+
+**数据流：**
+```
+玩家发送消息 (UI) ──▶ GameBridge ──▶ MasterAIBrain ──▶ 通信调度器历史记录 (Comm History)
+                                           │
+                                           ▼
+                                    共享认知层 (SharedCognitiveLayer)
+                                           │ (意图解析)
+                                           ▼
+                                    战术意图池 (Active Intents)
+                                           │ (影响决策)
+                                           ▼
+                                    混合策略引擎 (HybridStrategy)
+```
+
+#### 3.2 意图识别层 (Intent Recognition Layer)
+
+**功能：**
+- **自然语言解析**：将玩家随意的聊天（如“别出”、“帮帮我”）转化为结构化的战术指令。
+- **意图映射 (Keyword & LLM Hybrid)**：通过关键词匹配（当前版本）和 LLM 语义分析识别战术意向。
+
+**识别意图样例：**
+- `WAIT_FOR_ME` ("等我", "别出"): AI 会判断此时应尽可能过牌。
+- `PROTECT_TEAMMATE` ("保我", "掩护"): AI 会倾向于打压对手，保留队友手牌。
+- `I_HAVE_STRENGTH` ("我有炸弹"): AI 意识到队友有强力手牌。
+
+#### 3.3 队友战术联动 (Teammate Tactical Coordination)
+
+**实现逻辑：**
+- **权重修饰器**：在 `HybridStrategy` 的 MCTS 阶段，根据活跃意图动态调整参数。
+- **针对性调整**：
+  - 收到 `WAIT_FOR_ME` → 临时将 `strategicPassWeight` 提升 2.5倍。
+  - 收到 `PROTECT_TEAMMATE` → 提升 `teammateSupportBonus` 50点。
+- **LLM 决策增强**：在询问 LLM 进行最终动作选择时，将队友的消息及其意图作为“战场情报”输入给模型。
+
+---
+
+### 4. 多声道语音系统
 
 #### 2.1 频道管理器 (Channel Manager)
 

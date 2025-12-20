@@ -91,7 +91,7 @@ function App() {
     const meloBaseUrl =
       import.meta.env.VITE_MELO_TTS_URL ||
       (typeof window !== 'undefined' && (window as any).MELO_TTS_URL) ||
-      'http://115.93.10.51:7860';  // 默认 MeLo TTS 服务器地址
+      'http://localhost:7860';  // 默认 MeLo TTS 服务器地址
 
     config.enableMelo = true;
     config.meloConfig = {

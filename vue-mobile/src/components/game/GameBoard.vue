@@ -9,26 +9,13 @@
       @skip="onDealingSkip"
     />
     
-    <!-- 开始按钮 -->
-    <div v-if="gameStore.status === 'waiting' && !isDealing" class="start-screen">
-      <van-button 
-        type="primary" 
-        size="large"
-        block 
-        @click="startGameWithAnimation"
-      >
-        🚀 {{ $t('game.startNewGame') }}
-      </van-button>
-      <van-button 
-        type="warning" 
-        size="large"
-        block 
-        style="margin-top: 16px;"
-        @click="showTrainingPanel = true"
-      >
-        🧠 {{ $t('game.intelligentTraining') }}
-      </van-button>
-    </div>
+    <!-- 开始画面 -->
+    <StartScreen
+      v-if="gameStore.status === 'waiting' && !isDealing"
+      @start="startGameWithAnimation"
+      @training="showTrainingPanel = true"
+      @settings="openSettings"
+    />
     
     <!-- 训练面板 -->
     <TrainingPanel
@@ -39,10 +26,10 @@
     <!-- 游戏结束 -->
     <GameResultScreen
       v-else-if="gameStore.status === 'finished'"
-      :players="gameStore.players"
-      :rounds="gameStore.rounds"
+      :players="(gameStore.players as any)"
+      :rounds="(gameStore.rounds as any)"
       :winner="gameStore.gameState?.winner !== null && gameStore.gameState?.winner !== undefined 
-        ? gameStore.players[gameStore.gameState.winner] 
+        ? (gameStore.players[gameStore.gameState.winner] as any) 
         : undefined"
       @restart="startGameWithAnimation"
     />
@@ -54,12 +41,12 @@
         <van-tag 
           v-if="gameStore.players.length !== 4"
           type="warning"
-          size="small"
+          size="medium"
         >
           ⚠️ {{ gameStore.players.length }}人
         </van-tag>
         <van-button 
-          size="mini" 
+          size="small" 
           icon="setting"
           @click="openSettings"
           plain
@@ -67,7 +54,7 @@
           {{ $t('common.settings') }}
         </van-button>
         <van-button 
-          size="mini" 
+          size="small" 
           :type="gameStore.isAutoPlay ? 'warning' : 'default'"
           @click="toggleAutoPlay"
           plain
@@ -75,7 +62,7 @@
           {{ gameStore.isAutoPlay ? '🤖' : '👆' }}
         </van-button>
         <van-button 
-          size="mini" 
+          size="small" 
           @click="sortHand" 
           type="success"
           plain
@@ -83,7 +70,7 @@
           📊
         </van-button>
         <van-button 
-          size="mini" 
+          size="small" 
           @click="getAIRecommendation" 
           type="primary"
           plain
@@ -91,7 +78,7 @@
           💡
         </van-button>
         <van-button 
-          size="mini" 
+          size="small" 
           @click="showChat = !showChat" 
           :type="showChat ? 'primary' : 'default'"
           plain
@@ -159,7 +146,7 @@
                 :offset-y="0"
               />
               <div class="player-avatar">🤖</div>
-              <van-tag size="mini" :type="isCurrentPlayer(playerWest.id) ? 'primary' : 'default'">
+              <van-tag size="medium" :type="isCurrentPlayer(playerWest.id) ? 'primary' : 'default'">
                 {{ $t('game.directions.west') }}{{ playerWest.id }}
               </van-tag>
               <div class="player-stats-vertical">
@@ -171,7 +158,7 @@
                   🏆{{ playerWest.dunCount }}墩
                 </span>
               </div>
-              <van-tag v-if="playerWest.finishedRank" size="mini" type="danger">
+              <van-tag v-if="playerWest.finishedRank" size="medium" type="danger">
                 #{{ playerWest.finishedRank }}
               </van-tag>
             </div>
@@ -194,19 +181,19 @@
                     :offset-y="10"
                   />
                   <div class="player-avatar-north">🤖</div>
-                  <van-tag size="small" :type="isCurrentPlayer(playerNorth.id) ? 'primary' : 'default'">
+                  <van-tag size="medium" :type="isCurrentPlayer(playerNorth.id) ? 'primary' : 'default'">
                     {{ playerNorth.name }}
                   </van-tag>
-                  <van-tag size="small" type="primary">
+                  <van-tag size="medium" type="primary">
                     🎴{{ playerNorth.hand.length }}
                   </van-tag>
-                  <van-tag size="small" type="success" v-if="playerNorth.score && playerNorth.score !== 0">
+                  <van-tag size="medium" type="success" v-if="playerNorth.score && playerNorth.score !== 0">
                     💰{{ playerNorth.score }}
                   </van-tag>
-                  <van-tag size="small" type="warning" v-if="playerNorth.dunCount && playerNorth.dunCount > 0">
+                  <van-tag size="medium" type="warning" v-if="playerNorth.dunCount && playerNorth.dunCount > 0">
                     🏆{{ playerNorth.dunCount }}墩
                   </van-tag>
-                  <van-tag v-if="playerNorth.finishedRank" size="small" type="danger">
+                  <van-tag v-if="playerNorth.finishedRank" size="medium" type="danger">
                     #{{ playerNorth.finishedRank }}
                   </van-tag>
                 </div>
@@ -217,11 +204,16 @@
             <div class="play-area-center">
               <!-- 北家 (Top) -->
               <transition name="pop-in">
-                <div class="played-cards-slot slot-top" v-if="getPlayedCards(playerNorth?.id)">
-                  <div class="card-stack-display">
-                    <div v-for="(card, i) in getPlayedCards(playerNorth?.id)" :key="card.id" 
-                         class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 20}px) rotate(${(i - (getPlayedCards(playerNorth?.id)?.length || 0)/2) * 2}deg)` }">
-                      <CardView :card="card" size="small" />
+                <div class="played-cards-slot slot-top" v-if="getPlayedCards(playerNorth?.id).length > 0">
+                  <div class="multiple-plays-container">
+                    <div v-for="(play, playIdx) in getPlayedCards(playerNorth?.id)" :key="playIdx" 
+                         class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerNorth?.id).length)">
+                      <div class="card-stack-display">
+                        <div v-for="(card, i) in play.cards" :key="card.id" 
+                             class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
+                          <CardView :card="card" size="small" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -229,11 +221,16 @@
               
               <!-- 西家 (Left) -->
               <transition name="pop-in">
-                <div class="played-cards-slot slot-left" v-if="getPlayedCards(playerWest?.id)">
-                  <div class="card-stack-display">
-                    <div v-for="(card, i) in getPlayedCards(playerWest?.id)" :key="card.id" 
-                         class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 20}px) rotate(${(i - (getPlayedCards(playerWest?.id)?.length || 0)/2) * 5}deg)` }">
-                      <CardView :card="card" size="small" />
+                <div class="played-cards-slot slot-left" v-if="getPlayedCards(playerWest?.id).length > 0">
+                  <div class="multiple-plays-container">
+                    <div v-for="(play, playIdx) in getPlayedCards(playerWest?.id)" :key="playIdx" 
+                         class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerWest?.id).length)">
+                      <div class="card-stack-display">
+                        <div v-for="(card, i) in play.cards" :key="card.id" 
+                             class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
+                          <CardView :card="card" size="small" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -241,11 +238,16 @@
               
               <!-- 东家 (Right) -->
               <transition name="pop-in">
-                <div class="played-cards-slot slot-right" v-if="getPlayedCards(playerEast?.id)">
-                  <div class="card-stack-display">
-                     <div v-for="(card, i) in getPlayedCards(playerEast?.id)" :key="card.id"
-                        class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 20}px) rotate(${(i - (getPlayedCards(playerEast?.id)?.length || 0)/2) * 5}deg)` }">
-                      <CardView :card="card" size="small" />
+                <div class="played-cards-slot slot-right" v-if="getPlayedCards(playerEast?.id).length > 0">
+                  <div class="multiple-plays-container">
+                    <div v-for="(play, playIdx) in getPlayedCards(playerEast?.id)" :key="playIdx" 
+                         class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerEast?.id).length)">
+                      <div class="card-stack-display">
+                        <div v-for="(card, i) in play.cards" :key="card.id" 
+                             class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
+                          <CardView :card="card" size="small" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -253,11 +255,16 @@
               
               <!-- 南家/自己 (Bottom) -->
               <transition name="pop-in">
-                <div class="played-cards-slot slot-bottom" v-if="getPlayedCards(playerSouth?.id)">
-                  <div class="card-stack-display">
-                     <div v-for="(card, i) in getPlayedCards(playerSouth?.id)" :key="card.id"
-                         class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 20}px) rotate(${(i - (getPlayedCards(playerSouth?.id)?.length || 0)/2) * 2}deg)` }">
-                      <CardView :card="card" size="small" />
+                <div class="played-cards-slot slot-bottom" v-if="getPlayedCards(playerSouth?.id).length > 0">
+                  <div class="multiple-plays-container">
+                    <div v-for="(play, playIdx) in getPlayedCards(playerSouth?.id)" :key="playIdx" 
+                         class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerSouth?.id).length)">
+                      <div class="card-stack-display">
+                        <div v-for="(card, i) in play.cards" :key="card.id" 
+                             class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
+                          <CardView :card="card" size="small" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -286,7 +293,7 @@
                 :offset-y="0"
               />
               <div class="player-avatar">🤖</div>
-              <van-tag size="mini" :type="isCurrentPlayer(playerEast.id) ? 'primary' : 'default'">
+              <van-tag size="medium" :type="isCurrentPlayer(playerEast.id) ? 'primary' : 'default'">
                 东{{ playerEast.id }}
               </van-tag>
               <div class="player-stats-vertical">
@@ -298,129 +305,49 @@
                   🏆{{ playerEast.dunCount }}墩
                 </span>
               </div>
-              <van-tag v-if="playerEast.finishedRank" size="mini" type="danger">
+              <van-tag v-if="playerEast.finishedRank" size="medium" type="danger">
                 #{{ playerEast.finishedRank }}
               </van-tag>
             </div>
           </div>
         </div>
         
-        <!-- 底部 - 南侧（你）- 全宽 -->
-        <div class="your-hand-landscape" v-if="playerSouth" :class="{ 'auto-play-active': gameStore.isAutoPlay }">
-          <div class="player-name-south">
-              <van-tag type="success" size="small">🧑 {{ playerSouth.name }}</van-tag>
-              <van-tag v-if="gameStore.isAutoPlay" type="warning" size="small">🤖托管</van-tag>
-              <van-tag size="small" type="primary">🎴{{ playerSouth.hand.length }}</van-tag>
-              <van-tag size="small" :type="(playerSouth.score || 0) >= 0 ? 'success' : 'danger'" v-if="playerSouth.score && playerSouth.score !== 0">
-                💰{{ playerSouth.score }}
-              </van-tag>
-              <van-tag size="small" type="warning" v-if="playerSouth.dunCount && playerSouth.dunCount > 0">
-                🏆{{ playerSouth.dunCount }}墩
-              </van-tag>
-              <van-tag v-if="playerSouth.finishedRank" size="small" type="danger">
-                #{{ playerSouth.finishedRank }}
-              </van-tag>
-              
-              <!-- 操作按钮 - 移到手牌上方 -->
-              <div class="action-buttons-inline">
-                <van-tag v-if="isMyTurn" type="primary" size="small">{{ $t('game.yourTurn') }}</van-tag>
-                <van-tag v-else size="small">{{ $t('game.waiting') }}</van-tag>
-                <van-tag type="warning" size="small">{{ $t('game.selected') }}: {{ selectedCardIds.length }}</van-tag>
-                <van-button 
-                  type="primary"
-                  size="small"
-                  :disabled="!isMyTurn || selectedCardIds.length === 0"
-                  @click="playSelectedCards"
-                >
-                  {{ $t('game.playCards') }}
-                </van-button>
-                <van-button 
-                  type="warning"
-                  size="small"
-                  :disabled="!isMyTurn || !canPass"
-                  @click="passRound"
-                >
-                  {{ $t('game.pass') }}
-                </van-button>
-                <van-button 
-                  size="small"
-                  @click="clearSelection"
-                >
-                  {{ $t('common.clear') }}
-                </van-button>
-              </div>
-          </div>
-          <div class="hand-cards-landscape">
-              <!-- 按点数分组叠放显示 -->
-              <div 
-                v-for="rank in sortedRanks" 
-                :key="rank"
-                class="rank-group"
-              >
-                <div 
-                  class="rank-group-header"
-                  @click="toggleRankExpand(rank)"
-                >
-                  <span class="rank-name">{{ getRankDisplayName(rank) }}</span>
-                  <span class="rank-count">({{ groupedHand.get(rank)?.length || 0 }})</span>
-                  <span class="expand-icon">{{ isRankExpanded(rank) ? '▼' : '▶' }}</span>
-                </div>
-                <div 
-                  v-if="isRankExpanded(rank) || groupedHand.get(rank)?.length === 1"
-                  class="rank-group-cards"
-                >
-                  <div 
-                    v-for="card in groupedHand.get(rank)" 
-                    :key="card.id"
-                    :class="['card-item-landscape', { 'card-selected': isCardSelected(card.id) }]"
-                    @click.stop="toggleCard(card.id)"
-                  >
-                    <CardView :card="card" size="small" />
-                  </div>
-                </div>
-                <!-- 未展开时显示叠放效果 -->
-                <div 
-                  v-else
-                  class="rank-group-stacked"
-                  @click.stop="toggleRankExpand(rank)"
-                >
-                  <div 
-                    v-for="(card, index) in groupedHand.get(rank)?.slice(0, 3)" 
-                    :key="card.id"
-                    class="stacked-card"
-                    :style="{ zIndex: 3 - index, transform: `translateX(${index * 6}px) translateY(${-index * 3}px)` }"
-                    @click.stop="toggleCard(card.id)"
-                  >
-                    <CardView :card="card" size="small" />
-                  </div>
-                  <div 
-                    v-if="(groupedHand.get(rank)?.length || 0) > 3"
-                    class="stacked-more"
-                  >
-                    +{{ (groupedHand.get(rank)?.length || 0) - 3 }}
-                  </div>
-                </div>
-              </div>
-          </div>
+        <!-- 底部 - 南侧（你）- 使用新的 HandCards 组件 -->
+        <div class="hand-cards-wrapper" v-if="playerSouth">
+          <HandCards 
+            :hand="playerSouth.hand"
+            :player-name="playerSouth.name"
+            :score="playerSouth.score"
+            :dun-count="playerSouth.dunCount"
+            :finished-rank="playerSouth.finishedRank"
+            :is-my-turn="isMyTurn"
+            :can-pass="canPass"
+            :is-auto-play="gameStore.isAutoPlay"
+            :selected-card-ids="selectedCardIds"
+            :sort-method="sortMethod"
+            @play="playSelectedCards"
+            @pass="passRound"
+            @clear="clearSelection"
+            @toggleCard="toggleCard"
+          />
         </div>
       </div>
       
-      <!-- 设置面板 -->
-      <SettingsPanel v-model="showSettings" />
     </div>
+
+    <!-- 设置面板 -->
+    <SettingsPanel v-model="showSettings" />
     
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { showToast } from 'vant';
 import { useI18n } from '../../i18n/composable';
 import { useGameStore } from '../../stores/gameStore';
 import { useChatStore } from '../../stores/chatStore';
-import { sortCardsByRank, sortCardsByValue, groupCardsByRank } from '../../utils/cardUtils';
-import { Rank } from '../../types/card';
-import type { Card } from '../../types/card';
 import GameResultScreen from './GameResultScreen.vue';
 import SettingsPanel from '../settings/SettingsPanel.vue';
 import ChatInput from '../chat/ChatInput.vue';
@@ -428,6 +355,8 @@ import ChatBubble from '../chat/ChatBubble.vue';
 import CardView from '../card/CardView.vue';
 import TrainingPanel from '../training/TrainingPanel.vue';
 import DealingAnimation from './DealingAnimation.vue';
+import StartScreen from './StartScreen.vue';
+import HandCards from './HandCards.vue';
 
 const { t } = useI18n();
 
@@ -438,90 +367,74 @@ const sortMethod = ref<'rank' | 'value'>('rank'); // 默认按点数排序
 const showSettings = ref(false);
 const showChat = ref(false);
 const showTrainingPanel = ref(false);
-const expandedRanks = ref<Set<number>>(new Set()); // 展开的点数组
+// const expandedRanks = ref<Set<number>>(new Set()); // Removed unused
 const isDealing = ref(false); // 发牌动画状态
+const pendingGameConfig = ref<{ teamMode: boolean } | undefined>(undefined); // 待处理的游戏配置
 
 const openSettings = () => {
-  console.log('openSettings 被调用，当前 showSettings:', showSettings.value);
   showSettings.value = true;
-  console.log('设置后 showSettings:', showSettings.value);
 };
 
 // 按东南西北方位排列玩家
 const playerEast = computed(() => {
-  const player = gameStore.players[1];
-  console.log('东侧玩家(index 1):', player);
+  // Logic: Player 3 is East (Team B)
+  const player = gameStore.players[3];
+  // console.log('东侧玩家(index 3):', player);
   return player;
 }); // 东 - 右侧
 
 const playerNorth = computed(() => {
   const player = gameStore.players[2];
-  console.log('北侧玩家(index 2):', player);
+  // console.log('北侧玩家(index 2):', player);
   return player;
 }); // 北 - 顶部  
 
 const playerWest = computed(() => {
-  const player = gameStore.players[3];
-  console.log('西侧玩家(index 3):', player);
+  // Logic: Player 1 is West (Team B)
+  const player = gameStore.players[1];
+  // console.log('西侧玩家(index 1):', player);
   return player;
 }); // 西 - 左侧
 
 const playerSouth = computed(() => {
   const player = gameStore.humanPlayer;
-  console.log('南侧玩家(你):', player);
+  // console.log('南侧玩家(你):', player);
   return player;
 }); // 南 - 底部（你）
 
-// 按点数分组的手牌
-const groupedHand = computed(() => {
-  if (!gameStore.humanPlayer) return new Map();
-  const hand = gameStore.humanPlayer.hand;
-  
-  // 根据排序方式排序手牌
-  let sorted: Card[];
-  if (sortMethod.value === 'rank') {
-    sorted = sortCardsByRank(hand);
-  } else {
-    sorted = sortCardsByValue(hand);
-  }
-  
-  // 按点数分组
-  return groupCardsByRank(sorted);
-});
 
-// 获取排序后的点数列表（用于显示顺序）
-const sortedRanks = computed(() => {
-  const ranks = Array.from(groupedHand.value.keys());
-  if (sortMethod.value === 'rank') {
-    return ranks.sort((a, b) => a - b);
-  } else {
-    // 按牌大小排序：大王>小王>2>A>K>...>3
-    return ranks.sort((a, b) => {
-      const getValue = (rank: Rank): number => {
-        if (rank === Rank.JOKER_BIG) return 1000;
-        if (rank === Rank.JOKER_SMALL) return 999;
-        if (rank === Rank.TWO) return 998;
-        if (rank === Rank.ACE) return 14;
-        return rank;
-      };
-      return getValue(b) - getValue(a); // 从大到小
-    });
-  }
-});
 
 const isMyTurn = computed(() => {
-  return gameStore.humanPlayer 
-    && gameStore.currentPlayerIndex === gameStore.humanPlayer.id;
+  return Boolean(gameStore.humanPlayer 
+    && gameStore.currentPlayerIndex === gameStore.humanPlayer.id);
 });
 
 const canPass = computed(() => {
-  return gameStore.currentRound?.lastPlay !== null;
+  // 1. 首家或者没有上家出牌时不能不要
+  if (!gameStore.currentRound?.lastPlay) {
+    return false;
+  }
+  
+  // 2. 个人赛规则：如果有牌能打过上家，则不能不要（必须出牌）
+  // 团队赛规则：允许战术过牌
+  if (gameStore.game && gameStore.game.state.config) {
+    const isTeamMode = gameStore.game.state.config.teamMode;
+    if (!isTeamMode) {
+      // 个人赛：检查是否有能管上的牌
+      const myPlayerId = gameStore.humanPlayer?.id;
+      if (myPlayerId !== undefined) {
+        // hasPlayableCards 会检查手牌是否能管上 lastPlay
+        const hasPlayable = gameStore.game.hasPlayableCards(myPlayerId);
+        if (hasPlayable) {
+          return false; // 有牌可出，禁止不要
+        }
+      }
+    }
+  }
+  
+  return true;
 });
 
-
-const isCardSelected = (cardId: string) => {
-  return selectedCardIds.value.includes(cardId);
-};
 
 const toggleCard = (cardId: string) => {
   const index = selectedCardIds.value.indexOf(cardId);
@@ -536,21 +449,48 @@ const isCurrentPlayer = (playerId: number) => {
   return gameStore.currentPlayerIndex === playerId;
 };
 
-// 获取玩家在当前轮出的牌
+// 获取玩家在当前轮出的所有牌（支持多手牌显示）
 const getPlayedCards = (playerId: number | undefined) => {
-  if (playerId === undefined || !gameStore.currentRound) return null;
-  const play = gameStore.currentRound.plays.find(p => p.playerId === playerId);
-  return play ? play.cards : null;
+  if (playerId === undefined || !gameStore.currentRound) return [];
+  // 过滤出该玩家在该回合的所有出牌记录
+  return gameStore.currentRound.plays.filter(p => p.playerId === playerId);
+};
+
+// 获取多手牌的样式（位移和缩放）
+const getPlayStyle = (index: number, total: number) => {
+  if (total <= 1) return {};
+  
+  // 如果有多手牌，越旧的牌（index越小）位移越多且缩放越小
+  const reverseIndex = total - 1 - index; // 最新的是0
+  const scale = Math.max(0.6, 1 - reverseIndex * 0.15);
+  const translateY = reverseIndex * -40; // 向上偏移
+  const opacity = Math.max(0.4, 1 - reverseIndex * 0.2);
+  
+  return {
+    transform: `translateY(${translateY}px) scale(${scale})`,
+    opacity,
+    zIndex: index
+  };
 };
 
 const startGame = () => {
-  gameStore.startGame();
+  gameStore.startGame(pendingGameConfig.value);
   showToast('🎮 游戏开始！');
+  pendingGameConfig.value = undefined;
 };
 
 // 带发牌动画的开始游戏
-const startGameWithAnimation = () => {
-  isDealing.value = true;
+const startGameWithAnimation = (config?: { teamMode: boolean }) => {
+  pendingGameConfig.value = config;
+  
+  // 检查是否跳过发牌动画
+  const settingsStore = useSettingsStore();
+  if (settingsStore.gameSettings.skipDealing) {
+    isDealing.value = false;
+    startGame();
+  } else {
+    isDealing.value = true;
+  }
 };
 
 const onDealingComplete = () => {
@@ -563,10 +503,8 @@ const onDealingSkip = () => {
   startGame();
 };
 
-const playSelectedCards = () => {
+const playSelectedCards = async () => {
   console.log('🎴 点击出牌按钮');
-  console.log('已选择卡片数:', selectedCardIds.value.length);
-  console.log('已选择卡片IDs:', selectedCardIds.value);
   
   if (selectedCardIds.value.length === 0) {
     showToast('请先选择要出的牌');
@@ -577,27 +515,22 @@ const playSelectedCards = () => {
     selectedCardIds.value.includes(c.id)
   );
   
-  console.log('准备出的牌:', cards);
-  console.log('当前玩家索引:', gameStore.currentPlayerIndex);
-  console.log('是否我的回合:', isMyTurn.value);
-  
-  const result = gameStore.playCards(cards);
-  console.log('出牌结果:', result);
+  const result = await gameStore.playCards(cards);
   
   if (result.success) {
     selectedCardIds.value = [];
     showToast({ type: 'success', message: `✅ ${t('game.playCards')}${t('common.success')}` });
   } else {
-    showToast({ type: 'fail', message: result.message });
+    showToast({ type: 'fail', message: result.message || '出牌失败' });
   }
 };
 
-const passRound = () => {
-  const result = gameStore.pass();
+const passRound = async () => {
+  const result = await gameStore.pass();
   if (result.success) {
     showToast({ type: 'success', message: '不要' });
   } else {
-    showToast({ type: 'fail', message: result.message });
+    showToast({ type: 'fail', message: result.message || '操作失败' });
   }
 };
 
@@ -613,33 +546,16 @@ const sortHand = () => {
   showToast(`已切换至${methodNames[sortMethod.value]}排序`);
 };
 
-// 切换展开/收起某个点数的牌组
-const toggleRankExpand = (rank: Rank) => {
-  if (expandedRanks.value.has(rank)) {
-    expandedRanks.value.delete(rank);
-  } else {
-    expandedRanks.value.add(rank);
-  }
-};
 
-// 检查某个点数是否展开
-const isRankExpanded = (rank: Rank) => {
-  return expandedRanks.value.has(rank);
-};
 
-// 选择某个点数的所有牌
-const selectAllOfRank = (rank: Rank) => {
-  const cards = groupedHand.value.get(rank) || [];
-  cards.forEach(card => {
-    if (!selectedCardIds.value.includes(card.id)) {
-      selectedCardIds.value.push(card.id);
-    }
-  });
-};
+// 初始化聊天Store和聊天调度器
+import { chatSchedulerService } from '../../services/chat/ChatSchedulerService';
 
-// 初始化聊天Store
 onMounted(() => {
   chatStore.initializeAIBrainListener();
+  
+  // 初始化聊天调度器（传入获取游戏实例的回调）
+  chatSchedulerService.initialize(() => gameStore.game as any);
 });
 
 // 获取玩家名称
@@ -648,10 +564,7 @@ const getPlayerName = (playerId: number) => {
   return player?.name || `${t('game.currentPlayer')}${playerId}`;
 };
 
-// 获取玩家的最新消息
-const getPlayerLatestMessage = (playerId: number) => {
-  return chatStore.getLatestMessageByPlayer(playerId);
-};
+
 
 // 获取意图标签
 const getIntentLabel = (intent: string) => {
@@ -667,17 +580,7 @@ const getIntentLabel = (intent: string) => {
   return labels[intent] || intent;
 };
 
-// 获取点数显示名称（使用导入的工具函数）
-const getRankDisplayName = (rank: Rank): string => {
-  if (rank === Rank.JACK) return 'J';
-  if (rank === Rank.QUEEN) return 'Q';
-  if (rank === Rank.KING) return 'K';
-  if (rank === Rank.ACE) return 'A';
-  if (rank === Rank.TWO) return '2';
-  if (rank === Rank.JOKER_SMALL) return t('cards.rank.jokerSmall');
-  if (rank === Rank.JOKER_BIG) return t('cards.rank.jokerBig');
-  return rank.toString();
-};
+
 
 const getAIRecommendation = () => {
   const suggestion = gameStore.getAIRecommendation();
@@ -690,7 +593,7 @@ const getAIRecommendation = () => {
     });
   } else {
     showToast({ 
-      type: 'warning', 
+      type: 'text', 
       message: `💡 ${t('game.aiRecommendation')}: ${t('game.pass')}` 
     });
   }
@@ -701,55 +604,7 @@ const toggleAutoPlay = () => {
   showToast(gameStore.isAutoPlay ? `🤖 ${t('game.autoPlay')}` : t('game.manualPlay'));
 };
 
-const getPlayTypeText = (play: any) => {
-  if (!play) return '';
-  const typeNames: Record<number, string> = {
-    0: t('game.playTypes.single'),
-    1: t('game.playTypes.pair'),
-    2: t('game.playTypes.triple'),
-    3: t('game.playTypes.bomb'),
-    4: t('game.playTypes.straight'),
-    5: t('game.playTypes.pairStraight'),
-    6: t('game.playTypes.tripleStraight'),
-    7: t('game.playTypes.fourWithTwo')
-  };
-  return typeNames[play.type] || t('game.playTypes.combination');
-};
 
-const getLastPlayerName = () => {
-  if (!gameStore.currentRound?.plays || gameStore.currentRound.plays.length === 0) {
-    return '无';
-  }
-  const lastPlay = gameStore.currentRound.plays[gameStore.currentRound.plays.length - 1];
-  return lastPlay.playerName || `${t('game.currentPlayer')}${lastPlay.playerId}`;
-};
-
-const getLastPlayType = () => {
-  if (!gameStore.currentRound?.lastPlay || gameStore.currentRound.lastPlay.length === 0) {
-    return '无';
-  }
-  
-  const cards = gameStore.currentRound.lastPlay;
-  const cardCount = cards.length;
-  
-  // 根据牌数判断牌型
-  if (cardCount === 1) return '单张';
-  if (cardCount === 2) {
-    // 检查是否是对子
-    if (cards[0].rank === cards[1].rank) return '对子';
-    return '组合牌';
-  }
-  if (cardCount === 3) return '三张';
-  if (cardCount === 4) {
-    // 可能是炸弹或四带二
-    const ranks = cards.map(c => c.rank);
-    if (ranks.every(r => r === ranks[0])) return '炸弹';
-    return '四带二';
-  }
-  
-  // 更多牌可能是顺子、连对、飞机等
-  return `${cardCount}张组合`;
-};
 </script>
 
 <style scoped>
@@ -1142,12 +997,14 @@ const getLastPlayType = () => {
 }
 
 /* ===== 中央出牌区 - 扑克桌风格 ===== */
-/* ===== 真实牌桌布局样式 ===== */
+/* ===== 中央出牌区布局 ===== */
 .play-area-center {
+  position: relative;
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 200px;
   /* 绿色毛毡背景 */
   background: 
     radial-gradient(ellipse at center, rgba(34, 139, 34, 0.5) 0%, rgba(0, 80, 0, 0.65) 70%, rgba(0, 50, 0, 0.8) 100%),

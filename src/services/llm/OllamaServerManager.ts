@@ -83,18 +83,18 @@ export class OllamaServerManager {
         }
 
         const data: StoredData = JSON.parse(stored);
-        
+
         // 加载服务器列表（限制数量）
         const serversToLoad = data.servers.slice(0, 20);
         serversToLoad.forEach(server => {
           this.servers.set(server.id, server);
         });
-        
+
         // 确保本地服务器存在
         if (!this.servers.has('local')) {
           this.servers.set('local', PRESET_SERVERS[0]);
         }
-        
+
         // 加载当前服务器
         if (data.currentServerId && this.servers.has(data.currentServerId)) {
           this.currentServerId = data.currentServerId;
@@ -141,15 +141,15 @@ export class OllamaServerManager {
         servers: serversToSave,
         currentServerId: this.currentServerId
       };
-      
+
       const jsonString = JSON.stringify(data);
-      
+
       // 检查大小（如果超过 1MB，进一步减少）
       if (jsonString.length > 1024 * 1024) {
         console.warn('Server data too large, reducing to 10 servers');
         data.servers = serversToSave.slice(0, 10);
       }
-      
+
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
       if (e instanceof Error && e.name === 'QuotaExceededError') {
@@ -198,14 +198,14 @@ export class OllamaServerManager {
   setCurrentServer(id: string): boolean {
     if (this.servers.has(id)) {
       this.currentServerId = id;
-      
+
       // 更新最后使用时间
       const server = this.servers.get(id);
       if (server) {
         server.lastUsed = Date.now();
         this.servers.set(id, server);
       }
-      
+
       this.save();
       return true;
     }
@@ -219,13 +219,13 @@ export class OllamaServerManager {
     // 检查服务器数量限制（排除本地服务器）
     const customServersCount = Array.from(this.servers.values())
       .filter(s => s.id !== 'local').length;
-    
+
     if (customServersCount >= this.maxServers - 1) {
       // 删除最旧的非收藏服务器
       const serversArray = Array.from(this.servers.values())
         .filter(s => s.id !== 'local' && !s.isFavorite)
         .sort((a, b) => (a.lastUsed || 0) - (b.lastUsed || 0));
-      
+
       if (serversArray.length > 0) {
         this.servers.delete(serversArray[0].id);
         console.log(`Removed oldest server: ${serversArray[0].name}`);
@@ -242,7 +242,7 @@ export class OllamaServerManager {
       isFavorite: config.isFavorite || false,
       lastUsed: Date.now()
     };
-    
+
     this.servers.set(id, newServer);
     this.save();
     return newServer;
@@ -256,12 +256,12 @@ export class OllamaServerManager {
     if (id === 'local') {
       return false;
     }
-    
+
     // 如果删除的是当前服务器，切换到本地
     if (id === this.currentServerId) {
       this.currentServerId = 'local';
     }
-    
+
     const result = this.servers.delete(id);
     if (result) {
       this.save();
@@ -288,7 +288,7 @@ export class OllamaServerManager {
    */
   async checkServer(server: OllamaServerConfig): Promise<ServerCheckResult> {
     const startTime = Date.now();
-    
+
     try {
       const url = this.getServerTagsUrl(server);
       const response = await fetch(url, {
@@ -306,26 +306,26 @@ export class OllamaServerManager {
 
       const data = await response.json();
       const latency = Date.now() - startTime;
-      
+
       const result: ServerCheckResult = {
         available: true,
         latency,
         modelCount: data.models?.length || 0
       };
-      
+
       // 更新服务器状态
       this.updateServerStatus(server.id, result);
-      
+
       return result;
     } catch (error) {
       const result: ServerCheckResult = {
         available: false,
         error: error instanceof Error ? error.message : '连接失败'
       };
-      
+
       // 更新服务器状态
       this.updateServerStatus(server.id, result);
-      
+
       return result;
     }
   }
@@ -374,7 +374,7 @@ export class OllamaServerManager {
    * 获取服务器 API URL
    */
   getServerApiUrl(server: OllamaServerConfig): string {
-    return `${this.getServerUrl(server)}/api/chat`;
+    return `${this.getServerUrl(server)}/api/generate`;
   }
 
   /**
@@ -394,7 +394,7 @@ export class OllamaServerManager {
    */
   static parseServerAddress(input: string): Partial<OllamaServerConfig> {
     const trimmed = input.trim();
-    
+
     // 尝试解析完整 URL
     try {
       const url = new URL(trimmed);
@@ -409,7 +409,7 @@ export class OllamaServerManager {
     } catch {
       // 不是完整 URL，继续解析
     }
-    
+
     // 解析 IP:端口 或 域名:端口
     const parts = trimmed.split(':');
     if (parts.length === 2) {
@@ -419,7 +419,7 @@ export class OllamaServerManager {
         port: parseInt(parts[1]) || 11434
       };
     }
-    
+
     // 只有 IP 或域名
     return {
       protocol: 'http',

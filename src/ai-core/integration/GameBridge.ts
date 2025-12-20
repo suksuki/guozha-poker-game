@@ -14,22 +14,37 @@ import { GameState } from '../types';
 export interface GameBridgeAPI {
   // 初始化
   initialize(config: MasterBrainConfig): Promise<void>;
-  
+
   // AI回合
   triggerAITurn(playerId: number, gameState: GameState): void;
-  
+
   // 状态更新
   notifyStateChange(gameState: GameState, changeType?: 'play' | 'pass' | 'event'): Promise<void>;
-  
+
+  // 发送玩家消息给AI
+  sendUserMessage(playerId: number, content: string, gameState?: GameState): Promise<void>;
+
   // 触发批量聊天
   triggerBatchChat(gameState: GameState, trigger: 'after_play' | 'after_pass' | 'game_event', eventType?: string): Promise<Map<number, any>>;
-  
+
   // 导出数据
   exportTrainingData(): string;
-  
+
+  // 监听决策完成
+  onTurnComplete(callback: (event: any) => void): () => void;
+
   // 获取统计
   getStatistics(): any;
-  
+
+  // 动态更新LLM配置
+  updateLLMConfig(updates: {
+    endpoint?: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    timeout?: number;
+  }): void;
+
   // 关闭
   shutdown(): Promise<void>;
 }
@@ -40,12 +55,12 @@ export interface GameBridgeAPI {
 export class GameBridge {
   private masterBrain: MasterAIBrain | null = null;
   private eventBus: EventBus | null = null;
-  
+
   constructor() {
     // EventBus将在initialize时从MasterAIBrain获取
     this.setupEventHandlers();
   }
-  
+
   /**
    * 设置事件处理
    */
@@ -53,21 +68,22 @@ export class GameBridge {
     // 注意：eventBus可能在initialize之前为null，所以延迟绑定
     // 实际的事件监听在initialize后通过setupEventListeners设置
   }
-  
+
   /**
    * 设置事件监听（在MasterAIBrain初始化后调用）
    */
   private setupEventListeners(): void {
     if (!this.eventBus) return;
-    
+
     // 游戏 → AI
     this.eventBus.on('game:ai-turn', this.handleAITurn.bind(this));
     this.eventBus.on('game:state-change', this.handleStateChange.bind(this));
-    
+    this.eventBus.on('game:user-message', this.handleUserMessageEvent.bind(this));
+
     // AI → 游戏：监听通信消息生成事件
     this.eventBus.on('communication:generated', this.handleCommunicationGenerated.bind(this));
   }
-  
+
   /**
    * 处理AI回合
    */
@@ -76,12 +92,12 @@ export class GameBridge {
       console.error('[GameBridge] Master brain or EventBus not initialized');
       return;
     }
-    
+
     const { playerId, gameState } = event;
-    
+
     try {
       const result = await this.masterBrain.handleTurn(playerId, gameState);
-      
+
       // 发送回游戏
       this.eventBus.emit('ai:turn-complete', {
         playerId,
@@ -95,21 +111,30 @@ export class GameBridge {
       }
     }
   }
-  
+
   /**
    * 处理状态变化
    */
   private handleStateChange(event: any): void {
     // TODO: 处理游戏状态变化
   }
-  
+
+  /**
+   * 处理玩家消息事件
+   */
+  private async handleUserMessageEvent(event: any): Promise<void> {
+    if (!this.masterBrain) return;
+    const { playerId, content, gameState } = event;
+    await this.masterBrain.handleUserMessage(playerId, content, gameState);
+  }
+
   /**
    * 处理通信消息生成
    * 将AI Brain的CommunicationMessage转换为游戏可用的格式
    */
   private handleCommunicationGenerated(event: any): void {
     const { playerId, message } = event;
-    
+
     // 发送到游戏，让游戏UI显示
     this.eventBus?.emit('ai:communication', {
       playerId,
@@ -119,7 +144,7 @@ export class GameBridge {
       timestamp: message.timestamp
     });
   }
-  
+
   /**
    * 订阅通信消息
    */
@@ -132,15 +157,15 @@ export class GameBridge {
   }) => void): () => void {
     if (!this.eventBus) {
       console.warn('[GameBridge] EventBus未初始化，无法订阅通信消息');
-      return () => {}; // 返回空函数
+      return () => { }; // 返回空函数
     }
-    
+
     const listener = (event: any) => {
       callback(event);
     };
-    
+
     this.eventBus.on('ai:communication', listener);
-    
+
     // 返回取消订阅的函数
     return () => {
       if (this.eventBus) {
@@ -148,7 +173,29 @@ export class GameBridge {
       }
     };
   }
-  
+
+  /**
+   * 订阅决策完成消息
+   */
+  onTurnComplete(callback: (event: any) => void): () => void {
+    if (!this.eventBus) {
+      console.warn('[GameBridge] EventBus未初始化，无法订阅决策消息');
+      return () => { };
+    }
+
+    const listener = (event: any) => {
+      callback(event);
+    };
+
+    this.eventBus.on('ai:turn-complete', listener);
+
+    return () => {
+      if (this.eventBus) {
+        this.eventBus.off('ai:turn-complete', listener);
+      }
+    };
+  }
+
   /**
    * 获取事件总线（供外部使用）
    */
@@ -164,14 +211,14 @@ export class GameBridge {
       initialize: async (config: MasterBrainConfig) => {
         this.masterBrain = new MasterAIBrain(config);
         await this.masterBrain.initialize();
-        
+
         // 获取MasterAIBrain的EventBus实例
         this.eventBus = this.masterBrain.getEventBus();
-        
+
         // 现在设置事件监听
         this.setupEventListeners();
       },
-      
+
       triggerAITurn: (playerId: number, gameState: GameState) => {
         if (!this.eventBus) {
           console.error('[GameBridge] EventBus not initialized');
@@ -179,28 +226,50 @@ export class GameBridge {
         }
         this.eventBus.emit('game:ai-turn', { playerId, gameState });
       },
-      
+
       notifyStateChange: async (gameState: GameState, changeType?: 'play' | 'pass' | 'event') => {
         if (this.masterBrain) {
           await this.masterBrain.notifyStateChange(gameState, changeType);
         }
       },
-      
+
       triggerBatchChat: async (gameState: GameState, trigger: 'after_play' | 'after_pass' | 'game_event', eventType?: string) => {
         if (!this.masterBrain) {
           return new Map();
         }
         return await this.masterBrain.triggerBatchChat(gameState, trigger, eventType);
       },
-      
+
+      sendUserMessage: async (playerId: number, content: string, gameState?: GameState) => {
+        if (this.eventBus) {
+          this.eventBus.emit('game:user-message', { playerId, content, gameState });
+        }
+      },
+
       exportTrainingData: () => {
         return this.masterBrain?.exportTrainingData() || '';
       },
-      
+
       getStatistics: () => {
         return this.masterBrain?.getStatistics() || {};
       },
-      
+
+      updateLLMConfig: (updates: {
+        endpoint?: string;
+        model?: string;
+        temperature?: number;
+        maxTokens?: number;
+        timeout?: number;
+      }) => {
+        if (this.masterBrain) {
+          this.masterBrain.updateLLMConfig(updates);
+        }
+      },
+
+      onTurnComplete: (callback: (event: any) => void) => {
+        return this.onTurnComplete(callback);
+      },
+
       shutdown: async () => {
         await this.masterBrain?.shutdown();
         this.masterBrain = null;

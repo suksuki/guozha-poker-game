@@ -7,12 +7,12 @@
 
 import { ChatMessage, ChatEventType } from '../types/chat';
 import { Player, Card, Suit, Rank } from '../types/card';
-import { 
-  ChatServiceConfig, 
-  DEFAULT_CHAT_SERVICE_CONFIG, 
-  BigDunConfig, 
-  DEFAULT_BIG_DUN_CONFIG, 
-  TauntConfig, 
+import {
+  ChatServiceConfig,
+  DEFAULT_CHAT_SERVICE_CONFIG,
+  BigDunConfig,
+  DEFAULT_BIG_DUN_CONFIG,
+  TauntConfig,
   DEFAULT_TAUNT_CONFIG
 } from '../config/chatConfig';
 import type { IChatStrategy, ChatContext } from '../chat/strategy';
@@ -35,7 +35,7 @@ class ChatService {
   private fallbackStrategy: IChatStrategy | null = null; // 回退策略（规则策略）
   private llmConfig?: any; // 保存LLM配置，用于后续切换
   private isInitialized: boolean = false; // 是否已初始化
-  
+
   // 消息订阅者（用于通知其他玩家有新消息）
   private subscribers: Set<MessageSubscriber> = new Set();
 
@@ -51,12 +51,12 @@ class ChatService {
     this.tauntConfig = tauntConfig;
     this.llmConfig = llmConfig;
     this.strategy = getChatStrategy(strategy, config, bigDunConfig, tauntConfig, llmConfig);
-    
+
     // 总是创建规则策略作为回退（无论使用哪个策略）
     this.fallbackStrategy = getChatStrategy('rule-based', config, bigDunConfig, tauntConfig);
-    
+
   }
-  
+
   /**
    * 异步初始化：自动检测LLM可用性并切换策略
    * 应在应用启动时调用
@@ -65,9 +65,9 @@ class ChatService {
     if (this.isInitialized) {
       return;
     }
-    
+
     const startTime = Date.now();
-    
+
     try {
       // 从用户配置或 localStorage 读取 API URL
       let apiUrl = this.llmConfig?.apiUrl;
@@ -75,9 +75,9 @@ class ChatService {
         // 尝试从 localStorage 读取
         apiUrl = localStorage.getItem('llmApiUrl') || undefined;
       }
-      
+
       // 从完整 URL 中提取基础 URL（移除 /api/chat 等路径）
-      // 例如：http://115.93.10.51:11434/api/chat -> http://115.93.10.51:11434
+      // 例如：http://localhost:11434/api/chat -> http://localhost:11434
       let baseUrl = apiUrl;
       if (baseUrl) {
         try {
@@ -87,24 +87,16 @@ class ChatService {
           // URL 解析失败，使用原始值
         }
       }
-      
+
       // 获取推荐的策略（使用基础 URL）
       const recommendedStrategy = await getRecommendedChatStrategy(baseUrl);
-      const detectionTime = Date.now() - startTime;
-      
-      
+
       // 如果推荐策略与当前策略不同，切换策略
       if (recommendedStrategy !== this.strategy.name) {
         this.setStrategy(recommendedStrategy, this.llmConfig);
-      } else {
       }
-      
+
       this.isInitialized = true;
-      
-      // 显示用户友好的提示
-      if (recommendedStrategy === 'llm') {
-      } else {
-      }
     } catch (error) {
       // 出错时使用规则策略
       if (this.strategy.name !== 'rule-based') {
@@ -113,7 +105,7 @@ class ChatService {
       this.isInitialized = true;
     }
   }
-  
+
   /**
    * 检查LLM服务状态
    * 可用于运行时检查
@@ -244,8 +236,8 @@ class ChatService {
 
   // 触发随机闲聊
   async triggerRandomChat(
-    player: Player, 
-    probability?: number, 
+    player: Player,
+    probability?: number,
     context?: ChatContext,
     fullGameState?: any // MultiPlayerGameState
   ): Promise<ChatMessage | null> {
@@ -276,18 +268,18 @@ class ChatService {
 
     // 使用策略生成聊天内容
     let message = await this.strategy.generateRandomChat(player, fullContext);
-    
+
     // 如果LLM策略失败，使用规则策略作为回退
     if (!message && this.fallbackStrategy && this.strategy.name === 'llm') {
       message = await this.fallbackStrategy.generateRandomChat(player, fullContext);
     }
-    
+
     if (message) {
       this.addMessage(message);
       // 不再自动播放语音，由组件决定是否播放
     } else {
     }
-    
+
     return message;
   }
 
@@ -325,18 +317,18 @@ class ChatService {
 
     // 使用策略生成聊天内容
     let message = await this.strategy.generateEventChat(player, eventType, fullContext);
-    
+
     // 如果LLM策略失败，使用规则策略作为回退
     if (!message && this.fallbackStrategy && this.strategy.name === 'llm') {
       message = await this.fallbackStrategy.generateEventChat(player, eventType, fullContext);
     }
-    
+
     if (message) {
       this.addMessage(message);
       // 不再自动播放语音，由组件决定是否播放
     } else {
     }
-    
+
     return message;
   }
 
@@ -346,7 +338,7 @@ class ChatService {
       const context: ChatContext = {
         eventData: { dunSize }
       };
-      
+
       for (const player of players) {
         if (player.id !== dunPlayerId && Math.random() < this.bigDunConfig.reactionProbability) {
           await this.triggerEventChat(player, ChatEventType.BIG_DUN, context);
@@ -357,7 +349,7 @@ class ChatService {
 
   // 触发分牌被捡走反应（普通抱怨）
   async triggerScoreStolenReaction(
-    player: Player, 
+    player: Player,
     stolenScore: number,
     fullGameState?: MultiPlayerGameState
   ): Promise<void> {
@@ -371,7 +363,7 @@ class ChatService {
 
   // 触发分牌被吃反应（脏话，更激烈）
   async triggerScoreEatenCurseReaction(
-    player: Player, 
+    player: Player,
     stolenScore: number,
     fullGameState?: MultiPlayerGameState
   ): Promise<void> {
@@ -396,7 +388,7 @@ class ChatService {
 
   // 触发好牌反应
   async triggerGoodPlayReaction(
-    player: Player, 
+    player: Player,
     context?: ChatContext,
     fullGameState?: MultiPlayerGameState
   ): Promise<void> {
@@ -442,12 +434,12 @@ class ChatService {
 
     // 使用策略生成回复内容
     let message = await this.strategy.generateReply(player, originalMessage, fullContext);
-    
+
     // 如果LLM策略失败，使用规则策略作为回退
     if (!message && this.fallbackStrategy?.generateReply && this.strategy.name === 'llm') {
       message = await this.fallbackStrategy.generateReply(player, originalMessage, fullContext);
     }
-    
+
     if (message) {
       // 标记为回复消息
       message.replyTo = {
@@ -459,14 +451,14 @@ class ChatService {
       this.addMessage(message);
     } else {
     }
-    
+
     return message;
   }
 
   // 触发对骂
   async triggerTaunt(
-    player: Player, 
-    targetPlayer?: Player, 
+    player: Player,
+    targetPlayer?: Player,
     context?: ChatContext,
     fullGameState?: any // MultiPlayerGameState
   ): Promise<void> {
@@ -491,12 +483,12 @@ class ChatService {
 
     // 使用策略生成对骂内容
     let message = await this.strategy.generateTaunt(player, targetPlayer, fullContext);
-    
+
     // 如果LLM策略失败，使用规则策略作为回退
     if (!message && this.fallbackStrategy && this.strategy.name === 'llm') {
       message = await this.fallbackStrategy.generateTaunt(player, targetPlayer, fullContext);
     }
-    
+
     if (message) {
       this.addMessage(message);
       // 不再自动播放语音，由组件决定是否播放
@@ -518,7 +510,7 @@ class ChatService {
   }
 
   async triggerFinishFirstReaction(
-    player: Player, 
+    player: Player,
     context?: ChatContext,
     fullGameState?: MultiPlayerGameState
   ): Promise<void> {
@@ -526,7 +518,7 @@ class ChatService {
   }
 
   async triggerFinishLastReaction(
-    player: Player, 
+    player: Player,
     context?: ChatContext,
     fullGameState?: MultiPlayerGameState
   ): Promise<void> {
@@ -534,7 +526,7 @@ class ChatService {
   }
 
   async triggerFinishMiddleReaction(
-    player: Player, 
+    player: Player,
     context?: ChatContext,
     fullGameState?: MultiPlayerGameState
   ): Promise<void> {
@@ -550,7 +542,7 @@ class ChatService {
     // 根据发牌进度和牌的质量触发不同反应
     const progress = currentIndex / totalCards;
     const isGoodCard = card.suit === Suit.JOKER || card.rank === Rank.TWO || card.rank === Rank.ACE; // 大小王、2、A
-    
+
     if (isGoodCard) {
       await this.triggerEventChat(player, ChatEventType.DEALING_GOOD_CARD, {
         ...context,
@@ -604,9 +596,9 @@ class ChatService {
     }
 
     // 2. 检测超大牌（刚抓到的牌）
-    if (newlyDealtCard.suit === Suit.JOKER || 
-        newlyDealtCard.rank === Rank.TWO || 
-        newlyDealtCard.rank === Rank.ACE) {
+    if (newlyDealtCard.suit === Suit.JOKER ||
+      newlyDealtCard.rank === Rank.TWO ||
+      newlyDealtCard.rank === Rank.ACE) {
       await this.triggerEventChat(player, ChatEventType.DEALING_HUGE_CARD, {
         ...context,
         eventData: { card: newlyDealtCard, hand }
@@ -620,7 +612,7 @@ class ChatService {
       // 手牌质量阈值：如果手牌价值很低（负数或很小的正数），说明手牌质量差
       // 根据手牌数量调整阈值
       const threshold = -hand.length * 5; // 动态阈值
-      
+
       if (handValue < threshold) {
         await this.triggerEventChat(player, ChatEventType.DEALING_POOR_HAND, {
           ...context,
@@ -663,7 +655,7 @@ export function createChatMessage(
 
 // 异步函数，保持向后兼容（返回Promise）
 export async function triggerRandomChat(
-  player: Player, 
+  player: Player,
   probability?: number,
   context?: any,
   fullGameState?: any
@@ -685,7 +677,7 @@ export async function triggerBigDunReaction(players: Player[], dunPlayerId: numb
 }
 
 export async function triggerScoreStolenReaction(
-  player: Player, 
+  player: Player,
   stolenScore: number,
   fullGameState?: any
 ): Promise<void> {
@@ -693,7 +685,7 @@ export async function triggerScoreStolenReaction(
 }
 
 export async function triggerScoreEatenCurseReaction(
-  player: Player, 
+  player: Player,
   stolenScore: number,
   fullGameState?: any
 ): Promise<void> {
@@ -757,9 +749,9 @@ export async function triggerDunPlayedReaction(player: Player): Promise<void> {
 }
 
 export async function triggerDealingReaction(
-  player: Player, 
-  card: Card, 
-  currentIndex: number, 
+  player: Player,
+  card: Card,
+  currentIndex: number,
   totalCards: number
 ): Promise<void> {
   await chatService.triggerDealingReaction(player, card, currentIndex, totalCards);

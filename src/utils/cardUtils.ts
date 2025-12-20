@@ -465,14 +465,24 @@ export function findPlayableCards(hand: Card[], lastPlay: Play | null): Card[][]
           playable.push([cards[0]]);
         }
       } else if (lastPlay.type === CardType.PAIR && cards.length >= 2) {
-        const testPlay = canPlayCards(cards.slice(0, 2));
+        // 拆牌逻辑：如果有多张相同点数，可以拆出一对
+        const pairCards = cards.slice(0, 2);
+        const testPlay = canPlayCards(pairCards);
         if (testPlay && canBeat(testPlay, lastPlay)) {
-          playable.push(cards.slice(0, 2));
+          if (cards.length > 2) {
+            console.log(`🔄 [拆牌] 将${cards.length}张相同点数(rank=${cards[0].rank})拆成一对，用于压过上一手对子`);
+          }
+          playable.push(pairCards);
         }
       } else if (lastPlay.type === CardType.TRIPLE && cards.length >= 3) {
-        const testPlay = canPlayCards(cards.slice(0, 3));
+        // 拆牌逻辑：如果有多张相同点数，可以拆出三张
+        const tripleCards = cards.slice(0, 3);
+        const testPlay = canPlayCards(tripleCards);
         if (testPlay && canBeat(testPlay, lastPlay)) {
-          playable.push(cards.slice(0, 3));
+          if (cards.length > 3) {
+            console.log(`🔄 [拆牌] 将${cards.length}张相同点数(rank=${cards[0].rank})拆成三张，用于压过上一手三张`);
+          }
+          playable.push(tripleCards);
         }
       } else if (lastPlay.type === CardType.BOMB) {
         // 炸弹可以用更大的炸弹或墩来压

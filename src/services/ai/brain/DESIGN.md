@@ -166,6 +166,11 @@ brain.registerModule('new_module', new NewModule());
 **设计意图：**
 认知层提供"人类视角"的局面理解，帮助模块做出更符合直觉的决策。
 
+#### 意图识别 (Intent Recognition)
+- 识别用户消息中的战术指令（如：“等我”、“保我”、“我有大牌”）
+- 将自然语言映射为结构化的 `StrategicAction`
+- 为 MCTS 提供动态权重调整信号
+
 ## 扩展点设计
 
 ### 1. 新决策模块
@@ -331,28 +336,19 @@ class ModelTrainer {
 
 **组件：**
 
-1. **战术通信**
+1. **战术通信与意图解析**
 ```typescript
 class TacticalCommunication {
-  // 生成战术信号
-  generateSignal(intent: TacticalIntent): CommunicationMessage;
-  
-  // 解析队友信号
-  parseSignal(message: CommunicationMessage): TacticalInfo;
+  // 注入用户意图：MasterAIBrain 接收用户消息并调用 SharedCognitiveLayer.addIntent
+  // 解析用户意图：IntentAnalyzer 基于关键词/LLM 解析指令
+  // 战术建议：将解析出的 Intent 注入 HybridStrategy
 }
 ```
 
-2. **社交聊天**
-```typescript
-class SocialCommunication {
-  // 生成聊天消息（基于LLM）
-  async generateChat(
-    context: GameState,
-    personality: PersonalityConfig,
-    emotion: Emotion
-  ): Promise<CommunicationMessage>;
-}
-```
+2. **社交聊天与上下文历史 (Delta Buffer)**
+- **Bidirectional Communication**: AI 不仅能说话，还能“听”并记住用户的每一句话。
+- **Context Buffering**: `CommunicationScheduler` 维护 15 条历史记录，确保聊天连贯。
+- **Personality Driven**: 生成的回应严格遵循玩家性格预设。
 
 ## 性能优化
 

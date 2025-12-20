@@ -29,18 +29,18 @@ export interface LLMResponse {
 export class LLMService {
   private config: LLMConfig;
   private defaultConfig: LLMConfig = {
-    apiUrl: 'http://localhost:11434/api/chat',
+    apiUrl: 'http://localhost:11434/api/generate',
     model: 'qwen2.5:latest',
     temperature: 0.7,
     maxTokens: 2000,
     timeout: 60000,
     systemPrompt: ''
   };
-  
+
   constructor(config?: Partial<LLMConfig>) {
     this.config = { ...this.defaultConfig, ...config };
   }
-  
+
   /**
    * 调用LLM
    */
@@ -48,23 +48,23 @@ export class LLMService {
     const apiUrl = this.config.apiUrl || this.defaultConfig.apiUrl!;
     const model = this.config.model || this.defaultConfig.model!;
     const timeout = request.maxTokens ? request.maxTokens * 100 : this.config.timeout || 60000;
-    
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
-      
+
       // 构建消息
       const messages: any[] = [];
-      
+
       // 系统提示词
       const systemPrompt = request.systemPrompt || this.config.systemPrompt;
       if (systemPrompt) {
         messages.push({ role: 'system', content: systemPrompt });
       }
-      
+
       // 用户提示词
       messages.push({ role: 'user', content: request.prompt });
-      
+
       // 构建请求体
       const requestBody: any = {
         model,
@@ -75,7 +75,7 @@ export class LLMService {
           num_predict: request.maxTokens || this.config.maxTokens || 2000
         }
       };
-      
+
       const startTime = Date.now();
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -86,25 +86,25 @@ export class LLMService {
         signal: controller.signal
       });
       const endTime = Date.now();
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`LLM API错误: ${response.status} ${errorText}`);
       }
-      
+
       const data = await response.json();
       const latency = endTime - startTime;
-      
+
       // 解析响应
-      const content = data.message?.content || 
-                     data.choices?.[0]?.message?.content || 
-                     data.content || 
-                     data.text || 
-                     data.response || 
-                     '';
-      
+      const content = data.message?.content ||
+        data.choices?.[0]?.message?.content ||
+        data.content ||
+        data.text ||
+        data.response ||
+        '';
+
       return {
         content: content.trim(),
         tokens: data.eval_count || data.prompt_eval_count || undefined,
@@ -118,7 +118,7 @@ export class LLMService {
       throw error;
     }
   }
-  
+
   /**
    * 检查服务是否可用
    */
@@ -133,7 +133,7 @@ export class LLMService {
       return false;
     }
   }
-  
+
   /**
    * 获取可用模型列表
    */
@@ -148,7 +148,7 @@ export class LLMService {
     }
     return [];
   }
-  
+
   /**
    * 更新配置
    */

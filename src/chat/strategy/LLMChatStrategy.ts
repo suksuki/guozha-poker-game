@@ -13,7 +13,7 @@ export class LLMChatStrategy implements IChatStrategy {
   readonly name = 'llm';
   readonly description = '基于大语言模型的智能聊天策略';
 
-  constructor(private config: LLMChatConfig, private fallbackStrategy?: IChatStrategy) {}
+  constructor(private config: LLMChatConfig, private fallbackStrategy?: IChatStrategy) { }
 
   /**
    * 获取当前语言要求（用于Prompt）
@@ -23,14 +23,14 @@ export class LLMChatStrategy implements IChatStrategy {
     if (this.config.enableMultilingual === false) {
       return '使用中文回复';
     }
-    
+
     const currentLang = i18n.language || 'zh-CN';
-    
+
     // 如果当前语言是中文，使用中文
     if (currentLang.startsWith('zh')) {
       return '使用中文回复';
     }
-    
+
     // 根据语言代码返回对应的语言要求
     const langMap: Record<string, string> = {
       'en': 'Use English to reply',
@@ -41,18 +41,18 @@ export class LLMChatStrategy implements IChatStrategy {
       'ko': '한국어로 답변하세요',
       'ko-KR': '한국어로 답변하세요',
     };
-    
+
     // 尝试精确匹配
     if (langMap[currentLang]) {
       return langMap[currentLang];
     }
-    
+
     // 尝试语言代码前缀匹配
     const langPrefix = currentLang.split('-')[0];
     if (langMap[langPrefix]) {
       return langMap[langPrefix];
     }
-    
+
     // 默认使用英文
     return `Use ${currentLang} language to reply`;
   }
@@ -66,7 +66,7 @@ export class LLMChatStrategy implements IChatStrategy {
     if (!content) {
       return null;
     }
-    
+
     return {
       playerId: player.id,
       playerName: player.name,
@@ -86,7 +86,7 @@ export class LLMChatStrategy implements IChatStrategy {
     if (!content) {
       return null;
     }
-    
+
     return {
       playerId: player.id,
       playerName: player.name,
@@ -104,7 +104,7 @@ export class LLMChatStrategy implements IChatStrategy {
     const prompt = this.buildTauntPrompt(player, targetPlayer, context);
     const content = await this.callLLMAPI(prompt);
     if (!content) return null;
-    
+
     return {
       playerId: player.id,
       playerName: player.name,
@@ -126,7 +126,7 @@ export class LLMChatStrategy implements IChatStrategy {
     const eventInfo = this.buildEventInfo(eventType, context);
     const playerInfo = this.buildPlayerInfo(player, context);
     const langRequirement = this.getLanguageRequirement();
-    
+
     return `${this.config.systemPrompt || ''}
 
 ## 语言要求
@@ -166,7 +166,7 @@ ${eventInfo}
     const playerInfo = this.buildPlayerInfo(player, context);
     const targetInfo = targetPlayer ? this.buildPlayerInfo(targetPlayer, context) : '';
     const langRequirement = this.getLanguageRequirement();
-    
+
     return `${this.config.systemPrompt || ''}
 
 ## 语言要求
@@ -200,10 +200,10 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
     if (!context?.fullGameState) {
       return '游戏信息：暂无';
     }
-    
+
     const state = context.fullGameState;
     const lines: string[] = [];
-    
+
     // 基本规则
     lines.push('游戏规则：过炸/争上游');
     lines.push(`- 每人一副完整的牌（52张）`);
@@ -212,7 +212,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
     lines.push(`- 墩的计分：7张=1墩，8张=2墩，9张=4墩，10张=8墩（翻倍）`);
     lines.push(`- 出墩时，每个墩从每个其他玩家扣除30分，出墩玩家获得相应分数`);
     lines.push(`- 先出完牌的玩家获胜`);
-    
+
     // 游戏状态
     lines.push(`\n当前游戏状态：`);
     lines.push(`- 玩家数量：${state.playerCount}人`);
@@ -220,15 +220,15 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
     lines.push(`- 当前轮次累计分数：${state.roundScore}分`);
     lines.push(`- 游戏总分数：${state.totalScore}分`);
     lines.push(`- 当前出牌玩家：玩家${state.currentPlayerIndex}`);
-    
+
     // 最近出牌
     if (state.lastPlay) {
-    const lastPlayer = state.players.find((p: any) => p.id === state.lastPlayPlayerIndex);
+      const lastPlayer = state.players.find((p: any) => p.id === state.lastPlayPlayerIndex);
       lines.push(`- 上家出牌：${lastPlayer?.name || '未知'} 出了 ${this.formatPlay(state.lastPlay)}`);
     } else {
       lines.push(`- 上家出牌：无（新轮次开始）`);
     }
-    
+
     // 当前轮次出牌记录
     if (state.currentRoundPlays && state.currentRoundPlays.length > 0) {
       lines.push(`\n当前轮次出牌记录：`);
@@ -237,7 +237,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         lines.push(`${index + 1}. ${playPlayer?.name || '未知'}：${this.formatPlayRecord(play)}`);
       });
     }
-    
+
     return lines.join('\n');
   }
 
@@ -246,17 +246,17 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
    */
   private buildPlayerInfo(player: Player, context?: ChatContext): string {
     const lines: string[] = [];
-    
+
     lines.push(`玩家名称：${player.name}`);
     lines.push(`玩家类型：${player.type === 'human' ? '真人' : 'AI'}`);
-    
+
     if (player.voiceConfig) {
       lines.push(`方言：${player.voiceConfig.dialect}`);
       lines.push(`性别：${player.voiceConfig.gender === 'male' ? '男' : '女'}`);
     }
-    
+
     lines.push(`手牌数量：${player.hand.length}张`);
-    
+
     // 手牌详情（只显示给当前玩家）
     if (context?.currentPlayer?.id === player.id) {
       const handInfo = this.formatHand(player.hand);
@@ -265,27 +265,27 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
       // 其他玩家只显示手牌数量
       lines.push(`手牌详情：未知（只能看到手牌数量）`);
     }
-    
+
     lines.push(`当前得分：${player.score || 0}分`);
-    
+
     if (player.finishedRank !== null && player.finishedRank !== undefined) {
       lines.push(`出完牌名次：第${player.finishedRank + 1}名`);
     } else {
       lines.push(`出完牌名次：未出完`);
     }
-    
+
     // 所有玩家情况
     if (context?.allPlayers && context.allPlayers.length > 0) {
       lines.push(`\n所有玩家情况：`);
       context.allPlayers.forEach(p => {
         const isCurrent = p.id === player.id ? '（当前玩家）' : '';
-        const finished = p.finishedRank !== null && p.finishedRank !== undefined 
-          ? `，已出完（第${p.finishedRank + 1}名）` 
+        const finished = p.finishedRank !== null && p.finishedRank !== undefined
+          ? `，已出完（第${p.finishedRank + 1}名）`
           : '';
         lines.push(`- ${p.name}${isCurrent}：手牌${p.hand.length}张，得分${p.score || 0}分${finished}`);
       });
     }
-    
+
     return lines.join('\n');
   }
 
@@ -295,7 +295,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
   private buildEventInfo(eventType: ChatEventType, context?: ChatContext): string {
     const lines: string[] = [];
     const eventData = context?.eventData || {};
-    
+
     switch (eventType) {
       case ChatEventType.RANDOM:
         lines.push('事件类型：随机闲聊');
@@ -378,7 +378,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
       default:
         lines.push(`事件类型：${eventType}`);
     }
-    
+
     return lines.join('\n');
   }
 
@@ -390,11 +390,10 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
    */
   private async checkAvailableModels(): Promise<string[]> {
     try {
-      // 从配置的 API URL 中提取基础 URL
-      const apiUrl = this.config.apiUrl || 'http://localhost:11434/api/chat';
-      const baseUrl = apiUrl.replace(/\/api\/chat$/, ''); // 移除 /api/chat 后缀
+      const apiUrl = this.config.apiUrl || 'http://localhost:11434/api/generate';
+      const baseUrl = apiUrl.replace(/\/api\/(generate|chat)$/, '');
       const tagsUrl = `${baseUrl}/api/tags`;
-      
+
       const response = await fetch(tagsUrl);
       if (response.ok) {
         const data = await response.json();
@@ -407,16 +406,16 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
   }
 
   private async callLLMAPI(prompt: string): Promise<string> {
-    const apiUrl = this.config.apiUrl || 'http://localhost:11434/api/chat';
+    const apiUrl = this.config.apiUrl || 'http://localhost:11434/api/generate';
     const timeout = this.config.timeout || 60000; // 默认60秒超时
-    
+
     // 如果模型找不到，先检查可用模型
     const availableModels = await this.checkAvailableModels();
     let modelToUse = this.config.model || 'qwen2:0.5b';
-    
+
     if (availableModels.length > 0 && !availableModels.includes(modelToUse)) {
       // 尝试自动选择聊天模型（优先选择包含chat或qwen的模型）
-      const chatModels = availableModels.filter(m => 
+      const chatModels = availableModels.filter(m =>
         m.includes('chat') || m.includes('qwen') || m.includes('deepseek')
       );
       if (chatModels.length > 0) {
@@ -426,13 +425,13 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         modelToUse = availableModels[0];
       }
     }
-    
+
     // 添加调试日志
-    
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
-      
+
       // 构建请求体 - 使用Ollama原生API格式（与Python代码一致）
       const messages: any[] = [];
       // 如果有system prompt，添加到messages中
@@ -440,7 +439,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         messages.push({ role: 'system', content: this.config.systemPrompt });
       }
       messages.push({ role: 'user', content: prompt });
-      
+
       // 根据Python代码，Ollama API格式：{ model, messages, stream }
       // 参数直接在顶层，不使用options对象
       const requestBody: any = {
@@ -448,19 +447,19 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         messages: messages,
         stream: false // Ollama支持流式输出，但我们这里不需要
       };
-      
+
       // 如果Ollama支持，可以添加这些参数（但根据Python代码，似乎不需要）
       // 先不添加，看看是否能工作
-      
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
-      
+
       // Ollama通常不需要API Key，但如果配置了也加上
       if (this.config.apiKey) {
         headers['Authorization'] = `Bearer ${this.config.apiKey}`;
       }
-      
+
       const startTime = Date.now();
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -469,10 +468,10 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         signal: controller.signal
       });
       const endTime = Date.now();
-      
+
       clearTimeout(timeoutId);
-      
-      
+
+
       if (!response.ok) {
         const errorText = await response.text();
         // 尝试解析错误信息
@@ -483,22 +482,22 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         }
         return '';
       }
-      
+
       const data = await response.json();
-      
+
       // Ollama原生API格式：data.message.content
       // 也兼容OpenAI兼容格式和其他可能的格式
       const content = data.message?.content ||  // Ollama原生格式
-                     data.choices?.[0]?.message?.content ||  // OpenAI兼容格式
-                     data.content || 
-                     data.text || 
-                     data.response ||
-                     '';
-      
+        data.choices?.[0]?.message?.content ||  // OpenAI兼容格式
+        data.content ||
+        data.text ||
+        data.response ||
+        '';
+
       if (!content) {
       } else {
       }
-      
+
       return this.parseResponse(content);
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -518,20 +517,20 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
   private parseResponse(response: string): string {
     // 移除可能的标记和多余内容
     let content = response.trim();
-    
+
     // 移除可能的引号
     if ((content.startsWith('"') && content.endsWith('"')) ||
-        (content.startsWith("'") && content.endsWith("'"))) {
+      (content.startsWith("'") && content.endsWith("'"))) {
       content = content.slice(1, -1);
     }
-    
+
     // 移除可能的标记
     content = content.replace(/^(聊天内容|对骂内容|内容)[：:]\s*/i, '');
     content = content.replace(/^["'「」『』【】]\s*/, '');
     content = content.replace(/\s*["'「」『』【】]$/, '');
-    
+
     content = content.trim();
-    
+
     // 强制长度限制：最多20字（严格遵守）
     if (content.length > 20) {
       // 尝试在标点符号处截断
@@ -548,7 +547,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         content = content.slice(0, -1) + '。';
       }
     }
-    
+
     // 确保文本有合适的标点符号（如果超过一定长度）
     if (content.length > 10 && !/[。！？]$/.test(content)) {
       // 如果最后是逗号、分号，替换为句号
@@ -559,7 +558,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         content = content + '。';
       }
     }
-    
+
     return content;
   }
 
@@ -568,7 +567,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
    */
   private formatHand(cards: Card[]): string {
     if (cards.length === 0) return '无';
-    
+
     // 按点数分组
     const groups = new Map<number, Card[]>();
     cards.forEach(card => {
@@ -578,7 +577,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
       }
       groups.get(rank)!.push(card);
     });
-    
+
     const parts: string[] = [];
     Array.from(groups.entries())
       .sort((a, b) => a[0] - b[0])
@@ -587,7 +586,7 @@ ${targetInfo ? `## 目标玩家信息\n${targetInfo}\n` : ''}
         const rankName = this.formatRank(rank);
         parts.push(`${rankName}×${count}`);
       });
-    
+
     return parts.join('，');
   }
 

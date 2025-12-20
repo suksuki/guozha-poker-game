@@ -59,6 +59,18 @@ export const useChatStore = defineStore('chat', () => {
     if (messages.value.length > maxMessages) {
       messages.value.shift();
     }
+
+    // [新增] 如果是人类玩家的消息，转发给 AI Brain（带上游戏状态上下文）
+    const gameStore = useGameStore();
+    const humanPlayer = gameStore.humanPlayer;
+    if (humanPlayer && message.playerId === humanPlayer.id && !message.intent?.includes('system')) {
+      if (gameStore.game) {
+        // 使用 (gameStore.game as any) 规避 Pinia 响应式包装导致的类型不匹配
+        aiBrainIntegration.sendUserMessage(message.playerId, message.content, gameStore.game as any).catch(err => {
+          console.error('[ChatStore] 转发消息给 AI Brain 失败:', err);
+        });
+      }
+    }
   };
 
   /**
@@ -66,13 +78,13 @@ export const useChatStore = defineStore('chat', () => {
    */
   const initializeAIBrainListener = () => {
     const audioService = getMultiChannelAudioService();
-    
+
     aiBrainIntegration.onCommunicationMessage((event) => {
       // 获取玩家名称（从gameStore获取）
       const gameStore = useGameStore();
       const player = gameStore.players.find(p => p.id === event.playerId);
       const playerName = player ? player.name : `AI玩家${event.playerId}`;
-      
+
       const newMessage: ChatMessage = {
         id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         playerId: event.playerId,
@@ -82,16 +94,16 @@ export const useChatStore = defineStore('chat', () => {
         emotion: event.emotion,
         timestamp: event.timestamp
       };
-      
+
       // 异步播放TTS语音（根据设置决定是否播放）
       const settingsStore = useSettingsStore();
       const voiceSettings = settingsStore.voicePlaybackSettings;
-      
+
       // 检查是否应该播放（系统播报或玩家聊天）
       const isSystemMessage = event.intent === 'system' || event.intent === 'announcement';
       const shouldPlay = (isSystemMessage && voiceSettings.enableSystemAnnouncements) ||
-                        (!isSystemMessage && voiceSettings.enablePlayerChat);
-      
+        (!isSystemMessage && voiceSettings.enablePlayerChat);
+
       if (event.content && event.content.trim() && voiceSettings.enabled && shouldPlay) {
         // 根据intent确定优先级：taunt=3, tactical_signal=2, social_chat=1, system=4
         const priorityMap: Record<string, number> = {
@@ -103,7 +115,7 @@ export const useChatStore = defineStore('chat', () => {
           'celebrate': 2
         };
         const priority = priorityMap[event.intent] || 1;
-        
+
         // 使用TTS播报服务（等待音频返回后再显示文字）
         Promise.all([
           import('../types/channel'),
@@ -114,7 +126,7 @@ export const useChatStore = defineStore('chat', () => {
           // 使用玩家ID模7来分配，确保在7个玩家声道中均匀分布
           const channel = (ChannelType.PLAYER_1 + (event.playerId % 7)) as ChannelType;
           const ttsService = getTTSPlaybackService();
-          
+
           // 聊天TTS（在音频开始播放时显示气泡，不需要等待播放完成）
           let bubbleDisplayed = false;
           const displayBubble = () => {
@@ -122,18 +134,18 @@ export const useChatStore = defineStore('chat', () => {
               bubbleDisplayed = true;
               addMessage(newMessage);
               activeBubbles.value.set(event.playerId, newMessage);
-              
+
               setTimeout(() => {
                 activeBubbles.value.delete(event.playerId);
               }, 3000);
             }
           };
-          
+
           // 设置超时，确保即使TTS失败也能显示气泡
           const timeoutId = setTimeout(() => {
             displayBubble();
           }, 5000);
-          
+
           ttsService.speak(event.content, {
             timeout: 5000,
             fallbackTimeout: 5000,
@@ -163,7 +175,7 @@ export const useChatStore = defineStore('chat', () => {
           // 如果TTS服务不可用，直接显示消息和气泡
           addMessage(newMessage);
           activeBubbles.value.set(event.playerId, newMessage);
-          
+
           setTimeout(() => {
             activeBubbles.value.delete(event.playerId);
           }, 3000);
@@ -172,7 +184,7 @@ export const useChatStore = defineStore('chat', () => {
         // 不播放TTS，直接显示消息和气泡
         addMessage(newMessage);
         activeBubbles.value.set(event.playerId, newMessage);
-        
+
         setTimeout(() => {
           activeBubbles.value.delete(event.playerId);
         }, 3000);
@@ -192,7 +204,7 @@ export const useChatStore = defineStore('chat', () => {
    */
   const getLatestMessageByPlayer = (playerId: number): ChatMessage | null => {
     const playerMessages = messages.value.filter(msg => msg.playerId === playerId);
-    return playerMessages.length > 0 
+    return playerMessages.length > 0
       ? playerMessages[playerMessages.length - 1]
       : null;
   };

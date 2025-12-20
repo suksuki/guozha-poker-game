@@ -98,14 +98,14 @@ export class RoundScheduler {
    */
   scheduleNextTurn(playerIndex?: number, priority: number = 0): void {
     const state = this.config.getGameState();
-    
+
     // 快速验证
     if (state.status !== 'playing' || state.roundNumber !== this.currentRoundNumber) {
       return;
     }
 
     const targetPlayerIndex = playerIndex ?? state.currentPlayerIndex;
-    
+
     // 防止重复调度同一玩家
     if (targetPlayerIndex === this.lastProcessedPlayerIndex && this.isProcessing) {
       return;
@@ -130,9 +130,9 @@ export class RoundScheduler {
   private insertTaskByPriority(task: ScheduleTask): void {
     // 检查是否已有相同类型的任务（避免重复）
     const existingIndex = this.taskQueue.findIndex(
-      t => t.type === task.type && 
-           t.roundNumber === task.roundNumber &&
-           (task.type !== 'next_turn' || t.targetPlayerIndex === task.targetPlayerIndex)
+      t => t.type === task.type &&
+        t.roundNumber === task.roundNumber &&
+        (task.type !== 'next_turn' || t.targetPlayerIndex === task.targetPlayerIndex)
     );
 
     if (existingIndex >= 0) {
@@ -213,9 +213,9 @@ export class RoundScheduler {
     // 再次检查状态，确保轮次号仍然匹配（防止在等待期间轮次已切换）
     const latestState = this.config.getGameState();
     const latestRound = this.getCurrentRound(latestState);
-    if (latestState.status !== 'playing' || 
-        latestState.roundNumber !== task.roundNumber ||
-        latestRound?.roundNumber !== task.roundNumber) {
+    if (latestState.status !== 'playing' ||
+      latestState.roundNumber !== task.roundNumber ||
+      latestRound?.roundNumber !== task.roundNumber) {
       return;
     }
 
@@ -293,104 +293,104 @@ export class RoundScheduler {
     if (this.isProcessingPlayCompleted) {
       return;
     }
-    
+
     // 检查是否是相同的调用（在短时间内）
-    if (this.lastProcessedPlayCompleted && 
-        this.lastProcessedPlayCompleted.playerIndex === playerIndex &&
-        this.lastProcessedPlayCompleted.roundNumber === round.roundNumber &&
-        now - this.lastProcessedPlayCompleted.timestamp < 100) {
+    if (this.lastProcessedPlayCompleted &&
+      this.lastProcessedPlayCompleted.playerIndex === playerIndex &&
+      this.lastProcessedPlayCompleted.roundNumber === round.roundNumber &&
+      now - this.lastProcessedPlayCompleted.timestamp < 100) {
       return;
     }
-    
+
     this.isProcessingPlayCompleted = true;
     this.lastProcessedPlayCompleted = { playerIndex, roundNumber: round.roundNumber, timestamp: now };
-    
+
     try {
       const state = this.config.getGameState();
-      
+
       // 检查游戏是否已经结束
       if (state.status !== 'playing') {
         return;
       }
-      
+
       const currentRoundNumber = this.getCurrentRoundNumber(state);
-      
+
       // 验证轮次号
       if (currentRoundNumber !== round.roundNumber || currentRoundNumber !== this.currentRoundNumber) {
         return;
       }
-      
+
       // 确保使用最新的 Round 对象（从 state 中获取，而不是传入的 round）
       // 因为传入的 round 可能不是最新的
       const latestRound = this.getCurrentRound(state) || round;
-    
-    // ========== 检查是否在接风轮询中 ==========
-    // 如果在接风轮询中，玩家出牌后应该结束接风轮询，继续正常流程
-    if (latestRound.isTakeoverRoundActive()) {
-      // 玩家出牌了，结束接风轮询
-      latestRound.endTakeoverRound();
-      
-      // 更新状态（结束接风轮）
+
+      // ========== 检查是否在接风轮询中 ==========
+      // 如果在接风轮询中，玩家出牌后应该结束接风轮询，继续正常流程
+      if (latestRound.isTakeoverRoundActive()) {
+        // 玩家出牌了，结束接风轮询
+        latestRound.endTakeoverRound();
+
+        // 更新状态（结束接风轮）
+        onStateUpdate(prev => {
+          if (prev.currentRoundIndex < 0 || prev.currentRoundIndex >= prev.rounds.length) {
+            return prev;
+          }
+          const updatedRounds = [...prev.rounds];
+          updatedRounds[prev.currentRoundIndex] = latestRound;
+          return {
+            ...prev,
+            rounds: updatedRounds
+          };
+        });
+      }
+
+      // 1. 计算下一个玩家（使用最新的玩家状态，从state中获取）
+      const latestPlayers = state.players || players;
+      const nextPlayerIndex = findNextActivePlayer(playerIndex, latestPlayers, playerCount);
+
+      // 2. 检查玩家是否刚出完牌
+      const currentPlayer = latestPlayers[playerIndex];
+      const playerJustFinished = currentPlayer && currentPlayer.hand.length === 0;
+
+      // 3. 如果玩家刚出完牌，开始接风轮询（不立即完成接风）
+      // 接风轮询会在下一个玩家要不起时开始，确保所有活跃下家都被轮询
+      // 如果所有活跃下家都吃不起，接风轮询会回到出牌玩家，然后结束本轮
+
+      // 4. 更新状态（只更新rounds，currentPlayerIndex由playNextTurn统一处理）
       onStateUpdate(prev => {
         if (prev.currentRoundIndex < 0 || prev.currentRoundIndex >= prev.rounds.length) {
           return prev;
         }
+
         const updatedRounds = [...prev.rounds];
         updatedRounds[prev.currentRoundIndex] = latestRound;
+
         return {
           ...prev,
           rounds: updatedRounds
+          // 注意：不在这里更新currentPlayerIndex，由playNextTurn统一处理
         };
       });
-    }
-    
-    // 1. 计算下一个玩家（使用最新的玩家状态，从state中获取）
-    const latestPlayers = state.players || players;
-    const nextPlayerIndex = findNextActivePlayer(playerIndex, latestPlayers, playerCount);
-    
-    // 2. 检查玩家是否刚出完牌
-    const currentPlayer = latestPlayers[playerIndex];
-    const playerJustFinished = currentPlayer && currentPlayer.hand.length === 0;
-    
-    // 3. 如果玩家刚出完牌，开始接风轮询（不立即完成接风）
-    // 接风轮询会在下一个玩家要不起时开始，确保所有活跃下家都被轮询
-    // 如果所有活跃下家都吃不起，接风轮询会回到出牌玩家，然后结束本轮
-    
-    // 4. 更新状态（只更新rounds，currentPlayerIndex由playNextTurn统一处理）
-    onStateUpdate(prev => {
-      if (prev.currentRoundIndex < 0 || prev.currentRoundIndex >= prev.rounds.length) {
-        return prev;
+
+      // 5. 不在 onPlayCompleted 中检查轮次结束！
+      // 原因：玩家刚出完牌时，其他玩家还没有机会要不起，此时不应该判断轮次结束
+      // 轮次结束判断应该在 onPassCompleted 中进行，确保所有玩家都被轮询过
+      // 如果在这里检查，可能会因为状态不一致而错误地提前结束轮次
+
+      // 6. 继续下一家：无论下一个玩家是什么类型，都通知Game处理
+      // 注意：playNextTurn不依赖传入的state，它直接从game对象获取最新状态
+      // 但为了确保状态一致，在调用前重新获取最新状态
+      if (nextPlayerIndex !== null && this.onNextTurnCallback) {
+        // 重新获取最新状态，确保状态已更新
+        const latestState = this.config.getGameState();
+        await this.onNextTurnCallback(nextPlayerIndex, latestState);
       }
-      
-      const updatedRounds = [...prev.rounds];
-      updatedRounds[prev.currentRoundIndex] = latestRound;
-      
-      return {
-        ...prev,
-        rounds: updatedRounds
-        // 注意：不在这里更新currentPlayerIndex，由playNextTurn统一处理
-      };
-    });
-    
-    // 5. 不在 onPlayCompleted 中检查轮次结束！
-    // 原因：玩家刚出完牌时，其他玩家还没有机会要不起，此时不应该判断轮次结束
-    // 轮次结束判断应该在 onPassCompleted 中进行，确保所有玩家都被轮询过
-    // 如果在这里检查，可能会因为状态不一致而错误地提前结束轮次
-    
-    // 6. 继续下一家：无论下一个玩家是什么类型，都通知Game处理
-    // 注意：playNextTurn不依赖传入的state，它直接从game对象获取最新状态
-    // 但为了确保状态一致，在调用前重新获取最新状态
-    if (nextPlayerIndex !== null && this.onNextTurnCallback) {
-      // 重新获取最新状态，确保状态已更新
-      const latestState = this.config.getGameState();
-      await this.onNextTurnCallback(nextPlayerIndex, latestState);
-    }
     } finally {
       this.isProcessingPlayCompleted = false;
     }
   }
-  
-  
+
+
   /**
    * 在接风轮询中查找下一个玩家（包括已出完牌的出牌玩家）
    * 用于接风轮询，确保能够回到出牌玩家，即使出牌玩家已经出完牌
@@ -405,34 +405,34 @@ export class RoundScheduler {
     if (endPlayerIndex === null) {
       return findNextActivePlayer(startIndex, players, playerCount);
     }
-    
-    // 接风轮询：下一个玩家是 (startIndex + 1) % playerCount
-    let nextPlayerIndex = (startIndex + 1) % playerCount;
+
+    // 接风轮询：下一个玩家是 (startIndex - 1 + playerCount) % playerCount (逆时针/Counter-Clockwise)
+    let nextPlayerIndex = (startIndex - 1 + playerCount) % playerCount;
     let attempts = 0;
-    
+
     // 如果下一个玩家是出牌玩家，直接返回（即使出牌玩家已经出完牌）
     if (nextPlayerIndex === endPlayerIndex) {
       return nextPlayerIndex;
     }
-    
+
     // 否则，跳过已出完牌的玩家，但不要跳过出牌玩家
-    while (players[nextPlayerIndex].hand.length === 0 && 
-           nextPlayerIndex !== endPlayerIndex && 
-           attempts < playerCount) {
-      nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
+    while (players[nextPlayerIndex].hand.length === 0 &&
+      nextPlayerIndex !== endPlayerIndex &&
+      attempts < playerCount) {
+      nextPlayerIndex = (nextPlayerIndex - 1 + playerCount) % playerCount;
       attempts++;
     }
-    
+
     // 如果找到了出牌玩家，返回它（即使已经出完牌）
     if (nextPlayerIndex === endPlayerIndex) {
       return nextPlayerIndex;
     }
-    
+
     // 如果所有玩家都出完了（除了出牌玩家），返回出牌玩家
     if (attempts >= playerCount - 1) {
       return endPlayerIndex;
     }
-    
+
     return nextPlayerIndex;
   }
 
@@ -449,36 +449,36 @@ export class RoundScheduler {
   ): Promise<void> {
     const state = this.config.getGameState();
     const currentRoundNumber = this.getCurrentRoundNumber(state);
-    
+
     // 验证轮次号
     if (currentRoundNumber !== round.roundNumber || currentRoundNumber !== this.currentRoundNumber) {
       return;
     }
-    
+
     // 使用最新的 Round 对象
     const latestRound = this.getCurrentRound(state) || round;
-    
+
     // 使用最新的玩家状态
     const latestPlayers = state.players || players;
     const lastPlayPlayerIndex = latestRound.getLastPlayPlayerIndex();
-    
+
     // ========== 接风轮询逻辑 ==========
     // 玩家要不起后，立即开始接风轮询
-    
+
     // 检查是否已经在接风轮询中
     if (latestRound.isTakeoverRoundActive()) {
       // 已经在接风轮询中，检查接风轮询是否完成
       // 重要：接风轮询完成的条件是：当前要不起的玩家是出牌玩家（轮询回到了出牌玩家）
       const takeoverEndPlayerIndex = latestRound.getTakeoverEndPlayerIndex();
       const isPollingComplete = takeoverEndPlayerIndex !== null && playerIndex === takeoverEndPlayerIndex;
-      
+
       if (isPollingComplete) {
         // 接风轮询完成：回到出牌玩家，判断接风
         // 重要：此时不应该调用 onNextTurnCallback，而是直接调用 onRoundEnd 结束本轮并开始新轮次
         // 注意：接风玩家的决定交给Game处理（通过findNextPlayerForNewRound），这里只负责判断轮询完成
-        
+
         const lastPlayPlayer = lastPlayPlayerIndex !== null ? latestPlayers[lastPlayPlayerIndex] : null;
-        
+
         // 临时日志：接风轮询完成
         console.log('[接风轮询] 轮询完成，回到出牌玩家');
         console.log('[接风轮询] 出牌玩家索引:', lastPlayPlayerIndex);
@@ -490,14 +490,14 @@ export class RoundScheduler {
           handCount: p.hand.length,
           teamId: p.teamId
         })));
-        
+
         // 结束接风轮
         latestRound.endTakeoverRound();
-        
+
         // 结束本轮，开始新轮次
         if (lastPlayPlayerIndex !== null) {
           const savedWinnerIndex = lastPlayPlayerIndex;
-          
+
           // 更新状态（只更新 rounds，不更新 currentPlayerIndex）
           // currentPlayerIndex 应该在 onRoundEnd 创建新轮次后，由 playNextTurn 更新
           onStateUpdate(prev => {
@@ -512,7 +512,7 @@ export class RoundScheduler {
               // 注意：不在这里更新 currentPlayerIndex，由 onRoundEnd -> playNextTurn 统一处理
             };
           });
-          
+
           // 等待正在处理的出牌完成
           if (latestRound.hasProcessingPlay()) {
             try {
@@ -521,7 +521,7 @@ export class RoundScheduler {
               // 继续执行
             }
           }
-          
+
           // 重要：直接调用 onRoundEnd，传入null让Game决定接风玩家
           // Game的onRoundEnd会使用findNextPlayerForNewRound来决定下一个玩家（考虑队友优先）
           // onRoundEnd 会创建新轮次，并调用 playNextTurn(actualNextPlayerIndex)
@@ -536,17 +536,17 @@ export class RoundScheduler {
         // 接风轮询还未完成，检查下一个玩家
         // 重要：必须轮询回到出牌玩家才算完成，即使出牌玩家已经出完牌
         const nextPlayerIndex = this.findNextPlayerInTakeoverPolling(
-          playerIndex, 
-          latestPlayers, 
-          playerCount, 
+          playerIndex,
+          latestPlayers,
+          playerCount,
           lastPlayPlayerIndex
         );
-        
+
         // 检查下一个玩家是否是出牌玩家（轮询完成）
         if (nextPlayerIndex !== null && lastPlayPlayerIndex !== null && nextPlayerIndex === lastPlayPlayerIndex) {
           // 轮询回到出牌玩家，接风轮询完成
           const lastPlayPlayer = latestPlayers[lastPlayPlayerIndex];
-          
+
           // 如果出牌玩家已经出完牌，不需要让出牌玩家要不起，直接完成接风轮询
           if (lastPlayPlayer && lastPlayPlayer.hand.length === 0) {
             // 临时日志：轮询回到出牌玩家且出牌玩家已出完
@@ -559,10 +559,10 @@ export class RoundScheduler {
               handCount: p.hand.length,
               teamId: p.teamId
             })));
-            
+
             // 结束接风轮
             latestRound.endTakeoverRound();
-            
+
             // 更新状态
             onStateUpdate(prev => {
               if (prev.currentRoundIndex < 0 || prev.currentRoundIndex >= prev.rounds.length) {
@@ -575,7 +575,7 @@ export class RoundScheduler {
                 rounds: updatedRounds
               };
             });
-            
+
             // 等待正在处理的出牌完成
             if (latestRound.hasProcessingPlay()) {
               try {
@@ -584,7 +584,7 @@ export class RoundScheduler {
                 // 继续执行
               }
             }
-            
+
             // 直接调用 onRoundEnd，传入null让Game决定接风玩家（考虑队友优先）
             // Game的onRoundEnd会使用findNextPlayerForNewRound来决定下一个玩家
             console.log('[接风轮询] 调用onRoundEnd，传入savedWinnerIndex:', lastPlayPlayerIndex);
@@ -603,7 +603,7 @@ export class RoundScheduler {
             return;
           }
         }
-        
+
         // 继续接风轮询下一个玩家（跳过已出完牌的玩家，但不要跳过出牌玩家）
         if (nextPlayerIndex !== null && this.onNextTurnCallback) {
           const latestState = this.config.getGameState();
@@ -617,7 +617,7 @@ export class RoundScheduler {
         // 如果没有上家出牌，不需要接风轮询
         // 直接继续下一个玩家（正常轮）
         const nextPlayerIndex = findNextActivePlayer(playerIndex, latestPlayers, playerCount);
-        
+
         onStateUpdate(prev => {
           if (prev.currentRoundIndex < 0 || prev.currentRoundIndex >= prev.rounds.length) {
             return prev;
@@ -629,20 +629,20 @@ export class RoundScheduler {
             rounds: updatedRounds
           };
         });
-        
+
         if (nextPlayerIndex !== null && this.onNextTurnCallback) {
           const latestState = this.config.getGameState();
           await this.onNextTurnCallback(nextPlayerIndex, latestState);
         }
         return;
       }
-      
+
       // 在开始接风轮询前，检查是否所有剩余玩家都要不起
       // 如果是，直接判断接风，不需要轮询
       const lastPlay = latestRound.getLastPlay();
       if (lastPlay && lastPlayPlayerIndex !== null) {
         const lastPlayPlayer = latestPlayers[lastPlayPlayerIndex];
-        
+
         // 检查所有剩余玩家（除了出牌玩家和当前要不起的玩家）是否都要不起
         let allPass = true;
         for (let i = 0; i < latestPlayers.length; i++) {
@@ -657,7 +657,7 @@ export class RoundScheduler {
             break;
           }
         }
-        
+
         // 如果所有剩余玩家都要不起，直接判断接风
         if (allPass) {
           // 临时日志：所有玩家都要不起
@@ -670,12 +670,12 @@ export class RoundScheduler {
             handCount: p.hand.length,
             teamId: p.teamId
           })));
-          
+
           // 结束接风轮（如果正在接风轮询中）
           if (latestRound.isTakeoverRoundActive()) {
             latestRound.endTakeoverRound();
           }
-          
+
           // 更新状态
           onStateUpdate(prev => {
             if (prev.currentRoundIndex < 0 || prev.currentRoundIndex >= prev.rounds.length) {
@@ -688,7 +688,7 @@ export class RoundScheduler {
               rounds: updatedRounds
             };
           });
-          
+
           // 等待正在处理的出牌完成
           if (latestRound.hasProcessingPlay()) {
             try {
@@ -697,7 +697,7 @@ export class RoundScheduler {
               // 继续执行
             }
           }
-          
+
           // 直接调用 onRoundEnd，传入null让Game决定接风玩家（考虑队友优先）
           // Game的onRoundEnd会使用findNextPlayerForNewRound来决定下一个玩家
           console.log('[接风轮询] 调用onRoundEnd，传入savedWinnerIndex:', lastPlayPlayerIndex);
@@ -707,18 +707,18 @@ export class RoundScheduler {
           return;
         }
       }
-      
+
       // 标记为接风轮，开始接风轮询
       latestRound.startTakeoverRound(playerIndex, lastPlayPlayerIndex);
-      
+
       // 计算下一个玩家（在接风轮询中，需要能够回到出牌玩家）
       const nextPlayerIndex = this.findNextPlayerInTakeoverPolling(
-        playerIndex, 
-        latestPlayers, 
-        playerCount, 
+        playerIndex,
+        latestPlayers,
+        playerCount,
         lastPlayPlayerIndex
       );
-      
+
       // 更新状态（标记接风轮）
       onStateUpdate(prev => {
         if (prev.currentRoundIndex < 0 || prev.currentRoundIndex >= prev.rounds.length) {
@@ -731,7 +731,7 @@ export class RoundScheduler {
           rounds: updatedRounds
         };
       });
-      
+
       // 继续接风轮询下一个玩家
       if (nextPlayerIndex !== null && this.onNextTurnCallback) {
         const latestState = this.config.getGameState();
@@ -740,9 +740,9 @@ export class RoundScheduler {
       return;
     }
   }
-  
+
   // ========== 回调函数 ==========
-  
+
   /** 下一个玩家出牌回调 */
   onNextTurnCallback?: (playerIndex: number, state: any) => Promise<void>;
 }

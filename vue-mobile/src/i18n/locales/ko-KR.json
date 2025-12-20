@@ -31,18 +31,18 @@
     "gameMode": "게임 모드",
     "individual": "개인",
     "team": "팀",
-    "currentPlayer": "플레이어",
+    "currentPlayer": "현재 플레이어",
     "directions": {
       "east": "동",
       "west": "서",
       "north": "북",
       "south": "남"
     },
-    "yourTurn": "당신의 턴",
+    "yourTurn": "당신의 차례",
     "waiting": "대기 중",
-    "waitingFirstPlayer": "첫 번째 플레이어 대기 중",
+    "waitingFirstPlayer": "첫 번째 플레이어를 기다리는 중",
     "selected": "선택됨",
-    "playing": "플레이 중",
+    "playing": "게임 중",
     "finished": "종료",
     "winner": "승자",
     "restart": "다시 시작",
@@ -80,7 +80,6 @@
   },
   "chat": {
     "title": "채팅",
-    "inputPlaceholder": "메시지 입력...",
     "inputPlaceholder": "메시지 입력...",
     "send": "보내기",
     "aiThinking": "AI 생각 중...",
@@ -193,4 +192,3 @@
     }
   }
 }
-

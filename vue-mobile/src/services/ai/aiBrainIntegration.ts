@@ -14,6 +14,7 @@ import { GameState as AIGameState } from '../../../../src/ai-core/types';
 // TODO: 迁移到移动端独立Game类
 import { Game } from '../../../../src/game-engine/Game';
 import type { Card, Play } from '../../../../src/types/card';
+import { canPlayCards } from '../../../../src/utils/cardUtils';
 
 /**
  * AI Brain集成服务
@@ -22,6 +23,7 @@ export class AIBrainIntegration {
   private gameBridge: GameBridge | null = null;
   private isInitialized = false;
   private communicationListeners: Set<(message: any) => void> = new Set();
+  private decisionListeners: Set<(event: any) => void> = new Set();
 
   /**
    * 初始化AI Brain
@@ -66,10 +68,10 @@ export class AIBrainIntegration {
 
     this.gameBridge = new GameBridge();
     const api = this.gameBridge.getAPI();
-    
+
     // 先初始化AI Brain，这样GameBridge才能获取到EventBus
     await api.initialize(brainConfig);
-    
+
     // 初始化完成后，再设置通信消息监听（此时EventBus已经可用）
     const unsubscribe = this.gameBridge.onCommunication((event) => {
       this.communicationListeners.forEach(listener => {
@@ -80,9 +82,21 @@ export class AIBrainIntegration {
         }
       });
     });
-    
+
     // 保存取消订阅函数（如果需要的话）
     (this as any)._unsubscribeCommunication = unsubscribe;
+
+    // 监听AI决策完成事件
+    const unsubscribeTurn = api.onTurnComplete((event) => {
+      this.decisionListeners.forEach(listener => {
+        try {
+          listener(event);
+        } catch (error) {
+          console.error('[AIBrainIntegration] 通知决策监听器失败', error);
+        }
+      });
+    });
+    (this as any)._unsubscribeTurn = unsubscribeTurn;
 
     this.isInitialized = true;
     console.log('[AIBrainIntegration] AI Brain初始化完成');
@@ -95,14 +109,13 @@ export class AIBrainIntegration {
     const currentRound = game.currentRound;
     const player = game.players[playerId];
     const lastPlay = currentRound?.lastPlay || null;
-    
+
     // 计算对手手牌数量
     const opponentHandSizes = game.players
       .filter((_, idx) => idx !== playerId)
       .map(p => p.hand.length);
 
     // 计算阶段
-    const totalCards = game.players.reduce((sum, p) => sum + p.hand.length, 0);
     const remainingCards = player.hand.length;
     let phase: 'early' | 'middle' | 'late' | 'critical';
     if (remainingCards <= 3) {
@@ -116,22 +129,28 @@ export class AIBrainIntegration {
     }
 
     // 计算当前回合得分
-    const currentRoundScore = currentRound?.score || 0;
+    const currentRoundScore = currentRound?.roundScore || 0;
 
     // 累计得分
     const cumulativeScores = new Map<number, number>();
     game.players.forEach((p, idx) => {
-      cumulativeScores.set(idx, p.score);
+      cumulativeScores.set(idx, p.score ?? 0);
     });
+
+    // 正确重建 Play 对象，否则 AI (MCTS) 拿不到 type/value 会导致非法出牌建议
+    let lastPlayObj: Play | null = null;
+    if (lastPlay && lastPlay.length > 0) {
+      lastPlayObj = canPlayCards(lastPlay);
+    }
 
     return {
       myHand: player.hand,
       myPosition: playerId,
       playerCount: game.players.length,
-      lastPlay: lastPlay as Play | null,
-      lastPlayerId: currentRound?.lastPlayerIndex ?? null,
+      lastPlay: lastPlayObj,
+      lastPlayerId: currentRound?.lastPlayPlayerIndex ?? null,
       currentPlayerId: game.currentPlayerIndex,
-      playHistory: currentRound?.plays || [],
+      playHistory: (currentRound?.plays as any) || [],
       roundNumber: game.rounds.length,
       opponentHandSizes,
       teamMode: game.state?.config?.teamMode || false,
@@ -141,18 +160,26 @@ export class AIBrainIntegration {
     };
   }
 
-  /**
-   * 触发AI回合
-   */
   async triggerAITurn(playerId: number, game: Game): Promise<void> {
     if (!this.gameBridge || !this.isInitialized) {
-      console.warn('[AIBrainIntegration] AI Brain未初始化');
       return;
     }
 
+    // 转换状态并触发
     const gameState = this.convertGameState(game, playerId);
     const api = this.gameBridge.getAPI();
     api.triggerAITurn(playerId, gameState);
+  }
+
+  /**
+   * 发送用户消息（带游戏上下文）
+   */
+  async sendUserMessage(playerId: number, content: string, game: Game): Promise<void> {
+    if (!this.gameBridge || !this.isInitialized) return;
+
+    const gameState = this.convertGameState(game, playerId);
+    const api = this.gameBridge.getAPI();
+    await api.sendUserMessage(playerId, content, gameState);
   }
 
   /**
@@ -169,7 +196,7 @@ export class AIBrainIntegration {
       console.error(`[AIBrainIntegration] 游戏状态更新失败:`, err);
     });
   }
-  
+
   /**
    * 触发批量聊天（用于关键时刻）
    */
@@ -188,9 +215,6 @@ export class AIBrainIntegration {
     return await api.triggerBatchChat(gameState, trigger, eventType);
   }
 
-  /**
-   * 监听AI通信消息
-   */
   onCommunicationMessage(callback: (message: {
     playerId: number;
     content: string;
@@ -199,10 +223,24 @@ export class AIBrainIntegration {
     timestamp: number;
   }) => void): () => void {
     this.communicationListeners.add(callback);
-    
+
     // 返回取消监听的函数
     return () => {
       this.communicationListeners.delete(callback);
+    };
+  }
+
+  /**
+   * 监听AI决策结果
+   */
+  onAIDecision(callback: (event: {
+    playerId: number;
+    decision: any;
+    message?: any;
+  }) => void): () => void {
+    this.decisionListeners.add(callback);
+    return () => {
+      this.decisionListeners.delete(callback);
     };
   }
 
@@ -214,6 +252,26 @@ export class AIBrainIntegration {
       return {};
     }
     return this.gameBridge.getAPI().getStatistics();
+  }
+
+  /**
+   * 动态更新LLM配置（无需重启AI Brain）
+   * @param updates 要更新的配置项
+   */
+  updateLLMConfig(updates: {
+    endpoint?: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    timeout?: number;
+  }): void {
+    if (!this.gameBridge || !this.isInitialized) {
+      console.warn('[AIBrainIntegration] AI Brain未初始化，无法更新LLM配置');
+      return;
+    }
+
+    this.gameBridge.getAPI().updateLLMConfig(updates);
+    console.log('[AIBrainIntegration] LLM配置已动态更新', updates);
   }
 
   /**

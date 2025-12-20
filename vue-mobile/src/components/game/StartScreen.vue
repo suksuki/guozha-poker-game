@@ -19,9 +19,15 @@
       
       <!-- 按钮区域 -->
       <div class="start-buttons">
-        <button class="btn-primary" @click="$emit('start')">
+        <button class="btn-primary" @click="$emit('start', { teamMode: false })">
           <span class="btn-icon">🚀</span>
           <span class="btn-text">{{ $t('game.startNewGame') }}</span>
+          <span class="btn-arrow">→</span>
+        </button>
+
+        <button class="btn-primary btn-team" @click="$emit('start', { teamMode: true })">
+          <span class="btn-icon">👥</span>
+          <span class="btn-text">开始团队赛</span>
           <span class="btn-arrow">→</span>
         </button>
         
@@ -30,30 +36,45 @@
           <span class="btn-text">{{ $t('game.intelligentTraining') }}</span>
           <span class="btn-arrow">→</span>
         </button>
-        
-        <button class="btn-settings" @click="$emit('settings')">
-          <span class="btn-icon">⚙️</span>
-          <span class="btn-text">设置</span>
-        </button>
       </div>
       
-      <!-- 底部信息 -->
-      <div class="footer-info">
-        <span class="version">v1.0.0</span>
-        <span class="divider">•</span>
-        <span class="copyright">© 2024 Guozha Poker</span>
+      <!-- [新增] 快速选项区 -->
+      <div class="quick-options">
+        <label class="option-item">
+          <input type="checkbox" v-model="settingsStore.gameSettings.skipDealing">
+          <span class="checkbox-custom"></span>
+          <span class="option-label">跳过发牌动画</span>
+        </label>
       </div>
+      
+      <div class="footer-links">
+        <span @click="$emit('settings')">设置</span>
+        <span class="divider">|</span>
+        <span @click="$emit('training')">智能训练</span>
+        <span class="divider">|</span>
+        <span @click="showEvolution = true">算法进化</span>
+      </div>
+      
+      <div class="version">v1.2.0 Beta</div>
     </div>
+    
+    <!-- Evolution Panel -->
+    <MCTSEvolutionPanel 
+      v-if="showEvolution" 
+      @close="showEvolution = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-// Emits
-defineEmits<{
-  start: [];
-  training: [];
-  settings: [];
-}>();
+import { ref } from 'vue';
+import { useSettingsStore } from '../../stores/settingsStore';
+import MCTSEvolutionPanel from '../training/MCTSEvolutionPanel.vue';
+
+const settingsStore = useSettingsStore();
+const showEvolution = ref(false);
+
+defineEmits(['start', 'settings', 'training']);
 </script>
 
 <style scoped>
@@ -196,6 +217,15 @@ defineEmits<{
   transform: translateY(0);
 }
 
+.btn-team {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  box-shadow: 0 8px 32px rgba(56, 239, 125, 0.4);
+}
+
+.btn-team:hover {
+  box-shadow: 0 12px 40px rgba(56, 239, 125, 0.5);
+}
+
 /* 次要按钮 */
 .btn-secondary {
   display: flex;
@@ -266,7 +296,52 @@ defineEmits<{
   text-align: center;
 }
 
-/* 底部信息 */
+/* 快速选项 */
+.quick-options {
+  margin-top: -10px;
+  display: flex;
+  justify-content: center;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+.option-item input {
+  display: none;
+}
+
+.checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.option-item input:checked + .checkbox-custom {
+  background: #764ba2;
+  border-color: #667eea;
+}
+
+.option-item input:checked + .checkbox-custom::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+}
+
+/* 按钮图标和箭头 */
 .footer-info {
   display: flex;
   align-items: center;

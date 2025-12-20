@@ -82,11 +82,12 @@
               />
             </div>
             
-            <!-- 中央出牌区 -->
-            <PlayArea
-              :last-play="gameStore.currentRound?.lastPlay || null"
-              :last-player-name="getLastPlayerName()"
-              :play-count="gameStore.currentRound?.plays?.length || 0"
+            <!-- 中央出牌桌面 (替换原来的PlayArea) -->
+            <TableSurface
+              :cards-north="getRoundPlay(playerNorth?.id)"
+              :cards-south="getRoundPlay(playerSouth?.id)"
+              :cards-east="getRoundPlay(playerEast?.id)"
+              :cards-west="getRoundPlay(playerWest?.id)"
             />
           </div>
           
@@ -140,7 +141,7 @@ import StartScreen from './StartScreen.vue';
 import GameToolbar from './GameToolbar.vue';
 import ChatPanel from './ChatPanel.vue';
 import PlayerCard from './PlayerCard.vue';
-import PlayArea from './PlayArea.vue';
+import TableSurface from './TableSurface.vue'; // 新增组件
 import HandCards from './HandCards.vue';
 import GameResultScreen from './GameResultScreen.vue';
 import SettingsPanel from '../settings/SettingsPanel.vue';
@@ -158,6 +159,7 @@ const showSettings = ref(false);
 const showChat = ref(false);
 const showTrainingPanel = ref(false);
 const isDealing = ref(false);
+const pendingGameConfig = ref<{ teamMode: boolean } | undefined>(undefined);
 
 // ========== 计算属性 - 玩家 ==========
 const playerEast = computed(() => gameStore.players[1]);
@@ -179,7 +181,9 @@ const isMyTurn = computed(() => {
 });
 
 const canPassValue = computed(() => {
-  return gameStore.currentRound?.lastPlay !== null;
+  // 如果当前轮次的lastPlay不为空（即不是首家），则可以不要
+  return gameStore.currentRound?.lastPlay !== null && 
+         gameStore.currentRound?.lastPlay !== undefined;
 });
 
 // ========== 方法 ==========
@@ -191,28 +195,47 @@ const getPlayerBubble = (playerId: number) => {
   return chatStore.activeBubbles.get(playerId) || null;
 };
 
+// 获取玩家在当前轮次的最新出牌
+const getRoundPlay = (playerId: number | undefined) => {
+  if (playerId === undefined) return [];
+  
+  const plays = gameStore.currentRound?.plays;
+  if (!plays || plays.length === 0) return [];
+
+  // 获取该玩家在当前trick的所有出牌记录
+  const playerPlays = plays.filter(p => p.playerId === playerId);
+  
+  // 返回最后一次出牌的卡牌
+  if (playerPlays.length > 0) {
+    return playerPlays[playerPlays.length - 1].cards;
+  }
+  
+  return [];
+};
+
 const openSettings = () => {
   showSettings.value = true;
 };
 
-const startGame = () => {
-  gameStore.startGame();
+const startGame = (config?: { teamMode: boolean }) => {
+  gameStore.startGame(config);
   showToast('🎮 游戏开始！');
 };
 
 // 带动画的开始游戏
-const startGameWithAnimation = () => {
+const startGameWithAnimation = (config?: { teamMode: boolean }) => {
+  pendingGameConfig.value = config;
   isDealing.value = true;
 };
 
 const onDealingComplete = () => {
   isDealing.value = false;
-  startGame();
+  startGame(pendingGameConfig.value);
 };
 
 const onDealingSkip = () => {
   isDealing.value = false;
-  startGame();
+  startGame(pendingGameConfig.value);
 };
 
 const toggleCard = (cardId: string) => {
@@ -303,14 +326,6 @@ const getIntentLabel = (intent: string) => {
   return labels[intent] || intent;
 };
 
-const getLastPlayerName = () => {
-  if (!gameStore.currentRound?.plays || gameStore.currentRound.plays.length === 0) {
-    return '无';
-  }
-  const lastPlay = gameStore.currentRound.plays[gameStore.currentRound.plays.length - 1];
-  return lastPlay.playerName || `${t('game.currentPlayer')}${lastPlay.playerId}`;
-};
-
 // 初始化
 onMounted(() => {
   chatStore.initializeAIBrainListener();
@@ -376,6 +391,8 @@ onMounted(() => {
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  /* Ensure relative positioning context for children if needed */
+  position: relative;
 }
 
 /* 北侧玩家 */

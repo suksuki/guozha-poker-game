@@ -45,6 +45,8 @@ export interface MCTSTeamConfig extends MCTSConfig {
   bigCardPreservationBonus: number; // 保留大牌奖励
   teammateSupportBonus: number; // 支持队友奖励
   longTermStrategyWeight: number; // 长期策略权重
+  roleWeight?: number; // 角色定位策略权重 (NEW)
+  enableLLMDecision?: boolean; // 是否启用LLM进行打牌决策（默认false，直接使用MCTS，不影响聊天等其他LLM功能）
 }
 
 // MCTS节点
@@ -82,15 +84,15 @@ export interface TeamSimulatedGameState extends SimulatedGameState {
   teamConfig: TeamConfig;
   teamScores: Map<number, number>; // teamId -> score
   playerTeams: Map<number, number>; // playerId -> teamId
-  
+
   // 主动要不起相关
   canPass: boolean; // 是否可以选择要不起
   lastPassPlayerIndex: number | null; // 上一个要不起的玩家
-  
+
   // 团队策略相关
   teammateHands: Card[][]; // 队友手牌（部分信息）
   opponentTeamHands: Card[][]; // 对手团队手牌（估计）
-  
+
   // 决策上下文
   roundContext: {
     roundNumber: number;
@@ -101,7 +103,7 @@ export interface TeamSimulatedGameState extends SimulatedGameState {
 }
 
 // 团队动作类型
-export type TeamAction = 
+export type TeamAction =
   | { type: 'play'; cards: Card[] } // 出牌
   | { type: 'pass'; strategic: boolean }; // 要不起（strategic表示是否是主动的）
 
@@ -110,20 +112,20 @@ export interface TeamMCTSNode {
   // 状态信息
   state: TeamSimulatedGameState;
   playerToMove: number; // 当前玩家ID（支持多人）
-  
+
   // MCTS统计
   visits: number;
   teamWins: number; // 团队获胜次数（而不是个人获胜）
   teamScoreSum: number; // 累计团队得分
-  
+
   // 子树
   children: TeamMCTSNode[];
   parent: TeamMCTSNode | null;
-  
+
   // 动作
   action: TeamAction | null;
   untriedActions: TeamAction[];
-  
+
   // 评估指标
   evaluation: {
     expectedTeamScore: number; // 预期团队得分
@@ -189,23 +191,23 @@ export interface TrainingEvaluation {
 // 团队游戏结果
 export interface TeamGameResult {
   config: MCTSTeamConfig;
-  
+
   // 核心指标
   teamWins: number;
   totalGames: number;
   teamWinRate: number;
   avgTeamScore: number;
-  
+
   // 策略指标
   strategicPassCount: number;
   avgStrategicPassPerGame: number;
   strategicPassSuccessRate: number;
   avgCooperationScore: number;
-  
+
   // 其他指标
   avgTurns: number;
   avgRounds: number;
-  
+
   // 详细统计（可选）
   detailedStats?: {
     teamScoreDistribution: Map<number, number[]>;
@@ -219,7 +221,7 @@ export interface SingleTeamGameResult {
   // 团队结果
   winningTeam: number; // 获胜团队ID
   finalTeamScores: Map<number, number>; // 最终团队得分
-  
+
   // 策略统计
   strategicPassEvents: Array<{
     playerId: number;
@@ -227,14 +229,14 @@ export interface SingleTeamGameResult {
     successful: boolean;
     benefit: number;
   }>;
-  
+
   cooperationEvents: Array<{
     type: string;
     playerId: number;
     teammateId: number;
     benefit: number;
   }>;
-  
+
   // 其他统计
   turns: number;
   rounds: number;

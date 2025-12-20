@@ -1,704 +1,452 @@
 <template>
   <van-popup
     v-model:show="isOpen"
-    position="center"
-    :style="{ width: '90%', maxWidth: '500px', height: '85vh', maxHeight: '85vh', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }"
+    position="bottom"
+    class="settings-popup glass-dark"
+    :style="{ height: '90%', maxHeight: '90%', borderTopLeftRadius: '24px', borderTopRightRadius: '24px' }"
     closeable
     close-icon-position="top-right"
     @close="handleClose"
     :safe-area-inset-bottom="true"
-    :overlay-style="{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }"
+    :overlay-style="{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }"
   >
     <div class="settings-panel">
       <div class="settings-header">
-        <h2>⚙️ 设置</h2>
-        <button class="close-button" @click="handleClose" aria-label="关闭设置">
-          ❌
-        </button>
+        <h2 class="header-title">
+          <span class="icon">⚙️</span>
+          <span>游戏设置</span>
+        </h2>
       </div>
 
       <div class="settings-body">
-        <van-tabs v-model:active="activeTab" swipeable>
-        <!-- 游戏设置 -->
-        <van-tab title="🎮 游戏" name="game">
-          <div class="settings-content">
-            <van-cell-group>
-              <van-field
-                :value="getGameModeLabel(localGameSettings.gameMode)"
-                label="游戏模式"
-                readonly
-                is-link
-                @click="showGameModePicker = true"
-              >
-                <template #input>
-                  <van-radio-group 
-                    v-model="localGameSettings.gameMode"
-                    direction="horizontal"
-                    @change="updateGameSettings({ gameMode: localGameSettings.gameMode })"
-                  >
-                    <van-radio name="individual">个人</van-radio>
-                    <van-radio name="team">团队</van-radio>
-                  </van-radio-group>
-                </template>
-              </van-field>
-              <van-switch
-                v-model="localGameSettings.enableSoundEffects"
-                title="音效"
-                @change="updateGameSettings({ enableSoundEffects: localGameSettings.enableSoundEffects })"
-              />
-              <van-switch
-                v-model="localGameSettings.enableVoiceChat"
-                title="语音聊天"
-                @change="updateGameSettings({ enableVoiceChat: localGameSettings.enableVoiceChat })"
-              />
-            </van-cell-group>
-          </div>
-        </van-tab>
-
-        <!-- LLM配置 -->
-        <van-tab title="🤖 LLM" name="llm">
-          <div class="settings-content">
-            <!-- 连接状态 -->
-            <van-cell-group>
-              <van-cell title="连接状态" :value="llmConnectionStatus">
-                <template #icon>
-                  <span class="status-icon">{{ llmStatusIcon }}</span>
-                </template>
-              </van-cell>
-            </van-cell-group>
-
-            <!-- LLM提供商选择 -->
-            <van-cell-group title="📡 LLM提供商">
-              <van-cell title="选择提供商">
-                <template #value>
-                  <van-radio-group 
-                    v-model="localLLMConfig.provider"
-                    direction="horizontal"
-                    @change="handleProviderChange"
-                  >
-                    <van-radio name="ollama">Ollama</van-radio>
-                    <van-radio name="openai">OpenAI</van-radio>
-                    <van-radio name="claude">Claude</van-radio>
-                    <van-radio name="custom">自定义</van-radio>
-                  </van-radio-group>
-                </template>
-              </van-cell>
-            </van-cell-group>
-
-            <!-- Ollama服务器配置 -->
-            <van-cell-group v-if="localLLMConfig.provider === 'ollama'" title="🖥️ Ollama服务器配置">
-              <!-- 服务器类型 -->
-              <van-cell title="服务器类型">
-                <template #value>
-                  <van-radio-group 
-                    v-model="ollamaServerMode"
-                    direction="horizontal"
-                    @change="handleOllamaServerModeChange"
-                  >
-                    <van-radio name="local">本地</van-radio>
-                    <van-radio name="lan">局域网</van-radio>
-                    <van-radio name="custom">其他</van-radio>
-                  </van-radio-group>
-                </template>
-              </van-cell>
-
-              <!-- 局域网IP地址 -->
-              <van-field
-                v-if="ollamaServerMode === 'lan'"
-                v-model="ollamaLanIP"
-                label="IP地址"
-                placeholder="0.13 或 192.168.0.13"
-                @change="updateOllamaServerUrl"
-              >
-                <template #prefix>
-                  <span style="color: #999;">192.168.</span>
-                </template>
-              </van-field>
-
-              <!-- 自定义主机地址 -->
-              <van-field
-                v-if="ollamaServerMode === 'custom'"
-                v-model="ollamaCustomHost"
-                label="主机地址"
-                placeholder="IP或域名"
-                @change="updateOllamaServerUrl"
-              />
-
-              <!-- 端口（非本地模式） -->
-              <van-field
-                v-if="ollamaServerMode !== 'local'"
-                v-model="ollamaPort"
-                label="端口"
-                type="number"
-                placeholder="11434"
-                @change="updateOllamaServerUrl"
-              />
-
-              <!-- 当前API地址显示 -->
-              <van-cell title="当前API地址" :value="localLLMConfig.apiUrl || '未设置'" />
-
-              <!-- 测试连接按钮 -->
-              <van-cell>
-                <van-button 
-                  type="primary"
-                  size="normal"
-                  @click="testLLMConnection"
-                  :loading="isTestingConnection"
-                  block
-                  round
-                >
-                  {{ isTestingConnection ? '测试中...' : '🔍 测试连接' }}
-                </van-button>
-              </van-cell>
-            </van-cell-group>
-
-            <!-- 非Ollama的API地址配置 -->
-            <van-cell-group v-if="localLLMConfig.provider !== 'ollama'" title="🔗 API配置">
-              <van-field
-                v-model="localLLMConfig.apiUrl"
-                label="API地址"
-                placeholder="请输入API地址"
-                @change="updateLLMConfig({ apiUrl: localLLMConfig.apiUrl })"
-              >
-                <template #button>
-                  <van-button 
-                    size="small" 
-                    type="primary"
-                    @click.stop="testLLMConnection"
-                    :loading="isTestingConnection"
-                  >
-                    🔍 测试
-                  </van-button>
-                </template>
-              </van-field>
-            </van-cell-group>
-
-            <!-- 模型选择 -->
-            <van-cell-group title="🤖 模型配置">
-              <van-cell title="当前选择" :value="localLLMConfig.model || '未选择'" />
-              
-              <!-- 刷新按钮 -->
-              <van-cell>
-                <van-button 
-                  size="small" 
-                  type="primary"
-                  @click="refreshModels"
-                  :loading="isLoadingModels"
-                  block
-                >
-                  🔄 刷新模型列表
-                </van-button>
-              </van-cell>
-              
-              <!-- 加载中 -->
-              <div v-if="isLoadingModels" class="model-loading">
-                <van-loading>加载模型中...</van-loading>
-              </div>
-              
-              <!-- 模型列表 - 直接显示，点击选择 -->
-              <div v-else-if="availableModels.length > 0" class="models-list-container">
-                <div class="models-list">
-                  <van-button
-                    v-for="model in availableModels"
-                    :key="model"
-                    :type="model === localLLMConfig.model ? 'primary' : 'default'"
-                    size="small"
-                    class="model-button"
-                    :class="{ 'model-selected': model === localLLMConfig.model }"
-                    @click="selectModel(model)"
-                  >
-                    {{ model }}
-                  </van-button>
-                </div>
-              </div>
-              
-              <!-- 无法获取模型时，显示手动输入 -->
-              <div v-else class="model-manual-input">
-                <van-field
-                  v-model="localLLMConfig.model"
-                  label="手动输入模型名称"
-                  placeholder="如: qwen2:0.5b 或 deepseek-chat"
-                  @change="updateLLMConfig({ model: localLLMConfig.model })"
-                >
-                  <template #button>
-                    <van-button 
-                      size="small" 
-                      type="primary"
-                      @click="updateLLMConfig({ model: localLLMConfig.model })"
+        <van-tabs v-model:active="activeTab" animated swipeable background="transparent" title-active-color="#818cf8" title-inactive-color="rgba(255,255,255,0.6)" line-width="20px" line-height="3px">
+          
+          <!-- 游戏设置 -->
+          <van-tab title="🎮 游戏" name="game">
+            <div class="settings-content">
+              <div class="setting-card">
+                <h3 class="card-title">基础选项</h3>
+                
+                <div class="setting-row">
+                  <div class="setting-label">
+                    <span class="main-label">游戏模式</span>
+                    <span class="sub-label">{{ getGameModeLabel(localGameSettings.gameMode) }}</span>
+                  </div>
+                  <div class="setting-control">
+                     <van-radio-group 
+                      v-model="localGameSettings.gameMode"
+                      direction="horizontal"
+                      class="custom-radio-group"
+                      @change="updateGameSettings({ gameMode: localGameSettings.gameMode })"
                     >
-                      确定
-                    </van-button>
-                  </template>
-                </van-field>
-              </div>
-            </van-cell-group>
+                      <van-radio name="individual">个人</van-radio>
+                      <van-radio name="team">团队</van-radio>
+                    </van-radio-group>
+                  </div>
+                </div>
 
-            <!-- Ollama服务器管理 -->
-            <van-cell-group v-if="localLLMConfig.provider === 'ollama'" title="🖥️ Ollama服务器管理">
-              <van-cell 
-                title="添加服务器" 
-                is-link
-                @click="showAddServerDialog = true"
-              />
-              
-              <!-- 服务器列表 -->
-              <van-cell
-                v-for="server in ollamaServers"
-                :key="server.id"
-                :title="server.name"
-                :label="`${server.host}:${server.port}`"
-                :value="server.id === currentOllamaServerId ? '当前使用' : ''"
-                is-link
-                @click="switchOllamaServer(server.id)"
-              >
-                <template #right-icon>
-                  <van-button
-                    v-if="server.id !== 'local'"
-                    size="mini"
-                    type="danger"
-                    @click.stop="removeOllamaServer(server.id)"
-                  >
-                    删除
-                  </van-button>
-                </template>
-              </van-cell>
-              
-              <van-empty
-                v-if="ollamaServers.length === 0"
-                description="暂无服务器，点击上方添加"
-              />
-            </van-cell-group>
-
-            <!-- LLM测试窗口 -->
-            <van-cell-group title="🧪 大模型测试">
-              <van-field
-                v-model="testMessage"
-                label="测试消息"
-                placeholder="输入测试消息，如：你好，介绍一下自己"
-                @keyup.enter="handleTestLLMChat"
-              >
-                <template #button>
-                  <van-button 
-                    size="small" 
-                    type="primary"
-                    @click="handleTestLLMChat"
-                    :loading="isTestingLLM"
-                    :disabled="!testMessage.trim() || !canTestLLM"
-                  >
-                    {{ isTestingLLM ? '测试中...' : '📤 发送' }}
-                  </van-button>
-                </template>
-              </van-field>
-              
-              <div v-if="testError" class="test-error">
-                <van-cell title="❌ 错误" :value="testError" />
-              </div>
-              
-              <div v-if="testResponse" class="test-response">
-                <van-cell title="🤖 模型回应" />
-                <div class="test-response-content">{{ testResponse }}</div>
-              </div>
-            </van-cell-group>
-            
-            <!-- 添加服务器对话框 -->
-            <van-dialog
-              v-model:show="showAddServerDialog"
-              title="添加Ollama服务器"
-              show-cancel-button
-              @confirm="handleAddOllamaServer"
-              @cancel="() => { newServerName = ''; newServerHost = ''; newServerPort = 11434; }"
-            >
-              <van-form @submit="handleAddOllamaServer">
-                <van-field
-                  v-model="newServerName"
-                  label="服务器名称"
-                  placeholder="如: 办公室服务器"
-                  clearable
-                />
-                <van-field
-                  v-model="newServerHost"
-                  label="主机地址"
-                  placeholder="IP或域名"
-                  required
-                  clearable
-                />
-                <van-field
-                  v-model.number="newServerPort"
-                  label="端口"
-                  type="number"
-                  placeholder="11434"
-                  required
-                  clearable
-                />
-              </van-form>
-            </van-dialog>
-
-            <!-- 高级配置 - 可折叠 -->
-            <van-collapse v-model="llmAdvancedOpen">
-              <van-collapse-item title="⚙️ 高级配置" name="advanced">
-                <van-field
-                  v-model.number="localLLMConfig.temperature"
-                  label="温度 (0-2)"
-                  type="number"
-                  :min="0"
-                  :max="2"
-                  :step="0.1"
-                  @change="updateLLMConfig({ temperature: localLLMConfig.temperature })"
-                />
-                <van-field
-                  v-model.number="localLLMConfig.maxTokens"
-                  label="最大Token数"
-                  type="number"
-                  :min="50"
-                  :max="2000"
-                  @change="updateLLMConfig({ maxTokens: localLLMConfig.maxTokens })"
-                />
-                <van-field
-                  v-model.number="localLLMConfig.timeout"
-                  label="超时时间(ms)"
-                  type="number"
-                  :min="5000"
-                  :max="60000"
-                  @change="updateLLMConfig({ timeout: localLLMConfig.timeout })"
-                />
-                <van-switch
-                  v-model="localLLMConfig.enableContext"
-                  title="使用游戏上下文"
-                  @change="updateLLMConfig({ enableContext: localLLMConfig.enableContext })"
-                />
-                <van-switch
-                  v-model="localLLMConfig.enableHistory"
-                  title="使用聊天历史"
-                  @change="updateLLMConfig({ enableHistory: localLLMConfig.enableHistory })"
-                />
-              </van-collapse-item>
-            </van-collapse>
-          </div>
-        </van-tab>
-
-        <!-- TTS配置 -->
-        <van-tab title="🔊 TTS" name="tts">
-          <div class="settings-content">
-            <!-- 语音播报设置 -->
-            <van-cell-group title="语音播报">
-              <van-switch
-                v-model="localVoicePlaybackSettings.enabled"
-                title="启用语音播报"
-                @change="updateVoicePlaybackSettings({ enabled: localVoicePlaybackSettings.enabled })"
-              />
-              <van-switch
-                v-model="localVoicePlaybackSettings.enableSystemAnnouncements"
-                title="系统播报"
-                :disabled="!localVoicePlaybackSettings.enabled"
-                @change="updateVoicePlaybackSettings({ enableSystemAnnouncements: localVoicePlaybackSettings.enableSystemAnnouncements })"
-              />
-              <van-switch
-                v-model="localVoicePlaybackSettings.enablePlayerChat"
-                title="玩家聊天"
-                :disabled="!localVoicePlaybackSettings.enabled"
-                @change="updateVoicePlaybackSettings({ enablePlayerChat: localVoicePlaybackSettings.enablePlayerChat })"
-              />
-              <van-cell title="音量">
-                <template #value>
-                  <van-slider
-                    v-model="localVoicePlaybackSettings.volume"
-                    :min="0"
-                    :max="1"
-                    :step="0.1"
-                    :disabled="!localVoicePlaybackSettings.enabled"
-                    @change="updateVoicePlaybackSettings({ volume: localVoicePlaybackSettings.volume })"
+                <div class="setting-row">
+                  <div class="setting-label">音效</div>
+                  <van-switch
+                    v-model="localGameSettings.enableSoundEffects"
+                    active-color="#667eea"
+                    inactive-color="rgba(255,255,255,0.2)"
+                    size="24px"
+                    @change="updateGameSettings({ enableSoundEffects: localGameSettings.enableSoundEffects })"
                   />
-                  <span style="margin-left: 8px; min-width: 40px; display: inline-block;">
-                    {{ Math.round(localVoicePlaybackSettings.volume * 100) }}%
-                  </span>
-                </template>
-              </van-cell>
-              <van-cell title="语速">
-                <template #value>
-                  <van-slider
-                    v-model="localVoicePlaybackSettings.speed"
-                    :min="0.5"
-                    :max="2.0"
-                    :step="0.1"
-                    :disabled="!localVoicePlaybackSettings.enabled"
-                    @change="updateVoicePlaybackSettings({ speed: localVoicePlaybackSettings.speed })"
-                  />
-                  <span style="margin-left: 8px; min-width: 40px; display: inline-block;">
-                    {{ localVoicePlaybackSettings.speed.toFixed(1) }}x
-                  </span>
-                </template>
-              </van-cell>
-              <van-cell title="最大同时播放数">
-                <template #value>
-                  <van-stepper
-                    v-model="localVoicePlaybackSettings.maxConcurrentPlayers"
-                    :min="1"
-                    :max="8"
-                    :disabled="!localVoicePlaybackSettings.enabled"
-                    @change="updateVoicePlaybackSettings({ maxConcurrentPlayers: localVoicePlaybackSettings.maxConcurrentPlayers })"
-                  />
-                </template>
-                <template #label>
-                  <div style="font-size: 12px; color: #969799; margin-top: 4px;">
-                    最多支持{{ localVoicePlaybackSettings.maxConcurrentPlayers }}个玩家同时说话（1-8）
-                  </div>
-                </template>
-              </van-cell>
-              <van-cell title="支持声道数">
-                <template #value>
-                  <span style="color: #1989fa; font-weight: bold;">8个玩家声道 + 1个报牌声道</span>
-                </template>
-                <template #label>
-                  <div style="font-size: 12px; color: #969799; margin-top: 4px;">
-                    玩家0-7各占一个声道，报牌使用独立声道
-                  </div>
-                </template>
-              </van-cell>
-            </van-cell-group>
+                </div>
 
-            <!-- 语音播报统计 -->
-            <van-cell-group title="📊 实时统计" v-if="audioStats">
-              <van-cell title="活跃通道数" :value="`${audioStats.activeChannels}/${localVoicePlaybackSettings.maxConcurrentPlayers + 1}`">
-                <template #label>
-                  <div style="font-size: 12px; color: #969799; margin-top: 4px;">
-                    玩家通道: {{ audioStats.activeChannels }} / 报牌通道: 1
-                  </div>
-                </template>
-              </van-cell>
-              <van-cell title="队列总长度" :value="audioStats.totalQueueLength">
-                <template #label>
-                  <div style="font-size: 12px; color: #969799; margin-top: 4px;">
-                    等待播放的消息数
-                  </div>
-                </template>
-              </van-cell>
-              <van-cell 
-                v-if="audioStats.channelStates" 
-                title="声道状态" 
-                is-link
-                @click="showChannelStates = !showChannelStates"
-              >
-                <template #value>
-                  <span style="color: #1989fa;">{{ showChannelStates ? '收起' : '展开' }}</span>
-                </template>
-              </van-cell>
-              <div v-if="showChannelStates && audioStats.channelStates" style="padding: 8px 16px; background: #f7f8fa;">
-                <div 
-                  v-for="[channel, state] in Array.from(audioStats.channelStates.entries())" 
-                  :key="channel"
-                  style="padding: 4px 0; font-size: 12px; display: flex; justify-content: space-between;"
-                >
-                  <span>{{ getChannelName(channel) }}:</span>
-                  <span :style="{ color: state.isActive ? '#07c160' : '#969799' }">
-                    {{ state.isActive ? '🔊 播放中' : '🔇 空闲' }}
-                    <span v-if="state.queueLength > 0"> (队列: {{ state.queueLength }})</span>
-                    <span v-if="state.currentPlayerId !== undefined"> [玩家{{ state.currentPlayerId }}]</span>
-                  </span>
+                <div class="setting-row">
+                  <div class="setting-label">语音聊天</div>
+                  <van-switch
+                    v-model="localGameSettings.enableVoiceChat"
+                     active-color="#667eea"
+                    inactive-color="rgba(255,255,255,0.2)"
+                    size="24px"
+                    @change="updateGameSettings({ enableVoiceChat: localGameSettings.enableVoiceChat })"
+                  />
                 </div>
               </div>
-            </van-cell-group>
-
-            <!-- TTS服务器状态摘要 -->
-            <van-cell-group title="TTS服务器">
-              <van-cell>
-                <template #title>
-                  <div class="tts-summary">
-                    <span>📊 总数: {{ settingsStore.ttsServers.length }}</span>
-                    <span>✅ 已启用: {{ enabledTTSServers }}</span>
-                    <span>🟢 可用: {{ availableTTSServers }}</span>
-                  </div>
-                </template>
-              </van-cell>
-            </van-cell-group>
-
-            <!-- 添加服务器按钮 -->
-            <div class="tts-header">
-              <van-button
-                type="primary"
-                size="small"
-                block
-                @click="showAddTTSServer = true"
-              >
-                ➕ 添加TTS服务器
-              </van-button>
             </div>
+          </van-tab>
 
-            <!-- TTS服务器列表 - 改进显示 -->
-            <van-cell-group title="服务器列表">
-              <div
-                v-for="server in settingsStore.ttsServers"
-                :key="server.id"
-                class="tts-server-item"
-                :class="{ 'server-disabled': !server.enabled }"
-              >
-                <van-cell
-                  :title="server.name"
-                  :label="`${getServerTypeLabel(server.type)} | ${server.connection?.host || 'N/A'}:${server.connection?.port || 'N/A'}`"
-                  is-link
-                  @click="editTTSServer(server)"
-                >
-                  <template #label>
-                    <div>
-                      <span>{{ getServerTypeLabel(server.type) }}</span>
-                      <span v-if="server.connection"> | {{ server.connection.host }}:{{ server.connection.port }}</span>
-                      <span v-else> | N/A</span>
-                      <span v-if="server.assignedChannels && server.assignedChannels.length > 0">
-                        | 声道: {{ server.assignedChannels.join(',') }}
-                      </span>
+          <!-- LLM配置 -->
+          <van-tab title="🤖 LLM" name="llm">
+            <div class="settings-content">
+              
+              <div class="setting-card">
+                <div class="connection-status" :class="llmConnectionStatus.includes('已连接') ? 'status-connected' : 'status-disconnected'">
+                  <div class="status-indicator"></div>
+                  <span class="status-text">{{ llmConnectionStatus }}</span>
+                </div>
+              </div>
+
+              <div class="setting-card">
+                <h3 class="card-title">服务提供商</h3>
+                <div class="provider-grid">
+                  <div 
+                    v-for="p in ['ollama', 'openai', 'claude', 'custom']" 
+                    :key="p"
+                    class="provider-item"
+                    :class="{ active: localLLMConfig.provider === p }"
+                    @click="() => { localLLMConfig.provider = p as any; handleProviderChange(); }"
+                  >
+                    <div class="provider-icon">
+                       <span v-if="p==='ollama'">🦙</span>
+                       <span v-else-if="p==='openai'">🧠</span>
+                       <span v-else-if="p==='claude'">🤖</span>
+                       <span v-else>⚙️</span>
                     </div>
-                  </template>
-                  <template #icon>
-                    <span class="server-status-icon">
-                      {{ getServerStatusIcon(server) }}
-                    </span>
-                  </template>
-                  <template #value>
-                    <div class="server-actions">
-                      <van-button
-                        size="mini"
-                        type="primary"
-                        @click.stop="testTTSServer(server)"
-                      >
-                        🔍
-                      </van-button>
-                      <van-switch
-                        :model-value="server.enabled"
-                        @update:model-value="(val) => updateTTSServer(server.id, { enabled: val })"
-                        @click.stop
+                    <div class="provider-name">{{ getLLMProviderLabel(p) }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ollama专用配置 -->
+              <div class="setting-card" v-if="localLLMConfig.provider === 'ollama'">
+                <h3 class="card-title">Ollama 配置</h3>
+                
+                <div class="setting-row">
+                   <div class="setting-label">连接模式</div>
+                   <van-radio-group 
+                      v-model="ollamaServerMode"
+                      direction="horizontal"
+                      class="custom-radio-group"
+                      @change="handleOllamaServerModeChange"
+                    >
+                      <van-radio name="local">本地</van-radio>
+                      <van-radio name="lan">局域网</van-radio>
+                      <van-radio name="custom">自定义</van-radio>
+                    </van-radio-group>
+                </div>
+
+                <div class="input-row" v-if="ollamaServerMode === 'lan'">
+                  <van-field
+                    v-model="ollamaLanIP"
+                    label="IP地址"
+                    placeholder="例如: 192.168.1.5"
+                    @change="updateOllamaServerUrl"
+                    class="glass-input"
+                  />
+                </div>
+
+                <div class="input-row" v-if="ollamaServerMode === 'custom'">
+                  <van-field
+                    v-model="ollamaCustomHost"
+                    label="主机"
+                    placeholder="IP或域名"
+                    @change="updateOllamaServerUrl"
+                    class="glass-input"
+                  />
+                </div>
+
+                 <div class="input-row" v-if="ollamaServerMode !== 'local'">
+                  <van-field
+                    v-model="ollamaPort"
+                    label="端口"
+                    type="number"
+                    placeholder="11434"
+                    @change="updateOllamaServerUrl"
+                    class="glass-input"
+                  />
+                </div>
+                
+                <div class="setting-row">
+                   <van-button size="small" type="primary" block @click="testLLMConnection" :loading="isTestingConnection">
+                    测试连接
+                   </van-button>
+                </div>
+              </div>
+
+               <!-- API URL (非Ollama) -->
+              <div class="setting-card" v-if="localLLMConfig.provider !== 'ollama'">
+                 <h3 class="card-title">API 设置</h3>
+                 <van-field
+                    v-model="localLLMConfig.apiUrl"
+                    label="API地址"
+                    placeholder="https://api.example.com/v1"
+                    @change="updateLLMConfig({ apiUrl: localLLMConfig.apiUrl })"
+                    class="glass-input"
+                  >
+                    <template #button>
+                       <van-button size="small" type="primary" @click="testLLMConnection" :loading="isTestingConnection">
+                        测试
+                       </van-button>
+                    </template>
+                  </van-field>
+              </div>
+
+              <!-- 模型选择 -->
+              <div class="setting-card">
+                 <div class="card-header-row">
+                    <h3 class="card-title">模型</h3>
+                    <van-button size="mini" icon="replay" type="primary" plain @click="refreshModels" :loading="isLoadingModels">刷新</van-button>
+                 </div>
+
+                 <div class="models-grid" v-if="availableModels.length > 0">
+                    <div 
+                      v-for="model in availableModels" 
+                      :key="model"
+                      class="model-chip"
+                      :class="{ active: model === localLLMConfig.model }"
+                      @click="selectModel(model)"
+                    >
+                      {{ model }}
+                    </div>
+                 </div>
+                 <div v-else class="input-row">
+                    <van-field
+                      v-model="localLLMConfig.model"
+                      label="模型名"
+                      placeholder="输入模型名称"
+                      class="glass-input"
+                      @change="updateLLMConfig({ model: localLLMConfig.model })"
+                    />
+                 </div>
+              </div>
+              
+              <div class="setting-card">
+                <h3 class="card-title">功能开关</h3>
+                <div class="setting-row">
+                  <div class="setting-label">使用游戏上下文</div>
+                  <van-switch v-model="localLLMConfig.enableContext" size="20px" active-color="#667eea" inactive-color="rgba(255,255,255,0.2)" @change="updateLLMConfig({ enableContext: localLLMConfig.enableContext })"/>
+                </div>
+                 <div class="setting-row">
+                  <div class="setting-label">保留聊天历史</div>
+                  <van-switch v-model="localLLMConfig.enableHistory" size="20px" active-color="#667eea" inactive-color="rgba(255,255,255,0.2)" @change="updateLLMConfig({ enableHistory: localLLMConfig.enableHistory })"/>
+                </div>
+              </div>
+
+            </div>
+          </van-tab>
+
+           <!-- TTS配置 -->
+          <van-tab title="🔊 TTS" name="tts">
+            <div class="settings-content">
+              <div class="setting-card">
+                 <h3 class="card-title">语音合成</h3>
+                 <div class="setting-row">
+                    <div class="setting-label">启用TTS</div>
+                    <van-switch
+                      v-model="localVoicePlaybackSettings.enabled"
+                      size="24px"
+                      active-color="#667eea"
+                      inactive-color="rgba(255,255,255,0.2)"
+                      @change="updateVoicePlaybackSettings({ enabled: localVoicePlaybackSettings.enabled })"
+                    />
+                 </div>
+                 
+                 <template v-if="localVoicePlaybackSettings.enabled">
+                    <div class="gap-16"></div>
+                    <div class="setting-slider-row">
+                      <div class="slider-label">音量 {{ Math.round(localVoicePlaybackSettings.volume * 100) }}%</div>
+                      <van-slider 
+                        v-model="localVoicePlaybackSettings.volume" 
+                        :min="0" :max="1" :step="0.1" 
+                        active-color="#667eea"
+                        @change="updateVoicePlaybackSettings({ volume: localVoicePlaybackSettings.volume })"
                       />
                     </div>
-                  </template>
-                  <template #right-icon>
-                    <van-tag
-                      v-if="server.status?.latency"
-                      :type="server.status.health === 'available' ? 'success' : 'danger'"
-                      size="mini"
-                    >
-                      {{ server.status.latency }}ms
-                    </van-tag>
-                  </template>
-                </van-cell>
+                    
+                    <div class="setting-slider-row">
+                      <div class="slider-label">语速 {{ localVoicePlaybackSettings.speed.toFixed(1) }}x</div>
+                      <van-slider 
+                        v-model="localVoicePlaybackSettings.speed" 
+                        :min="0.5" :max="2.0" :step="0.1"
+                        active-color="#667eea" 
+                        @change="updateVoicePlaybackSettings({ speed: localVoicePlaybackSettings.speed })"
+                      />
+                    </div>
+                 </template>
               </div>
-              <van-empty
-                v-if="settingsStore.ttsServers.length === 0"
-                description="暂无TTS服务器，点击上方按钮添加"
-              />
-            </van-cell-group>
-          </div>
-        </van-tab>
 
-        <!-- UI设置 -->
-        <van-tab title="🎨 UI" name="ui">
-          <div class="settings-content">
-            <van-cell-group>
-              <van-cell :title="$t('settings.language')">
-                <template #value>
-                  <van-radio-group 
-                    v-model="localUISettings.language"
-                    direction="horizontal"
-                    @change="updateUISettings({ language: localUISettings.language })"
-                  >
-                    <van-radio name="zh-CN">🇨🇳 中文</van-radio>
-                    <van-radio name="en-US">🇺🇸 English</van-radio>
-                    <van-radio name="ja-JP">🇯🇵 日本語</van-radio>
-                    <van-radio name="ko-KR">🇰🇷 한국어</van-radio>
-                  </van-radio-group>
-                </template>
-              </van-cell>
-              <van-cell :title="$t('settings.theme')" :value="getThemeLabel(localUISettings.theme)">
-                <template #value>
-                  <van-radio-group 
-                    v-model="localUISettings.theme"
-                    direction="horizontal"
-                    @change="updateUISettings({ theme: localUISettings.theme })"
-                  >
-                    <van-radio name="auto">{{ $t('settings.auto') }}</van-radio>
-                    <van-radio name="light">{{ $t('settings.light') }}</van-radio>
-                    <van-radio name="dark">{{ $t('settings.dark') }}</van-radio>
-                  </van-radio-group>
-                </template>
-              </van-cell>
-              <van-switch
-                v-model="localUISettings.showCardValues"
-                :title="$t('settings.showCardValues')"
-                @change="updateUISettings({ showCardValues: localUISettings.showCardValues })"
-              />
-            </van-cell-group>
-          </div>
-        </van-tab>
+              <div class="setting-card">
+                 <div class="card-header-row">
+                   <h3 class="card-title">TTS服务器</h3>
+                   <van-button size="mini" icon="plus" type="primary" @click="showAddTTSServer = true">添加</van-button>
+                 </div>
+                 
+                 <div class="tts-list">
+                    <div 
+                      v-for="server in settingsStore.ttsServers" 
+                      :key="server.id"
+                      class="tts-server-card"
+                      :class="{ disabled: !server.enabled }"
+                      @click="editTTSServer(server)"
+                    >
+                      <div class="server-info">
+                         <div class="server-name">
+                           {{ server.name }}
+                           <span class="server-tag">{{ getServerTypeLabel(server.type) }}</span>
+                         </div>
+                         <div class="server-status">
+                            <span class="status-dot" :class="server.status?.health === 'available' ? 'dot-success' : 'dot-danger'"></span>
+                            {{ server.status?.latency ? server.status.latency + 'ms' : '未知' }}
+                         </div>
+                      </div>
+                      <div class="server-actions">
+                         <van-switch 
+                           :model-value="server.enabled" 
+                           size="16px"
+                           @click.stop
+                           @update:model-value="(val) => updateTTSServer(server.id, { enabled: val })"
+                         />
+                      </div>
+                    </div>
+                 </div>
+              </div>
+            </div>
+          </van-tab>
 
-        <!-- AI设置 -->
-        <van-tab title="🧠 AI" name="ai">
-          <div class="settings-content">
-            <van-cell-group>
-              <van-cell title="AI难度" :value="getDifficultyLabel(localAISettings.difficulty)">
-                <template #value>
-                  <van-radio-group 
-                    v-model="localAISettings.difficulty"
-                    direction="horizontal"
-                    @change="updateAISettings({ difficulty: localAISettings.difficulty })"
-                  >
-                    <van-radio name="easy">简单</van-radio>
-                    <van-radio name="normal">普通</van-radio>
-                    <van-radio name="hard">困难</van-radio>
-                  </van-radio-group>
-                </template>
-              </van-cell>
-              <van-cell title="AI策略" :value="getStrategyLabel(localAISettings.aiStrategy)">
-                <template #value>
-                  <van-radio-group 
-                    v-model="localAISettings.aiStrategy"
-                    direction="horizontal"
-                    @change="updateAISettings({ aiStrategy: localAISettings.aiStrategy })"
-                  >
-                    <van-radio name="balanced">平衡</van-radio>
-                    <van-radio name="aggressive">激进</van-radio>
-                    <van-radio name="conservative">保守</van-radio>
-                  </van-radio-group>
-                </template>
-              </van-cell>
-            </van-cell-group>
-          </div>
-        </van-tab>
+          <!-- UI设置 -->
+          <van-tab title="🎨 UI" name="ui">
+            <div class="settings-content">
+               <div class="setting-card">
+                 <h3 class="card-title">界面偏好</h3>
+                 
+                 <div class="setting-block">
+                    <div class="block-label">语言</div>
+                    <div class="language-grid">
+                       <div 
+                         v-for="lang in [['zh-CN','🇨🇳 中文'], ['en-US','🇺🇸 English'], ['ja-JP','🇯🇵 日本語'], ['ko-KR','🇰🇷 한국어']]" 
+                         :key="lang[0]"
+                         class="lang-chip"
+                         :class="{ active: localUISettings.language === lang[0] }"
+                         @click="updateUISettings({ language: lang[0] })"
+                       >
+                         {{ lang[1] }}
+                       </div>
+                    </div>
+                 </div>
+
+                 <div class="gap-16"></div>
+
+                 <div class="setting-row">
+                    <div class="setting-label">主题模式</div>
+                    <van-radio-group 
+                      v-model="localUISettings.theme"
+                      direction="horizontal"
+                      class="custom-radio-group"
+                      @change="updateUISettings({ theme: localUISettings.theme })"
+                    >
+                      <van-radio name="auto">自动</van-radio>
+                      <van-radio name="light">浅色</van-radio>
+                      <van-radio name="dark">深色</van-radio>
+                    </van-radio-group>
+                 </div>
+                 
+                  <div class="setting-row">
+                    <div class="setting-label">显示牌面数值</div>
+                    <van-switch
+                      v-model="localUISettings.showCardValues"
+                      size="24px"
+                      active-color="#667eea"
+                      inactive-color="rgba(255,255,255,0.2)"
+                      @change="updateUISettings({ showCardValues: localUISettings.showCardValues })"
+                    />
+                  </div>
+               </div>
+            </div>
+          </van-tab>
+
+           <!-- AI设置 -->
+          <van-tab title="🧠 AI" name="ai">
+             <div class="settings-content">
+               <div class="setting-card">
+                 <h3 class="card-title">AI 行为</h3>
+                 
+                 <div class="setting-block">
+                   <div class="block-label">难度</div>
+                   <div class="difficulty-options">
+                      <div 
+                        v-for="d in ['easy', 'normal', 'hard']" 
+                        :key="d" 
+                        class="diff-chip"
+                        :class="[d, { active: localAISettings.difficulty === d }]"
+                        @click="updateAISettings({ difficulty: d })"
+                      >
+                         <div class="diff-icon">
+                           {{ d==='easy' ? '🌱' : (d==='normal' ? '⚖️' : '🔥') }}
+                         </div>
+                         <div class="diff-name">{{ getDifficultyLabel(d) }}</div>
+                      </div>
+                   </div>
+                 </div>
+
+                 <div class="gap-16"></div>
+
+                 <div class="setting-block">
+                    <div class="block-label">策略</div>
+                     <van-radio-group 
+                      v-model="localAISettings.aiStrategy"
+                      direction="horizontal"
+                      class="custom-radio-group"
+                      @change="updateAISettings({ aiStrategy: localAISettings.aiStrategy })"
+                    >
+                      <van-radio name="balanced">平衡</van-radio>
+                      <van-radio name="aggressive">激进</van-radio>
+                      <van-radio name="conservative">保守</van-radio>
+                    </van-radio-group>
+                 </div>
+               </div>
+
+               <div class="setting-card">
+                 <h3 class="card-title">打牌决策</h3>
+                 <div class="setting-row">
+                   <div class="setting-label">
+                     <div>启用LLM决策</div>
+                     <div class="setting-desc">使用LLM辅助打牌决策（关闭则仅使用MCTS，不影响聊天功能）</div>
+                   </div>
+                   <van-switch 
+                     v-model="enableLLMDecision" 
+                     size="24px" 
+                     active-color="#667eea" 
+                     inactive-color="rgba(255,255,255,0.2)" 
+                     @change="handleEnableLLMDecisionChange"
+                   />
+                 </div>
+               </div>
+             </div>
+          </van-tab>
+
         </van-tabs>
       </div>
 
-      <!-- 重置按钮放在settings-body外面，作为整个面板的底部 -->
       <div class="settings-footer">
         <van-button
-          type="danger"
+          color="rgba(239, 68, 68, 0.2)"
           block
           size="normal"
+          class="reset-btn"
           @click="handleReset"
         >
-          🔄 重置为默认值
+          <span style="color: #fca5a5;">🔄 重置为默认值</span>
         </van-button>
       </div>
     </div>
     
-    <!-- TTS服务器添加/编辑对话框 -->
     <TTSServerDialog
       v-model="showAddTTSServer"
       :server="editingTTSServer || undefined"
       @confirm="handleAddTTSServer"
     />
   </van-popup>
-
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useSettingsStore, type VoicePlaybackSettings } from '../../stores/settingsStore';
-import { showToast, showSuccessToast, showFailToast, showLoadingToast, showConfirmDialog } from 'vant';
+import { showToast, showSuccessToast, showFailToast, showLoadingToast, showConfirmDialog, type TagType } from 'vant';
 import type { GameSettings, UISettings, AISettings } from '../../stores/settingsStore';
 import type { LLMChatConfig } from '../../../../src/config/chatConfig';
-import type { TTSServerConfig } from '../../services/tts/types';
+import type { TTSServerConfig, TTSProvider } from '../../services/tts/types';
 import { checkLLMAvailability } from '../../../../src/utils/llmHealthCheck';
 import { getAvailableOllamaModels, checkOllamaService } from '../../../../src/utils/llmModelService';
 import { ollamaServerManager, type OllamaServerConfig } from '../../services/llm/ollamaServerManager';
 import { getMultiChannelAudioService } from '../../services/audio/multiChannelAudioService';
 import TTSServerDialog from './TTSServerDialog.vue';
 import { useI18n } from '../../i18n/composable';
+import { AIConfigStore } from '../../../../src/ai/config/AIConfigStore';
 
 interface Props {
   modelValue: boolean;
@@ -727,6 +475,9 @@ const localAISettings = ref<AISettings>({ ...settingsStore.aiSettings });
 const localLLMConfig = ref<LLMChatConfig>({ ...settingsStore.llmConfig });
 const localVoicePlaybackSettings = ref<VoicePlaybackSettings>({ ...settingsStore.voicePlaybackSettings });
 
+// AI决策配置
+const enableLLMDecision = ref(false);
+
 // 音频统计信息
 const audioStats = ref<any>(null);
 let audioStatsTimer: number | null = null;
@@ -737,6 +488,7 @@ const ollamaServerMode = ref<'local' | 'lan' | 'custom'>('local');
 const ollamaLanIP = ref('');
 const ollamaCustomHost = ref('');
 const ollamaPort = ref(11434);
+const showGameModePicker = ref(false);
 
 // 模型选择
 const showModelSelector = ref(false);
@@ -792,7 +544,7 @@ watch(() => localLLMConfig.value.apiUrl, async (newUrl) => {
   if (newUrl && localLLMConfig.value.provider === 'ollama') {
     // 自动检测连接状态
     try {
-      const baseUrl = newUrl.replace('/api/chat', '');
+      const baseUrl = newUrl.replace(/\/api\/(chat|generate)/, '');
       const isAvailable = await checkOllamaService(baseUrl);
       if (isAvailable) {
         llmConnectionStatus.value = '已连接';
@@ -832,6 +584,14 @@ const updateVoicePlaybackSettings = (updates: Partial<VoicePlaybackSettings>) =>
 const updateLLMConfig = (updates: Partial<LLMChatConfig>) => {
   settingsStore.updateLLMConfig(updates);
   localLLMConfig.value = { ...settingsStore.llmConfig };
+};
+
+// 处理LLM决策开关变化（通用配置，同时保存到两个模式）
+const handleEnableLLMDecisionChange = (value: boolean) => {
+  // enableLLMDecision是通用配置，同时保存到团队和单人模式
+  AIConfigStore.saveConfig({ enableLLMDecision: value }, true);
+  AIConfigStore.saveConfig({ enableLLMDecision: value }, false);
+  showSuccessToast(value ? '已启用LLM打牌决策' : '已禁用LLM打牌决策（仅使用MCTS）');
 };
 
 // 初始化Ollama服务器配置
@@ -913,7 +673,7 @@ const refreshModels = async () => {
   
   try {
     const apiUrl = localLLMConfig.value.apiUrl || 'http://localhost:11434/api/chat';
-    const baseUrl = apiUrl.replace('/api/chat', '');
+    const baseUrl = apiUrl.replace(/\/api\/(chat|generate)/, '');
     
     // 检查服务是否可用
     const isAvailable = await checkOllamaService(baseUrl);
@@ -968,6 +728,7 @@ const handleTestLLMChat = async () => {
     const apiUrl = localLLMConfig.value.apiUrl;
     const model = localLLMConfig.value.model;
     
+    // 使用 /api/chat 的 messages 格式
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -999,6 +760,7 @@ const handleTestLLMChat = async () => {
     isTestingLLM.value = false;
   }
 };
+
 
 const updateTTSServer = (id: string, updates: Partial<TTSServerConfig>) => {
   settingsStore.updateTTSServer(id, updates);
@@ -1205,11 +967,9 @@ const testLLMConnection = async () => {
   llmStatusIcon.value = '🔄';
   
   try {
-    // 提取基础URL（去掉/api/chat等路径）
+    // 提取基础URL（去掉/api/chat或/api/generate等路径）
     let baseUrl = localLLMConfig.value.apiUrl || '';
-    if (baseUrl.includes('/api/chat')) {
-      baseUrl = baseUrl.replace('/api/chat', '');
-    }
+    baseUrl = baseUrl.replace(/\/api\/(chat|generate)/, '');
     
     // 使用已有的健康检查函数（超时时间3秒）
     const status = await checkLLMAvailability(baseUrl, 3000);
@@ -1238,7 +998,7 @@ const testLLMConnection = async () => {
     llmConnectionStatus.value = `连接失败: ${error.message || '未知错误'}`;
     llmStatusIcon.value = '❌';
     console.error('❌ LLM连接测试失败:', error);
-    showToast.fail({
+    showFailToast({
       message: `❌ 连接失败\n${error.message || '未知错误'}`,
       duration: 3000
     });
@@ -1427,6 +1187,9 @@ onMounted(() => {
     loadOllamaServers();
     refreshModels();
   }
+  // 加载AI决策配置（通用配置，从任意模式加载都可以）
+  const aiConfig = AIConfigStore.loadConfig(true);
+  enableLLMDecision.value = aiConfig.enableLLMDecision ?? false;
 });
 
 const getThemeLabel = (theme: string) => {
@@ -1525,342 +1288,341 @@ const handleAddTTSServer = (server: Partial<TTSServerConfig>) => {
 </script>
 
 <style scoped>
-/* 全局覆盖 Vant 组件样式 */
-:deep(.van-popup) {
-  overflow: hidden !important;
-}
-
-:deep(.van-tabs) {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-:deep(.van-tabs__content) {
-  flex: 1;
-  overflow: hidden;
-  min-height: 0;
-}
-
-:deep(.van-tab__panel) {
-  height: 100%;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-}
 .settings-panel {
-  height: 85vh;
-  max-height: 85vh;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  overflow: hidden;
-  border-radius: 16px;
+  height: 100%;
+  background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+  color: #fff;
 }
 
 .settings-header {
-  flex-shrink: 0;
-  padding: 16px;
-  border-bottom: 1px solid #ebedf0;
-  background: #fff;
-  z-index: 10;
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 24px;
+  background: rgba(0,0,0,0.2);
+  backdrop-filter: blur(10px);
 }
 
-.settings-header h2 {
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 0;
-  font-size: 20px;
-  font-weight: bold;
-}
-
-.close-button {
-  background: transparent;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.close-button:hover {
-  background-color: #f0f0f0;
-}
-
-.close-button:active {
-  background-color: #e0e0e0;
+  font-size: 24px;
+  font-weight: 800;
+  background: linear-gradient(90deg, #fff, #a5b4fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .settings-body {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
-  min-height: 0; /* 重要：允许flex子元素缩小 */
-}
-
-.settings-body .van-tabs {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-  height: 100%;
-}
-
-.settings-body .van-tabs__wrap {
-  flex-shrink: 0;
-}
-
-.settings-body .van-tabs__content {
-  flex: 1;
-  overflow: hidden; /* 父容器隐藏，子元素滚动 */
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  height: 100%;
-}
-
-.settings-body .van-tab__panel {
-  flex: 1;
-  overflow-y: auto !important; /* 强制启用滚动 */
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch; /* iOS平滑滚动 */
-  min-height: 0; /* 重要：允许滚动 */
-  height: 100%;
-  max-height: 100%;
-  position: relative;
-  /* 确保滚动条可见 */
-  scrollbar-width: thin;
-  scrollbar-color: #c1c1c1 #f1f1f1;
-}
-
-/* Webkit浏览器滚动条样式 */
-.settings-body .van-tab__panel::-webkit-scrollbar {
-  width: 8px;
-}
-
-.settings-body .van-tab__panel::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.settings-body .van-tab__panel::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-.settings-body .van-tab__panel::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-.settings-header {
-  padding: 16px;
-  border-bottom: 1px solid #ebedf0;
-}
-
-.settings-header h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: bold;
 }
 
 .settings-content {
-  width: 100%;
-  padding: 8px;
-  padding-bottom: 20px; /* 底部留出空间 */
-  background: #f7f8fa;
-  box-sizing: border-box;
-  /* 移除 flex: 1，让内容自然撑开，由父容器滚动 */
-}
-
-/* 状态图标 */
-.status-icon {
-  font-size: 18px;
-  margin-right: 8px;
-}
-
-/* TTS摘要信息 */
-.tts-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-  color: #666;
-}
-
-.tts-summary span {
-  display: inline-block;
-  margin-right: 16px;
-}
-
-/* TTS服务器项 */
-.tts-server-item {
-  margin-bottom: 8px;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.tts-server-item.server-disabled {
-  opacity: 0.6;
-}
-
-.server-status-icon {
-  font-size: 18px;
-  margin-right: 8px;
-}
-
-.server-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* 分组间距 - 更紧凑 */
-.van-cell-group {
-  margin-bottom: 8px;
-}
-
-/* 单元格更紧凑 */
-.van-cell {
-  padding: 10px 16px;
-}
-
-.van-field {
-  padding: 8px 16px;
-}
-
-.settings-footer {
-  padding: 12px 16px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
-  border-top: 1px solid #ebedf0;
-  flex-shrink: 0;
-  background: #fff;
-  z-index: 10;
-}
-
-.tts-header {
-  margin-bottom: 16px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* 模型选择器样式 */
-.model-selector {
   padding: 16px;
-  height: 100%;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: calc(100vh - 200px);
+  padding-bottom: 32px;
 }
 
-.model-selector-header {
+.setting-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.card-title {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.card-header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #ebedf0;
 }
 
-.model-selector-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: bold;
+.card-header-row .card-title {
+  margin-bottom: 0;
 }
 
-.model-loading {
-  flex: 1;
+.setting-row {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
+  margin-bottom: 12px;
+  min-height: 48px;
 }
 
-/* 模型列表容器 */
-.models-list-container {
-  padding: 8px 16px 16px;
+.setting-slider-row {
+  margin-bottom: 16px;
 }
 
-.models-list {
+.slider-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 8px;
+}
+
+.setting-label {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+}
+
+.setting-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.main-label {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.sub-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+}
+
+/* Custom Radio UI */
+.custom-radio-group {
   gap: 8px;
 }
 
-.model-button {
-  flex: 0 0 auto;
-  min-width: 100px;
-  margin: 0;
+:deep(.van-radio) {
+  margin-right: 12px;
 }
 
-.model-button.model-selected {
-  font-weight: bold;
-  box-shadow: 0 2px 8px rgba(25, 137, 250, 0.3);
+:deep(.van-radio__label) {
+  color: rgba(255,255,255,0.8) !important;
 }
 
-.model-loading {
-  padding: 20px;
-  text-align: center;
+:deep(.van-radio__icon--checked .van-icon) {
+  background-color: #667eea;
+  border-color: #667eea;
 }
 
-.model-manual-input {
-  padding: 8px 16px;
+/* Provider Grid */
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
 }
 
-.model-list {
-  flex: 1;
-  overflow-y: auto;
+.provider-item {
+  background: rgba(0,0,0,0.2);
+  border-radius: 12px;
+  padding: 16px;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
   gap: 8px;
-  padding: 8px 0;
-}
-
-.model-tag {
+  border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.2s;
-  margin: 4px;
 }
 
-.model-tag:active {
-  transform: scale(0.95);
+.provider-item.active {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: #667eea;
 }
 
-.model-empty {
-  flex: 1;
+.provider-icon {
+  font-size: 24px;
+}
+
+.provider-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Input Styles */
+.input-row {
+  margin-bottom: 12px;
+}
+
+.glass-input {
+  background: rgba(0,0,0,0.2) !important;
+  border-radius: 8px;
+}
+
+:deep(.van-field__control) {
+  color: #fff !important;
+}
+
+:deep(.van-field__label) {
+  color: rgba(255,255,255,0.6) !important;
+}
+
+/* Models Grid */
+.models-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.model-chip {
+  padding: 6px 12px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.model-chip.active {
+  background: #667eea;
+  color: #fff;
+  font-weight: bold;
+}
+
+/* Difficulty Chips */
+.difficulty-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.diff-chip {
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.diff-chip.active {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.diff-chip.easy.active { border-color: #4ade80; color: #4ade80; background: rgba(74, 222, 128, 0.1); }
+.diff-chip.normal.active { border-color: #facc15; color: #facc15; background: rgba(250, 204, 21, 0.1); }
+.diff-chip.hard.active { border-color: #f87171; color: #f87171; background: rgba(248, 113, 113, 0.1); }
+
+.diff-icon { font-size: 24px; }
+.diff-name { font-size: 12px; font-weight: bold; }
+
+/* Language Grid */
+.language-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.lang-chip {
+  padding: 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.lang-chip.active {
+  background: rgba(102, 126, 234, 0.2);
+  border: 1px solid #667eea;
+}
+
+/* TTS List */
+.tts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tts-server-card {
+  background: rgba(0,0,0,0.2);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tts-server-card.disabled {
+  opacity: 0.6;
+}
+
+.server-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.server-name {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.server-tag {
+  font-size: 10px;
+  background: rgba(255,255,255,0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  color: rgba(255,255,255,0.6);
+}
+
+.server-status {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
 }
 
-/* 测试窗口样式 */
-.test-error {
-  margin-top: 8px;
-  padding: 8px;
-  background: #fee;
-  border-radius: 4px;
-}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #666; }
+.dot-success { background: #4ade80; }
+.dot-danger { background: #f87171; }
 
-.test-response {
-  margin-top: 8px;
-}
-
-.test-response-content {
+.connection-status {
   padding: 12px;
-  background: #f7f8fa;
-  border-radius: 4px;
-  margin-top: 8px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  max-height: 200px;
-  overflow-y: auto;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
-  line-height: 1.5;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.status-connected {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.status-disconnected {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.gap-16 { height: 16px; }
+
+.reset-btn {
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
 }
 </style>
-

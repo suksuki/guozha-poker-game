@@ -32,10 +32,12 @@ export function simulateTeamGame(
     const currentTeamId = localState.playerTeams.get(localState.currentPlayerIndex)!;
     
     // 生成所有动作（包括主动要不起）
+    const isTeamMode = config.teamMode ?? true; // 默认团队模式
     const actions = generateTeamActions(
       currentHand,
       localState,
-      config.strategicPassEnabled
+      config.strategicPassEnabled,
+      isTeamMode
     );
     
     if (actions.length === 0) {

@@ -21,34 +21,34 @@ export interface LLMHealthStatus {
  * @returns 健康状态
  */
 export async function checkLLMAvailability(
-  apiUrl: string = 'http://115.93.10.51:11434', // 使用公司服务器
-  timeout: number = 5000 // 增加超时时间
+  apiUrl: string = 'http://115.93.10.51:11434',
+  timeout: number = 5000
 ): Promise<LLMHealthStatus> {
   const startTime = Date.now();
-  
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
+
     // 尝试获取模型列表（轻量级检测）
     const tagsUrl = `${apiUrl}/api/tags`;
-    
+
     const response = await fetch(tagsUrl, {
       method: 'GET',
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
     const responseTime = Date.now() - startTime;
-    
+
     if (response.ok) {
       const data = await response.json();
       const models = data.models?.map((m: any) => m.name) || [];
       const hasModels = models.length > 0;
-      
-      if (hasModels) {      } else {
+
+      if (hasModels) { } else {
       }
-      
+
       return {
         available: hasModels,
         modelCount: models.length,
@@ -56,7 +56,7 @@ export async function checkLLMAvailability(
         responseTime
       };
     }
-    
+
     return {
       available: false,
       modelCount: 0,
@@ -66,7 +66,7 @@ export async function checkLLMAvailability(
     };
   } catch (error: any) {
     const responseTime = Date.now() - startTime;
-    
+
     if (error.name === 'AbortError') {
       return {
         available: false,
@@ -76,7 +76,7 @@ export async function checkLLMAvailability(
         responseTime
       };
     }
-    
+
     return {
       available: false,
       modelCount: 0,
@@ -97,9 +97,9 @@ export async function getRecommendedChatStrategy(
   apiUrl?: string,
   timeout?: number
 ): Promise<'llm' | 'rule-based'> {
-  
+
   const status = await checkLLMAvailability(apiUrl, timeout);
-  
+
   if (status.available) {
     return 'llm';
   } else {
@@ -114,41 +114,42 @@ export async function getRecommendedChatStrategy(
  * @returns 最佳模型名称，如果没有则返回null
  */
 export async function findBestAvailableModel(
-  apiUrl: string = 'http://115.93.10.51:11434', // 使用公司服务器
+  apiUrl: string = 'http://115.93.10.51:11434',
   preferredModels: string[] = ['qwen2:0.5b', 'qwen2:1.5b', 'qwen', 'deepseek', 'llama3']
 ): Promise<string | null> {
   const status = await checkLLMAvailability(apiUrl);
-  
+
   if (!status.available || status.models.length === 0) {
     return null;
   }
-  
+
   // 1. 优先匹配完全相同的模型
   for (const preferred of preferredModels) {
     if (status.models.includes(preferred)) {
       return preferred;
     }
   }
-  
+
   // 2. 尝试前缀匹配（例如 qwen2:0.5b 可以匹配 qwen2）
   for (const preferred of preferredModels) {
     const matched = status.models.find(m => m.startsWith(preferred));
-    if (matched) {      return matched;
+    if (matched) {
+      return matched;
     }
   }
-  
+
   // 3. 选择包含聊天关键词的模型
-  const chatModels = status.models.filter(m => 
-    m.includes('chat') || 
-    m.includes('qwen') || 
+  const chatModels = status.models.filter(m =>
+    m.includes('chat') ||
+    m.includes('qwen') ||
     m.includes('deepseek') ||
     m.includes('llama')
   );
-  
+
   if (chatModels.length > 0) {
     return chatModels[0];
   }
-  
+
   // 4. 使用第一个可用模型
   return status.models[0];
 }
@@ -161,7 +162,7 @@ export async function findBestAvailableModel(
  */
 export async function checkModelAvailable(
   modelName: string,
-  apiUrl: string = 'http://115.93.10.51:11434' // 使用公司服务器
+  apiUrl: string = 'http://localhost:11434' // 增加默认本地检查
 ): Promise<boolean> {
   const status = await checkLLMAvailability(apiUrl);
   return status.available && status.models.includes(modelName);

@@ -9,36 +9,72 @@ import { findPlayableCards, canPlayCards } from '../../utils/cardUtils';
 
 /**
  * 生成团队动作（包括主动要不起）
+ * 
+ * 规则：
+ * - 单人模式：能打过就必须出，不能主动pass；只有真的打不过才能pass
+ * - 团队模式：可以主动pass（strategicPassEnabled为true时）
  */
 export function generateTeamActions(
   hand: Card[],
   state: TeamSimulatedGameState,
-  strategicPassEnabled: boolean
+  strategicPassEnabled: boolean,
+  isTeamMode: boolean = true
 ): TeamAction[] {
   const actions: TeamAction[] = [];
   
   // 1. 生成所有可出牌动作
   const playableCards = findPlayableCards(hand, state.lastPlay);
+  console.log(`🤖 [AI动作生成] 找到${playableCards.length}种可出牌组合（支持拆牌）`);
+  if (playableCards.length > 0 && state.lastPlay) {
+    playableCards.forEach((cards, idx) => {
+      const play = canPlayCards(cards);
+      if (play) {
+        console.log(`   [${idx + 1}] ${cards.length}张，类型=${play.type}，值=${play.value}`);
+      }
+    });
+  }
   actions.push(...playableCards.map(cards => ({
     type: 'play' as const,
     cards
   })));
   
-  // 2. 如果启用主动要不起，即使能打过也可以要不起
-  if (strategicPassEnabled && state.canPass) {
-    // 检查是否有能打过的牌
-    const canBeatLastPlay = playableCards.some(cards => {
-      const play = canPlayCards(cards);
-      return play && state.lastPlay && canBeat(play, state.lastPlay);
-    });
-    
-    // 即使能打过，也可以选择主动要不起
-    if (canBeatLastPlay || !state.lastPlay) {
-      actions.push({
-        type: 'pass' as const,
-        strategic: true  // 主动要不起
-      });
+  // 2. 判断是否有能打过的牌
+  const canBeatLastPlay = playableCards.some(cards => {
+    const play = canPlayCards(cards);
+    return play && state.lastPlay && canBeat(play, state.lastPlay);
+  });
+  
+  // 3. Pass逻辑
+  if (state.lastPlay) {
+    // 有上家出牌的情况
+    if (isTeamMode) {
+      // 团队模式：可以主动pass（如果启用）
+      if (strategicPassEnabled && state.canPass && canBeatLastPlay) {
+        actions.push({
+          type: 'pass' as const,
+          strategic: true  // 主动要不起
+        });
+      }
+      // 即使团队模式，如果打不过，也要添加被动pass
+      if (!canBeatLastPlay) {
+        actions.push({
+          type: 'pass' as const,
+          strategic: false  // 被动要不起（真的打不过）
+        });
+      }
+    } else {
+      // 单人模式：能打过就必须出，不能主动pass；只有真的打不过才能pass
+      if (!canBeatLastPlay) {
+        actions.push({
+          type: 'pass' as const,
+          strategic: false  // 被动要不起（真的打不过）
+        });
+      }
+      // 单人模式：如果能打过，不添加pass选项（必须出牌）
     }
+  } else {
+    // 首家/接风的情况：不能pass，必须出牌
+    // 所以这里不添加pass选项
   }
   
   return actions;

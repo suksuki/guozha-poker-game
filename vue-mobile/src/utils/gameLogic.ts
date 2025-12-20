@@ -4,7 +4,7 @@
  */
 
 import type { Card, Play, Player } from '../types/card';
-import { canPlayCards, canBeat, calculateCardsScore, isScoreCard } from './cardUtils';
+import { canPlayCards, canBeat, calculateCardsScore, isScoreCard, findPlayableCards } from '../../../src/utils/cardUtils';
 import { ChannelType } from '../types/channel';
 
 // =====================================================
@@ -63,7 +63,7 @@ export function canPass(lastPlay: Play | null, isFirstPlayer: boolean): boolean 
 // =====================================================
 
 /**
- * 获取AI推荐的出牌（简单策略）
+ * 获取AI推荐的出牌（使用findPlayableCards来支持拆牌）
  * @param hand 玩家手牌
  * @param lastPlay 上一手牌
  * @returns 推荐的牌组或null（表示过牌）
@@ -72,45 +72,34 @@ export function getAIRecommendation(
     hand: Card[],
     lastPlay: Play | null
 ): { cards: Card[]; play: Play } | null {
-    // 如果没有上一手牌，出最小的单张
-    if (!lastPlay) {
-        if (hand.length > 0) {
-            const sortedHand = [...hand].sort((a, b) => a.rank - b.rank);
-            const smallestCard = sortedHand[0];
-            const play = canPlayCards([smallestCard]);
-            if (play) {
-                return { cards: [smallestCard], play };
-            }
-        }
-        return null;
+    // 使用 findPlayableCards 来查找所有可出的牌（支持拆牌）
+    const playableCards = findPlayableCards(hand, lastPlay);
+    
+    if (playableCards.length === 0) {
+        return null; // 没有可出的牌，建议过牌
     }
 
-    // 尝试找能压的牌
-    // 简单策略：找相同类型且更大的牌
-    const lastType = lastPlay.type;
-    const lastRank = lastPlay.rank;
-    const lastLength = lastPlay.length;
-
-    // 按点数分组
-    const rankGroups = new Map<number, Card[]>();
-    hand.forEach(card => {
-        const existing = rankGroups.get(card.rank) || [];
-        existing.push(card);
-        rankGroups.set(card.rank, existing);
-    });
-
-    // 找能压的牌组
-    for (const [rank, group] of Array.from(rankGroups.entries()).sort((a, b) => a[0] - b[0])) {
-        if (rank > lastRank && group.length >= lastLength) {
-            const cardsToPlay = group.slice(0, lastLength);
-            const play = canPlayCards(cardsToPlay);
-            if (play && canBeat(play, lastPlay)) {
-                return { cards: cardsToPlay, play };
+    // 策略：选择最小的可出牌（按value排序，相同value选择张数少的）
+    const plays = playableCards
+        .map(cards => {
+            const play = canPlayCards(cards);
+            return play ? { cards, play } : null;
+        })
+        .filter((p): p is { cards: Card[]; play: Play } => p !== null)
+        .sort((a, b) => {
+            // 优先按value排序（值小的优先）
+            if (a.play.value !== b.play.value) {
+                return a.play.value - b.play.value;
             }
-        }
+            // value相同，选择张数少的（更省牌）
+            return a.cards.length - b.cards.length;
+        });
+
+    if (plays.length > 0) {
+        return plays[0]; // 返回最小的可出牌
     }
 
-    return null; // 建议过牌
+    return null;
 }
 
 // =====================================================

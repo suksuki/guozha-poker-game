@@ -36,7 +36,7 @@ export class QuarrelService {
    */
   setAudioRoom(audioRoom: ReturnType<typeof useAudioRoom>): void {
     this.audioRoom = audioRoom;
-    
+
     // 创建分段播放管理器
     if (audioRoom) {
       this.segmentedPlayback = new SegmentedPlayback((utter) => {
@@ -138,11 +138,11 @@ export class QuarrelService {
 
     // 调用 LLM 生成分段内容
     const prompt = this.beatsGenerator.generateBeatsPrompt(context);
-    
+
     try {
       // 调用 LLM API（使用 Ollama）
       const response = await this.callLLMAPI(prompt);
-      
+
       // 解析响应
       const parsed = this.beatsGenerator.parseLLMResponse(response);
       if (parsed && parsed.segments && parsed.segments.length > 0) {
@@ -150,7 +150,7 @@ export class QuarrelService {
       }
     } catch (error) {
     }
-    
+
     // 如果 LLM 调用失败，生成占位分段
     const segments = beatsStructure.beats.map((beat, index) => ({
       beat_index: index,
@@ -167,9 +167,9 @@ export class QuarrelService {
    * 调用 LLM API
    */
   private async callLLMAPI(prompt: string): Promise<string> {
-    const apiUrl = 'http://localhost:11434/api/chat';
+    const apiUrl = 'http://localhost:11434/api/generate';
     const model = 'qwen2.5:latest';  // 默认模型，可以从配置读取
-    
+
     try {
       const response = await fetch(apiUrl, {
         method: 'POST',

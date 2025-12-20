@@ -911,3 +911,26 @@ interface AIUnderstandingFeedbackProps {
 - 团队作战设计：`docs/review/team-scoring-and-chat-redesign.md`
 - 多方案建议设计：`docs/design/multiple-ai-suggestions-redesign.md`
 
+---
+
+## 🚀 2025-12-18 实施总结
+
+在该日期，我们完成了 AI 高级交互架构的最终闭环：
+
+1. **双向通信基础设施**：
+   - 升级了 `GameBridge` 和 `MasterAIBrain`，支持接收来自前端的 `sendUserMessage`。
+   - 实现消息自动注入 `CommunicationScheduler` 回话历史，AI 现在能“听懂”并在闲聊中回应用户。
+
+2. **意图分析器 (IntentAnalyzer)**：
+   - 实现了基于关键词和语境的轻量级解析引擎（Phase 2）。
+   - 成功捕获关键指令：`WAIT_FOR_ME`, `PROTECT_TEAMMATE`, `I_HAVE_STRENGTH`。
+
+3. **HybridStrategy 实时联动**：
+   - 修改了 `HybridStrategy.choosePlay`，使其在 MCTS 计算前先读取 `SharedCognitiveLayer` 中的队友意图。
+   - **动态调参**：例如收到“等我出”信号后，将 `strategicPassWeight` 提升 2.5 倍。
+   - **LLM 决策增强**：将战术信号作为 Prompt 的一部分输入给“右脑”LLM，提升了决策的协作感。
+
+**验证结果**：
+- 通过 `tests/ai-advanced-interaction.test.ts` 集成测试。
+- AI 能够正确识别用户输入的“等我出”并更新内部战术状态。
+

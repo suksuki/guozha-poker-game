@@ -29,8 +29,16 @@
     "individual": "个人",
     "team": "团队",
     "currentPlayer": "当前玩家",
+    "directions": {
+      "east": "东",
+      "west": "西",
+      "north": "北",
+      "south": "南"
+    },
     "yourTurn": "你的回合",
     "waiting": "等待中",
+    "waitingFirstPlayer": "等待首家出牌",
+    "selected": "已选择",
     "playing": "游戏中",
     "finished": "游戏结束",
     "winner": "获胜者",
@@ -131,7 +139,20 @@
     "avgDecisionQuality": "平均决策质量",
     "winRate": "胜率",
     "avgChatQuality": "平均聊天质量",
-    "metrics": "训练指标"
+    "metrics": "训练指标",
+    "config": "训练配置",
+    "rounds": "训练轮数",
+    "inputRounds": "请输入训练轮数",
+    "batchSize": "批次大小",
+    "inputBatchSize": "请输入批次大小",
+    "fastMode": "快速模式",
+    "speedMultiplier": "速度倍数",
+    "inputSpeed": "请输入速度倍数",
+    "dataCollection": "数据收集",
+    "autoSave": "自动保存",
+    "llmConfig": "LLM配置",
+    "llmEndpoint": "LLM端点",
+    "modelName": "模型名称"
   },
   "cards": {
     "rank": {
@@ -160,4 +181,3 @@
     }
   }
 }
-

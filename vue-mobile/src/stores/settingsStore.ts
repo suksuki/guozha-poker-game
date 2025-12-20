@@ -18,6 +18,7 @@ export interface GameSettings {
   enableSoundEffects: boolean;
   enableVoiceChat: boolean;
   enableAnimations: boolean;
+  skipDealing: boolean;
 }
 
 // ========== UI设置 ==========
@@ -49,7 +50,7 @@ export interface VoicePlaybackSettings {
 
 export const useSettingsStore = defineStore('settings', () => {
   // ========== 状态 ==========
-  
+
   // 游戏设置
   const gameSettings = ref<GameSettings>({
     playerCount: 4,
@@ -57,7 +58,8 @@ export const useSettingsStore = defineStore('settings', () => {
     humanPlayerIndex: 0,
     enableSoundEffects: true,
     enableVoiceChat: true,
-    enableAnimations: true
+    enableAnimations: true,
+    skipDealing: false
   });
 
   // UI设置
@@ -99,13 +101,13 @@ export const useSettingsStore = defineStore('settings', () => {
   const isSettingsOpen = ref(false);
 
   // ========== 计算属性 ==========
-  
+
   const currentLLMProvider = computed(() => llmConfig.value.provider);
   const currentLLMUrl = computed(() => llmConfig.value.apiUrl || '');
   const currentLLMModel = computed(() => llmConfig.value.model || '');
 
   // ========== 方法 ==========
-  
+
   /**
    * 初始化设置（从localStorage加载）
    */
@@ -117,7 +119,7 @@ export const useSettingsStore = defineStore('settings', () => {
         gameSettings.value = { ...gameSettings.value, ...parsed.gameSettings };
         uiSettings.value = { ...uiSettings.value, ...parsed.uiSettings };
         aiSettings.value = { ...aiSettings.value, ...parsed.aiSettings };
-        
+
         // 加载语言设置后立即应用
         if (uiSettings.value.language) {
           changeLanguage(uiSettings.value.language);
@@ -174,12 +176,12 @@ export const useSettingsStore = defineStore('settings', () => {
    */
   const updateUISettings = (updates: Partial<UISettings>) => {
     uiSettings.value = { ...uiSettings.value, ...updates };
-    
+
     // 如果语言改变，立即切换
     if (updates.language && updates.language !== getCurrentLanguage()) {
       changeLanguage(updates.language);
     }
-    
+
     saveSettings();
   };
 
@@ -197,7 +199,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const updateLLMConfig = (updates: Partial<LLMChatConfig>) => {
     llmConfig.value = { ...llmConfig.value, ...updates };
     saveSettings();
-    
+
     // 如果AI Brain已初始化，触发重新初始化（延迟执行，避免频繁初始化）
     if ((window as any).__aiBrainReinitTimer) {
       clearTimeout((window as any).__aiBrainReinitTimer);
@@ -217,12 +219,12 @@ export const useSettingsStore = defineStore('settings', () => {
       console.error('[SettingsStore] 添加TTS服务器失败：缺少connection字段', server);
       throw new Error('TTS服务器配置不完整：缺少connection字段');
     }
-    
+
     if (server.connection && (!server.connection.host || !server.connection.port)) {
       console.error('[SettingsStore] 添加TTS服务器失败：connection字段不完整', server);
       throw new Error('TTS服务器配置不完整：connection字段缺少host或port');
     }
-    
+
     ttsServers.value.push(server);
     saveSettings();
   };
@@ -234,7 +236,7 @@ export const useSettingsStore = defineStore('settings', () => {
     const index = ttsServers.value.findIndex(s => s.id === id);
     if (index !== -1) {
       const existing = ttsServers.value[index];
-      
+
       // 如果更新了connection，需要合并；否则保留现有的connection
       let connection = existing.connection;
       if (updates.connection) {
@@ -247,24 +249,24 @@ export const useSettingsStore = defineStore('settings', () => {
           connection = updates.connection;
         }
       }
-      
-      const updated = { 
-        ...existing, 
+
+      const updated = {
+        ...existing,
         ...updates,
         connection  // 确保connection被正确设置
       };
-      
+
       // 验证必需字段
       if (updated.type !== 'browser' && !updated.connection) {
         console.error('[SettingsStore] 更新TTS服务器失败：缺少connection字段', updated);
         throw new Error('TTS服务器配置不完整：缺少connection字段');
       }
-      
+
       if (updated.connection && (!updated.connection.host || !updated.connection.port)) {
         console.error('[SettingsStore] 更新TTS服务器失败：connection字段不完整', updated);
         throw new Error('TTS服务器配置不完整：connection字段缺少host或port');
       }
-      
+
       ttsServers.value[index] = updated;
       saveSettings();
     }
@@ -284,7 +286,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const updateVoicePlaybackSettings = async (updates: Partial<VoicePlaybackSettings>) => {
     voicePlaybackSettings.value = { ...voicePlaybackSettings.value, ...updates };
     saveSettings();
-    
+
     // 同步到音频服务
     try {
       const { getMultiChannelAudioService } = await import('../services/audio/multiChannelAudioService');
@@ -330,7 +332,8 @@ export const useSettingsStore = defineStore('settings', () => {
       humanPlayerIndex: 0,
       enableSoundEffects: true,
       enableVoiceChat: true,
-      enableAnimations: true
+      enableAnimations: true,
+      skipDealing: false
     };
     uiSettings.value = {
       theme: 'auto',
@@ -360,7 +363,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 初始化时加载设置
   loadSettings();
-  
+
   // 监听TTS服务器变化，同步到TTS服务
   watch(ttsServers, async (newServers) => {
     try {
@@ -395,12 +398,12 @@ export const useSettingsStore = defineStore('settings', () => {
     ttsServers,
     voicePlaybackSettings,
     isSettingsOpen,
-    
+
     // 计算属性
     currentLLMProvider,
     currentLLMUrl,
     currentLLMModel,
-    
+
     // 方法
     loadSettings,
     saveSettings,

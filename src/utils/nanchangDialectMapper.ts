@@ -26,7 +26,7 @@ let NANCHANG_MAPPING: Record<string, string> = {
   '好牌': '好牌',
   '这手不错': '这手恰噶',
   '这手很好': '这手恰噶',
-  
+
   // 脏话映射（用于对骂场景）
   '逼': '别',
   '傻逼': '傻别',
@@ -44,14 +44,14 @@ let NANCHANG_MAPPING: Record<string, string> = {
   '笨蛋': '笨蛋',
   '白痴': '白痴',
   '蠢货': '蠢货',
-  
+
   // 语气词
   '啊': '啊',
   '呀': '呀',
   '呢': '呢',
   '吧': '吧',
   '哦': '哦',
-  
+
   // 常用短语
   '我也要不起': '我也要不起',
   '我也要': '我也要',
@@ -61,7 +61,7 @@ let NANCHANG_MAPPING: Record<string, string> = {
   '输了': '输了',
   '好运气': '好运气',
   '真倒霉': '真倒霉',
-  
+
   // 游戏相关
   '炸弹': '炸弹',
   '对子': '对子',
@@ -119,9 +119,9 @@ export async function trainMappingWithLLM(
   llmConfig?: LLMChatConfig
 ): Promise<Array<{ mandarin: string; nanchang: string }>> {
   const config = llmConfig || DEFAULT_LLM_CHAT_CONFIG;
-  const apiUrl = config.apiUrl || 'http://localhost:11434/api/chat';
+  const apiUrl = config.apiUrl || 'http://localhost:11434/api/generate';
   const model = config.model || 'qwen2.5:7b';
-  
+
   const prompt = `你是一个南昌话方言转换专家。请为以下普通话文本生成地道的南昌话映射。
 
 要求：
@@ -170,20 +170,20 @@ ${texts.join('\n')}
 
     const data = await response.json();
     const content = data.message?.content || data.response || '';
-    
+
     // 尝试解析JSON
     try {
       // 提取JSON部分（可能包含markdown代码块）
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       const jsonStr = jsonMatch ? jsonMatch[0] : content;
       const mappings = JSON.parse(jsonStr);
-      
+
       if (Array.isArray(mappings)) {
         return mappings;
       }
     } catch (parseError) {
     }
-    
+
     return [];
   } catch (error) {
     return [];
@@ -248,7 +248,7 @@ export function clearCustomMappings(): void {
       '好牌': '好牌',
       '这手不错': '这手恰噶',
       '这手很好': '这手恰噶',
-      
+
       // 脏话映射
       '逼': '别',
       '傻逼': '傻别',
@@ -266,14 +266,14 @@ export function clearCustomMappings(): void {
       '笨蛋': '笨蛋',
       '白痴': '白痴',
       '蠢货': '蠢货',
-      
+
       // 语气词
       '啊': '啊',
       '呀': '呀',
       '呢': '呢',
       '吧': '吧',
       '哦': '哦',
-      
+
       // 常用短语
       '我也要不起': '我也要不起',
       '我也要': '我也要',
@@ -283,7 +283,7 @@ export function clearCustomMappings(): void {
       '输了': '输了',
       '好运气': '好运气',
       '真倒霉': '真倒霉',
-      
+
       // 游戏相关
       '炸弹': '炸弹',
       '对子': '对子',
@@ -308,16 +308,16 @@ function convertWithMapping(text: string): string {
   }
 
   let result = text;
-  
+
   // 按长度从长到短排序，优先匹配长词
   const sortedKeys = Object.keys(NANCHANG_MAPPING).sort((a, b) => b.length - a.length);
-  
+
   // 逐个替换
   for (const key of sortedKeys) {
     const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
     result = result.replace(regex, NANCHANG_MAPPING[key]);
   }
-  
+
   return result;
 }
 
@@ -361,7 +361,7 @@ if (import.meta.env.DEV) {
     '我也要不起',
     '好牌',
   ];
-  
+
   testCases.forEach(test => {
     const converted = convertToNanchangDialect(test);
   });

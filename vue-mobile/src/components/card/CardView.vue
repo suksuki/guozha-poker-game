@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<Props>(), {
 const sizeClass = computed(() => `card-${props.size}`);
 
 const isJoker = computed(() => {
-  return props.card.suit === Suit.JOKER || props.card.rank === Rank.SMALL_JOKER || props.card.rank === Rank.BIG_JOKER;
+  return props.card.suit === Suit.JOKER || props.card.rank === Rank.JOKER_SMALL || props.card.rank === Rank.JOKER_BIG;
 });
 
 const suitClass = computed(() => {
@@ -56,8 +56,9 @@ const rankDisplay = computed(() => {
   if (rank === Rank.JACK) return 'J';
   if (rank === Rank.QUEEN) return 'Q';
   if (rank === Rank.KING) return 'K';
-  if (rank === Rank.SMALL_JOKER) return '小';
-  if (rank === Rank.BIG_JOKER) return '大';
+  if (rank === Rank.TWO) return '2';
+  if (rank === Rank.JOKER_SMALL) return '小';
+  if (rank === Rank.JOKER_BIG) return '大';
   return rank.toString();
 });
 
@@ -72,8 +73,8 @@ const suitDisplay = computed(() => {
 });
 
 const jokerText = computed(() => {
-  if (props.card.rank === Rank.SMALL_JOKER) return '小王';
-  if (props.card.rank === Rank.BIG_JOKER) return '大王';
+  if (props.card.rank === Rank.JOKER_SMALL) return '小王';
+  if (props.card.rank === Rank.JOKER_BIG) return '大王';
   return 'JOKER';
 });
 </script>

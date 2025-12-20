@@ -133,6 +133,7 @@ export class RoundData {
 
   /**
    * 标记轮次结束（返回新的RoundData）
+   * 注意：轮次结束时，lastPlay应该被清空，因为下一轮是全新开始
    */
   finish(params: {
     winnerId: number;
@@ -144,7 +145,9 @@ export class RoundData {
       isFinished: true,
       winnerId: params.winnerId,
       winnerName: params.winnerName,
-      endTime: params.endTime ?? Date.now()
+      endTime: params.endTime ?? Date.now(),
+      lastPlay: null,  // 轮次结束，清空lastPlay，下一轮是全新开始
+      lastPlayPlayerIndex: null  // 同时清空最后出牌玩家索引
     });
   }
 

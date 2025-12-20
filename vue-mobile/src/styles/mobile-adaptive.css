@@ -9,43 +9,43 @@
   --primary: #667eea;
   --primary-light: #818cf8;
   --primary-dark: #4f46e5;
-  
+
   /* 功能色 */
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
   --info: #3b82f6;
-  
+
   /* 背景色 */
   --bg-primary: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
   --bg-card: rgba(255, 255, 255, 0.1);
   --bg-glass: rgba(255, 255, 255, 0.15);
-  
+
   /* 文字色 */
   --text-primary: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.7);
   --text-muted: rgba(255, 255, 255, 0.4);
-  
+
   /* 边框 */
   --border-color: rgba(255, 255, 255, 0.1);
   --border-radius-sm: 8px;
   --border-radius-md: 12px;
   --border-radius-lg: 16px;
   --border-radius-xl: 24px;
-  
+
   /* 阴影 */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.25);
   --shadow-glow: 0 0 20px rgba(102, 126, 234, 0.4);
-  
+
   /* 间距 */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
-  
+
   /* 动画 */
   --transition-fast: 0.15s ease;
   --transition-normal: 0.3s ease;
@@ -54,41 +54,43 @@
 
 /* ===== 基础响应式 ===== */
 @media (max-width: 360px) {
+
   /* 小屏手机 (iPhone SE) */
   :root {
     --spacing-md: 12px;
     --spacing-lg: 16px;
   }
-  
+
   .card-small {
     width: 35px !important;
     height: 49px !important;
     font-size: 12px !important;
   }
-  
+
   .card-medium {
     width: 45px !important;
     height: 63px !important;
     font-size: 14px !important;
   }
-  
+
   .player-avatar {
     width: 60px !important;
     height: 60px !important;
   }
-  
+
   .status-panel {
     font-size: 12px !important;
   }
 }
 
 @media (min-width: 361px) and (max-width: 414px) {
+
   /* 中等屏幕 (iPhone 8, X, 11 Pro) */
   .card-small {
     width: 40px !important;
     height: 56px !important;
   }
-  
+
   .card-medium {
     width: 50px !important;
     height: 70px !important;
@@ -96,12 +98,13 @@
 }
 
 @media (min-width: 415px) and (max-width: 768px) {
+
   /* 大屏手机/小平板 (iPhone Plus, Android) */
   .card-medium {
     width: 55px !important;
     height: 77px !important;
   }
-  
+
   .card-large {
     width: 65px !important;
     height: 91px !important;
@@ -109,6 +112,7 @@
 }
 
 @media (min-width: 769px) {
+
   /* 平板/桌面 */
   .game-board {
     max-width: 1200px;
@@ -121,16 +125,16 @@
   .player-info {
     padding: 8px !important;
   }
-  
+
   .avatar {
     width: 60px !important;
     height: 60px !important;
   }
-  
+
   .status-panel {
     gap: 8px !important;
   }
-  
+
   .action-buttons {
     flex-direction: row !important;
   }
@@ -144,7 +148,7 @@
     padding-top: max(0px, env(safe-area-inset-top));
     padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
-  
+
   .action-buttons {
     padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
@@ -198,59 +202,128 @@ button {
 
 /* ===== 动画效果 ===== */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
 }
 
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 10px rgba(102, 126, 234, 0.3); }
-  50% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.6); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.6);
+  }
 }
 
 @keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
-.animate-fade-in { animation: fadeIn 0.3s ease-out; }
-.animate-slide-up { animation: slideUp 0.3s ease-out; }
-.animate-slide-down { animation: slideDown 0.3s ease-out; }
-.animate-scale-in { animation: scaleIn 0.3s ease-out; }
-.animate-pulse { animation: pulse 2s ease-in-out infinite; }
-.animate-glow { animation: glow 2s ease-in-out infinite; }
-.animate-bounce { animation: bounce 1s ease-in-out infinite; }
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-bounce {
+  animation: bounce 1s ease-in-out infinite;
+}
 
 /* ===== 深色模式支持 ===== */
 @media (prefers-color-scheme: dark) {
   .game-board {
     background: #0a0a0a;
   }
-  
+
   .card {
     background: #1a1a1a;
     border-color: #333;
   }
-  
+
   .status-bar {
     background: #1a1a1a;
     border-color: #333;
@@ -262,12 +335,12 @@ button {
   .card {
     border-width: 3px !important;
   }
-  
+
   .van-button,
   button {
     font-weight: bold !important;
   }
-  
+
   :root {
     --text-secondary: rgba(255, 255, 255, 0.9);
     --text-muted: rgba(255, 255, 255, 0.7);
@@ -276,6 +349,7 @@ button {
 
 /* ===== 减少动画模式 ===== */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -364,4 +438,57 @@ button {
 .badge-danger {
   background: rgba(239, 68, 68, 0.2);
   color: #fca5a5;
+}
+
+/* ===== AI 进化实验室专属样式 ===== */
+:root {
+  --evo-neon-blue: #00c6ff;
+  --evo-neon-purple: #0072ff;
+  --evo-neon-pink: #ff0055;
+  --evo-glass-dark: rgba(20, 20, 35, 0.95);
+}
+
+.panel-evolution {
+  background: var(--evo-glass-dark);
+  border: 1px solid rgba(0, 198, 255, 0.2);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(0, 198, 255, 0.1);
+}
+
+.text-gradient-evo {
+  background: linear-gradient(90deg, var(--evo-neon-blue), var(--evo-neon-purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.btn-evo-primary {
+  background: linear-gradient(135deg, var(--evo-neon-blue), var(--evo-neon-purple));
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 198, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-evo-primary:hover {
+  box-shadow: 0 0 25px rgba(0, 198, 255, 0.6);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.card-evo-hightech {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-evo-hightech::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  opacity: 0.5;
 }

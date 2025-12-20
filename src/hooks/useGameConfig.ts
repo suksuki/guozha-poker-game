@@ -38,7 +38,7 @@ export function useGameConfig() {
   const [skipDealingAnimation, setSkipDealingAnimation] = useState(false);
   const [dealingSpeed, setDealingSpeed] = useState(150); // 发牌速度（毫秒/张）
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'grouped'>('grouped'); // 排序规则
-  
+
   // 团队模式（从 localStorage 读取，默认关闭）
   const [teamMode, setTeamMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('teamMode');
@@ -50,13 +50,13 @@ export function useGameConfig() {
     setTeamMode(enabled);
     localStorage.setItem('teamMode', enabled.toString());
   }, []);
-  
+
   // LLM聊天配置
   const [llmModel, setLlmModel] = useState<string>(() => {
     const saved = localStorage.getItem('llmModel');
     return saved || 'qwen2:0.5b'; // 默认模型
   });
-  
+
   // 更新 LLM 模型并保存到 localStorage
   const updateLlmModel = useCallback((model: string) => {
     setLlmModel(model);
@@ -64,45 +64,45 @@ export function useGameConfig() {
   }, []);
   const [llmApiUrl, setLlmApiUrl] = useState<string>(() => {
     const saved = localStorage.getItem('llmApiUrl');
-    return saved || 'http://115.93.10.51:11434/api/chat'; // 默认使用公司服务器
+    return saved || 'http://115.93.10.51:11434/api/generate';
   });
-  
+
   // 更新 LLM API URL 并保存到 localStorage
   const updateLlmApiUrl = useCallback((url: string) => {
     setLlmApiUrl(url);
     localStorage.setItem('llmApiUrl', url);
   }, []);
-  
+
   // 想法生成开关（从 localStorage 读取，默认开启）
   const [ideaGenerationEnabled, setIdeaGenerationEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem('ideaGenerationEnabled');
     return saved !== null ? saved === 'true' : true; // 默认开启
   });
-  
+
   // 更新想法生成开关并保存到 localStorage
   const updateIdeaGenerationEnabled = useCallback((enabled: boolean) => {
     setIdeaGenerationEnabled(enabled);
     localStorage.setItem('ideaGenerationEnabled', enabled.toString());
   }, []);
-  
+
   // 计分器开关（从 localStorage 读取，默认关闭）
   const [cardTrackerEnabled, setCardTrackerEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem('cardTrackerEnabled');
     return saved !== null ? saved === 'true' : false; // 默认关闭
   });
-  
+
   // 更新计分器开关并保存到 localStorage
   const updateCardTrackerEnabled = useCallback((enabled: boolean) => {
     setCardTrackerEnabled(enabled);
     localStorage.setItem('cardTrackerEnabled', enabled.toString());
   }, []);
-  
+
   // 记牌器面板显示开关（从 localStorage 读取，默认关闭）
   const [cardTrackerPanelVisible, setCardTrackerPanelVisible] = useState<boolean>(() => {
     const saved = localStorage.getItem('cardTrackerPanelVisible');
     return saved !== null ? saved === 'true' : false; // 默认关闭
   });
-  
+
   // 更新记牌器面板显示开关并保存到 localStorage
   const updateCardTrackerPanelVisible = useCallback((visible: boolean) => {
     setCardTrackerPanelVisible(visible);
@@ -144,7 +144,7 @@ export function useGameConfig() {
     setGuanDanWarningEnabled(enabled);
     localStorage.setItem('guanDanWarningEnabled', enabled.toString());
   }, []);
-  
+
   // 训练模式配置
   const [trainingConfig, setTrainingConfig] = useState<TrainingConfig>({
     gameCount: 1000,
@@ -173,7 +173,7 @@ export function useGameConfig() {
 
     // 如果启用团队模式，检查玩家数量是否为4或6
     const shouldEnableTeamMode = teamMode && (playerCount === 4 || playerCount === 6);
-    
+
     startGame({
       playerCount,
       humanPlayerIndex,

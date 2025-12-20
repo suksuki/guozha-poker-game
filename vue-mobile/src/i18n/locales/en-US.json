@@ -140,6 +140,7 @@
   },
   "training": {
     "title": "Intelligent Training Center",
+    "intelligentTraining": "AI Laboratory",
     "decisionTraining": "Decision Training",
     "chatTraining": "Chat Training",
     "hybridTraining": "Hybrid Training",
@@ -157,7 +158,21 @@
     "totalChats": "Total Chats",
     "avgDecisionQuality": "Average Decision Quality",
     "winRate": "Win Rate",
-    "avgChatQuality": "Average Chat Quality"
+    "avgChatQuality": "Average Chat Quality",
+    "metrics": "Training Metrics",
+    "config": "Configuration",
+    "rounds": "Rounds",
+    "inputRounds": "Enter rounds",
+    "batchSize": "Batch Size",
+    "inputBatchSize": "Enter batch size",
+    "fastMode": "Fast Mode",
+    "speedMultiplier": "Speed Multiplier",
+    "inputSpeed": "Enter speed multiplier",
+    "dataCollection": "Data Collection",
+    "autoSave": "Auto Save",
+    "llmConfig": "LLM Configuration",
+    "llmEndpoint": "LLM Endpoint",
+    "modelName": "Model Name"
   },
   "cards": {
     "rank": {
@@ -186,4 +201,3 @@
     }
   }
 }
-

@@ -28,7 +28,8 @@ export function teamMCTS(
   const startTime = Date.now();
   
   // 生成所有可能的动作
-  const actions = generateTeamActions(hand, state, config.strategicPassEnabled);
+  const isTeamMode = config.teamMode ?? true; // 默认团队模式
+  const actions = generateTeamActions(hand, state, config.strategicPassEnabled, isTeamMode);
   
   if (actions.length === 0) {
     return null; // 没有可用动作
@@ -117,7 +118,8 @@ function expandTeamNode(
     untriedActions: generateTeamActions(
       newState.allHands[newState.currentPlayerIndex],
       newState,
-      config.strategicPassEnabled
+      config.strategicPassEnabled,
+      config.teamMode ?? true
     ),
     evaluation: {
       expectedTeamScore: evaluateTeamAction(action, node.state, hand, config),
@@ -275,7 +277,8 @@ export function teamMCTSChooseMultiplePlays(
   const maxTime = 3000;
   const startTime = Date.now();
   
-  const actions = generateTeamActions(hand, state, config.strategicPassEnabled);
+  const isTeamMode = config.teamMode ?? true; // 默认团队模式
+  const actions = generateTeamActions(hand, state, config.strategicPassEnabled, isTeamMode);
   
   if (actions.length === 0) {
     return [];

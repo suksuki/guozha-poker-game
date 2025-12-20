@@ -1,45 +1,45 @@
 <template>
   <div class="decision-training-panel">
-    <van-cell-group title="训练配置">
+    <van-cell-group :title="$t('training.config')">
       <van-field
         v-model.number="localConfig.rounds"
-        label="训练轮数"
+        :label="$t('training.rounds')"
         type="number"
-        placeholder="请输入训练轮数"
+        :placeholder="$t('training.inputRounds')"
         @update:model-value="updateConfig"
       />
       <van-field
         v-model.number="localConfig.batchSize"
-        label="批次大小"
+        :label="$t('training.batchSize')"
         type="number"
-        placeholder="请输入批次大小"
+        :placeholder="$t('training.inputBatchSize')"
         @update:model-value="updateConfig"
       />
     </van-cell-group>
     
-    <van-cell-group title="快速模式">
+    <van-cell-group :title="$t('training.fastMode')" v-if="localConfig.fastMode">
       <van-switch
         v-model="localConfig.fastMode.enabled"
         @update:model-value="updateConfig"
       />
       <van-field
         v-model.number="localConfig.fastMode.speedMultiplier"
-        label="速度倍数"
+        :label="$t('training.speedMultiplier')"
         type="number"
-        placeholder="请输入速度倍数"
+        :placeholder="$t('training.inputSpeed')"
         :disabled="!localConfig.fastMode.enabled"
         @update:model-value="updateConfig"
       />
     </van-cell-group>
     
-    <van-cell-group title="数据收集">
+    <van-cell-group :title="$t('training.dataCollection')" v-if="localConfig.dataCollection">
       <van-switch
         v-model="localConfig.dataCollection.enabled"
         @update:model-value="updateConfig"
       />
       <van-switch
         v-model="localConfig.dataCollection.autoSave"
-        label="自动保存"
+        :label="$t('training.autoSave')"
         @update:model-value="updateConfig"
       />
     </van-cell-group>
@@ -86,7 +86,28 @@ const updateConfig = () => {
 
 <style scoped>
 .decision-training-panel {
-  padding: 16px 0;
+  padding: 8px 0;
 }
+
+/* Field Customization */
+:deep(.van-field__label) {
+  color: var(--text-secondary);
+}
+:deep(.van-field__control) {
+  color: white;
+  font-family: 'Roboto Mono', monospace;
+}
+:deep(.van-field__control::placeholder) {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* Switch Customization */
+:deep(.van-switch--on) {
+  background: var(--evo-neon-blue);
+}
+:deep(.van-switch) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 </style>
 

@@ -109,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useI18n } from '../../i18n/composable';
 import { TrainingController } from '../../../../src/training/core/TrainingController';
 import { TrainingConfig, TrainingProgress, TrainingMetrics } from '../../../../src/types/training';
@@ -117,7 +117,8 @@ import DecisionTrainingPanel from './DecisionTrainingPanel.vue';
 import ChatTrainingPanel from './ChatTrainingPanel.vue';
 import HybridTrainingPanel from './HybridTrainingPanel.vue';
 
-const { t } = useI18n();
+const { t } = useI18n(); // t is unused in script, but maybe keep it if I need it later? Lint says it's unused. Actually let's just remove it if not used. Wait, useI18n() might register $t? No, usually t is returned.
+// Let's assume t is not needed in script.
 
 const emit = defineEmits<{
   close: [];
@@ -212,7 +213,7 @@ const stopProgressTimer = () => {
   }
 };
 
-const onTabChange = (name: string) => {
+const onTabChange = () => {
   // 切换标签时更新配置
 };
 
@@ -292,43 +293,133 @@ const formatTime = (ms: number): string => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #f5f5f5;
+  background: var(--bg-primary); /* Dark gradient */
   z-index: 1000;
   display: flex;
   flex-direction: column;
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+}
+
+/* Custom Nav Bar */
+:deep(.van-nav-bar) {
+  background: transparent;
+}
+:deep(.van-nav-bar__title) {
+  color: white;
+  font-weight: bold;
+}
+:deep(.van-nav-bar .van-icon) {
+  color: var(--evo-neon-blue);
+}
+:deep(.van-hairline--bottom::after) {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .training-content {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(0, 198, 255, 0.1) 0%, transparent 20%),
+    radial-gradient(circle at 90% 80%, rgba(255, 0, 85, 0.1) 0%, transparent 20%);
+}
+
+/* Vant Tabs Customization */
+:deep(.van-tabs__nav) {
+  background: transparent;
+}
+:deep(.van-tab) {
+  color: var(--text-secondary);
+}
+:deep(.van-tab--active) {
+  color: var(--evo-neon-blue);
+  font-weight: bold;
+}
+:deep(.van-tabs__line) {
+  background: var(--evo-neon-blue);
 }
 
 .training-controls {
-  margin-top: 16px;
+  margin-top: 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+}
+
+/* Buttons */
+:deep(.van-button--primary) {
+  background: linear-gradient(135deg, var(--evo-neon-blue), var(--evo-neon-purple));
+  border: none;
+  box-shadow: 0 4px 15px rgba(0, 198, 255, 0.3);
+}
+:deep(.van-button--warning) {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fca5a5; /* Adjust based on theme */
+  border: 1px solid rgba(251, 191, 36, 0.5);
+}
+:deep(.van-button--danger) {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.5);
 }
 
 .training-progress {
   margin-top: 24px;
-  padding: 16px;
-  background: white;
-  border-radius: 8px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05); /* Glass */
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .progress-info {
-  margin-top: 12px;
+  margin-top: 16px;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  font-family: 'Roboto Mono', monospace;
 }
 
 .training-metrics {
   margin-top: 24px;
+}
+
+/* Metrics Cells */
+:deep(.van-cell-group), :deep(.van-cell) {
+  background: transparent;
+}
+:deep(.van-cell-group__title) {
+  color: var(--evo-neon-blue);
+  padding-left: 4px;
+  margin-bottom: 8px;
+}
+:deep(.van-cell) {
+  color: var(--text-primary);
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 1px;
+}
+:deep(.van-cell:first-child) {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+:deep(.van-cell:last-child) {
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+:deep(.van-cell__value) {
+  color: var(--evo-neon-blue);
+  font-family: 'Roboto Mono', monospace;
+  font-weight: bold;
+}
+:deep(.van-cell::after) {
+  border-bottom: none;
+}
+:deep(.van-hairline--top-bottom::after) {
+  border-width: 0;
 }
 </style>
 

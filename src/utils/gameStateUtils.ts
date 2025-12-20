@@ -83,11 +83,12 @@ export function findNextActivePlayer(
   players: Player[],
   playerCount: number
 ): number | null {
-  let nextPlayerIndex = (startIndex + 1) % playerCount;
+  // 逆时针（南->东->北->西）：Index - 1 (Assuming 0=S, 1=W, 2=N, 3=E or similar layout where -1 is Right)
+  let nextPlayerIndex = (startIndex - 1 + playerCount) % playerCount;
   let attempts = 0;
   // 跳过所有已出完的玩家
   while (players[nextPlayerIndex].hand.length === 0 && attempts < playerCount) {
-    nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
+    nextPlayerIndex = (nextPlayerIndex - 1 + playerCount) % playerCount;
     attempts++;
   }
   // 如果所有玩家都出完了，返回 null（调用者应该检查并结束游戏）
@@ -110,7 +111,7 @@ export function checkGameFinished(
 ): { status: GameStatus; finishOrder: number[] } | null {
   // 检查是否所有玩家都出完牌了
   const allFinished = newPlayers.every(player => player.hand.length === 0);
-  
+
   if (allFinished) {
     // 只返回状态为 FINISHED 的信号和最新的 finishOrder，
     // 真正的计分和排名由外部的 GameController 统一处理
@@ -119,7 +120,7 @@ export function checkGameFinished(
       finishOrder
     };
   }
-  
+
   return null; // 游戏还没结束
 }
 
@@ -145,15 +146,15 @@ export function checkAllRemainingPlayersPassed(
   lastPlay: Play | null
 ): boolean {
   // 获取所有还在游戏中的玩家（排除当前玩家）
-  const remainingPlayers = players.filter((p, idx) => 
+  const remainingPlayers = players.filter((p, idx) =>
     p.hand.length > 0 && idx !== currentPlayerIndex
   );
-  
+
   // 如果只剩一个玩家，不需要检测
   if (remainingPlayers.length <= 1) {
     return false;
   }
-  
+
   // 检查所有剩余玩家是否都要不起
   const allPassed = remainingPlayers.every(player => {
     if (lastPlay === null) {
@@ -165,7 +166,7 @@ export function checkAllRemainingPlayersPassed(
       return !hasPlayableCards(player.hand, lastPlay);
     }
   });
-  
+
   return allPassed;
 }
 

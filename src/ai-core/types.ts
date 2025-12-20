@@ -12,27 +12,27 @@ export interface GameState {
   myHand: Card[];
   myPosition: number;
   playerCount: number;
-  
+
   // 当前局面
   lastPlay: Play | null;
   lastPlayerId: number | null;
   currentPlayerId: number;
-  
+
   // 历史
   playHistory: any[];
   roundNumber: number;
-  
+
   // 对手信息
   opponentHandSizes: number[];
-  
+
   // 团队模式
   teamMode: boolean;
   myTeamId?: number;
-  
+
   // 得分
   currentRoundScore: number;
   cumulativeScores: Map<number, number>;
-  
+
   // 阶段
   phase: 'early' | 'middle' | 'late' | 'critical';
 }
@@ -49,7 +49,7 @@ export interface Decision {
   riskLevel: string;
 }
 
-export type GameAction = 
+export type GameAction =
   | { type: 'play'; cards: Card[]; play: Play }
   | { type: 'pass' };
 
@@ -60,6 +60,7 @@ export interface CommunicationMessage {
   reasoning?: string;
   targetId?: number;
   timestamp: number;
+  _metadata?: any;
 }
 
 export type CommunicationIntent =

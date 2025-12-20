@@ -1,124 +1,141 @@
 <template>
-  <div class="game-result-screen">
+  <div class="game-result-screen animate-fade-in">
     <div class="result-header">
-      <h2>🎊 {{ $t('game.finished') }}</h2>
-      <van-tag type="success" size="large">{{ $t('game.round') }} {{ totalRounds }}</van-tag>
+      <h2 class="title-gradient">🎊 {{ $t('game.finished') }}</h2>
+      <div class="round-badge">{{ $t('game.round') }} {{ totalRounds }}</div>
     </div>
 
     <!-- 冠军展示 -->
-    <div class="champion-section">
-      <div class="champion-avatar">
-        <div class="crown">👑</div>
-        <div class="avatar">{{ winner?.name?.charAt(0) || '?' }}</div>
-      </div>
-      <div class="champion-info">
-        <h3>{{ winner?.name || '未知' }}</h3>
-        <p class="champion-score">{{ $t('game.score') }}: {{ winner?.score || 0 }}</p>
+    <div class="champion-section animate-scale-in">
+      <div class="glow-effect"></div>
+      <div class="champion-content">
+        <div class="champion-avatar-container">
+          <div class="crown-icon">👑</div>
+          <div class="champion-avatar">
+            {{ winner?.name?.charAt(0) || '?' }}
+          </div>
+          <div class="winner-label">WINNER</div>
+        </div>
+        <div class="champion-details">
+          <h3 class="champion-name">{{ winner?.name || '未知' }}</h3>
+          <div class="champion-stats">
+            <div class="stat-pill">
+              <span class="stat-label">{{ $t('game.score') }}</span>
+              <span class="stat-value text-gold">{{ winner?.score || 0 }}</span>
+            </div>
+            <div class="stat-pill" v-if="winner?.dunCount">
+              <span class="stat-label">{{ $t('game.dunCount') }}</span>
+              <span class="stat-value">{{ winner.dunCount }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- 排名列表 -->
-    <van-cell-group :title="`🏆 ${$t('game.winner')}`">
-      <van-cell
-        v-for="(player, index) in sortedPlayers"
-        :key="player.id"
-        :title="getRankIcon(index + 1)"
-        :label="playerInfo(player)"
-        :value="`${player.score} 分`"
-        :class="`rank-${index + 1}`"
-      >
-        <template #icon>
-          <div class="player-avatar-mini">{{ player.name?.charAt(0) || '?' }}</div>
-        </template>
-        <template #right-icon>
-          <van-tag :type="getRankTagType(index + 1)" size="medium">
-            {{ $t('game.round') }} {{ index + 1 }}
-          </van-tag>
-        </template>
-      </van-cell>
-    </van-cell-group>
+    <div class="rank-section animate-slide-up">
+      <div class="section-title">🏆 {{ $t('game.winner') }}</div>
+      <div class="rank-list">
+        <div 
+          v-for="(player, index) in sortedPlayers" 
+          :key="player.id"
+          class="rank-card glass"
+          :class="`rank-${index + 1}`"
+        >
+          <div class="rank-number">{{ index + 1 }}</div>
+          <div class="player-info">
+            <div class="player-avatar-mini" :class="`avatar-rank-${index + 1}`">
+              {{ player.name?.charAt(0) || '?' }}
+            </div>
+            <div class="player-text">
+              <div class="player-name">{{ player.name }}</div>
+              <div class="player-sub">
+                 {{ playerInfo(player) }}
+              </div>
+            </div>
+          </div>
+          <div class="player-score" :class="getScoreClass(player.score)">
+            {{ player.score }} 分
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 详细数据 -->
-    <van-collapse v-model="activeNames">
-      <van-collapse-item :title="`📊 ${$t('game.details')}`" name="details">
-        <div class="details-grid">
-          <div
-            v-for="player in sortedPlayers"
-            :key="player.id"
-            class="player-detail-card"
-          >
-            <h4>{{ player.name }}</h4>
-            <div class="detail-item">
-              <span class="label">{{ $t('game.rank') }}:</span>
-              <span class="value rank-value">{{ player.finishedRank || '-' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">{{ $t('game.score') }}:</span>
-              <span class="value" :class="player.score >= 0 ? 'positive' : 'negative'">
-                {{ player.score }}
-              </span>
-            </div>
-            <div class="detail-item">
-              <span class="label">{{ $t('game.dunCount') }}:</span>
-              <span class="value">{{ player.dunCount || 0 }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">{{ $t('game.remainingCards') }}:</span>
-              <span class="value">{{ player.hand?.length || 0 }}</span>
-            </div>
-            <div class="detail-item" v-if="player.finishedRank">
-              <span class="label">{{ $t('game.finishOrder') }}:</span>
-              <span class="value">{{ $t('game.round') }} {{ player.finishedRank }}</span>
+    <div class="details-section animate-slide-up" style="animation-delay: 0.1s;">
+      <van-collapse v-model="activeNames" :border="false" class="glass-collapse">
+        <van-collapse-item name="details" :border="false">
+          <template #title>
+            <span class="collapse-title">📊 {{ $t('game.details') }}</span>
+          </template>
+          <div class="details-grid">
+            <div
+              v-for="player in sortedPlayers"
+              :key="player.id"
+              class="player-detail-card glass"
+            >
+              <div class="detail-header">
+                <span class="detail-name">{{ player.name }}</span>
+                <span class="detail-rank-badge" :class="`badge-rank-${player.finishedRank}`">
+                  #{{ player.finishedRank || '-' }}
+                </span>
+              </div>
+              <div class="detail-stats">
+                <div class="d-item">
+                  <span class="d-label">{{ $t('game.score') }}</span>
+                  <span class="d-value" :class="player.score >= 0 ? 'text-success' : 'text-danger'">
+                    {{ player.score > 0 ? '+' : '' }}{{ player.score }}
+                  </span>
+                </div>
+                <div class="d-item">
+                  <span class="d-label">{{ $t('game.dunCount') }}</span>
+                  <span class="d-value">{{ player.dunCount || 0 }}</span>
+                </div>
+                <div class="d-item">
+                  <span class="d-label">{{ $t('game.remainingCards') }}</span>
+                  <span class="d-value">{{ player.hand?.length || 0 }}</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </van-collapse-item>
+        </van-collapse-item>
 
-      <van-collapse-item :title="`📈 ${$t('game.roundStats')}`" name="rounds" v-if="rounds.length > 0">
-        <div class="rounds-list">
-          <div
-            v-for="(round, index) in rounds"
-            :key="index"
-            class="round-item"
-          >
-            <div class="round-header">
-              <span class="round-number">{{ $t('game.round') }} {{ round.roundNumber }}</span>
-              <span class="round-score" v-if="round.roundScore > 0">
-                +{{ round.roundScore }} 分
-              </span>
-              <span class="round-score" v-else-if="round.totalScore > 0">
-                +{{ round.totalScore }} {{ $t('game.points') }}
-              </span>
-            </div>
-            <div class="round-details" v-if="round.winnerName || round.winnerId !== undefined || round.plays?.length > 0">
-              <van-tag size="mini" type="success" v-if="round.winnerName">
-                {{ round.winnerName }} {{ $t('game.winner') }}
-              </van-tag>
-              <span class="round-info" v-if="round.plays?.length">
-                {{ round.plays.length }} 次出牌
-              </span>
-              <span class="round-info" v-if="round.isTakeoverRound">
-                <van-tag size="mini" type="warning">接风轮</van-tag>
-              </span>
-              <span class="round-info" v-if="round.isFinished">
-                <van-tag size="mini" type="default">已完成</van-tag>
-              </span>
+        <van-collapse-item name="rounds" v-if="rounds.length > 0" :border="false">
+          <template #title>
+             <span class="collapse-title">📈 {{ $t('game.roundStats') }}</span>
+          </template>
+          <div class="rounds-list">
+            <div
+              v-for="(round, index) in rounds"
+              :key="index"
+              class="round-item glass"
+            >
+              <div class="round-left">
+                <div class="round-idx">{{ round.roundNumber }}</div>
+                <div class="round-desc">
+                  <div class="round-winner" v-if="round.winnerName">{{ round.winnerName }} 胜</div>
+                  <div class="round-tags">
+                    <span class="mini-tag" v-if="round.isTakeoverRound">接风</span>
+                    <span class="mini-tag" v-if="round.plays?.length">{{ round.plays.length }}手</span>
+                  </div>
+                </div>
+              </div>
+              <div class="round-right">
+                <span class="round-score-text" v-if="round.roundScore > 0">+{{ round.roundScore }}</span>
+                <span class="round-score-text" v-else-if="round.totalScore > 0">+{{ round.totalScore }}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </van-collapse-item>
-    </van-collapse>
+        </van-collapse-item>
+      </van-collapse>
+    </div>
 
     <!-- 操作按钮 -->
-    <div class="action-buttons">
-      <van-button
-        type="primary"
-        size="large"
-        block
-        @click="$emit('restart')"
-      >
-        🔄 {{ $t('game.restart') }}
-      </van-button>
+    <div class="action-buttons animate-slide-up" style="animation-delay: 0.2s;">
+      <button class="btn btn-primary btn-block btn-lg" @click="$emit('restart')">
+        <span class="icon">🔄</span>
+        <span>{{ $t('game.restart') }}</span>
+      </button>
     </div>
   </div>
 </template>
@@ -127,7 +144,7 @@
 import { ref, computed } from 'vue';
 import { useI18n } from '../../i18n/composable';
 import type { Player } from '../../types/card';
-import type { RoundData } from '../../../src/game-engine/round/RoundData';
+import type { RoundData } from '../../../../src/game-engine/round/RoundData';
 
 const { t } = useI18n();
 
@@ -162,259 +179,426 @@ const totalRounds = computed(() => {
   return props.rounds.length || 0;
 });
 
-// 方法
-const getRankIcon = (rank: number): string => {
-  const icons: Record<number, string> = {
-    1: '🥇',
-    2: '🥈',
-    3: '🥉',
-    4: '4️⃣'
-  };
-  return icons[rank] || `${rank}️⃣`;
-};
-
-const getRankTagType = (rank: number): string => {
-  if (rank === 1) return 'success';
-  if (rank === 2) return 'warning';
-  if (rank === 3) return 'default';
-  return 'danger';
+const getScoreClass = (score: number) => {
+  if (score > 0) return 'text-success';
+  if (score < 0) return 'text-danger';
+  return 'text-muted';
 };
 
 const playerInfo = (player: Player): string => {
   const parts: string[] = [];
   if (player.dunCount) {
-    parts.push(`${player.dunCount}${t('game.dunCount')}`);
+    parts.push(`${player.dunCount}墩`);
   }
   if (player.hand?.length) {
-    parts.push(`${t('game.remainingCards')}${player.hand.length}`);
+    parts.push(`剩${player.hand.length}张`);
   }
-  return parts.join(' · ') || '-';
+  return parts.join(' · ') || '已完成';
 };
 </script>
 
 <style scoped>
 .game-result-screen {
-  padding: 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 24px 16px;
+  background: var(--bg-primary);
   min-height: 100vh;
-  color: #fff;
+  color: var(--text-primary);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding-bottom: 40px;
 }
 
+/* Header */
 .result-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
+  position: relative;
 }
 
-.result-header h2 {
-  margin: 0 0 12px 0;
-  font-size: 28px;
-  font-weight: bold;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+.title-gradient {
+  font-size: 36px;
+  margin: 0 0 8px 0;
+  background: linear-gradient(to bottom, #ffffff, #a5b4fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
-/* 冠军展示 */
+.round-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Champion Section */
 .champion-section {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
+  position: relative;
+  margin-bottom: 32px;
+  padding: 2px; /* For border gradient if needed */
+}
+
+.champion-content {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
   padding: 24px;
-  margin-bottom: 16px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(255, 215, 0, 0.05);
+}
+
+.glow-effect {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.15) 0%, transparent 70%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.champion-avatar-container {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.crown-icon {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-5deg);
+  font-size: 42px;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+  z-index: 10;
+  animation: bounce 2s infinite ease-in-out;
 }
 
 .champion-avatar {
-  position: relative;
-  width: 80px;
-  height: 80px;
-  flex-shrink: 0;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FFD700 0%, #FDB931 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  font-weight: 800;
+  color: #fff;
+  border: 4px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
-.champion-avatar .crown {
+.winner-label {
   position: absolute;
-  top: -20px;
+  bottom: -10px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 32px;
-  z-index: 2;
+  background: linear-gradient(90deg, #FDB931, #FFD700);
+  color: #8a6e00;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 2px solid #fff;
+  white-space: nowrap;
 }
 
-.champion-avatar .avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  font-weight: bold;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.champion-info {
-  flex: 1;
-}
-
-.champion-info h3 {
-  margin: 0 0 8px 0;
+.champion-name {
   font-size: 24px;
-  color: #333;
-}
-
-.champion-score {
-  margin: 0;
-  font-size: 18px;
-  color: #f5576c;
   font-weight: bold;
+  margin: 0 0 16px 0;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* 排名列表 */
-:deep(.van-cell-group) {
-  background: rgba(255, 255, 255, 0.95);
+.champion-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-pill {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 16px;
   border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+}
+
+.text-gold { color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+
+.stat-value {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* Rank List */
+.section-title {
+  font-size: 18px;
+  font-weight: bold;
   margin-bottom: 16px;
-  overflow: hidden;
+  padding-left: 8px;
+  color: rgba(255, 255, 255, 0.9);
 }
 
-:deep(.van-cell-group__title) {
-  font-size: 16px;
-  font-weight: bold;
-  padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.05);
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
 }
 
-:deep(.van-cell) {
-  padding: 12px 16px;
-}
-
-:deep(.rank-1 .van-cell__title) {
-  color: #ffd700;
-  font-weight: bold;
-}
-
-:deep(.rank-2 .van-cell__title) {
-  color: #c0c0c0;
-  font-weight: bold;
-}
-
-:deep(.rank-3 .van-cell__title) {
-  color: #cd7f32;
-  font-weight: bold;
-}
-
-.player-avatar-mini {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.rank-card {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: bold;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rank-number {
+  font-size: 18px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.3);
+  width: 24px;
   margin-right: 12px;
 }
 
-/* 详细数据 */
+.rank-1 .rank-number { color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+.rank-2 .rank-number { color: #E0E0E0; }
+.rank-3 .rank-number { color: #CD7F32; }
+
+.player-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.player-avatar-mini {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.avatar-rank-1 { background: linear-gradient(135deg, #FFD700, #FDB931); color: #8a6e00; }
+.avatar-rank-2 { background: linear-gradient(135deg, #E0E0E0, #BDBDBD); color: #555; }
+.avatar-rank-3 { background: linear-gradient(135deg, #CD7F32, #A16B47); color: #5a3a29; }
+
+.player-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.player-name {
+  font-weight: bold;
+  font-size: 16px;
+  color: #fff;
+}
+
+.player-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.player-score {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.text-success { color: #4ade80; }
+.text-danger { color: #f87171; }
+.text-muted { color: rgba(255, 255, 255, 0.4); }
+
+/* Details Section */
+.glass-collapse {
+  background: transparent !important;
+}
+
+:deep(.van-collapse-item__content) {
+  background: transparent !important;
+  padding: 16px 0 !important;
+}
+
+:deep(.van-cell) {
+  background: var(--bg-card) !important;
+  color: #fff !important;
+  border-radius: 12px;
+  margin-bottom: 0;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+:deep(.van-cell__title) {
+  color: #fff;
+}
+
+:deep(.van-cell__right-icon) {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.collapse-title {
+  font-weight: bold;
+  font-size: 16px;
+}
+
 .details-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
-  padding: 12px 0;
 }
 
 .player-detail-card {
-  background: #f7f7f7;
-  border-radius: 8px;
   padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.player-detail-card h4 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
-  font-weight: bold;
-  color: #333;
-}
-
-.detail-item {
+.detail-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 6px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.detail-name {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.detail-rank-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.detail-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.d-item {
+  display: flex;
+  justify-content: space-between;
   font-size: 12px;
 }
 
-.detail-item .label {
-  color: #666;
-}
+.d-label { color: rgba(255, 255, 255, 0.5); }
+.d-value { font-weight: bold; }
 
-.detail-item .value {
-  font-weight: bold;
-}
-
-.detail-item .value.positive {
-  color: #07c160;
-}
-
-.detail-item .value.negative {
-  color: #ee0a24;
-}
-
-.detail-item .value.rank-value {
-  color: #1989fa;
-}
-
-/* 轮次统计 */
+/* Rounds List */
 .rounds-list {
-  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .round-item {
-  background: #f7f7f7;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 8px;
-}
-
-.round-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.round-number {
-  font-weight: bold;
-  color: #333;
-}
-
-.round-score {
-  color: #07c160;
-  font-weight: bold;
-}
-
-.round-details {
+.round-left {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 12px;
 }
 
-.round-info {
+.round-idx {
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
-  color: #666;
+  font-weight: bold;
 }
 
-/* 操作按钮 */
+.round-desc {
+  display: flex;
+  flex-direction: column;
+}
+
+.round-winner {
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.round-tags {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.mini-tag {
+  font-size: 10px;
+  background: rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.round-score-text {
+  font-weight: bold;
+  color: #4ade80;
+}
+
+/* Buttons */
 .action-buttons {
-  margin-top: 24px;
+  margin-top: 32px;
 }
 
-/* 响应式 */
-@media (max-width: 480px) {
-  .details-grid {
-    grid-template-columns: 1fr;
-  }
+.btn-block {
+  width: 100%;
+  display: flex;
+}
+
+.btn-lg {
+  height: 56px;
+  font-size: 18px;
+  border-radius: 28px;
+}
+
+.icon {
+  margin-right: 8px;
 }
 </style>

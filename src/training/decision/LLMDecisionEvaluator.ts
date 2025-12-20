@@ -25,18 +25,18 @@ export interface LLMDecisionEvaluatorConfig {
 export class LLMDecisionEvaluator {
   private config: LLMDecisionEvaluatorConfig;
   private cache: Map<string, LLMEvaluationResult> = new Map();
-  
+
   constructor(config: LLMDecisionEvaluatorConfig) {
     this.config = {
       enabled: true,
-      endpoint: 'http://localhost:11434/api/chat',
+      endpoint: 'http://localhost:11434/api/generate',
       model: 'qwen2.5:3b',
       timeout: 30000,
       temperature: 0.3,
       ...config
     };
   }
-  
+
   /**
    * 评估决策质量
    */
@@ -44,53 +44,53 @@ export class LLMDecisionEvaluator {
     if (!this.config.enabled) {
       return this.createDefaultEvaluation();
     }
-    
+
     // 检查缓存
     const cacheKey = this.generateCacheKey(sample);
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey)!;
     }
-    
+
     try {
       // 构建Prompt
       const prompt = this.buildEvaluationPrompt(sample);
-      
+
       // 调用LLM
       const response = await this.callLLM(prompt);
-      
+
       // 解析响应
       const evaluation = this.parseResponse(response);
-      
+
       // 缓存结果
       this.cache.set(cacheKey, evaluation);
-      
+
       return evaluation;
     } catch (error) {
       console.error('[LLMDecisionEvaluator] 评估失败:', error);
       return this.createDefaultEvaluation();
     }
   }
-  
+
   /**
    * 批量评估决策
    */
   async evaluateBatch(samples: DecisionTrainingSample[]): Promise<LLMEvaluationResult[]> {
     const results: LLMEvaluationResult[] = [];
-    
+
     for (const sample of samples) {
       const result = await this.evaluateDecision(sample);
       results.push(result);
     }
-    
+
     return results;
   }
-  
+
   /**
    * 构建评估Prompt
    */
   private buildEvaluationPrompt(sample: DecisionTrainingSample): string {
     const { gameState, decision, mctsParams } = sample;
-    
+
     return `你是一个过炸牌游戏专家，需要评估AI玩家的决策质量。
 
 ## 游戏状态
@@ -128,7 +128,7 @@ export class LLMDecisionEvaluator {
   "suggestions": ["建议1", "建议2"]
 }`;
   }
-  
+
   /**
    * 调用LLM
    */
@@ -136,7 +136,7 @@ export class LLMDecisionEvaluator {
     if (!this.config.endpoint) {
       throw new Error('LLM endpoint未配置');
     }
-    
+
     const response = await fetch(this.config.endpoint, {
       method: 'POST',
       headers: {
@@ -159,15 +159,15 @@ export class LLMDecisionEvaluator {
       }),
       signal: AbortSignal.timeout(this.config.timeout || 30000)
     });
-    
+
     if (!response.ok) {
       throw new Error(`LLM请求失败: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     return data.message?.content || data.content || JSON.stringify(data);
   }
-  
+
   /**
    * 解析LLM响应
    */
@@ -188,11 +188,11 @@ export class LLMDecisionEvaluator {
     } catch (error) {
       console.warn('[LLMDecisionEvaluator] 解析响应失败，使用默认值:', error);
     }
-    
+
     // 如果解析失败，尝试从文本中提取质量分数
     const qualityMatch = response.match(/质量[：:]\s*([0-9.]+)/);
     const quality = qualityMatch ? parseFloat(qualityMatch[1]) : 0.5;
-    
+
     return {
       quality: Math.max(0, Math.min(1, quality)),
       reasoning: response.substring(0, 200),
@@ -201,7 +201,7 @@ export class LLMDecisionEvaluator {
       suggestions: []
     };
   }
-  
+
   /**
    * 创建默认评估
    */
@@ -214,7 +214,7 @@ export class LLMDecisionEvaluator {
       suggestions: []
     };
   }
-  
+
   /**
    * 生成缓存键
    */
@@ -223,7 +223,7 @@ export class LLMDecisionEvaluator {
     const actionStr = sample.decision.action.map(c => `${c.rank}-${c.suit}`).join(',');
     return `${handStr}|${actionStr}|${sample.gameState.round}`;
   }
-  
+
   /**
    * 格式化牌
    */
@@ -236,7 +236,7 @@ export class LLMDecisionEvaluator {
       return `${suitNames[c.suit]}${rankNames[c.rank] || c.rank}`;
     }).join(' ');
   }
-  
+
   /**
    * 格式化出牌
    */
@@ -244,14 +244,14 @@ export class LLMDecisionEvaluator {
     if (!play) return '无';
     return `${play.type} - ${this.formatCards(play.cards)}`;
   }
-  
+
   /**
    * 清空缓存
    */
   clearCache(): void {
     this.cache.clear();
   }
-  
+
   /**
    * 检查LLM是否可用
    */
@@ -259,7 +259,7 @@ export class LLMDecisionEvaluator {
     if (!this.config.enabled || !this.config.endpoint) {
       return false;
     }
-    
+
     try {
       const response = await fetch(this.config.endpoint, {
         method: 'POST',

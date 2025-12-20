@@ -81,7 +81,7 @@ const SystemConfigSectionCard: React.FC<{ onOpenModal: (e: React.MouseEvent) => 
   ].filter(Boolean).length;
 
   return (
-    <div 
+    <div
       className="config-group clickable"
       onClick={onOpenModal}
     >
@@ -187,7 +187,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   dealingSpeed = 150,
   sortOrder = 'grouped',
   llmModel = 'qwen2:0.5b',
-  llmApiUrl = 'http://115.93.10.51:11434/api/chat', // 使用公司服务器地址
+  llmApiUrl = 'http://115.93.10.51:11434/api/generate',
   ideaGenerationEnabled = true,
   cardTrackerEnabled = false,
   cardTrackerPanelVisible = false,
@@ -217,7 +217,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [ollamaAvailable, setOllamaAvailable] = useState(false);
-  
+
   // LLM服务器管理
   const [serverManager] = useState(() => getOllamaServerManager());
   const [currentServer, setCurrentServer] = useState<OllamaServerConfig>(() => {
@@ -236,7 +236,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
     return server;
   });
   const [allServers, setAllServers] = useState<OllamaServerConfig[]>(() => serverManager.getAllServers());
-  
+
   // 测试窗口状态
   const [testMessage, setTestMessage] = useState('');
   const [testResponse, setTestResponse] = useState<string | null>(null);
@@ -267,14 +267,14 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
       const baseUrl = `${currentServer.protocol}://${currentServer.host}:${currentServer.port}`;
       const isAvailable = await checkOllamaService(baseUrl);
       setOllamaAvailable(isAvailable);
-      
+
       if (isAvailable) {
         const models = await getAvailableOllamaModels(baseUrl);
         setAvailableModels(models);
       }
       setIsLoadingModels(false);
     };
-    
+
     loadModels();
   }, [currentServer]);
 
@@ -287,7 +287,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
       setAllServers(serverManager.getAllServers());
       // 更新API URL
       if (onLlmApiUrlChange) {
-        const newApiUrl = `${server.protocol}://${server.host}:${server.port}/api/chat`;
+        const newApiUrl = `${server.protocol}://${server.host}:${server.port}/api/generate`;
         onLlmApiUrlChange(newApiUrl);
       }
     }
@@ -312,7 +312,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
       const defaultServer = serverManager.getCurrentServer();
       setCurrentServer(defaultServer);
       if (onLlmApiUrlChange) {
-        onLlmApiUrlChange(`${defaultServer.protocol}://${defaultServer.host}:${defaultServer.port}/api/chat`);
+        onLlmApiUrlChange(`${defaultServer.protocol}://${defaultServer.host}:${defaultServer.port}/api/generate`);
       }
     }
   };
@@ -337,15 +337,15 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
   // 测试大模型
   const handleTestLLM = async () => {
     if (!testMessage.trim() || isTesting) return;
-    
+
     setIsTesting(true);
     setTestError(null);
     setTestResponse(null);
-    
+
     try {
       // 创建测试用的 LLM 配置 - 使用当前选择的服务器
-      const currentApiUrl = `${currentServer.protocol}://${currentServer.host}:${currentServer.port}/api/chat`;
-      
+      const currentApiUrl = `${currentServer.protocol}://${currentServer.host}:${currentServer.port}/api/generate`;
+
       const testConfig: LLMChatConfig = {
         provider: 'custom',
         apiUrl: currentApiUrl, // 直接使用当前服务器的地址
@@ -357,17 +357,17 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
         timeout: 20000,
         systemPrompt: '你是一个友好的AI助手，简洁自然地回答问题。'
       };
-      
+
       // 创建 LLM 策略实例
       const strategy = new LLMChatStrategy(testConfig);
-      
+
       // 构建测试 prompt
       const prompt = `用户说：${testMessage.trim()}\n\n请简洁自然地回应（不超过20个字）：`;
-      
+
       // 调用 LLM API（使用私有方法，需要类型断言）
       // @ts-ignore - 访问私有方法用于测试
       const response = await strategy.callLLMAPI(prompt);
-      
+
       if (response && response.trim()) {
         setTestResponse(response.trim());
       } else {
@@ -384,7 +384,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
     <div className="game-container">
       <div className="start-screen">
         <h1>{t('game:title')}</h1>
-        
+
         {/* 模式选择器 */}
         {onModeChange && (
           <div className="mode-selector">
@@ -407,7 +407,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
           {mode === 'game' ? (
             <>
               {/* 基础配置组 - 卡片 */}
-              <div 
+              <div
                 className="config-group clickable"
                 onClick={openModalFor('basic')}
               >
@@ -426,7 +426,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               </div>
 
               {/* AI配置组 - 卡片 */}
-              <div 
+              <div
                 className="config-group clickable"
                 onClick={openModalFor('ai')}
               >
@@ -445,7 +445,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               </div>
 
               {/* 聊天配置组 - 卡片 */}
-              <div 
+              <div
                 className="config-group clickable"
                 onClick={openModalFor('chat')}
               >
@@ -471,7 +471,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               <SystemConfigSectionCard onOpenModal={openModalFor('system')} />
 
               {/* 其他设置组 - 卡片 */}
-              <div 
+              <div
                 className="config-group clickable"
                 onClick={openModalFor('other')}
               >
@@ -494,7 +494,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               </div>
 
               {/* 发牌配置组 - 卡片 */}
-              <div 
+              <div
                 className="config-group clickable"
                 onClick={openModalFor('dealing')}
               >
@@ -517,7 +517,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               </div>
 
               {/* TTS 配置组 - 卡片 */}
-              <div 
+              <div
                 className="config-group clickable"
                 onClick={openModalFor('tts')}
               >
@@ -561,7 +561,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
       </div>
 
       {/* 模态面板 */}
-      <ConfigGroupModal 
+      <ConfigGroupModal
         isOpen={openModal === 'basic'}
         title={t('ui:configGroups.basic')}
         onClose={closeModal}
@@ -579,8 +579,8 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
           </div>
           <div className="config-item">
             <label>{t('ui:config.yourPosition')}</label>
-            <select 
-              value={humanPlayerIndex} 
+            <select
+              value={humanPlayerIndex}
               onChange={(e) => onHumanPlayerIndexChange(parseInt(e.target.value))}
             >
               {Array.from({ length: playerCount }, (_, i) => (
@@ -599,8 +599,8 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                 <span>团队模式 (合作模式)</span>
               </label>
               <small style={{ display: 'block', color: '#999', marginTop: '5px' }}>
-                {playerCount === 4 
-                  ? '2v2 团队对战模式，分数按团队计算' 
+                {playerCount === 4
+                  ? '2v2 团队对战模式，分数按团队计算'
                   : '3v3 团队对战模式，分数按团队计算'}
               </small>
             </div>
@@ -608,7 +608,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
         </div>
       </ConfigGroupModal>
 
-      <ConfigGroupModal 
+      <ConfigGroupModal
         isOpen={openModal === 'ai'}
         title={t('ui:configGroups.ai')}
         onClose={closeModal}
@@ -634,7 +634,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
         </div>
       </ConfigGroupModal>
 
-      <ConfigGroupModal 
+      <ConfigGroupModal
         isOpen={openModal === 'chat'}
         title={t('ui:configGroups.chat')}
         onClose={closeModal}
@@ -683,8 +683,8 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                 </select>
               ) : availableModels.length > 0 ? (
                 <>
-                  <select 
-                    value={llmModel} 
+                  <select
+                    value={llmModel}
                     onChange={(e) => onLlmModelChange(e.target.value)}
                   >
                     {availableModels.map(model => (
@@ -692,7 +692,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
                     ))}
                   </select>
                   <small>
-                    <strong>{t('ui:llm.currentSelection')}</strong> {llmModel} | 
+                    <strong>{t('ui:llm.currentSelection')}</strong> {llmModel} |
                     {t('ui:llm.availableModels', { count: availableModels.length })}
                     {filterChatModels(availableModels).length > 0 && (
                       <span className="chat-models-hint">
@@ -729,7 +729,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               )}
             </div>
           )}
-          
+
           {/* LLM服务器选择器 */}
           <div className="config-item full-width">
             <h4>Ollama 服务器</h4>
@@ -747,7 +747,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
               当前API地址: {llmApiUrl}
             </small>
           </div>
-          
+
           {/* 测试窗口 */}
           <div className="llm-test-window">
             <h3 className="test-window-title">{t('ui:llm.test.title')}</h3>
@@ -789,7 +789,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
         </div>
       </ConfigGroupModal>
 
-      <ConfigGroupModal 
+      <ConfigGroupModal
         isOpen={openModal === 'system'}
         title="系统设置"
         onClose={closeModal}
@@ -797,7 +797,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
         <SystemConfigSection />
       </ConfigGroupModal>
 
-      <ConfigGroupModal 
+      <ConfigGroupModal
         isOpen={openModal === 'other'}
         title={t('ui:configGroups.other') || '其他设置'}
         onClose={closeModal}
@@ -879,7 +879,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
         </div>
       </ConfigGroupModal>
 
-      <ConfigGroupModal 
+      <ConfigGroupModal
         isOpen={openModal === 'dealing'}
         title={t('ui:configGroups.dealing')}
         onClose={closeModal}
@@ -888,8 +888,8 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
           {onDealingAlgorithmChange && (
             <div className="config-item">
               <label>{t('ui:config.dealingAlgorithm')}</label>
-              <select 
-                value={dealingAlgorithm} 
+              <select
+                value={dealingAlgorithm}
                 onChange={(e) => onDealingAlgorithmChange(e.target.value as any)}
               >
                 <option value="random">{t('ui:dealingAlgorithms.random')}</option>
@@ -920,8 +920,8 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
           {onDealingSpeedChange && (
             <div className="config-item">
               <label>{t('ui:config.dealingSpeed')}</label>
-              <select 
-                value={dealingSpeed} 
+              <select
+                value={dealingSpeed}
                 onChange={(e) => onDealingSpeedChange(parseInt(e.target.value))}
               >
                 <option value={50}>{t('ui:dealingSpeeds.fast')}</option>
@@ -935,8 +935,8 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
           {onSortOrderChange && (
             <div className="config-item">
               <label>{t('ui:config.sortOrder')}</label>
-              <select 
-                value={sortOrder} 
+              <select
+                value={sortOrder}
                 onChange={(e) => onSortOrderChange(e.target.value as 'asc' | 'desc' | 'grouped')}
               >
                 <option value="grouped">{t('ui:sortOrders.grouped')}</option>
@@ -950,7 +950,7 @@ export const GameConfigPanel: React.FC<GameConfigPanelProps> = ({
       </ConfigGroupModal>
 
       {/* TTS 配置模态面板 */}
-      <ConfigGroupModal 
+      <ConfigGroupModal
         isOpen={openModal === 'tts'}
         title="🔊 TTS 语音配置"
         onClose={closeModal}

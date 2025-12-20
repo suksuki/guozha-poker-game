@@ -1,37 +1,37 @@
 <template>
   <div class="chat-training-panel">
-    <van-cell-group title="训练配置">
+    <van-cell-group :title="$t('training.config')">
       <van-field
         v-model.number="localConfig.rounds"
-        label="训练轮数"
+        :label="$t('training.rounds')"
         type="number"
-        placeholder="请输入训练轮数"
+        :placeholder="$t('training.inputRounds')"
         @update:model-value="updateConfig"
       />
       <van-field
         v-model.number="localConfig.batchSize"
-        label="批次大小"
+        :label="$t('training.batchSize')"
         type="number"
-        placeholder="请输入批次大小"
+        :placeholder="$t('training.inputBatchSize')"
         @update:model-value="updateConfig"
       />
     </van-cell-group>
     
-    <van-cell-group title="LLM配置">
+    <van-cell-group :title="$t('training.llmConfig')" v-if="localConfig.llm">
       <van-switch
         v-model="localConfig.llm.enabled"
         @update:model-value="updateConfig"
       />
       <van-field
         v-model="localConfig.llm.endpoint"
-        label="LLM端点"
+        :label="$t('training.llmEndpoint')"
         placeholder="http://localhost:11434/api/chat"
         :disabled="!localConfig.llm.enabled"
         @update:model-value="updateConfig"
       />
       <van-field
         v-model="localConfig.llm.model"
-        label="模型名称"
+        :label="$t('training.modelName')"
         placeholder="qwen2.5:3b"
         :disabled="!localConfig.llm.enabled"
         @update:model-value="updateConfig"
