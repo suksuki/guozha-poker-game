@@ -5,7 +5,6 @@
 
 // 核心游戏组件
 export { default as GameBoard } from './GameBoard.vue';
-export { default as GameBoardRefactored } from './GameBoardRefactored.vue';
 export { default as GameResultScreen } from './GameResultScreen.vue';
 
 // 可复用子组件
