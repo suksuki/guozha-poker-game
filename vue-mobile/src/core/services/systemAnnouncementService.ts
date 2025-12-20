@@ -9,7 +9,7 @@ import { Play } from '../types/card';
 import { VoiceConfig } from '../types/card';
 import { playToSpeechText } from '../utils/speechUtils';
 import { voiceService } from './voiceService';
-import { i18n } from '../i18n';
+import { i18n } from '@/core/i18n';
 import { createVoiceConfig } from './voiceConfigService';
 
 /**

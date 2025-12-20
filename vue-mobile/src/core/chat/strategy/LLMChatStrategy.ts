@@ -7,7 +7,7 @@ import { ChatMessage, ChatEventType } from '../../types/chat';
 import { Player, Card, Suit, Rank, Play } from '../../types/card';
 import { IChatStrategy, ChatContext } from './IChatStrategy';
 import { LLMChatConfig } from '../../config/chatConfig';
-import { i18n } from '../../i18n';
+import { i18n } from '@/core/i18n';
 
 export class LLMChatStrategy implements IChatStrategy {
   readonly name = 'llm';

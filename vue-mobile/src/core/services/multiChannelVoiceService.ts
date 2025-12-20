@@ -20,7 +20,7 @@ import {
   DEFAULT_MULTI_CHANNEL_CONFIG,
   TTSProvider
 } from '../config/voiceConfig';
-import { i18n } from '../i18n';
+import { i18n } from '@/core/i18n';
 import { detectLanguage } from '../utils/languageDetection';
 import { ttsAudioService } from './ttsAudioService';
 import { ChannelScheduler, PlaybackPriority, PlayRequest, ChannelUsage } from './channelScheduler';

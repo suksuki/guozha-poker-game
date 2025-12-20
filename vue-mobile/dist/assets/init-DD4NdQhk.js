@@ -1,1 +1,0 @@
-import{g as S}from"./index-DrIpeMuW.js";function n(t){const r=S();r.getServers().map(e=>e.id).forEach(e=>r.removeServer(e)),t.forEach(e=>{e.enabled&&r.addServer(e)}),r.getServers().forEach(e=>{r.removeServer(e.id)}),t.forEach(e=>{e.enabled&&r.addServer(e)})}export{n as updateTTSServiceConfig};

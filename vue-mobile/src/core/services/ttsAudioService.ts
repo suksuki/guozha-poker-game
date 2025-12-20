@@ -18,7 +18,7 @@ import { getTTSServiceManager } from '../tts/ttsServiceManager';
 import { TTSOptions, TTSLanguage } from '../tts/ttsClient';
 import { DIALECT_LANG_MAP } from '../config/voiceConfig';
 import { detectLanguage } from '../utils/languageDetection';
-import { i18n } from '../i18n';
+import { i18n } from '@/core/i18n';
 
 interface ChannelConfig {
   pan: number;  // 声像位置 (-1 到 1)

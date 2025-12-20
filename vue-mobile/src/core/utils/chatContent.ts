@@ -6,7 +6,7 @@
  */
 
 import { ChatEventType } from '../types/chat';
-import { i18n } from '../i18n';
+import { i18n } from '@/core/i18n';
 
 export type Dialect = 'mandarin' | 'cantonese';
 
