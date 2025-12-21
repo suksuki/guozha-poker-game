@@ -210,6 +210,32 @@ export class AIBrainIntegration {
     return await api.triggerBatchChat(gameState, trigger, eventType);
   }
 
+  /**
+   * 生成消息建议
+   */
+  async generateMessageSuggestion(playerId: number, game: Game): Promise<string | null> {
+    if (!this.gameBridge || !this.isInitialized) {
+      return null;
+    }
+
+    const gameState = this.convertGameState(game, playerId);
+    const api = this.gameBridge.getAPI();
+    return await api.generateMessageSuggestion(playerId, gameState);
+  }
+
+  /**
+   * 生成游戏提示
+   */
+  async generateHint(game: Game, playerId: number): Promise<any> {
+    if (!this.gameBridge || !this.isInitialized) {
+      return null;
+    }
+
+    const gameState = this.convertGameState(game, playerId);
+    const api = this.gameBridge.getAPI();
+    return await api.generateHint(gameState);
+  }
+
   onCommunicationMessage(callback: (message: {
     playerId: number;
     content: string;

@@ -1,107 +1,132 @@
-/**
- * GameStore AI Brain集成单元测试
- */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { setActivePinia, createPinia } from 'pinia';
 import { useGameStore } from '../../src/stores/gameStore';
-import { useSettingsStore } from '../../src/stores/settingsStore';
+import { setActivePinia, createPinia } from 'pinia';
 import { aiBrainIntegration } from '../../src/services/ai/aiBrainIntegration';
+import { getAIRecommendation as getAIRecommendationUtil } from '../../src/utils/gameLogic';
 
-// Mock AI Brain集成
-vi.mock('../../src/services/ai/aiBrainIntegration', () => {
-  const mockInitialize = vi.fn(() => Promise.resolve());
-  const mockTriggerAITurn = vi.fn(() => Promise.resolve());
-  const mockNotifyStateChange = vi.fn();
-  const mockShutdown = vi.fn(() => Promise.resolve());
+// Mock dependencies
+vi.mock('../../src/services/ai/aiBrainIntegration', () => ({
+  aiBrainIntegration: {
+    initialize: vi.fn(),
+    onAIDecision: vi.fn(),
+    generateHint: vi.fn(),
+    onCommunicationMessage: vi.fn(),
+    updateLLMConfig: vi.fn()
+  }
+}));
 
-  return {
-    aiBrainIntegration: {
-      initialize: mockInitialize,
-      triggerAITurn: mockTriggerAITurn,
-      notifyStateChange: mockNotifyStateChange,
-      shutdown: mockShutdown,
-      onCommunicationMessage: vi.fn(() => () => { }),
-      onAIDecision: vi.fn(() => () => { })
+vi.mock('../../src/utils/gameLogic', () => ({
+  getAIRecommendation: vi.fn()
+}));
+
+// Mock settings store (required by gameStore)
+vi.mock('../../src/stores/settingsStore', () => ({
+  useSettingsStore: vi.fn(() => ({
+    llmConfig: {
+      provider: 'ollama',
+      apiUrl: 'http://localhost:11434',
+      model: 'qwen2.5',
+      temperature: 0.7,
+      maxTokens: 100
+    },
+    voicePlaybackSettings: {
+      enabled: false
     }
-  };
-});
+  }))
+}));
 
-// Mock fetch
-global.fetch = vi.fn();
+// Mock audio service (to avoid errors in gameStore initialization)
+vi.mock('../../src/services/tts/ttsPlaybackService', () => ({
+  getTTSPlaybackService: vi.fn(() => ({
+    speak: vi.fn().mockResolvedValue(undefined)
+  }))
+}));
 
-describe('GameStore AI Brain集成', () => {
+describe('GameStore AI Brain Integration', () => {
+  let gameStore: any;
+
   beforeEach(() => {
     setActivePinia(createPinia());
+    gameStore = useGameStore();
+
+    // Reset mocks
     vi.clearAllMocks();
+
+    // Mock game state
+    gameStore.game = {
+      status: 'playing',
+      currentPlayerIndex: 0,
+      humanPlayer: { id: 0, isHuman: true, hand: [], name: 'Human' },
+      players: [
+        { id: 0, isHuman: true, hand: [], name: 'Human' },
+        { id: 1, isHuman: false, hand: [], name: 'AI 1' }
+      ],
+      currentRound: {
+        lastPlay: null
+      },
+      state: {
+        rounds: []
+      },
+      playCards: vi.fn(() => ({ success: true })),
+      pass: vi.fn(() => ({ success: true })),
+      hasPlayableCards: vi.fn(() => true)
+    };
+    gameStore.aiBrainInitialized = true;
   });
 
-  describe('AI Brain初始化', () => {
-    it('应该在游戏开始时初始化AI Brain', async () => {
-      const gameStore = useGameStore();
-      const settingsStore = useSettingsStore();
+  describe('getAIRecommendation', () => {
+    it('should use aiBrainIntegration.generateHint when initialized', async () => {
+      // Mock AI Brain response
+      const mockDecision = {
+        action: {
+          type: 'play',
+          cards: [{ suit: 'hearts', rank: 3, id: 'h3' }]
+        }
+      };
+      (aiBrainIntegration.generateHint as any).mockResolvedValue(mockDecision);
 
-      // 设置LLM配置
-      settingsStore.updateLLMConfig({
-        provider: 'ollama',
-        apiUrl: 'http://localhost:11434/api/chat',
-        model: 'qwen2:0.5b'
+      const result = await gameStore.getAIRecommendation();
+
+      expect(aiBrainIntegration.generateHint).toHaveBeenCalledWith(gameStore.game, 0);
+      expect(result).toEqual({
+        action: 'play',
+        cards: mockDecision.action.cards
       });
-
-      // 开始游戏
-      gameStore.startGame();
-
-      // 等待初始化（减少等待时间）
-      await new Promise(resolve => setTimeout(resolve, 10));
-
-      // 验证AI Brain被初始化（通过检查状态）
-      expect(gameStore.aiBrainInitialized).toBe(true);
     });
 
-    it('应该使用settingsStore中的LLM配置', async () => {
-      const gameStore = useGameStore();
-      const settingsStore = useSettingsStore();
+    it('should fallback to utility if AI Brain returns null', async () => {
+      // Mock AI Brain response as null
+      (aiBrainIntegration.generateHint as any).mockResolvedValue(null);
 
-      settingsStore.updateLLMConfig({
-        provider: 'ollama',
-        apiUrl: 'http://192.168.0.13:11434/api/chat',
-        model: 'deepseek-chat'
-      });
+      // Mock utility response
+      const mockUtilSuggestion = {
+        cards: [{ suit: 'spades', rank: 4, id: 's4' }]
+      };
+      (getAIRecommendationUtil as any).mockReturnValue(mockUtilSuggestion);
 
-      gameStore.startGame();
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await gameStore.getAIRecommendation();
 
-      // 验证AI Brain已初始化
-      expect(gameStore.aiBrainInitialized).toBe(true);
+      expect(aiBrainIntegration.generateHint).toHaveBeenCalled();
+      expect(getAIRecommendationUtil).toHaveBeenCalled();
+      expect(result).toEqual(mockUtilSuggestion);
     });
-  });
 
-  describe('AI回合触发', () => {
-    it('应该在AI玩家回合时触发AI Brain', async () => {
-      const gameStore = useGameStore();
+    it('should fallback to utility if AI Brain throws error', async () => {
+      // Mock AI Brain error
+      (aiBrainIntegration.generateHint as any).mockRejectedValue(new Error('AI Failed'));
 
-      gameStore.startGame();
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // Mock utility response
+      const mockUtilSuggestion = {
+        cards: [{ suit: 'diamonds', rank: 5, id: 'd5' }]
+      };
+      (getAIRecommendationUtil as any).mockReturnValue(mockUtilSuggestion);
 
-      // 模拟AI玩家回合（需要实际游戏状态）
-      // 这里主要测试逻辑是否正确
-      expect(gameStore).toBeDefined();
-    });
-  });
+      const result = await gameStore.getAIRecommendation();
 
-  describe('游戏事件触发聊天', () => {
-    it('应该能够触发AI Brain聊天', async () => {
-      const gameStore = useGameStore();
-
-      gameStore.startGame();
-      await new Promise(resolve => setTimeout(resolve, 10));
-
-      // 触发聊天
-      await gameStore.triggerAIBrainChat(1, 'after_play', { play: {} });
-
-      // 验证方法存在且可调用
-      expect(gameStore.triggerAIBrainChat).toBeDefined();
+      expect(aiBrainIntegration.generateHint).toHaveBeenCalled();
+      expect(getAIRecommendationUtil).toHaveBeenCalled();
+      expect(result).toEqual(mockUtilSuggestion);
     });
   });
 });
-

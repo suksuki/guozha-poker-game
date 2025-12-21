@@ -5,6 +5,7 @@
       <div class="player-identity">
         <span class="player-avatar">🧑</span>
         <span class="player-name">{{ playerName }}</span>
+        <span v-if="finishedRank" class="rank-badge">{{ getRankLabel(finishedRank) }}</span>
         <span v-if="isAutoPlay" class="auto-play-badge">🤖 托管</span>
       </div>
       
@@ -162,6 +163,11 @@ const toggleCard = (cardId: string) => {
   emit('toggleCard', cardId);
 };
 
+const getRankLabel = (rank: number): string => {
+  const labels = ['🥇', '🥈', '🥉', '4️⃣'];
+  return labels[rank - 1] || `#${rank}`;
+};
+
 </script>
 
 <style scoped>
@@ -210,6 +216,16 @@ const toggleCard = (cardId: string) => {
   border-radius: 8px;
   font-size: 10px;
   color: #fbbf24;
+}
+
+.rank-badge {
+  padding: 2px 6px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  font-size: 10px;
+  color: #fca5a5;
+  margin-right: 4px;
 }
 
 .player-stats {

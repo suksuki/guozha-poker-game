@@ -264,6 +264,47 @@ export class CommunicationScheduler {
   }
 
   /**
+   * 生成聊天建议 (用于人类玩家辅助)
+   * 不会记录历史，也不发送事件，仅返回建议内容
+   */
+  async generateSuggestion(
+    playerId: number,
+    context: CommunicationContext,
+    personality: any = { preset: 'balanced', chattiness: 1.0 }
+  ): Promise<string | null> {
+    if (!this.llmService) {
+      // 如果没有LLM，返回规则生成的简单建议
+      const msg = this.generateRuleBasedMessage(playerId, context, personality);
+      return msg ? msg.content : null;
+    }
+
+    try {
+      // 使用相同的构建逻辑，但这是一个"模拟"生成
+      const messages = this.buildCommunicationMessages(playerId, context, personality);
+
+      // 调整System Prompt，明确是为玩家生成建议
+      if (messages.length > 0 && messages[0].role === 'system') {
+        messages[0].content += '\n注意：你现在是辅助AI，正在为人类玩家生成一句合适的聊天建议。';
+      }
+
+      const response = await this.llmService.call({
+        purpose: 'communication',
+        prompt: messages,
+        priority: 5, // 最高优先级，用户在等待
+        options: {
+          temperature: 0.8,
+          maxTokens: 50
+        }
+      });
+
+      const content = this.parseLLMResponse(response.content);
+      return content || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
    * 构建基于历史上下文的消息数组 (Delta Update Strategy)
    */
   private buildCommunicationMessages(
@@ -950,23 +991,23 @@ ${players.map((p, idx) => {
                 continue;
               }
 
-            // 处理内容
-            const processedContent = this.parseLLMResponse(content);
-            if (!processedContent || processedContent.length === 0) {
-              continue;
-            }
+              // 处理内容
+              const processedContent = this.parseLLMResponse(content);
+              if (!processedContent || processedContent.length === 0) {
+                continue;
+              }
 
-            // 确定意图和情绪
-            const intent = this.determineIntent(context, player.personality);
-            const emotion = this.determineEmotion(context, player.personality);
+              // 确定意图和情绪
+              const intent = this.determineIntent(context, player.personality);
+              const emotion = this.determineEmotion(context, player.personality);
 
-            results.set(playerId, {
-              content: processedContent,
-              intent,
-              emotion,
-              reasoning: `批量生成，基于${context.trigger}触发`,
-              timestamp: Date.now()
-            });
+              results.set(playerId, {
+                content: processedContent,
+                intent,
+                emotion,
+                reasoning: `批量生成，基于${context.trigger}触发`,
+                timestamp: Date.now()
+              });
             }
           }
         }
@@ -980,43 +1021,43 @@ ${players.map((p, idx) => {
     }
 
     // 尝试提取用逗号分隔的JSON对象格式 {"playerId": 1, ...}, {"playerId": 2, ...}
-// 这种格式看起来像数组但没有方括号
-const commaSeparatedMatch = cleanedResponse.match(/\{[^}]*"playerId"[^}]*\}(?:\s*,\s*\{[^}]*"playerId"[^}]*\})+/);
-      if (commaSeparatedMatch) {
-        try {
-          // 尝试包装成数组格式
-          const wrappedArray = '[' + commaSeparatedMatch[0] + ']';
-          const jsonArray = JSON.parse(wrappedArray);
-          if (Array.isArray(jsonArray)) {
+    // 这种格式看起来像数组但没有方括号
+    const commaSeparatedMatch = cleanedResponse.match(/\{[^}]*"playerId"[^}]*\}(?:\s*,\s*\{[^}]*"playerId"[^}]*\})+/);
+    if (commaSeparatedMatch) {
+      try {
+        // 尝试包装成数组格式
+        const wrappedArray = '[' + commaSeparatedMatch[0] + ']';
+        const jsonArray = JSON.parse(wrappedArray);
+        if (Array.isArray(jsonArray)) {
 
-            for (const item of jsonArray) {
-              if (item && typeof item === 'object' && typeof item.playerId === 'number' && typeof item.content === 'string' && item.content.trim().length > 0) {
-                const playerId = item.playerId;
-                const content = item.content;
+          for (const item of jsonArray) {
+            if (item && typeof item === 'object' && typeof item.playerId === 'number' && typeof item.content === 'string' && item.content.trim().length > 0) {
+              const playerId = item.playerId;
+              const content = item.content;
 
-                // 验证玩家ID是否在列表中
-                const player = players.find(p => p.id === playerId);
-                if (!player) {
-                  continue;
-                }
+              // 验证玩家ID是否在列表中
+              const player = players.find(p => p.id === playerId);
+              if (!player) {
+                continue;
+              }
 
-            // 处理内容
-            const processedContent = this.parseLLMResponse(content);
-            if (!processedContent || processedContent.length === 0) {
-              continue;
-            }
+              // 处理内容
+              const processedContent = this.parseLLMResponse(content);
+              if (!processedContent || processedContent.length === 0) {
+                continue;
+              }
 
-            // 确定意图和情绪
-            const intent = this.determineIntent(context, player.personality);
-            const emotion = this.determineEmotion(context, player.personality);
+              // 确定意图和情绪
+              const intent = this.determineIntent(context, player.personality);
+              const emotion = this.determineEmotion(context, player.personality);
 
-            results.set(playerId, {
-              content: processedContent,
-              intent,
-              emotion,
-              reasoning: `批量生成，基于${context.trigger}触发`,
-              timestamp: Date.now()
-            });
+              results.set(playerId, {
+                content: processedContent,
+                intent,
+                emotion,
+                reasoning: `批量生成，基于${context.trigger}触发`,
+                timestamp: Date.now()
+              });
             }
           }
         }
@@ -1029,94 +1070,94 @@ const commaSeparatedMatch = cleanedResponse.match(/\{[^}]*"playerId"[^}]*\}(?:\s
       }
     }
 
-      // 尝试解析JSON格式
-      // 先尝试按行分割
-      let lines = cleanedResponse.split('\n').filter(line => line.trim());
+    // 尝试解析JSON格式
+    // 先尝试按行分割
+    let lines = cleanedResponse.split('\n').filter(line => line.trim());
 
-      // 如果没有换行或只有一行，尝试分割连在一起的JSON对象
-      if ((lines.length === 1 || lines.length === 0) && cleanedResponse.includes('}{')) {
-        // 使用正则表达式分割连在一起的JSON对象
-        // 匹配 } 后面跟着 { 的位置
-        const jsonObjects = cleanedResponse.split(/(?<=})\s*(?={)/);
-        lines = jsonObjects.filter(obj => obj.trim());
-      }
-
-      // 如果按行分割后，某些行包含多个JSON对象（如：{...}{...}），进一步分割
-      const finalLines: string[] = [];
-      for (const line of lines) {
-        if (line.includes('}{')) {
-          // 分割这一行中的多个JSON对象
-          const splitObjects = line.split(/(?<=})\s*(?={)/);
-          finalLines.push(...splitObjects.filter(obj => obj.trim()));
-        } else {
-          finalLines.push(line);
-        }
-      }
-      lines = finalLines;
-
-
-      for (const line of lines) {
-        try {
-          // 移除可能的标记和空白
-          let cleanLine = line.trim();
-
-          // 跳过空行
-          if (!cleanLine) continue;
-
-          // 移除可能的代码块标记（如果还有残留）
-          if (cleanLine.startsWith('```')) {
-            cleanLine = cleanLine.replace(/```(?:json|python|javascript)?\s*/i, '').replace(/\s*```\s*$/i, '');
-          }
-
-          // 跳过空行
-          if (!cleanLine) continue;
-
-          // 尝试解析JSON
-          const parsed = JSON.parse(cleanLine);
-          const playerId = parsed.playerId;
-          const content = parsed.content;
-
-          if (typeof playerId === 'number' && typeof content === 'string' && content.length > 0) {
-            // 验证玩家ID是否在列表中
-            const player = players.find(p => p.id === playerId);
-            if (!player) {
-              continue;
-            }
-
-            // 处理内容
-            const processedContent = this.parseLLMResponse(content);
-            if (!processedContent || processedContent.length === 0) {
-              continue;
-            }
-
-            // 确定意图和情绪
-            const intent = this.determineIntent(context, player.personality);
-            const emotion = this.determineEmotion(context, player.personality);
-
-            results.set(playerId, {
-              content: processedContent,
-              intent,
-              emotion,
-              reasoning: `批量生成，基于${context.trigger}触发`,
-              timestamp: Date.now()
-            });
-          }
-        } catch (parseError) {
-          // 忽略解析错误，继续处理下一行
-        }
-      }
-
-      return results;
+    // 如果没有换行或只有一行，尝试分割连在一起的JSON对象
+    if ((lines.length === 1 || lines.length === 0) && cleanedResponse.includes('}{')) {
+      // 使用正则表达式分割连在一起的JSON对象
+      // 匹配 } 后面跟着 { 的位置
+      const jsonObjects = cleanedResponse.split(/(?<=})\s*(?={)/);
+      lines = jsonObjects.filter(obj => obj.trim());
     }
+
+    // 如果按行分割后，某些行包含多个JSON对象（如：{...}{...}），进一步分割
+    const finalLines: string[] = [];
+    for (const line of lines) {
+      if (line.includes('}{')) {
+        // 分割这一行中的多个JSON对象
+        const splitObjects = line.split(/(?<=})\s*(?={)/);
+        finalLines.push(...splitObjects.filter(obj => obj.trim()));
+      } else {
+        finalLines.push(line);
+      }
+    }
+    lines = finalLines;
+
+
+    for (const line of lines) {
+      try {
+        // 移除可能的标记和空白
+        let cleanLine = line.trim();
+
+        // 跳过空行
+        if (!cleanLine) continue;
+
+        // 移除可能的代码块标记（如果还有残留）
+        if (cleanLine.startsWith('```')) {
+          cleanLine = cleanLine.replace(/```(?:json|python|javascript)?\s*/i, '').replace(/\s*```\s*$/i, '');
+        }
+
+        // 跳过空行
+        if (!cleanLine) continue;
+
+        // 尝试解析JSON
+        const parsed = JSON.parse(cleanLine);
+        const playerId = parsed.playerId;
+        const content = parsed.content;
+
+        if (typeof playerId === 'number' && typeof content === 'string' && content.length > 0) {
+          // 验证玩家ID是否在列表中
+          const player = players.find(p => p.id === playerId);
+          if (!player) {
+            continue;
+          }
+
+          // 处理内容
+          const processedContent = this.parseLLMResponse(content);
+          if (!processedContent || processedContent.length === 0) {
+            continue;
+          }
+
+          // 确定意图和情绪
+          const intent = this.determineIntent(context, player.personality);
+          const emotion = this.determineEmotion(context, player.personality);
+
+          results.set(playerId, {
+            content: processedContent,
+            intent,
+            emotion,
+            reasoning: `批量生成，基于${context.trigger}触发`,
+            timestamp: Date.now()
+          });
+        }
+      } catch (parseError) {
+        // 忽略解析错误，继续处理下一行
+      }
+    }
+
+    return results;
+  }
 
   /**
    * 规则生成消息（LLM不可用时的回退）
    */
   private generateRuleBasedMessage(
-      playerId: number,
-      context: CommunicationContext,
-      personality: any
-    ): CommunicationMessage | null {
+    playerId: number,
+    context: CommunicationContext,
+    personality: any
+  ): CommunicationMessage | null {
     const preset = personality.preset || 'balanced';
 
     // 根据触发类型和性格选择消息

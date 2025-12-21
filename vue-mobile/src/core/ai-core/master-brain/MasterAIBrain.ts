@@ -406,6 +406,63 @@ export class MasterAIBrain {
   }
 
   /**
+   * 为玩家生成消息建议
+   */
+  async generateMessageSuggestion(playerId: number, gameState: GameState): Promise<string | null> {
+    if (!this.initialized) return null;
+
+    // 默认给人类一个"balanced"性格用于生成
+    const personality = { preset: 'balanced', chattiness: 1.0 };
+
+    // 构建上下文
+    const context: any = {
+      trigger: 'user_chat', // 模拟用户聊天触发
+      gameState,
+      eventType: 'suggestion_requested'
+    };
+
+    return await this.commScheduler.generateSuggestion(playerId, context, personality);
+  }
+
+  /**
+   * 生成游戏提示
+   */
+  async generateHint(gameState: GameState): Promise<Decision | null> {
+    if (!this.initialized) return null;
+
+    try {
+      // 1. 创建临时的"高智商"AI玩家
+      // 复用当前玩家位置 (myPosition)
+      const playerId = gameState.myPosition;
+
+      const hintPlayer = new AIPlayer({
+        id: playerId,
+        personality: { preset: 'aggressive' }, // 使用激进(高手)策略
+        decisionModules: ['mcts'], // 启用MCTS
+        communicationEnabled: false
+      }, {
+        sharedCognitive: this.sharedCognitive,
+        knowledgeBase: this.knowledgeBase,
+        llmService: this.llmService
+      });
+
+      // 2. 预热 (如果需要)
+      await hintPlayer.initialize();
+
+      // 3. 共享认知分析
+      const cognitive = await this.sharedCognitive.analyze(gameState);
+
+      // 4. 做决策
+      const decision = await hintPlayer.makeDecision(gameState, cognitive);
+
+      return decision;
+
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
    * 导出训练数据
    */
   exportTrainingData(): string {

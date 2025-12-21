@@ -9,6 +9,28 @@
       @skip="onDealingSkip"
     />
     
+    <!-- 训练面板 -->
+    <TrainingPanel
+      v-if="showTrainingPanel"
+      @close="showTrainingPanel = false"
+    />
+    
+    <!-- 游戏结束 (模态框形式) -->
+    <van-overlay :show="gameStore.status === 'finished' && showResultModal" @click="showResultModal = false" z-index="100">
+      <div class="result-modal-wrapper" @click.stop>
+        <GameResultScreen
+          v-if="gameStore.status === 'finished'"
+          :players="(gameStore.players as any)"
+          :rounds="(gameStore.rounds as any)"
+          :winner="gameStore.gameState?.winner !== null && gameStore.gameState?.winner !== undefined 
+            ? (gameStore.players[gameStore.gameState.winner] as any) 
+            : undefined"
+          @restart="startGameWithAnimation"
+          @close="showResultModal = false"
+        />
+      </div>
+    </van-overlay>
+
     <!-- 开始画面 -->
     <StartScreen
       v-if="gameStore.status === 'waiting' && !isDealing"
@@ -17,25 +39,8 @@
       @settings="openSettings"
     />
     
-    <!-- 训练面板 -->
-    <TrainingPanel
-      v-if="showTrainingPanel"
-      @close="showTrainingPanel = false"
-    />
-    
-    <!-- 游戏结束 -->
-    <GameResultScreen
-      v-else-if="gameStore.status === 'finished'"
-      :players="(gameStore.players as any)"
-      :rounds="(gameStore.rounds as any)"
-      :winner="gameStore.gameState?.winner !== null && gameStore.gameState?.winner !== undefined 
-        ? (gameStore.players[gameStore.gameState.winner] as any) 
-        : undefined"
-      @restart="startGameWithAnimation"
-    />
-    
-    <!-- 游戏中 - 横屏布局 -->
-    <div v-else-if="gameStore.status === 'playing'" class="game-container-landscape">
+    <!-- 游戏中 或 游戏结束（但查看桌面） - 横屏布局 -->
+    <div v-else-if="gameStore.status === 'playing' || gameStore.status === 'finished'" class="game-container-landscape">
       <!-- 顶部工具栏 -->
       <div class="toolbar-landscape">
         <van-tag 
@@ -72,6 +77,7 @@
         <van-button 
           size="small" 
           @click="getAIRecommendation" 
+          :loading="isAIQuerying"
           type="primary"
           plain
         >
@@ -85,10 +91,24 @@
         >
           💬
         </van-button>
+        <van-button 
+          v-if="gameStore.status === 'finished'"
+          size="small" 
+          type="danger"
+          @click="showResultModal = true"
+        >
+          🏆 战绩
+        </van-button>
       </div>
       
       <!-- 聊天消息显示 -->
       <div v-if="showChat" class="chat-panel-landscape">
+        <!-- 聊天窗口头部 -->
+        <div class="chat-header">
+          <span class="chat-title">{{ $t('chat.title') || '聊天' }}</span>
+          <div class="close-btn" @click="showChat = false">✕</div>
+        </div>
+
         <div class="chat-messages-landscape">
           <div 
             v-for="msg in chatStore.recentMessages" 
@@ -203,72 +223,92 @@
             <!-- 中央出牌区 - 真实牌桌布局 -->
             <div class="play-area-center">
               <!-- 北家 (Top) -->
-              <transition name="pop-in">
-                <div class="played-cards-slot slot-top" v-if="getPlayedCards(playerNorth?.id).length > 0">
-                  <div class="multiple-plays-container">
-                    <div v-for="(play, playIdx) in getPlayedCards(playerNorth?.id)" :key="playIdx" 
-                         class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerNorth?.id).length)">
-                      <div class="card-stack-display">
-                        <div v-for="(card, i) in play.cards" :key="card.id" 
-                             class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
-                          <CardView :card="card" size="small" />
+                <div class="played-cards-slot slot-top">
+                  <transition name="pop-in">
+                    <div v-if="getPlayedCards(playerNorth?.id).length > 0">
+                      <div class="multiple-plays-container">
+                        <div v-for="(play, playIdx) in getPlayedCards(playerNorth?.id)" :key="playIdx" 
+                             class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerNorth?.id).length)">
+                          <div class="card-stack-display">
+                            <div v-for="(card, i) in play.cards" :key="card.id" 
+                                 class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
+                              <CardView :card="card" size="small" />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                    <div v-else-if="passStatus.get(playerNorth?.id || -1)" class="pass-indicator">
+                      <span class="pass-text">不要</span>
+                    </div>
+                  </transition>
                 </div>
-              </transition>
               
               <!-- 西家 (Left) -->
-              <transition name="pop-in">
-                <div class="played-cards-slot slot-left" v-if="getPlayedCards(playerWest?.id).length > 0">
-                  <div class="multiple-plays-container">
-                    <div v-for="(play, playIdx) in getPlayedCards(playerWest?.id)" :key="playIdx" 
-                         class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerWest?.id).length)">
-                      <div class="card-stack-display">
-                        <div v-for="(card, i) in play.cards" :key="card.id" 
-                             class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
-                          <CardView :card="card" size="small" />
+                <div class="played-cards-slot slot-left">
+                  <transition name="pop-in">
+                    <div v-if="getPlayedCards(playerWest?.id).length > 0">
+                      <div class="multiple-plays-container">
+                        <div v-for="(play, playIdx) in getPlayedCards(playerWest?.id)" :key="playIdx" 
+                             class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerWest?.id).length)">
+                          <div class="card-stack-display">
+                            <div v-for="(card, i) in play.cards" :key="card.id" 
+                                 class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
+                              <CardView :card="card" size="small" />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                    <div v-else-if="passStatus.get(playerWest?.id || -1)" class="pass-indicator">
+                      <span class="pass-text">不要</span>
+                    </div>
+                  </transition>
                 </div>
-              </transition>
               
               <!-- 东家 (Right) -->
-              <transition name="pop-in">
-                <div class="played-cards-slot slot-right" v-if="getPlayedCards(playerEast?.id).length > 0">
-                  <div class="multiple-plays-container">
-                    <div v-for="(play, playIdx) in getPlayedCards(playerEast?.id)" :key="playIdx" 
-                         class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerEast?.id).length)">
-                      <div class="card-stack-display">
-                        <div v-for="(card, i) in play.cards" :key="card.id" 
-                             class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
-                          <CardView :card="card" size="small" />
+                <div class="played-cards-slot slot-right">
+                  <transition name="pop-in">
+                    <div v-if="getPlayedCards(playerEast?.id).length > 0">
+                      <div class="multiple-plays-container">
+                        <div v-for="(play, playIdx) in getPlayedCards(playerEast?.id)" :key="playIdx" 
+                             class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerEast?.id).length)">
+                          <div class="card-stack-display">
+                            <div v-for="(card, i) in play.cards" :key="card.id" 
+                                 class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
+                              <CardView :card="card" size="small" />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                    <div v-else-if="passStatus.get(playerEast?.id || -1)" class="pass-indicator">
+                      <span class="pass-text">不要</span>
+                    </div>
+                  </transition>
                 </div>
-              </transition>
               
               <!-- 南家/自己 (Bottom) -->
-              <transition name="pop-in">
-                <div class="played-cards-slot slot-bottom" v-if="getPlayedCards(playerSouth?.id).length > 0">
-                  <div class="multiple-plays-container">
-                    <div v-for="(play, playIdx) in getPlayedCards(playerSouth?.id)" :key="playIdx" 
-                         class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerSouth?.id).length)">
-                      <div class="card-stack-display">
-                        <div v-for="(card, i) in play.cards" :key="card.id" 
-                             class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
-                          <CardView :card="card" size="small" />
+                <div class="played-cards-slot slot-bottom">
+                  <transition name="pop-in">
+                    <div v-if="getPlayedCards(playerSouth?.id).length > 0">
+                      <div class="multiple-plays-container">
+                        <div v-for="(play, playIdx) in getPlayedCards(playerSouth?.id)" :key="playIdx" 
+                             class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerSouth?.id).length)">
+                          <div class="card-stack-display">
+                            <div v-for="(card, i) in play.cards" :key="card.id" 
+                                 class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
+                              <CardView :card="card" size="small" />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                    <div v-else-if="passStatus.get(playerSouth?.id || -1)" class="pass-indicator">
+                      <span class="pass-text">不要</span>
+                    </div>
+                  </transition>
                 </div>
-              </transition>
               
               <!-- 等待提示（仅当还没人出牌时显示） -->
               <template v-if="!gameStore.currentRound?.plays.length && gameStore.status === 'playing'">
@@ -342,7 +382,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, reactive } from 'vue';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { showToast } from 'vant';
 import { useI18n } from '../../i18n/composable';
@@ -370,6 +410,10 @@ const showTrainingPanel = ref(false);
 // const expandedRanks = ref<Set<number>>(new Set()); // Removed unused
 const isDealing = ref(false); // 发牌动画状态
 const pendingGameConfig = ref<{ teamMode: boolean } | undefined>(undefined); // 待处理的游戏配置
+const showResultModal = ref(false); // 游戏结果模态框
+
+const passStatus = reactive(new Map<number, boolean>()); // 记录玩家是否不要
+const isAIQuerying = ref(false); // AI请求状态
 
 const openSettings = () => {
   showSettings.value = true;
@@ -519,6 +563,10 @@ const playSelectedCards = async () => {
   if (result.success) {
     selectedCardIds.value = [];
     showToast({ type: 'success', message: `✅ ${t('game.playCards')}${t('common.success')}` });
+    // 清除该玩家的pass状态
+    if (gameStore.humanPlayer) {
+      passStatus.set(gameStore.humanPlayer.id, false);
+    }
   } else {
     showToast({ type: 'fail', message: (result as any).message || '出牌失败' });
   }
@@ -528,6 +576,9 @@ const passRound = async () => {
   const result = await gameStore.pass();
   if (result.success) {
     showToast({ type: 'success', message: '不要' });
+    if (gameStore.humanPlayer) {
+      passStatus.set(gameStore.humanPlayer.id, true);
+    }
   } else {
     showToast({ type: 'fail', message: result.message || '操作失败' });
   }
@@ -555,7 +606,34 @@ onMounted(() => {
   
   // 初始化聊天调度器（传入获取游戏实例的回调）
   chatSchedulerService.initialize(() => gameStore.game as any);
+
+  // 监听游戏事件
+  window.addEventListener('guozha:player-played', onPlayerPlayed as any);
+  window.addEventListener('guozha:player-passed', onPlayerPassed as any);
+  window.addEventListener('guozha:round-started', onRoundStarted);
 });
+
+onUnmounted(() => {
+  window.removeEventListener('guozha:player-played', onPlayerPlayed as any);
+  window.removeEventListener('guozha:player-passed', onPlayerPassed as any);
+  window.removeEventListener('guozha:round-started', onRoundStarted);
+});
+
+// 事件处理
+const onPlayerPlayed = (event: CustomEvent) => {
+  const { playerId } = event.detail;
+  passStatus.set(playerId, false);
+};
+
+const onPlayerPassed = (event: CustomEvent) => {
+  const { playerId } = event.detail;
+  passStatus.set(playerId, true);
+};
+
+const onRoundStarted = () => {
+  // 新回合开始，清除所有pass状态
+  passStatus.clear();
+};
 
 // 获取玩家名称
 const getPlayerName = (playerId: number) => {
@@ -579,22 +657,33 @@ const getIntentLabel = (intent: string) => {
   return labels[intent] || intent;
 };
 
-
-
-const getAIRecommendation = () => {
-  const suggestion = gameStore.getAIRecommendation();
-  if (suggestion && suggestion.cards.length > 0) {
-    // 自动选中推荐的牌
-    selectedCardIds.value = suggestion.cards.map(c => c.id);
-    showToast({ 
-      type: 'success', 
-      message: `💡 ${t('game.aiRecommendation')}: ${suggestion.cards.length}${t('game.selectCards')}` 
-    });
-  } else {
-    showToast({ 
-      type: 'text', 
-      message: `💡 ${t('game.aiRecommendation')}: ${t('game.pass')}` 
-    });
+const getAIRecommendation = async () => {
+  if (isAIQuerying.value) return;
+  
+  isAIQuerying.value = true;
+  try {
+    const result = await gameStore.getAIRecommendation();
+    
+    if (result && result.cards && result.cards.length > 0) {
+      // 选中推荐的牌
+      selectedCardIds.value = result.cards.map((c: any) => c.id);
+      showToast({
+        type: 'success',
+        message: `💡 ${t('game.aiRecommendation')}: ${result.cards.length}张`,
+        duration: 1500
+      });
+    } else {
+      // 推荐不要
+      selectedCardIds.value = [];
+      showToast({
+        message: `💡 ${t('game.aiRecommendation')}: ${t('game.pass')}`,
+        duration: 1500
+      });
+    }
+  } catch (error) {
+    showToast({ type: 'fail', message: '获取AI推荐失败' });
+  } finally {
+    isAIQuerying.value = false;
   }
 };
 
@@ -797,6 +886,37 @@ const toggleAutoPlay = () => {
   top: 50%;
   right: 8%;
   animation-delay: -7s;
+}
+
+/* 结果模态框 */
+.result-modal-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* 不要提示 */
+.pass-indicator {
+  /* padding: 8px 16px; */
+  /* background: rgba(0, 0, 0, 0.6); */
+  /* border-radius: 20px; */
+  /* border: 1px solid rgba(255, 255, 255, 0.2); */
+  /* backdrop-filter: blur(4px); */
+  animation: fadeIn 0.3s ease;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.pass-text {
+  color: #cbd5e1;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .floating-card-3 {
@@ -1385,6 +1505,40 @@ const toggleAutoPlay = () => {
   backdrop-filter: blur(20px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden; /* 防止圆角被子元素遮挡 */
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chat-title {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.close-btn {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 16px;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
 }
 
 .chat-messages-landscape {

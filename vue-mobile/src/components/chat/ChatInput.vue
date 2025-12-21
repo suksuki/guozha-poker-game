@@ -7,6 +7,11 @@
       class="chat-input-field"
       @keyup.enter="sendMessage"
     >
+      <template #left-icon>
+        <div class="magic-wand" @click="autoSuggest" :class="{ 'loading': isLoadingSuggestion }">
+          🪄
+        </div>
+      </template>
       <template #button>
         <van-button 
           size="small" 
@@ -81,37 +86,101 @@ const sendMessage = () => {
   // 清空输入
   inputText.value = '';
 
-  // TODO: 如果启用了AI Brain辅助，可以在这里触发AI生成建议
   // 目前先直接发送用户输入的消息
+};
+
+const isLoadingSuggestion = ref(false);
+
+const autoSuggest = async () => {
+  if (isLoadingSuggestion.value) return;
+  
+  isLoadingSuggestion.value = true;
+  try {
+    const suggestion = await chatStore.getAISuggestion();
+    if (suggestion) {
+      inputText.value = suggestion;
+      showToast('✨ AI已为你生成回复');
+    } else {
+      showToast('AI暂时没有想法');
+    }
+  } catch (err) {
+    showToast('获取建议失败');
+  } finally {
+    isLoadingSuggestion.value = false;
+  }
 };
 </script>
 
 <style scoped>
 .chat-input-container {
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  border-top: 1px solid #e0e0e0;
+  padding: 12px;
+  background: transparent;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .chat-input-field {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 6px 12px;
+}
+
+/* 覆盖 Vant Field 样式 */
+:deep(.van-field__control) {
+  color: white;
+}
+
+:deep(.van-field__control::placeholder) {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .quick-phrases {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .quick-phrase-tag {
   cursor: pointer;
   transition: all 0.2s;
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
 }
 
 .quick-phrase-tag:active {
   transform: scale(0.95);
-  opacity: 0.8;
+  background: rgba(255, 255, 255, 0.25) !important;
+}
+
+.magic-wand {
+  font-size: 20px;
+  margin-right: 8px;
+  cursor: pointer;
+  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
+  transition: all 0.3s ease;
+  animation: float 3s ease-in-out infinite;
+}
+
+.magic-wand:active {
+  transform: scale(0.9);
+}
+
+.magic-wand.loading {
+  animation: spin 1s linear infinite;
+  filter: grayscale(1);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(10deg); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>
 

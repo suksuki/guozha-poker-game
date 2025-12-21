@@ -291,12 +291,32 @@ export const useGameStore = defineStore('game', () => {
 
   /**
    * AI推荐（使用 gameLogic.ts 中的 getAIRecommendation，支持拆牌）
+   * 优先尝试使用 AI Brain (MCTS) 获取更优解
    */
-  const getAIRecommendation = () => {
+  const getAIRecommendation = async () => {
     if (!game.value || !humanPlayer.value) {
       return null;
     }
 
+    // 1. 尝试使用 AI Brain
+    if (aiBrainInitialized.value) {
+      try {
+        const decision = await aiBrainIntegration.generateHint(game.value as any, humanPlayer.value.id);
+        if (decision && decision.action) {
+          if (decision.action.type === 'play' || decision.action.type === 'play_card') {
+            return {
+              action: 'play',
+              cards: decision.action.play?.cards || decision.action.cards || []
+            };
+          } else {
+            return { action: 'pass', cards: [] };
+          }
+        }
+      } catch (e) {
+      }
+    }
+
+    // 2. 降级使用本地简单策略
     try {
       const lastPlayCards = currentRound.value?.lastPlay;
       let lastPlay: Play | null = null;
@@ -349,7 +369,7 @@ export const useGameStore = defineStore('game', () => {
 
     if (isFirstPlay || isTakeover || hasPlayable) {
       // 必须出牌或有牌可出
-      const suggestion = getAIRecommendation();
+      const suggestion = await getAIRecommendation();
 
       if (suggestion && suggestion.cards && suggestion.cards.length > 0) {
         playCards(suggestion.cards).then(result => {

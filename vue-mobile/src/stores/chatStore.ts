@@ -205,6 +205,22 @@ export const useChatStore = defineStore('chat', () => {
       : null;
   };
 
+  /**
+   * 获取AI建议
+   */
+  const getAISuggestion = async (): Promise<string | null> => {
+    const gameStore = useGameStore();
+    const humanPlayer = gameStore.humanPlayer;
+    if (!humanPlayer || !gameStore.game) return null;
+
+    try {
+      // 使用 (gameStore.game as any) 规避 Pinia 响应式包装导致的类型不匹配
+      return await aiBrainIntegration.generateMessageSuggestion(humanPlayer.id, gameStore.game as any);
+    } catch (error) {
+      return null;
+    }
+  };
+
   return {
     messages,
     recentMessages,
@@ -213,7 +229,8 @@ export const useChatStore = defineStore('chat', () => {
     addMessage,
     initializeAIBrainListener,
     clearMessages,
-    getLatestMessageByPlayer
+    getLatestMessageByPlayer,
+    getAISuggestion
   };
 });
 

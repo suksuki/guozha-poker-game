@@ -27,6 +27,12 @@ export interface GameBridgeAPI {
   // 触发批量聊天
   triggerBatchChat(gameState: GameState, trigger: 'after_play' | 'after_pass' | 'game_event', eventType?: string): Promise<Map<number, any>>;
 
+  // 生成消息建议
+  generateMessageSuggestion(playerId: number, gameState: GameState): Promise<string | null>;
+
+  // 生成游戏提示
+  generateHint(gameState: GameState): Promise<Decision | null>;
+
   // 导出数据
   exportTrainingData(): string;
 
@@ -239,6 +245,16 @@ export class GameBridge {
         if (this.eventBus) {
           this.eventBus.emit('game:user-message', { playerId, content, gameState });
         }
+      },
+
+      generateMessageSuggestion: async (playerId: number, gameState: GameState) => {
+        if (!this.masterBrain) return null;
+        return await this.masterBrain.generateMessageSuggestion(playerId, gameState);
+      },
+
+      generateHint: async (gameState: GameState) => {
+        if (!this.masterBrain) return null;
+        return await this.masterBrain.generateHint(gameState);
       },
 
       exportTrainingData: () => {
