@@ -34,7 +34,7 @@ describe('AIBrainIntegration', () => {
       });
 
       expect(integration).toBeDefined();
-      
+
       // 清理
       await integration.shutdown();
     });
@@ -55,7 +55,7 @@ describe('AIBrainIntegration', () => {
 
       // 应该只初始化一次
       expect(integration).toBeDefined();
-      
+
       // 清理
       await integration.shutdown();
     });
@@ -67,7 +67,7 @@ describe('AIBrainIntegration', () => {
       // 这里先测试convertGameState方法本身
       try {
         const aiGameState = integration.convertGameState(mockGame, 0);
-        
+
         expect(aiGameState).toBeDefined();
         expect(aiGameState.myPosition).toBe(0);
         expect(aiGameState.playerCount).toBe(4);
@@ -84,13 +84,13 @@ describe('AIBrainIntegration', () => {
         // 测试不同手牌数量的阶段计算
         if (mockGame.players && mockGame.players.length > 0) {
           const player = mockGame.players[0];
-          
+
           // 模拟不同阶段
-          player.hand = Array(20).fill(null).map((_, i) => ({ id: `card-${i}`, suit: 'spades', rank: 'A' } as any));
+          player.hand = Array(20).fill(null).map((_, i) => ({ id: `card-${i}`, suit: Suit.SPADES, rank: Rank.ACE } as any));
           const earlyState = integration.convertGameState(mockGame, 0);
           expect(earlyState.phase).toBe('early');
-          
-          player.hand = Array(3).fill(null).map((_, i) => ({ id: `card-${i}`, suit: 'spades', rank: 'A' } as any));
+
+          player.hand = Array(3).fill(null).map((_, i) => ({ id: `card-${i}`, suit: Suit.SPADES, rank: Rank.ACE } as any));
           const criticalState = integration.convertGameState(mockGame, 0);
           expect(criticalState.phase).toBe('critical');
         }
@@ -104,16 +104,16 @@ describe('AIBrainIntegration', () => {
   describe('通信消息监听', () => {
     it('应该能够监听AI通信消息', async () => {
       const messages: any[] = [];
-      
+
       const unsubscribe = integration.onCommunicationMessage((message) => {
         messages.push(message);
       });
 
       // 模拟AI Brain发送消息（通过内部机制）
       // 注意：这需要实际初始化AI Brain才能测试
-      
+
       expect(typeof unsubscribe).toBe('function');
-      
+
       // 清理
       unsubscribe();
     });
@@ -135,7 +135,7 @@ describe('AIBrainIntegration', () => {
       });
 
       await integration.shutdown();
-      
+
       // 关闭后应该可以重新初始化
       await integration.initialize({
         llmProvider: 'ollama',

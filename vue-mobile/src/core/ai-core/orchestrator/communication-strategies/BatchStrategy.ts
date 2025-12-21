@@ -109,9 +109,8 @@ export class BatchStrategy implements CommunicationStrategy {
 
       return parsedMessages;
     } catch (error) {
-        error: error instanceof Error ? error.message : String(error),
-        playerCount: shouldSpeakPlayers.length
-      });
+      // Error suppressed
+
 
       // 回退到规则生成
       for (const { id: playerId, personality } of shouldSpeakPlayers) {

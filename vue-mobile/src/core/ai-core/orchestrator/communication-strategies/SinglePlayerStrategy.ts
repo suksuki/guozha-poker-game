@@ -68,9 +68,8 @@ export class SinglePlayerStrategy implements CommunicationStrategy {
         }
       };
     } catch (error) {
-        playerId,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      // Error suppressed
+
       return this.generateRuleBased(playerId, context, personality);
     }
   }
