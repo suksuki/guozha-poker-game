@@ -24,7 +24,7 @@
       <van-tag
         v-for="phrase in quickPhrases"
         :key="phrase"
-        size="small"
+        type="primary"
         @click="inputText = phrase"
         class="quick-phrase-tag"
       >

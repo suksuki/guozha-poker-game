@@ -6,7 +6,7 @@
 import { Card, Play, Player, RoundPlayRecord } from '../../types/card';
 import { ValidationService } from './ValidationService';
 import { ValidationResult, PlayOptions, PlayResult } from './types';
-import { calculateCardsScore } from '@/core/services/scoringService';
+import { calculateCardsScore, isScoreCard } from '@/core/services/scoringService';
 
 /**
  * 出牌执行服务类

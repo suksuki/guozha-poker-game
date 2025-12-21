@@ -5,7 +5,7 @@
 
 import { Card, Suit, Rank } from '@/core/types/card';
 import { createDeck, shuffleDeck } from './cardUtils';
-import { calculateCardsScore } from '@/core/services/scoringService';
+import { calculateCardsScore, isScoreCard, getCardScore } from '@/core/services/scoringService';
 
 // 发牌算法类型
 export type DealingAlgorithm =

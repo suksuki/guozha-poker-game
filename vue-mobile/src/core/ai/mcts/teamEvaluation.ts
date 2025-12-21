@@ -6,7 +6,7 @@
 import { Card } from '@/core/types/card';
 import { TeamAction, TeamSimulatedGameState, MCTSTeamConfig } from '../types';
 import { evaluateStrategicPass } from './teamActions';
-import { calculateCardsScore } from '@/core/services/scoringService';
+import { isScoreCard, getCardScore, calculateCardsScore } from '@/core/services/scoringService';
 
 /**
  * 评估团队动作的价值

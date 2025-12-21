@@ -7,12 +7,12 @@
 import { GameState } from '../state/GameState';
 import { Player } from '@/core/types/card';
 
-// 导入原有的纯函数
+// 导入新的服务
 import {
-  calculateFinalRankings,
-  applyFinalGameRules,
+  calculateIndividualRankings,
+  applyIndividualFinalRules,
   type PlayerRanking
-} from '../../utils/gameRules';
+} from '@/core/services/scoringService';
 
 /**
  * RankingModule - 排名计算模块
@@ -27,8 +27,8 @@ export class RankingModule {
     const players = Array.from(state.players);
     const finishOrder = Array.from(state.finishOrder);
 
-    // 使用原有的纯函数计算排名
-    const rankings = calculateFinalRankings(players, finishOrder);
+    // 使用新的服务计算排名
+    const rankings = calculateIndividualRankings(players, finishOrder);
 
     // 更新状态中的玩家（应用排名结果）
     let updatedState = state;
@@ -49,7 +49,7 @@ export class RankingModule {
     players: Player[],
     finishOrder: number[]
   ): Player[] {
-    return applyFinalGameRules(players, finishOrder).players;
+    return applyIndividualFinalRules(players, finishOrder).players;
   }
 }
 

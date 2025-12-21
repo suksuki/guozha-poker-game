@@ -312,7 +312,7 @@
                          :key="lang[0]"
                          class="lang-chip"
                          :class="{ active: localUISettings.language === lang[0] }"
-                         @click="updateUISettings({ language: lang[0] })"
+                         @click="updateUISettings({ language: lang[0] as any })"
                        >
                          {{ lang[1] }}
                        </div>
@@ -363,7 +363,7 @@
                         :key="d" 
                         class="diff-chip"
                         :class="[d, { active: localAISettings.difficulty === d }]"
-                        @click="updateAISettings({ difficulty: d })"
+                        @click="updateAISettings({ difficulty: d as any })"
                       >
                          <div class="diff-icon">
                            {{ d==='easy' ? '🌱' : (d==='normal' ? '⚖️' : '🔥') }}

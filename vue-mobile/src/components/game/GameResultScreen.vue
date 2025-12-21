@@ -54,7 +54,7 @@
               </div>
             </div>
           </div>
-          <div class="player-score" :class="getScoreClass(player.score)">
+          <div class="player-score" :class="getScoreClass(player.score || 0)">
             {{ player.score }} 分
           </div>
         </div>
@@ -83,8 +83,8 @@
               <div class="detail-stats">
                 <div class="d-item">
                   <span class="d-label">{{ $t('game.score') }}</span>
-                  <span class="d-value" :class="player.score >= 0 ? 'text-success' : 'text-danger'">
-                    {{ player.score > 0 ? '+' : '' }}{{ player.score }}
+                  <span class="d-value" :class="(player.score || 0) >= 0 ? 'text-success' : 'text-danger'">
+                    {{ (player.score || 0) > 0 ? '+' : '' }}{{ player.score || 0 }}
                   </span>
                 </div>
                 <div class="d-item">

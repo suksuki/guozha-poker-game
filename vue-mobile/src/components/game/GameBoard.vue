@@ -520,7 +520,7 @@ const playSelectedCards = async () => {
     selectedCardIds.value = [];
     showToast({ type: 'success', message: `✅ ${t('game.playCards')}${t('common.success')}` });
   } else {
-    showToast({ type: 'fail', message: result.message || '出牌失败' });
+    showToast({ type: 'fail', message: (result as any).message || '出牌失败' });
   }
 };
 

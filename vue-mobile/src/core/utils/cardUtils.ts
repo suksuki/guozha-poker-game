@@ -1,4 +1,7 @@
 import { Card, Suit, Rank, CardType, Play } from '@/core/types/card';
+import { isScoreCard, getCardScore, calculateCardsScore, calculateDunCount, calculateDunScore } from '@/core/services/scoringService';
+
+export { isScoreCard, getCardScore, calculateCardsScore, calculateDunCount, calculateDunScore };
 
 
 

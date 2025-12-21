@@ -3,7 +3,7 @@
     <van-tag 
       v-if="playerCount !== 4"
       type="warning"
-      size="small"
+
     >
       ⚠️ {{ playerCount }}人
     </van-tag>

@@ -5,7 +5,7 @@
 
 import { Player } from '@/core/types/card';
 import { TeamConfig } from '../../types/team';
-import { isScoreCard, calculateCardsScore } from '@/core/services/scoringService';
+import { isScoreCard, calculateCardsScore, applyIndividualFinalRules } from '@/core/services/scoringService';
 import { findNextActivePlayer } from '../gameStateUtils';
 import { IGameModeStrategy, GameEndCheckResult, FinalScoreResult } from './IGameModeStrategy';
 
@@ -46,7 +46,7 @@ export class IndividualModeStrategy implements IGameModeStrategy {
     teamConfig?: TeamConfig | null
   ): FinalScoreResult {
 
-    const { players: finalPlayers, rankings } = applyFinalGameRules(players, finishOrder);
+    const { players: finalPlayers, rankings } = applyIndividualFinalRules(players, finishOrder);
 
     return {
       updatedPlayers: finalPlayers,

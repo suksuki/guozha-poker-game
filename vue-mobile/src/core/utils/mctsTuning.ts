@@ -12,9 +12,9 @@ import {
   dealCards,
   canPlayCards,
   canBeat,
-  findPlayableCards,
-import { isScoreCard, calculateCardsScore } from '@/core/services/scoringService';
+  findPlayableCards
 } from './cardUtils';
+import { isScoreCard, calculateCardsScore } from '@/core/services/scoringService';
 import { mctsChoosePlay } from './mctsAI';
 import { updateProgressBar, clearLine } from './progressBar';
 

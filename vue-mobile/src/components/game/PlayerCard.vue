@@ -12,7 +12,7 @@
       :content="activeBubble.content"
       :player-id="player.id"
       :is-human="isHuman"
-      :position="bubblePosition"
+      :position="bubblePosition as any"
       :offset-x="position === 'left' || position === 'right' ? 10 : 0"
       :offset-y="position === 'top' || position === 'bottom' ? 10 : 0"
     />

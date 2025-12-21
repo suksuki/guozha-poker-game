@@ -133,6 +133,7 @@ const gamesCompleted = ref(0);
 const gamesPerGen = 50; // 每代训练50局
 const baselineWinRate = ref(0.5);
 const challengerWinRate = ref(0.5);
+const gameMode = ref<'team' | 'individual'>('team');
 
 // 参数配置 (Baseline vs Challenger)
 const baselineParams = reactive<AIParams>({
