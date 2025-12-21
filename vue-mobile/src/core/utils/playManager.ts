@@ -4,7 +4,7 @@
  */
 
 import { Card, Play, Player } from '@/core/types/card';
-import { isScoreCard, calculateDunCount, calculateDunScore } from './cardUtils';
+import { isScoreCard, calculateDunCount, calculateDunScore } from '../services/scoringService';
 import { triggerBigDunReaction, triggerGoodPlayReaction, triggerDunPlayedReaction } from '../services/chatService';
 import { animationService } from '../services/animationService';
 import { getDunAnimationConfig } from '../config/animationConfig';
@@ -24,13 +24,13 @@ export function handleDunScoring(
 ): { updatedPlayers: Player[]; dunScore: number } {
   const newPlayers = [...players];
   let dunScore = 0;
-  
+
   const isDun = play.type === 'dun';
   if (isDun) {
     const dunCount = calculateDunCount(cards.length);
     const dunScoreResult = calculateDunScore(dunCount, playerCount, playerIndex);
     dunScore = dunScoreResult.dunPlayerScore;
-    
+
     // 更新出墩玩家的墩数统计
     if (newPlayers[playerIndex]) {
       const currentPlayer = newPlayers[playerIndex];
@@ -39,15 +39,22 @@ export function handleDunScoring(
         dunCount: ((currentPlayer as any).dunCount || 0) + dunCount
       } as Player;
     }
-    
-    // 注释掉扣分逻辑：player.score 应该只记录捡到的分牌，墩分通过 dunCount 单独计算
-    // 从每个其他玩家扣除分数
-    // newPlayers.forEach((p, idx) => {
-    //   if (idx !== playerIndex) {
-    //     p.score = (p.score || 0) - dunScoreResult.otherPlayersScore;
-    //   }
-    // });
-    
+
+    // 从每个其他玩家扣除分数，增加给出墩玩家
+    newPlayers.forEach((p, idx) => {
+      if (idx === playerIndex) {
+        newPlayers[idx] = {
+          ...newPlayers[idx],
+          score: (newPlayers[idx].score || 0) + dunScoreResult.dunPlayerScore
+        } as Player;
+      } else {
+        newPlayers[idx] = {
+          ...newPlayers[idx],
+          score: (newPlayers[idx].score || 0) - dunScoreResult.otherPlayersScore
+        } as Player;
+      }
+    });
+
     // 触发出墩爆炸动画（如果提供了位置）
     if (animationPosition) {
       const config = getDunAnimationConfig(cards.length);
@@ -59,17 +66,17 @@ export function handleDunScoring(
         position: animationPosition
       });
     }
-    
+
     // 触发大墩反应（其他玩家的惊呼，异步，不阻塞）
-    triggerBigDunReaction(newPlayers, playerIndex, cards.length).catch(() => {});
-    
+    triggerBigDunReaction(newPlayers, playerIndex, cards.length).catch(() => { });
+
     // 触发出墩时的得意话（出牌玩家的得意话，异步，不阻塞）
     const dunPlayer = newPlayers[playerIndex];
     if (dunPlayer) {
-      triggerDunPlayedReaction(dunPlayer).catch(() => {});
+      triggerDunPlayedReaction(dunPlayer).catch(() => { });
     }
   }
-  
+
   return { updatedPlayers: newPlayers, dunScore };
 }
 
@@ -103,7 +110,7 @@ export function updatePlayerAfterPlay(
   const newHand = player.hand.filter(
     card => !cards.some(c => c.id === card.id)
   );
-  
+
   const result = {
     ...player,
     hand: newHand,
@@ -112,7 +119,7 @@ export function updatePlayerAfterPlay(
     score: player.score || 0
     // 注意：dunCount 已经在 handleDunScoring 中更新了，这里不需要再次更新
   };
-  
+
   return result;
 }
 
@@ -135,7 +142,7 @@ export function triggerGoodPlayReactions(
         scoreCards: scoreCards.length
       }
     };
-    triggerGoodPlayReaction(player, context, fullGameState).catch(() => {});
+    triggerGoodPlayReaction(player, context, fullGameState).catch(() => { });
   }
 }
 

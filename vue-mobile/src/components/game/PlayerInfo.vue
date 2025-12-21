@@ -66,7 +66,7 @@ import {
   calculatePlayerDunScore,
   calculateTeamScore,
   calculateTeamDunCount
-} from '@/core/utils/teamScoring';
+} from '@/core/services/scoringService';
 import { getPlayerTeamId } from '@/core/utils/teamManager';
 import { Tag, Cell, NoticeBar } from 'vant';
 

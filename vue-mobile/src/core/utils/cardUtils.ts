@@ -1,63 +1,6 @@
 import { Card, Suit, Rank, CardType, Play } from '@/core/types/card';
 
-// 分牌规则：5=5分，10=10分，K=10分
-export function isScoreCard(card: Card): boolean {
-  return card.rank === Rank.FIVE || card.rank === Rank.TEN || card.rank === Rank.KING;
-}
 
-// 获取单张牌的分值
-export function getCardScore(card: Card): number {
-  if (card.rank === Rank.FIVE) {
-    return 5;
-  } else if (card.rank === Rank.TEN || card.rank === Rank.KING) {
-    return 10;
-  }
-  return 0;
-}
-
-// 计算一组牌的总分值
-export function calculateCardsScore(cards: Card[]): number {
-  return cards.reduce((total, card) => total + getCardScore(card), 0);
-}
-
-// 计算墩的数量
-// 规则：7张=1墩，8张=2墩，9张=4墩，10张=8墩，11张=16墩...（翻倍）
-export function calculateDunCount(cardCount: number): number {
-  if (cardCount < 7) {
-    return 0; // 少于7张不是墩
-  }
-
-  // 7张 = 1墩 (2^0)
-  // 8张 = 2墩 (2^1)
-  // 9张 = 4墩 (2^2)
-  // 10张 = 8墩 (2^3)
-  // 11张 = 16墩 (2^4)
-  // ...
-  const exponent = cardCount - 7;
-  return Math.pow(2, exponent);
-}
-
-// 计算墩的分数
-// 规则：每个墩从每个其他玩家扣除30分，出墩的玩家增加 (其他玩家数 × 30分 × 墩数)
-export function calculateDunScore(dunCount: number, totalPlayers: number, dunPlayerIndex: number): {
-  dunPlayerScore: number;  // 出墩玩家获得的分数
-  otherPlayersScore: number; // 每个其他玩家扣除的分数
-} {
-  if (dunCount === 0) {
-    return { dunPlayerScore: 0, otherPlayersScore: 0 };
-  }
-
-  const otherPlayersCount = totalPlayers - 1;
-  const scorePerDun = 30;
-
-  // 出墩玩家获得的分数 = 其他玩家数 × 30分 × 墩数
-  const dunPlayerScore = otherPlayersCount * scorePerDun * dunCount;
-
-  // 每个其他玩家扣除的分数 = 30分 × 墩数
-  const otherPlayersScore = scorePerDun * dunCount;
-
-  return { dunPlayerScore, otherPlayersScore };
-}
 
 // 创建一副完整的牌（包括大小王）- 使用随机顺序创建
 export function createDeck(): Card[] {

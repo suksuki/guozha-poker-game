@@ -6,10 +6,8 @@
  */
 
 import { Player, RoundRecord } from '@/core/types/card';
-import { calculateCardsScore, isScoreCard } from './cardUtils';
-import { PlayerRanking, calculateFinalRankings, applyFinalGameRules } from './gameRules';
+import { calculateCardsScore, isScoreCard, PlayerRanking, calculateIndividualRankings, applyIndividualFinalRules, allocateScoreToTeam, calculateTeamRankings, applyTeamFinalRules } from '../services/scoringService';
 import { TeamConfig, TeamRanking } from '../types/team';
-import { allocateScoreToTeam, calculateTeamRankings, applyTeamFinalRules } from './teamScoring';
 import { getPlayerTeamId, getTeam, updateTeamScore } from './teamManager';
 
 /**
@@ -62,7 +60,7 @@ export class GameController {
     if (this.game.players.length !== players.length) {
       return;
     }
-    
+
     // 初始化玩家分数（通过 Game 的方法更新）
     players.forEach((_p, i) => {
       this.game.updatePlayer(i, {
@@ -72,7 +70,7 @@ export class GameController {
         dunCount: 0 // 初始化墩数为0
       });
     });
-    
+
     this.game.updateFinishOrder([]);
     this.game.updateFinalRankings(undefined);
   }
@@ -102,24 +100,24 @@ export class GameController {
 
     // 检查是否是团队模式
     const isTeamMode = this.game.teamConfig !== null && this.game.teamConfig !== undefined;
-    
+
     if (isTeamMode && this.game.teamConfig) {
       // ========== 团队模式：分数分配给团队 ==========
       const teamConfig = this.game.teamConfig;
       const teamId = getPlayerTeamId(winnerIndex, teamConfig);
-      
+
       if (teamId !== null) {
         const team = getTeam(teamId, teamConfig);
         if (team) {
           const oldTeamScore = team.teamScore;
-          
+
           // 分配分数给团队
           allocateScoreToTeam(winnerIndex, roundScore, teamConfig);
-          
+
           // 更新团队轮次分数
           team.roundScore += roundScore;
           team.roundsWon += 1;
-          
+
           // 重要：团队模式下也要更新玩家个人的 player.score（用于显示实时手牌分）
           const oldScore = winner.score || 0;
           const newScore = oldScore + roundScore;
@@ -127,13 +125,13 @@ export class GameController {
             score: newScore,
             wonRounds: [...(winner.wonRounds || []), roundRecord]
           });
-          
+
           // 触发团队分数变化回调（如果需要，可以扩展回调接口）
           if (this.callbacks.onScoreChange) {
             // 仍然触发个人回调（保持兼容性），但分数是团队分数
             this.callbacks.onScoreChange(winnerIndex, team.teamScore, `轮次${roundNumber}团队分数`);
           }
-          
+
           // 触发轮次分数分配回调
           if (this.callbacks.onRoundScoreAllocated) {
             this.callbacks.onRoundScoreAllocated(roundNumber, winnerIndex, roundScore);
@@ -206,7 +204,7 @@ export class GameController {
     // ========== 步骤2：更新玩家的 finishedRank 状态 ==========
     // 通过 Game 的方法更新，确保状态统一管理
     this.game.updatePlayer(playerIndex, { finishedRank });
-    
+
     // ========== 步骤3：更新 finishOrder ==========
     this.game.updateFinishOrder(newFinishOrder);
 
@@ -215,7 +213,7 @@ export class GameController {
     if (this.callbacks.onPlayerFinished) {
       this.callbacks.onPlayerFinished(playerIndex, newFinishOrder, finishedRank);
     }
-    
+
     // 触发游戏更新回调，让 React 检测到状态变化并重新渲染
     if (this.game.onUpdateCallback) {
       this.game.onUpdateCallback(this.game);
@@ -243,7 +241,7 @@ export class GameController {
 
     const lastPlayerIndex = this.game.finishOrder[this.game.finishOrder.length - 1];
     const lastPlayer = players[lastPlayerIndex];
-    
+
     if (!lastPlayer || lastPlayer.hand.length === 0) {
       return players;
     }
@@ -260,7 +258,7 @@ export class GameController {
     const lastPlayerOldScore = lastPlayer.score || 0;
     const lastPlayerNewScore = lastPlayerOldScore - lastPlayerRemainingScore;
     this.game.updatePlayer(lastPlayerIndex, { score: lastPlayerNewScore });
-    
+
     if (this.callbacks.onScoreChange) {
       this.callbacks.onScoreChange(lastPlayerIndex, lastPlayerNewScore, '最后一名未出分牌扣除');
     }
@@ -269,13 +267,13 @@ export class GameController {
     if (this.game.finishOrder.length >= 2) {
       const secondPlayerIndex = this.game.finishOrder[1];
       const secondPlayer = players[secondPlayerIndex];
-      
+
       if (secondPlayer) {
         const secondPlayerOldScore = secondPlayer.score || 0;
         const secondPlayerNewScore = secondPlayerOldScore + lastPlayerRemainingScore;
-        
+
         this.game.updatePlayer(secondPlayerIndex, { score: secondPlayerNewScore });
-        
+
         if (this.callbacks.onScoreChange) {
           this.callbacks.onScoreChange(secondPlayerIndex, secondPlayerNewScore, '最后一名未出分牌转移');
         }
@@ -293,40 +291,40 @@ export class GameController {
     finalRankings: PlayerRanking[];
     teamRankings?: TeamRanking[];
   } {
-    
+
     // 使用策略模式计算分数
     const modeStrategy = this.game.getModeStrategy();
-    
+
     const result = modeStrategy.calculateFinalScores(
       this.game.players,
       this.game.finishOrder,
       this.game.teamConfig
     );
-    
+
     // 更新游戏状态
     this.game.players = result.updatedPlayers;
-    
+
     // 更新团队排名（如果是团队模式）
     if (result.teamRankings) {
       this.game.updateTeamRankings(result.teamRankings);
-      
+
       // 更新团队分数（如果有）
       if (this.game.teamConfig && result.winningTeamId !== undefined) {
         // teamConfig.teams 已在 applyTeamFinalRules 中更新
       }
     }
-    
+
     // 触发游戏结束回调
     if (this.callbacks.onGameEnd) {
       const rankings = result.finalRankings || [];
       this.callbacks.onGameEnd(rankings);
-      
+
       // 回调中触发游戏更新
       if (this.game.onUpdateCallback) {
         this.game.onUpdateCallback(this.game);
       }
     }
-    
+
     return {
       updatedPlayers: result.updatedPlayers,
       finalRankings: result.finalRankings || [],
@@ -344,18 +342,19 @@ export class GameController {
   } {
     // 旧实现保留，避免破坏现有代码
     const isTeamMode = this.game.teamConfig !== null && this.game.teamConfig !== undefined;
-    
+
     if (isTeamMode && this.game.teamConfig) {
       // 团队模式逻辑...
       // 先处理最后一名剩余分牌
       this.handleLastPlayerRemainingScore(players);
 
       // 计算最终排名和分数
-      calculateFinalRankings(this.game.players, this.game.finishOrder);
-      
+      calculateIndividualRankings(this.game.players, this.game.finishOrder);
+
       // 应用最终规则并更新玩家分数
-      const result = applyFinalGameRules(this.game.players, this.game.finishOrder);
-      
+      // 应用最终规则并更新玩家分数
+      const result = applyIndividualFinalRules(this.game.players, this.game.finishOrder);
+
       // 通过 Game 的方法更新玩家和最终排名
       result.players.forEach((player, i) => {
         this.game.updatePlayer(i, {
@@ -363,13 +362,13 @@ export class GameController {
           scoreRank: player.scoreRank
         });
       });
-      
+
       this.game.updateFinalRankings(result.rankings);
 
       // 触发游戏结束回调
       if (this.callbacks.onGameEnd) {
         this.callbacks.onGameEnd(result.rankings);
-        
+
         // 回调中触发游戏更新
         if (this.game.onUpdateCallback) {
           this.game.onUpdateCallback(this.game);
@@ -382,7 +381,7 @@ export class GameController {
       };
     }
   }
-  
+
   /**
    * 处理最后一名玩家剩余分牌（团队模式）
    * 末游团队剩余分牌转移给头游团队
@@ -391,23 +390,23 @@ export class GameController {
     if (!this.game.teamConfig || this.game.finishOrder.length < 2) {
       return;
     }
-    
+
     const firstFinishedPlayerId = this.game.finishOrder[0];
     const lastFinishedPlayerId = this.game.finishOrder[this.game.finishOrder.length - 1];
-    
+
     const firstTeamId = getPlayerTeamId(firstFinishedPlayerId, this.game.teamConfig);
     const lastTeamId = getPlayerTeamId(lastFinishedPlayerId, this.game.teamConfig);
-    
+
     if (firstTeamId === null || lastTeamId === null || firstTeamId === lastTeamId) {
       return;
     }
-    
+
     // 计算末游团队剩余分牌分数
     const lastTeam = getTeam(lastTeamId, this.game.teamConfig);
     if (!lastTeam) {
       return;
     }
-    
+
     let remainingScore = 0;
     for (const playerId of lastTeam.players) {
       const player = players[playerId];
@@ -416,13 +415,13 @@ export class GameController {
         remainingScore += calculateCardsScore(scoreCards);
       }
     }
-    
+
     if (remainingScore > 0) {
       // 从末游团队扣除
       updateTeamScore(lastTeamId, -remainingScore, this.game.teamConfig);
       // 给头游团队加上
       updateTeamScore(firstTeamId, remainingScore, this.game.teamConfig);
-      
+
     }
   }
 

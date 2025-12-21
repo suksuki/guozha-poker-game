@@ -24,5 +24,5 @@ export {
   calculateTeamScore,
   calculateTeamDunCount,
   calculateTeamRankings
-} from '../../utils/teamScoring';
+} from '../../services/scoringService';
 
