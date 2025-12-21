@@ -425,6 +425,16 @@ export class RoundScheduler {
       return findNextActivePlayer(startIndex, players, playerCount);
     }
 
+    // 安全检查：如果出牌玩家也已经出完牌，且所有玩家都出完了，返回null
+    const endPlayer = players[endPlayerIndex];
+    if (endPlayer && endPlayer.hand.length === 0) {
+      // 检查是否所有玩家都出完了
+      const allFinished = players.every(p => p.hand.length === 0);
+      if (allFinished) {
+        return null; // 所有玩家都出完了，不应该继续接风轮询
+      }
+    }
+
     // 接风轮询：下一个玩家是 (startIndex - 1 + playerCount) % playerCount (逆时针/Counter-Clockwise)
     let nextPlayerIndex = (startIndex - 1 + playerCount) % playerCount;
     let attempts = 0;
@@ -608,6 +618,23 @@ export class RoundScheduler {
         if (nextPlayerIndex !== null && this.onNextTurnCallback) {
           const latestState = this.config.getGameState();
           await this.onNextTurnCallback(nextPlayerIndex, latestState);
+        } else if (nextPlayerIndex === null) {
+          // 如果找不到下一个玩家（所有玩家都出完了），直接结束轮次
+          if (lastPlayPlayerIndex !== null && onRoundEnd) {
+            latestRound.endTakeoverRound();
+            onStateUpdate(prev => {
+              if (prev.currentRoundIndex < 0 || prev.currentRoundIndex >= prev.rounds.length) {
+                return prev;
+              }
+              const updatedRounds = [...prev.rounds];
+              updatedRounds[prev.currentRoundIndex] = latestRound;
+              return {
+                ...prev,
+                rounds: updatedRounds
+              };
+            });
+            await onRoundEnd(latestRound, latestPlayers, null, lastPlayPlayerIndex);
+          }
         }
         return;
       }
