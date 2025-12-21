@@ -201,18 +201,18 @@ export class Game {
    * 出牌
    */
   playCards(playerIndex: number, cards: Card[]): { success: boolean; message: string } {
-    console.log(`[TEAM_DEBUG] Game.playCards: 开始, playerIndex=${playerIndex}, currentPlayerIndex=${this._state.currentPlayerIndex}, cards=${cards.length}`);
+    // console.log(`[TEAM_DEBUG] Game.playCards: 开始, playerIndex=${playerIndex}, currentPlayerIndex=${this._state.currentPlayerIndex}, cards=${cards.length}`);
     const result = GameEngine.playCards(this._state, playerIndex, cards);
 
     if (result.success) {
       const oldCurrentPlayer = this._state.currentPlayerIndex;
       this._state = result.newState;
       const newCurrentPlayer = this._state.currentPlayerIndex;
-      console.log(`[TEAM_DEBUG] Game.playCards: 状态更新成功, oldCurrentPlayer=${oldCurrentPlayer}, newCurrentPlayer=${newCurrentPlayer}`);
+      // console.log(`[TEAM_DEBUG] Game.playCards: 状态更新成功, oldCurrentPlayer=${oldCurrentPlayer}, newCurrentPlayer=${newCurrentPlayer}`);
       // 触发更新回调
       this.triggerUpdate();
     } else {
-      console.error(`[TEAM_DEBUG] Game.playCards: 出牌失败, error=${result.error}`);
+      // console.error(`[TEAM_DEBUG] Game.playCards: 出牌失败, error=${result.error}`);
     }
 
     return {

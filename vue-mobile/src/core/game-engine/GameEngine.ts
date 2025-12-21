@@ -167,18 +167,18 @@ export class GameEngine {
 
       // 回环判定处理
       if (cycleDetected) {
-        console.log(`[TEAM_DEBUG] GameEngine.playCards: 检测到回环，调用handleTakeover, winnerIndex=${winnerIndex}`);
+        // console.log(`[TEAM_DEBUG] GameEngine.playCards: 检测到回环，调用handleTakeover, winnerIndex=${winnerIndex}`);
         newState = this.handleTakeover(newState);
-        console.log(`[TEAM_DEBUG] GameEngine.playCards: handleTakeover完成, newCurrentPlayer=${newState.currentPlayerIndex}`);
+        // console.log(`[TEAM_DEBUG] GameEngine.playCards: handleTakeover完成, newCurrentPlayer=${newState.currentPlayerIndex}`);
       } else {
         // 兜底保护：确保下一位玩家确实有牌，否则继续查找
         if (newState.players[nextActiveIndex].hand.length === 0) {
-          console.log(`[TEAM_DEBUG] GameEngine.playCards: 下家${nextActiveIndex}无牌，继续查找`);
+          // console.log(`[TEAM_DEBUG] GameEngine.playCards: 下家${nextActiveIndex}无牌，继续查找`);
           nextActiveIndex = this.findNextActivePlayer(newState, nextActiveIndex);
         }
-        console.log(`[TEAM_DEBUG] GameEngine.playCards: 更新当前玩家, playerIndex=${playerIndex} -> nextActiveIndex=${nextActiveIndex}`);
+        // console.log(`[TEAM_DEBUG] GameEngine.playCards: 更新当前玩家, playerIndex=${playerIndex} -> nextActiveIndex=${nextActiveIndex}`);
         newState = newState.updateCurrentPlayer(nextActiveIndex);
-        console.log(`[TEAM_DEBUG] GameEngine.playCards: 更新完成, newCurrentPlayer=${newState.currentPlayerIndex}`);
+        // console.log(`[TEAM_DEBUG] GameEngine.playCards: 更新完成, newCurrentPlayer=${newState.currentPlayerIndex}`);
       }
 
       return { newState, success: true, message: '出牌成功' };
@@ -277,21 +277,21 @@ export class GameEngine {
    * 处理轮次结算与权力继承（接风逻辑）
    */
   private static handleTakeover(state: GameState): GameState {
-    console.log('[TEAM_DEBUG] handleTakeover: 开始处理轮次结算');
+    // console.log('[TEAM_DEBUG] handleTakeover: 开始处理轮次结算');
     const currentRound = this.getCurrentRound(state);
     if (!currentRound) {
-      console.log('[TEAM_DEBUG] handleTakeover: 当前轮次不存在');
+      // console.log('[TEAM_DEBUG] handleTakeover: 当前轮次不存在');
       return state;
     }
 
     const winnerIndex = currentRound.lastPlayPlayerIndex;
     if (winnerIndex === null) {
-      console.log('[TEAM_DEBUG] handleTakeover: 赢家索引为null');
+      // console.log('[TEAM_DEBUG] handleTakeover: 赢家索引为null');
       return state;
     }
 
     const winner = state.players[winnerIndex];
-    console.log(`[TEAM_DEBUG] handleTakeover: Winner=${winnerIndex}(${winner.name}), TeamMode=${state.config.teamMode}, HandSize=${winner.hand.length}`);
+    // console.log(`[TEAM_DEBUG] handleTakeover: Winner=${winnerIndex}(${winner.name}), TeamMode=${state.config.teamMode}, HandSize=${winner.hand.length}`);
     let newState = state;
 
     // 1. 结算分数（分牌分累加）
@@ -336,28 +336,28 @@ export class GameEngine {
     const strategy = getStrategy(newState);
     const currentWinner = newState.players[winnerIndex];
     let nextPlayerIndex: number | null = winnerIndex;
-    console.log(`[TEAM_DEBUG] handleTakeover: 当前赢家手牌数=${currentWinner.hand.length}, 策略模式=${strategy.getModeName()}`);
+    // console.log(`[TEAM_DEBUG] handleTakeover: 当前赢家手牌数=${currentWinner.hand.length}, 策略模式=${strategy.getModeName()}`);
 
     // 只有当赢家手牌已空时，才需要触发"接风"逻辑寻找下家
     if (currentWinner.hand.length === 0) {
-      console.log(`[TEAM_DEBUG] handleTakeover: 赢家手牌为空，开始寻找接风玩家`);
-      console.log(`[TEAM_DEBUG] handleTakeover: 玩家状态 - ${newState.players.map((p, idx) => `P${idx}:${p.name}(手牌${p.hand.length},团队${p.teamId})`).join(', ')}`);
+      // console.log(`[TEAM_DEBUG] handleTakeover: 赢家手牌为空，开始寻找接风玩家`);
+      // console.log(`[TEAM_DEBUG] handleTakeover: 玩家状态 - ${newState.players.map((p, idx) => `P${idx}:${p.name}(手牌${p.hand.length},团队${p.teamId})`).join(', ')}`);
       nextPlayerIndex = strategy.findNextPlayerForNewRound(
         winnerIndex,
         newState.players as any,
         newState.players.length,
         newState.teamConfig
       );
-      console.log(`[TEAM_DEBUG] handleTakeover: 接风查找结果 nextPlayerIndex=${nextPlayerIndex}`);
+      // console.log(`[TEAM_DEBUG] handleTakeover: 接风查找结果 nextPlayerIndex=${nextPlayerIndex}`);
     } else {
-      console.log(`[TEAM_DEBUG] handleTakeover: 赢家还有牌，连庄 nextPlayerIndex=${nextPlayerIndex}`);
+      // console.log(`[TEAM_DEBUG] handleTakeover: 赢家还有牌，连庄 nextPlayerIndex=${nextPlayerIndex}`);
     }
     // 否则，赢家连庄，nextPlayerIndex 就是 winnerIndex (已默认赋值)
 
     // 4. 判定游戏是否结束
-    console.log(`[TEAM_DEBUG] handleTakeover: 检查游戏是否结束, finishOrder=[${newState.finishOrder.join(',')}]`);
+    // console.log(`[TEAM_DEBUG] handleTakeover: 检查游戏是否结束, finishOrder=[${newState.finishOrder.join(',')}]`);
     const gameEndResult = strategy.shouldGameEnd(newState.players as any, [...newState.finishOrder], newState.teamConfig);
-    console.log(`[TEAM_DEBUG] handleTakeover: 游戏结束检查结果 shouldEnd=${gameEndResult.shouldEnd}, reason=${gameEndResult.reason || 'N/A'}`);
+    // console.log(`[TEAM_DEBUG] handleTakeover: 游戏结束检查结果 shouldEnd=${gameEndResult.shouldEnd}, reason=${gameEndResult.reason || 'N/A'}`);
 
     // 5. 结束当前轮次
     const finishedRound = currentRound.finish({
@@ -368,13 +368,13 @@ export class GameEngine {
 
     // 如果判定游戏结束或找不到继承人（本阵营全跑），宣告结束
     if (gameEndResult.shouldEnd || nextPlayerIndex === null) {
-      console.log(`[TEAM_DEBUG] handleTakeover: 游戏结束 shouldEnd=${gameEndResult.shouldEnd}, nextPlayerIndex=${nextPlayerIndex}`);
+      // console.log(`[TEAM_DEBUG] handleTakeover: 游戏结束 shouldEnd=${gameEndResult.shouldEnd}, nextPlayerIndex=${nextPlayerIndex}`);
       return newState.updateStatus(GameStatus.FINISHED).updateCurrentPlayer(-1);
     }
 
     // 6. 开启新轮次
     const newRoundNum = newState.rounds.length + 1;
-    console.log(`[TEAM_DEBUG] handleTakeover: 创建新轮次 Round${newRoundNum}, NextPlayer=${nextPlayerIndex}`);
+    // console.log(`[TEAM_DEBUG] handleTakeover: 创建新轮次 Round${newRoundNum}, NextPlayer=${nextPlayerIndex}`);
     const newRound = new RoundData({
       roundNumber: newRoundNum,
       lastPlay: null,
@@ -383,7 +383,7 @@ export class GameEngine {
     newState = newState.addRound(newRound);
 
     const finalState = newState.updateCurrentPlayer(nextPlayerIndex);
-    console.log(`[TEAM_DEBUG] handleTakeover: 完成，新轮次开始，当前玩家=${finalState.currentPlayerIndex}`);
+    // console.log(`[TEAM_DEBUG] handleTakeover: 完成，新轮次开始，当前玩家=${finalState.currentPlayerIndex}`);
     return finalState;
   }
 

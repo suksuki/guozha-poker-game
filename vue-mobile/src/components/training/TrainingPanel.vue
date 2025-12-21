@@ -27,10 +27,13 @@
             @update:config="hybridConfig = $event"
           />
         </van-tab>
+        <van-tab title="团队MCTS训练" name="team-mcts">
+          <TeamMCTSTrainingPanel @close="$emit('close')" />
+        </van-tab>
       </van-tabs>
       
-      <!-- 训练控制 -->
-      <div class="training-controls">
+      <!-- 训练控制（仅旧训练系统使用） -->
+      <div v-if="activeTab !== 'team-mcts'" class="training-controls">
         <van-button
           type="primary"
           size="large"
@@ -63,8 +66,8 @@
         </van-button>
       </div>
       
-      <!-- 训练进度 -->
-      <div v-if="isTraining || progress.currentRound > 0" class="training-progress">
+      <!-- 训练进度（仅旧训练系统使用） -->
+      <div v-if="activeTab !== 'team-mcts' && (isTraining || progress.currentRound > 0)" class="training-progress">
         <van-progress
           :percentage="progress.percentage"
           :show-pivot="true"
@@ -79,8 +82,8 @@
         </div>
       </div>
       
-      <!-- 训练指标 -->
-      <div v-if="metrics.totalRounds > 0" class="training-metrics">
+      <!-- 训练指标（仅旧训练系统使用） -->
+      <div v-if="activeTab !== 'team-mcts' && metrics.totalRounds > 0" class="training-metrics">
         <van-cell-group :title="$t('training.metrics')">
           <van-cell :title="$t('training.totalRounds')" :value="metrics.totalRounds" />
           <van-cell :title="$t('training.totalGames')" :value="metrics.totalGames" />
@@ -116,6 +119,7 @@ import { TrainingConfig, TrainingProgress, TrainingMetrics } from '@/core/types/
 import DecisionTrainingPanel from './DecisionTrainingPanel.vue';
 import ChatTrainingPanel from './ChatTrainingPanel.vue';
 import HybridTrainingPanel from './HybridTrainingPanel.vue';
+import TeamMCTSTrainingPanel from './TeamMCTSTrainingPanel.vue';
 
 const { t } = useI18n(); // t is unused in script, but maybe keep it if I need it later? Lint says it's unused. Actually let's just remove it if not used. Wait, useI18n() might register $t? No, usually t is returned.
 // Let's assume t is not needed in script.

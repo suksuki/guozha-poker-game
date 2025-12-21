@@ -180,7 +180,7 @@ export const useGameStore = defineStore('game', () => {
   const advanceGameFlow = (_actingPlayerId: number, actionType: 'play' | 'pass', cards?: Card[]) => {
     if (!game.value) return;
     const currentPlayerBefore = game.value.currentPlayerIndex;
-    console.log(`[TEAM_DEBUG] advanceGameFlow: 开始, ActingPlayer=${_actingPlayerId}, Action=${actionType}, CurrentPlayerBefore=${currentPlayerBefore}, TeamMode=${game.value.state.config.teamMode}`);
+    // console.log(`[TEAM_DEBUG] advanceGameFlow: 开始, ActingPlayer=${_actingPlayerId}, Action=${actionType}, CurrentPlayerBefore=${currentPlayerBefore}, TeamMode=${game.value.state.config.teamMode}`);
 
     // 定义"步骤完成"后的回调
     const onActionComplete = () => {
@@ -188,7 +188,7 @@ export const useGameStore = defineStore('game', () => {
 
       // 首先检查游戏是否结束（优先级最高）
       if (game.value.status === 'finished') {
-        console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: 游戏已结束，停止流程`);
+        // console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: 游戏已结束，停止流程`);
         return;
       }
 
@@ -197,27 +197,27 @@ export const useGameStore = defineStore('game', () => {
       
       // 如果 currentPlayerIndex 为 -1，说明游戏已结束
       if (nextPlayerIndex === -1) {
-        console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: currentPlayerIndex=-1，游戏已结束，停止流程`);
+        // console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: currentPlayerIndex=-1，游戏已结束，停止流程`);
         return;
       }
       
       const nextPlayer = game.value.players[nextPlayerIndex];
-      console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: ActingPlayer=${_actingPlayerId}, NextPlayer=${nextPlayerIndex}(${nextPlayer?.name || 'N/A'}), Status=${game.value.status}, TeamMode=${game.value.state.config.teamMode}`);
+      // console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: ActingPlayer=${_actingPlayerId}, NextPlayer=${nextPlayerIndex}(${nextPlayer?.name || 'N/A'}), Status=${game.value.status}, TeamMode=${game.value.state.config.teamMode}`);
       
       // 检查是否陷入循环（仅在游戏未结束时检查）
       if (nextPlayerIndex === _actingPlayerId && actionType === 'play' && game.value.status !== 'finished') {
-        console.error(`[TEAM_DEBUG] advanceGameFlow: ⚠️ 检测到循环！NextPlayer=${nextPlayerIndex} 等于 ActingPlayer=${_actingPlayerId}，游戏可能卡住`);
+        // console.error(`[TEAM_DEBUG] advanceGameFlow: ⚠️ 检测到循环！NextPlayer=${nextPlayerIndex} 等于 ActingPlayer=${_actingPlayerId}，游戏可能卡住`);
         // 如果检测到循环且游戏未结束，尝试强制pass以避免卡死
-        console.log(`[TEAM_DEBUG] advanceGameFlow: 尝试强制pass以避免卡死, player=${nextPlayerIndex}`);
+        // console.log(`[TEAM_DEBUG] advanceGameFlow: 尝试强制pass以避免卡死, player=${nextPlayerIndex}`);
         pass(nextPlayerIndex).catch((err) => {
-          console.error(`[TEAM_DEBUG] advanceGameFlow: 强制pass失败, error=`, err);
+          // console.error(`[TEAM_DEBUG] advanceGameFlow: 强制pass失败, error=`, err);
         });
         return;
       }
 
       // 触发下一个玩家的操作
       if (nextPlayer && !nextPlayer.isHuman) {
-        console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: 触发AI玩家${nextPlayerIndex}的决策`);
+        // console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: 触发AI玩家${nextPlayerIndex}的决策`);
         if (aiBrainInitialized.value) {
           // 清除之前的超时（如果有）
           const existingTimeout = aiDecisionTimeouts.get(nextPlayerIndex);
@@ -226,7 +226,7 @@ export const useGameStore = defineStore('game', () => {
           // 设置超时保护
           const timeoutId = setTimeout(() => {
             if (game.value && game.value.currentPlayerIndex === nextPlayerIndex) {
-              console.log(`[TEAM_DEBUG] advanceGameFlow: AI玩家${nextPlayerIndex}决策超时，自动pass`);
+              // console.log(`[TEAM_DEBUG] advanceGameFlow: AI玩家${nextPlayerIndex}决策超时，自动pass`);
               aiDecisionTimeouts.delete(nextPlayerIndex);
               pass(nextPlayerIndex).catch(() => { });
             }
@@ -234,9 +234,9 @@ export const useGameStore = defineStore('game', () => {
           aiDecisionTimeouts.set(nextPlayerIndex, timeoutId);
 
           // 触发AI决策
-          console.log(`[TEAM_DEBUG] advanceGameFlow: 调用triggerAITurn for Player ${nextPlayerIndex}`);
+          // console.log(`[TEAM_DEBUG] advanceGameFlow: 调用triggerAITurn for Player ${nextPlayerIndex}`);
           aiBrainIntegration.triggerAITurn(nextPlayerIndex, game.value as any).catch((err) => {
-            console.error(`[TEAM_DEBUG] advanceGameFlow: AI决策失败 for Player ${nextPlayerIndex}:`, err);
+            // console.error(`[TEAM_DEBUG] advanceGameFlow: AI决策失败 for Player ${nextPlayerIndex}:`, err);
             clearTimeout(aiDecisionTimeouts.get(nextPlayerIndex));
             aiDecisionTimeouts.delete(nextPlayerIndex);
             pass(nextPlayerIndex).catch(() => { });
@@ -307,15 +307,15 @@ export const useGameStore = defineStore('game', () => {
     const currentPlayerBeforePlay = game.value.currentPlayerIndex;
     const playResult = await game.value.playCards(actingPlayerIndex, cards);
     const currentPlayerAfterPlay = game.value.currentPlayerIndex;
-    console.log(`[TEAM_DEBUG] playCards: 出牌完成, actingPlayer=${actingPlayerIndex}, currentPlayerBefore=${currentPlayerBeforePlay}, currentPlayerAfter=${currentPlayerAfterPlay}, success=${playResult?.success}`);
+    // console.log(`[TEAM_DEBUG] playCards: 出牌完成, actingPlayer=${actingPlayerIndex}, currentPlayerBefore=${currentPlayerBeforePlay}, currentPlayerAfter=${currentPlayerAfterPlay}, success=${playResult?.success}`);
 
     if (!playResult || !playResult.success) {
-      console.error(`[TEAM_DEBUG] playCards: 出牌失败, result=`, playResult);
+      // console.error(`[TEAM_DEBUG] playCards: 出牌失败, result=`, playResult);
       // 出牌失败时，自动pass以继续游戏流程
-      console.log(`[TEAM_DEBUG] playCards: 出牌失败，自动pass以继续游戏, actingPlayer=${actingPlayerIndex}`);
+      // console.log(`[TEAM_DEBUG] playCards: 出牌失败，自动pass以继续游戏, actingPlayer=${actingPlayerIndex}`);
       // 不调用 advanceGameFlow，因为 pass 会自己调用
       pass(actingPlayerIndex).catch((err) => {
-        console.error(`[TEAM_DEBUG] playCards: 自动pass也失败, error=`, err);
+        // console.error(`[TEAM_DEBUG] playCards: 自动pass也失败, error=`, err);
       });
       return { success: false, message: playResult?.message || '出牌失败' };
     }
@@ -331,7 +331,7 @@ export const useGameStore = defineStore('game', () => {
     
     // 再次检查当前玩家索引（确保状态已更新）
     const currentPlayerAfterUpdate = game.value.currentPlayerIndex;
-    console.log(`[TEAM_DEBUG] playCards: 状态更新后, currentPlayerAfterUpdate=${currentPlayerAfterUpdate}`);
+    // console.log(`[TEAM_DEBUG] playCards: 状态更新后, currentPlayerAfterUpdate=${currentPlayerAfterUpdate}`);
 
     // 2. 发射游戏事件（供聊天调度器监听）
     const play = canPlayCards(cards);
@@ -514,7 +514,7 @@ export const useGameStore = defineStore('game', () => {
                   showToast({ type: 'success', message: '🤖 托管出单张', duration: 1500 });
                 } else {
                   // 出单张也失败，自动pass
-                  console.log(`[TEAM_DEBUG] autoPlayTurn: 出单张失败，自动pass`);
+                  // console.log(`[TEAM_DEBUG] autoPlayTurn: 出单张失败，自动pass`);
                   pass().catch(() => { });
                 }
               }).catch(() => {
@@ -611,59 +611,59 @@ export const useGameStore = defineStore('game', () => {
       // 订阅AI决策结果，完成闭环
       aiBrainIntegration.onAIDecision((event) => {
         const { playerId, decision } = event;
-        console.log(`[TEAM_DEBUG] onAIDecision: 收到AI决策, Player=${playerId}, CurrentPlayer=${game.value?.currentPlayerIndex}, DecisionType=${decision?.action?.type || decision?.type || 'unknown'}`);
+        // console.log(`[TEAM_DEBUG] onAIDecision: 收到AI决策, Player=${playerId}, CurrentPlayer=${game.value?.currentPlayerIndex}, DecisionType=${decision?.action?.type || decision?.type || 'unknown'}`);
 
         // 清除该玩家的超时定时器
         const timeout = aiDecisionTimeouts.get(playerId);
         if (timeout) {
           clearTimeout(timeout);
           aiDecisionTimeouts.delete(playerId);
-          console.log(`[TEAM_DEBUG] onAIDecision: 清除超时定时器 for Player ${playerId}`);
+          // console.log(`[TEAM_DEBUG] onAIDecision: 清除超时定时器 for Player ${playerId}`);
         }
 
         // 只有当前是该AI的回合才执行（避免过期的决策）
         if (!game.value) {
-          console.log(`[TEAM_DEBUG] onAIDecision: Game为null，忽略决策`);
+          // console.log(`[TEAM_DEBUG] onAIDecision: Game为null，忽略决策`);
           return;
         }
 
         if (game.value.currentPlayerIndex !== playerId) {
-          console.log(`[TEAM_DEBUG] onAIDecision: 玩家不匹配 (Expected ${playerId}, Got ${game.value.currentPlayerIndex})，忽略决策`);
+          // console.log(`[TEAM_DEBUG] onAIDecision: 玩家不匹配 (Expected ${playerId}, Got ${game.value.currentPlayerIndex})，忽略决策`);
           return;
         }
 
-        console.log(`[TEAM_DEBUG] onAIDecision: 开始处理决策 for Player ${playerId}`);
+        // console.log(`[TEAM_DEBUG] onAIDecision: 开始处理决策 for Player ${playerId}`);
 
         // 处理 1: 新架构 Decision 对象 (带有 action 属性)
         if (decision && decision.action) {
           const action = decision.action;
-          console.log(`[TEAM_DEBUG] onAIDecision: 处理新架构决策, action.type=${action.type}`);
+          // console.log(`[TEAM_DEBUG] onAIDecision: 处理新架构决策, action.type=${action.type}`);
           if (action.type === 'play_card' || action.type === 'play') {
             if (action.cards && Array.isArray(action.cards) && action.cards.length > 0) {
-              console.log(`[TEAM_DEBUG] onAIDecision: 执行出牌, Player=${playerId}, Cards=${action.cards.length}`);
+              // console.log(`[TEAM_DEBUG] onAIDecision: 执行出牌, Player=${playerId}, Cards=${action.cards.length}`);
               playCards(action.cards, playerId).catch((err) => {
-                console.error(`[TEAM_DEBUG] onAIDecision: 出牌失败, Player=${playerId}, Error:`, err);
+                // console.error(`[TEAM_DEBUG] onAIDecision: 出牌失败, Player=${playerId}, Error:`, err);
                 // 出牌失败时，自动pass以继续游戏
                 pass(playerId).catch(() => { });
               });
             } else {
-              console.log(`[TEAM_DEBUG] onAIDecision: 无牌可出，执行pass, Player=${playerId}`);
+              // console.log(`[TEAM_DEBUG] onAIDecision: 无牌可出，执行pass, Player=${playerId}`);
               pass(playerId).catch(() => { });
             }
           } else if (action.type === 'pass_turn' || action.type === 'pass') {
-            console.log(`[TEAM_DEBUG] onAIDecision: AI决定pass, Player=${playerId}`);
+            // console.log(`[TEAM_DEBUG] onAIDecision: AI决定pass, Player=${playerId}`);
             pass(playerId).catch(() => { });
           } else {
-            console.log(`[TEAM_DEBUG] onAIDecision: 未知action类型 ${action.type}，执行pass, Player=${playerId}`);
+            // console.log(`[TEAM_DEBUG] onAIDecision: 未知action类型 ${action.type}，执行pass, Player=${playerId}`);
             pass(playerId).catch(() => { });
           }
         }
         // 处理 2: 老架构或简化 Decision 对象
         else if (decision && (decision.type === 'play_card' || decision.type === 'play')) {
-          console.log(`[TEAM_DEBUG] onAIDecision: 处理旧架构决策, type=${decision.type}`);
+          // console.log(`[TEAM_DEBUG] onAIDecision: 处理旧架构决策, type=${decision.type}`);
           const cards = decision.cards || decision.playerAction?.cards;
           if (cards && Array.isArray(cards) && cards.length > 0) {
-            console.log(`[TEAM_DEBUG] onAIDecision: 旧架构出牌, Player=${playerId}, Cards=${cards.length}`);
+            // console.log(`[TEAM_DEBUG] onAIDecision: 旧架构出牌, Player=${playerId}, Cards=${cards.length}`);
             // 清除超时定时器
             const timeout = aiDecisionTimeouts.get(playerId);
             if (timeout) {
@@ -674,7 +674,7 @@ export const useGameStore = defineStore('game', () => {
               pass(playerId).catch(() => { });
             });
           } else {
-            console.log(`[TEAM_DEBUG] onAIDecision: 旧架构无牌可出，执行pass, Player=${playerId}`);
+            // console.log(`[TEAM_DEBUG] onAIDecision: 旧架构无牌可出，执行pass, Player=${playerId}`);
             const timeout = aiDecisionTimeouts.get(playerId);
             if (timeout) {
               clearTimeout(timeout);
@@ -683,7 +683,7 @@ export const useGameStore = defineStore('game', () => {
             pass(playerId).catch(() => { });
           }
         } else if (decision && (decision.type === 'pass_turn' || decision.type === 'pass')) {
-          console.log(`[TEAM_DEBUG] onAIDecision: 旧架构pass决策, Player=${playerId}`);
+          // console.log(`[TEAM_DEBUG] onAIDecision: 旧架构pass决策, Player=${playerId}`);
           const timeout = aiDecisionTimeouts.get(playerId);
           if (timeout) {
             clearTimeout(timeout);
@@ -691,7 +691,7 @@ export const useGameStore = defineStore('game', () => {
           }
           pass(playerId).catch(() => { });
         } else {
-          console.log(`[TEAM_DEBUG] onAIDecision: 未知决策格式，执行pass, Player=${playerId}`, decision);
+          // console.log(`[TEAM_DEBUG] onAIDecision: 未知决策格式，执行pass, Player=${playerId}`, decision);
           const timeout = aiDecisionTimeouts.get(playerId);
           if (timeout) {
             clearTimeout(timeout);

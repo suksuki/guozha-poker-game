@@ -22,67 +22,94 @@ export function teamMCTS(
   state: TeamSimulatedGameState,
   config: MCTSTeamConfig
 ): TeamAction | null {
-  const iterations = config.iterations || 100;
-  const explorationConstant = config.explorationConstant || 1.414;
-  const maxTime = 3000; // 最多3秒
-  const startTime = Date.now();
+  try {
+    // 输入验证
+    if (!hand || hand.length === 0) {
+      console.warn('[teamMCTS] 手牌为空');
+      return null;
+    }
 
-  // 生成所有可能的动作
-  const isTeamMode = config.teamMode ?? true; // 默认团队模式
-  const actions = generateTeamActions(hand, state, config.strategicPassEnabled, isTeamMode);
+    if (!state || !state.allHands) {
+      console.warn('[teamMCTS] 游戏状态无效');
+      return null;
+    }
 
-  if (actions.length === 0) {
-    return null; // 没有可用动作
+    if (state.currentPlayerIndex < 0 || state.currentPlayerIndex >= state.allHands.length) {
+      console.warn(`[teamMCTS] 无效的玩家索引: ${state.currentPlayerIndex}, 玩家数量: ${state.allHands.length}`);
+      return null;
+    }
+
+    const iterations = config.iterations || 100;
+    const explorationConstant = config.explorationConstant || 1.414;
+    const maxTime = 3000; // 最多3秒
+    const startTime = Date.now();
+
+    // 生成所有可能的动作
+    const isTeamMode = config.teamMode ?? true; // 默认团队模式
+    let actions: TeamAction[];
+    try {
+      actions = generateTeamActions(hand, state, config.strategicPassEnabled, isTeamMode);
+    } catch (error) {
+      console.error('[teamMCTS] generateTeamActions失败:', error);
+      return null;
+    }
+
+    if (actions.length === 0) {
+      return null; // 没有可用动作
+    }
+
+    // 创建根节点
+    const root: TeamMCTSNode = {
+      state: state,
+      playerToMove: state.currentPlayerIndex,
+      visits: 0,
+      teamWins: 0,
+      teamScoreSum: 0,
+      children: [],
+      parent: null,
+      action: null,
+      untriedActions: [...actions],
+      evaluation: {
+        expectedTeamScore: 0,
+        strategicPassValue: 0,
+        teamCooperationScore: 0,
+        confidence: 0
+      }
+    };
+
+    // MCTS主循环
+    for (let i = 0; i < iterations; i++) {
+      // 超时保护
+      if (Date.now() - startTime > maxTime) {
+        //
+        break;
+      }
+
+      let node = root;
+
+      // 1. Selection（选择）：选择最有希望的节点
+      while (node.children.length > 0 && node.untriedActions.length === 0) {
+        node = selectBestTeamChild(node, explorationConstant);
+      }
+
+      // 2. Expansion（扩展）：如果节点可以扩展，添加新节点
+      if (node.untriedActions.length > 0) {
+        node = expandTeamNode(node, hand, config);
+      }
+
+      // 3. Simulation（模拟）：从当前节点模拟游戏
+      const simulationResult = simulateTeamGame(node.state, 50, config);
+
+      // 4. Backpropagation（反向传播）：更新节点统计
+      backpropagateTeam(node, simulationResult, config);
+    }
+
+    // 选择最佳动作
+    return selectBestTeamAction(root, config);
+  } catch (error) {
+    console.error('[teamMCTS] 执行失败:', error);
+    return null;
   }
-
-  // 创建根节点
-  const root: TeamMCTSNode = {
-    state: state,
-    playerToMove: state.currentPlayerIndex,
-    visits: 0,
-    teamWins: 0,
-    teamScoreSum: 0,
-    children: [],
-    parent: null,
-    action: null,
-    untriedActions: [...actions],
-    evaluation: {
-      expectedTeamScore: 0,
-      strategicPassValue: 0,
-      teamCooperationScore: 0,
-      confidence: 0
-    }
-  };
-
-  // MCTS主循环
-  for (let i = 0; i < iterations; i++) {
-    // 超时保护
-    if (Date.now() - startTime > maxTime) {
-      //
-      break;
-    }
-
-    let node = root;
-
-    // 1. Selection（选择）：选择最有希望的节点
-    while (node.children.length > 0 && node.untriedActions.length === 0) {
-      node = selectBestTeamChild(node, explorationConstant);
-    }
-
-    // 2. Expansion（扩展）：如果节点可以扩展，添加新节点
-    if (node.untriedActions.length > 0) {
-      node = expandTeamNode(node, hand, config);
-    }
-
-    // 3. Simulation（模拟）：从当前节点模拟游戏
-    const simulationResult = simulateTeamGame(node.state, 50, config);
-
-    // 4. Backpropagation（反向传播）：更新节点统计
-    backpropagateTeam(node, simulationResult, config);
-  }
-
-  // 选择最佳动作
-  return selectBestTeamAction(root, config);
 }
 
 /**
