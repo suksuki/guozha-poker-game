@@ -140,7 +140,7 @@ describe('PlayerCard 组件', () => {
     describe('玩家统计信息', () => {
         it('应该显示手牌数量', () => {
             const player = createPlayer(1, '测试');
-            player.hand = [{ id: '1', suit: 'spades', rank: 3 }] as any;
+            player.hand = [{ id: '1', suit: Suit.SPADES, rank: 3 }] as any;
 
             const wrapper = createWrapper({
                 player,

@@ -18,12 +18,12 @@ describe('TeamModeStrategy - Takeover Turn Order', () => {
         // So order is: 2 -> 1 -> 0 -> 5 -> 4 -> 3
 
         const players: Player[] = [
-            { id: 0, name: 'P0', type: PlayerType.AI, hand: [{ suit: 'spades', rank: 3, id: '1' }], teamId: 0 },
-            { id: 1, name: 'P1', type: PlayerType.AI, hand: [{ suit: 'spades', rank: 4, id: '2' }], teamId: 1 },
+            { id: 0, name: 'P0', type: PlayerType.AI, hand: [{ suit: Suit.SPADES, rank: 3, id: '1' }], teamId: 0 },
+            { id: 1, name: 'P1', type: PlayerType.AI, hand: [{ suit: Suit.SPADES, rank: 4, id: '2' }], teamId: 1 },
             { id: 2, name: 'P2', type: PlayerType.AI, hand: [], teamId: 0 }, // Winner (just finished)
-            { id: 3, name: 'P3', type: PlayerType.AI, hand: [{ suit: 'spades', rank: 6, id: '4' }], teamId: 1 },
-            { id: 4, name: 'P4', type: PlayerType.AI, hand: [{ suit: 'spades', rank: 7, id: '5' }], teamId: 0 }, // Teammate 1
-            { id: 5, name: 'P5', type: PlayerType.AI, hand: [{ suit: 'spades', rank: 8, id: '6' }], teamId: 1 },
+            { id: 3, name: 'P3', type: PlayerType.AI, hand: [{ suit: Suit.SPADES, rank: 6, id: '4' }], teamId: 1 },
+            { id: 4, name: 'P4', type: PlayerType.AI, hand: [{ suit: Suit.SPADES, rank: 7, id: '5' }], teamId: 0 }, // Teammate 1
+            { id: 5, name: 'P5', type: PlayerType.AI, hand: [{ suit: Suit.SPADES, rank: 8, id: '6' }], teamId: 1 },
         ];
 
         const teamConfig: TeamConfig = {
@@ -57,7 +57,7 @@ describe('TeamModeStrategy - Takeover Turn Order', () => {
         expect(nextPlayerModified).toBe(4);
 
         // Now both have cards:
-        players[0].hand = [{ suit: 'spades', rank: 3, id: '1' }];
+        players[0].hand = [{ suit: Suit.SPADES, rank: 3, id: '1' }];
         const nextPlayerBoth = strategy.findNextPlayerForNewRound(2, players, 6, teamConfig);
         expect(nextPlayerBoth).toBe(0); // 0 is closer to 2 in turn order (2 -> 1 -> 0) than 4 is (2 -> 1 -> 0 -> 5 -> 4)
     });
@@ -65,11 +65,11 @@ describe('TeamModeStrategy - Takeover Turn Order', () => {
     it('should pick teammate at index 4 if turn order is 2->1->0->5->4 and only 4 has cards', () => {
         const players: Player[] = [
             { id: 0, name: 'P0', type: PlayerType.AI, hand: [], teamId: 0 },
-            { id: 1, name: 'P1', type: PlayerType.AI, hand: [{ suit: 'spades', rank: 4, id: '2' }], teamId: 1 },
+            { id: 1, name: 'P1', type: PlayerType.AI, hand: [{ suit: Suit.SPADES, rank: 4, id: '2' }], teamId: 1 },
             { id: 2, name: 'P2', type: PlayerType.AI, hand: [], teamId: 0 }, // Winner
-            { id: 3, name: 'P3', type: PlayerType.AI, hand: [{ suit: 'spades', rank: 6, id: '4' }], teamId: 1 },
-            { id: 4, name: 'P4', type: PlayerType.AI, hand: [{ suit: 'spades', rank: 7, id: '5' }], teamId: 0 }, // Teammate
-            { id: 5, name: 'P5', type: PlayerType.AI, hand: [{ suit: 'spades', rank: 8, id: '6' }], teamId: 1 },
+            { id: 3, name: 'P3', type: PlayerType.AI, hand: [{ suit: Suit.SPADES, rank: 6, id: '4' }], teamId: 1 },
+            { id: 4, name: 'P4', type: PlayerType.AI, hand: [{ suit: Suit.SPADES, rank: 7, id: '5' }], teamId: 0 }, // Teammate
+            { id: 5, name: 'P5', type: PlayerType.AI, hand: [{ suit: Suit.SPADES, rank: 8, id: '6' }], teamId: 1 },
         ];
 
         const teamConfig: TeamConfig = {

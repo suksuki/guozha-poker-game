@@ -6,7 +6,7 @@
 import { Card, Play, Player, RoundPlayRecord } from '../../types/card';
 import { ValidationService } from './ValidationService';
 import { ValidationResult, PlayOptions, PlayResult } from './types';
-import { calculateCardsScore, isScoreCard } from '../../utils/cardUtils';
+import { calculateCardsScore } from '@/core/services/scoringService';
 
 /**
  * 出牌执行服务类
@@ -77,7 +77,7 @@ export class PlayExecutorService {
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '出牌执行失败';
-      
+
       // 调用错误回调
       options.onError?.(error instanceof Error ? error : new Error(errorMessage));
 

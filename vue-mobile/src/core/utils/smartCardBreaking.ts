@@ -4,7 +4,8 @@
  */
 
 import { Card, Play } from '@/core/types/card';
-import { canPlayCards, findPlayableCards, isScoreCard, calculateCardsScore } from './cardUtils';
+import { canPlayCards, findPlayableCards } from './cardUtils';
+import { isScoreCard, calculateCardsScore } from '@/core/services/scoringService';
 import { countRankGroups } from './mctsAI';
 
 /**
@@ -42,9 +43,9 @@ export function evaluateBreakingCost(
   const actionRank = action[0].rank;
   const originalCount = handRankGroups.get(actionRank) || 0;
   const remainingCount = originalCount - action.length;
-  
+
   let cost = 0;
-  
+
   // 降低惩罚力度，因为拆牌可能是必要的
   if (originalCount === 3) {
     if (play.type === 'single') {
@@ -61,7 +62,7 @@ export function evaluateBreakingCost(
   } else if (originalCount >= 7 && play.type !== 'dun') {
     cost = 100;  // 降低惩罚：从-200降到100
   }
-  
+
   return cost;
 }
 
@@ -81,29 +82,29 @@ export function evaluateBreakingBenefits(
     opportunityCreation: 0,
     highScoreRound: 0
   };
-  
+
   const remainingHand = hand.filter(card => !action.some(c => c.id === card.id));
-  
+
   // 1. 节奏控制收益
   benefits.rhythmControl = evaluateRhythmControlBenefit(action, remainingHand, context);
-  
+
   // 2. 避免被压制收益
   benefits.avoidSuppression = evaluateAvoidSuppressionBenefit(action, remainingHand, context);
-  
+
   // 3. 团队配合收益（团队模式）
   if (context.teamMode) {
     benefits.teamCooperation = evaluateTeamCooperationBenefit(action, remainingHand, context);
   }
-  
+
   // 4. 保留关键牌收益
   benefits.keyCardPreservation = evaluateKeyCardPreservationBenefit(action, remainingHand, context);
-  
+
   // 5. 创造机会收益
   benefits.opportunityCreation = evaluateOpportunityCreationBenefit(action, remainingHand, context);
-  
+
   // 6. 高分轮次收益
   benefits.highScoreRound = evaluateHighScoreRoundBenefit(action, remainingHand, context);
-  
+
   return benefits;
 }
 
@@ -116,7 +117,7 @@ function evaluateRhythmControlBenefit(
   context: BreakingContext
 ): number {
   let score = 0;
-  
+
   // 场景1：拆牌后可以连续出牌，控制节奏
   if (context.lastPlay) {
     const followUpOptions = findPlayableCards(remainingHand, context.lastPlay);
@@ -128,7 +129,7 @@ function evaluateRhythmControlBenefit(
       }
     }
   }
-  
+
   // 场景2：拆牌后可以避免被对手大牌压制
   if (context.lastPlay && context.lastPlay.value >= 12) {
     const play = canPlayCards(action);
@@ -136,12 +137,12 @@ function evaluateRhythmControlBenefit(
       score += 30;  // 使用最小能压过的牌，避免浪费大牌
     }
   }
-  
+
   // 场景3：拆牌后可以减少手牌数量，加快出牌速度
   if (remainingHand.length <= 6) {
     score += 25;  // 手牌少时，拆牌可以加快出牌
   }
-  
+
   return score;
 }
 
@@ -154,16 +155,16 @@ function evaluateAvoidSuppressionBenefit(
   context: BreakingContext
 ): number {
   let score = 0;
-  
+
   // 场景1：拆牌后保留更大的牌，避免被压制
   const remainingRanks = remainingHand.map(c => c.rank);
   const maxRemainingRank = remainingRanks.length > 0 ? Math.max(...remainingRanks) : 0;
   const actionRank = action[0].rank;
-  
+
   if (maxRemainingRank > actionRank) {
     score += 35;  // 保留更大的牌
   }
-  
+
   // 场景2：拆牌后可以保留炸弹应对对手可能的炸弹
   const remainingRankGroups = countRankGroups(remainingHand);
   let hasBomb = false;
@@ -172,11 +173,11 @@ function evaluateAvoidSuppressionBenefit(
       hasBomb = true;
     }
   });
-  
+
   if (hasBomb) {
     score += 30;  // 保留炸弹，可以应对对手
   }
-  
+
   // 场景3：拆牌后可以保留大牌用于关键轮次
   if (context.currentRoundScore > 10) {
     const hasBigCards = remainingHand.some(card => {
@@ -187,7 +188,7 @@ function evaluateAvoidSuppressionBenefit(
       score += 25;  // 保留大牌用于高分轮次
     }
   }
-  
+
   return score;
 }
 
@@ -200,13 +201,13 @@ function evaluateTeamCooperationBenefit(
   context: BreakingContext
 ): number {
   let score = 0;
-  
+
   // 场景1：拆牌后让队友更容易出牌（出小牌）
   const play = canPlayCards(action);
   if (play && play.value <= 10) {
     score += 50;  // 出小牌，让队友有机会出牌
   }
-  
+
   // 场景2：拆牌后保留大牌支援队友
   const remainingRankGroups = countRankGroups(remainingHand);
   let hasBigCards = false;
@@ -215,11 +216,11 @@ function evaluateTeamCooperationBenefit(
       hasBigCards = true;
     }
   });
-  
+
   if (hasBigCards) {
     score += 40;  // 保留大牌，可以支援队友
   }
-  
+
   // 场景3：拆牌后可以配合队友的牌型
   if (context.lastPlay && context.lastPlay.type === 'single') {
     const play = canPlayCards(action);
@@ -227,7 +228,7 @@ function evaluateTeamCooperationBenefit(
       score += 35;  // 配合队友的单张出牌
     }
   }
-  
+
   return score;
 }
 
@@ -240,7 +241,7 @@ function evaluateKeyCardPreservationBenefit(
   context: BreakingContext
 ): number {
   let score = 0;
-  
+
   // 场景1：拆牌后保留炸弹
   const remainingRankGroups = countRankGroups(remainingHand);
   let hasBomb = false;
@@ -249,21 +250,21 @@ function evaluateKeyCardPreservationBenefit(
       hasBomb = true;
     }
   });
-  
+
   if (hasBomb) {
     score += 60;  // 保留炸弹很重要
   }
-  
+
   // 场景2：拆牌后保留大牌用于关键轮次
   const hasBigCards = remainingHand.some(card => {
     const testPlay = canPlayCards([card]);
     return testPlay && testPlay.value >= 13;
   });
-  
+
   if (hasBigCards) {
     score += 45;  // 保留大牌
   }
-  
+
   // 场景3：拆牌后保留关键组合牌型
   let hasKeyCombos = false;
   remainingRankGroups.forEach((count) => {
@@ -271,11 +272,11 @@ function evaluateKeyCardPreservationBenefit(
       hasKeyCombos = true;
     }
   });
-  
+
   if (hasKeyCombos) {
     score += 35;  // 保留关键组合
   }
-  
+
   return score;
 }
 
@@ -288,17 +289,17 @@ function evaluateOpportunityCreationBenefit(
   context: BreakingContext
 ): number {
   let score = 0;
-  
+
   // 场景1：拆牌后可以形成新的组合牌型
   const remainingRankGroups = countRankGroups(remainingHand);
   const actionRank = action[0].rank;
   const originalCount = remainingRankGroups.get(actionRank) || 0;
-  
+
   // 如果拆牌后剩余的牌可以形成新的组合
   if (originalCount >= 2) {
     score += 40;  // 可以形成新的组合
   }
-  
+
   // 场景2：拆牌后可以连续出牌
   if (context.lastPlay) {
     const followUpOptions = findPlayableCards(remainingHand, context.lastPlay);
@@ -306,12 +307,12 @@ function evaluateOpportunityCreationBenefit(
       score += 35;  // 可以连续出牌
     }
   }
-  
+
   // 场景3：拆牌后可以减少手牌数量
   if (remainingHand.length <= 8) {
     score += 25;  // 减少手牌数量，加快出牌
   }
-  
+
   return score;
 }
 
@@ -324,7 +325,7 @@ function evaluateHighScoreRoundBenefit(
   context: BreakingContext
 ): number {
   let score = 0;
-  
+
   // 场景1：高分轮次，拆牌可能值得
   if (context.currentRoundScore > 15) {
     const play = canPlayCards(action);
@@ -336,7 +337,7 @@ function evaluateHighScoreRoundBenefit(
       }
     }
   }
-  
+
   // 场景2：高分轮次，拆牌可以保护分牌
   if (context.currentRoundScore > 20) {
     const remainingScoreCards = remainingHand.filter(card => isScoreCard(card));
@@ -345,7 +346,7 @@ function evaluateHighScoreRoundBenefit(
       score += 40;  // 保护分牌
     }
   }
-  
+
   return score;
 }
 
@@ -375,14 +376,14 @@ export function evaluateCardBreaking(
 ): number {
   // 1. 计算拆牌代价
   const breakingCost = evaluateBreakingCost(action, hand, play);
-  
+
   // 2. 计算拆牌收益
   const breakingBenefits = evaluateBreakingBenefits(action, hand, context);
   const totalBenefit = sumBreakingBenefits(breakingBenefits);
-  
+
   // 3. 综合评估
   const netValue = totalBenefit - breakingCost;
-  
+
   return netValue;
 }
 

@@ -5,12 +5,12 @@
 
 import { Player } from '@/core/types/card';
 import { TeamConfig } from '../../types/team';
-import { applyFinalGameRules } from '../gameRules';
+import { isScoreCard, calculateCardsScore } from '@/core/services/scoringService';
 import { findNextActivePlayer } from '../gameStateUtils';
 import { IGameModeStrategy, GameEndCheckResult, FinalScoreResult } from './IGameModeStrategy';
 
 export class IndividualModeStrategy implements IGameModeStrategy {
-  
+
   getModeName(): string {
     return '个人模式';
   }
@@ -24,14 +24,14 @@ export class IndividualModeStrategy implements IGameModeStrategy {
     teamConfig?: TeamConfig | null
   ): GameEndCheckResult {
     const playersWithCards = players.filter(p => p.hand && p.hand.length > 0);
-    
+
     if (playersWithCards.length <= 1) {
       return {
         shouldEnd: true,
         reason: `只剩 ${playersWithCards.length} 个玩家有牌`
       };
     }
-    
+
     return {
       shouldEnd: false
     };
@@ -45,9 +45,9 @@ export class IndividualModeStrategy implements IGameModeStrategy {
     finishOrder: number[],
     teamConfig?: TeamConfig | null
   ): FinalScoreResult {
-    
+
     const { players: finalPlayers, rankings } = applyFinalGameRules(players, finishOrder);
-    
+
     return {
       updatedPlayers: finalPlayers,
       finalRankings: rankings,
@@ -65,13 +65,13 @@ export class IndividualModeStrategy implements IGameModeStrategy {
     playerCount: number,
     teamConfig?: TeamConfig | null
   ): number | null {
-    
+
     if (winnerIndex === null) {
       return findNextActivePlayer(0, players, playerCount);
     }
 
     const winner = players[winnerIndex];
-    
+
     // 如果接风玩家还有牌，由接风玩家开始
     if (winner && winner.hand.length > 0) {
       return winnerIndex;

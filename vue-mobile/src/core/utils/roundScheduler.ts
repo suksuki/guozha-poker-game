@@ -55,6 +55,7 @@ export class RoundScheduler {
   private currentRoundNumber: number = 0;
   private lastProcessedPlayerIndex: number | null = null;
   private consecutiveScheduleCount: number = 0;
+  private lastActionId: number = 0;
 
   constructor(config: RoundSchedulerConfig) {
     this.config = config;
@@ -296,8 +297,16 @@ export class RoundScheduler {
     players: Player[],
     playerCount: number,
     onStateUpdate: (updater: (prev: any) => any) => void,
-    onRoundEnd?: (round: Round, players: Player[], nextPlayerIndex: number | null, savedWinnerIndex?: number | null) => Promise<void>
+    onRoundEnd?: (round: Round, players: Player[], nextPlayerIndex: number | null, savedWinnerIndex?: number | null) => Promise<void>,
+    actionId?: number
   ): Promise<void> {
+    // 0. 验证 actionId（防止异步回调乱序）
+    // 如果传入了 actionId，且与当前最新的 lastActionId 不一致，说明是过期的回调，直接忽略
+    if (actionId !== undefined && actionId !== this.lastActionId && actionId !== 0) {
+      console.warn(`[RoundScheduler] 忽略过期回调: current=${this.lastActionId}, received=${actionId}`);
+      return;
+    }
+
     // 防止重复调用
     const now = Date.now();
     if (this.isProcessingPlayCompleted) {
@@ -455,8 +464,14 @@ export class RoundScheduler {
     players: Player[],
     playerCount: number,
     onStateUpdate: (updater: (prev: any) => any) => void,
-    onRoundEnd?: (round: Round, players: Player[], nextPlayerIndex: number | null, savedWinnerIndex?: number | null) => Promise<void>
+    onRoundEnd?: (round: Round, players: Player[], nextPlayerIndex: number | null, savedWinnerIndex?: number | null) => Promise<void>,
+    actionId?: number
   ): Promise<void> {
+    // 0. 验证 actionId
+    if (actionId !== undefined && actionId !== this.lastActionId && actionId !== 0) {
+      return;
+    }
+
     const state = this.config.getGameState();
     const currentRoundNumber = this.getCurrentRoundNumber(state);
 

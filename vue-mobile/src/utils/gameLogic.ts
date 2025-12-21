@@ -5,7 +5,8 @@
 
 import type { Card, Play, Player } from '@/core/types/card';
 import { CardType } from '@/core/types/card';
-import { canPlayCards, canBeat, calculateCardsScore, isScoreCard, findPlayableCards } from '@/core/utils/cardUtils';
+import { canPlayCards, canBeat, findPlayableCards } from '@/core/utils/cardUtils';
+import { isScoreCard, calculateCardsScore } from '@/core/services/scoringService';
 import { ChannelType, ANNOUNCEMENT } from '../types/channel';
 
 // =====================================================

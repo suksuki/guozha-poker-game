@@ -4,7 +4,9 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AIBrainIntegration } from '../../src/services/ai/aiBrainIntegration';
+import { TeamModeStrategy } from '../../src/core/utils/gameMode/TeamModeStrategy';
 import { Game } from '../../../src/game-engine/Game';
+import { Player, PlayerType, Suit, Rank } from '../../src/core/types/card';
 
 // Mock fetch
 global.fetch = vi.fn();

@@ -5,7 +5,8 @@
 
 import { Round, PlayProcessResult } from './Round';
 import { Card, RoundPlayRecord, Player } from '@/core/types/card';
-import { canPlayCards, canBeat, calculateCardsScore, isScoreCard } from './cardUtils';
+import { canPlayCards, canBeat, isScoreCard } from './cardUtils';
+import { calculateCardsScore } from '@/core/services/scoringService';
 import { handleDunScoring, updatePlayerAfterPlay, triggerGoodPlayReactions } from './playManager';
 import { Round as RoundType } from './Round';
 import { calculatePlayAnimationPosition } from './animationUtils';
@@ -41,7 +42,7 @@ export async function processPlayAsync(
     return saved !== null ? saved === 'true' : false;
   })();
   const processStartTime = Date.now();
-  
+
   // 0. 在开始处理之前，检查轮次是否已结束
   if (round.isEnded()) {
     return {
@@ -51,10 +52,10 @@ export async function processPlayAsync(
       error: new Error(`轮次 ${round.roundNumber} 已结束，无法处理出牌`)
     };
   }
-  
+
   // 1. 等待最短间隔
   await round.waitForMinInterval();
-  
+
   // 1.1 等待后再次检查轮次状态
   if (round.isEnded()) {
     return {
@@ -64,7 +65,7 @@ export async function processPlayAsync(
       error: new Error(`轮次 ${round.roundNumber} 已结束，无法处理出牌`)
     };
   }
-  
+
   // 2. 验证牌型
   const play = canPlayCards(selectedCards);
   if (!play) {
@@ -74,7 +75,7 @@ export async function processPlayAsync(
   // 3. 检查是否能压过上家
   // 注意：如果 lastPlay 为 null，说明新轮次开始，可以自由出任意牌型
   const lastPlay = round.getLastPlay();
-  
+
   if (lastPlay !== null) {
     if (!canBeat(play, lastPlay)) {
       throw new Error('不能压过上家的牌');
@@ -88,10 +89,10 @@ export async function processPlayAsync(
   }
   const playScore = calculateCardsScore(selectedCards);
   const scoreCards = selectedCards.filter(card => isScoreCard(card));
-  
+
   // 确保 playerName 正确设置
   const playerName = player.name || `玩家${playerIndex + 1}`;
-  
+
   const playRecord: RoundPlayRecord = {
     playerId: playerIndex,
     playerName: playerName,
@@ -123,7 +124,7 @@ export async function processPlayAsync(
     // 5.3 记录出牌到 Round（在记录前再次检查轮次状态）
     if (!round.isEnded()) {
       round.recordPlay(playRecord, play);
-      
+
       // 同时记录到追踪模块（如果启用）
       if (cardTrackerEnabled) {
         try {
@@ -138,7 +139,7 @@ export async function processPlayAsync(
 
     // 5.4 更新玩家手牌
     const updatedPlayer = updatePlayerAfterPlay(player, selectedCards, dunScore);
-    
+
     const newPlayers = [...playersAfterDun];
     // 合并更新：保留 handleDunScoring 中更新的 dunCount，同时更新手牌和分数
     const playerAfterDun = playersAfterDun[playerIndex];
@@ -147,7 +148,7 @@ export async function processPlayAsync(
       ...updatedPlayer,
       ...(dunCount !== undefined ? { dunCount } : {})
     } as Player;
-    
+
 
     // 5.5 生成TTS并播放语音（使用回调，不等待完成）
     // 如果轮次已结束，跳过 TTS 生成和播放，直接触发回调
@@ -160,16 +161,16 @@ export async function processPlayAsync(
       const completeAnnouncement = () => {
         if (announcementCompleted) return;
         announcementCompleted = true;
-        
+
         // 去掉报牌后延迟，立即触发回调继续游戏
         onAnnouncementComplete?.();
       };
-      
+
       // 4秒超时保护，确保回调一定会被触发
       const timeoutId = setTimeout(() => {
         completeAnnouncement();
       }, 4000);
-      
+
       try {
         // 不await，使用onEnd回调
         announcePlay(play, player.voiceConfig, {
@@ -196,7 +197,7 @@ export async function processPlayAsync(
         completeAnnouncement();
       }
     }
-    
+
     // 5.6 更新游戏状态（如果轮次未结束）
     if (!round.isEnded()) {
       updateState(prev => {
@@ -204,37 +205,37 @@ export async function processPlayAsync(
         if (prev.currentRoundIndex < 0 || prev.currentRoundIndex >= prev.rounds.length) {
           return prev;
         }
-        
+
         // 更新当前轮次对象
         const updatedRounds = [...prev.rounds];
         updatedRounds[prev.currentRoundIndex] = round;
-        
+
         // 重要：合并玩家状态，保留原有的 finishedRank 和 scoreRank
         // newPlayers 包含手牌和分数的更新，需要从 prev.players 中保留 finishedRank 和 scoreRank
-        
+
         const mergedPlayers = prev.players.map((prevPlayer: Player, i: number) => {
           const newPlayer = newPlayers[i];
           if (!newPlayer) {
             return prevPlayer;
           }
-          
+
           // 合并状态：使用 newPlayer 的分数和手牌（已正确更新），保留 finishedRank 和 scoreRank
           const merged: Player = {
             ...newPlayer, // 使用新玩家的所有属性（包括更新后的手牌、分数、wonRounds等）
             // 重要：finishedRank 和 scoreRank 从 prevPlayer 保留（如果存在）
             // 因为这两个属性是由 GameController 通过回调更新的，不应该被覆盖
-            finishedRank: prevPlayer.finishedRank !== undefined && prevPlayer.finishedRank !== null 
-              ? prevPlayer.finishedRank 
+            finishedRank: prevPlayer.finishedRank !== undefined && prevPlayer.finishedRank !== null
+              ? prevPlayer.finishedRank
               : newPlayer.finishedRank,
-            scoreRank: prevPlayer.scoreRank !== undefined && prevPlayer.scoreRank !== null 
-              ? prevPlayer.scoreRank 
+            scoreRank: prevPlayer.scoreRank !== undefined && prevPlayer.scoreRank !== null
+              ? prevPlayer.scoreRank
               : newPlayer.scoreRank
           };
-          
-          
+
+
           return merged;
         });
-        
+
         return {
           ...prev,
           rounds: updatedRounds,
@@ -247,13 +248,13 @@ export async function processPlayAsync(
     // 5.7 触发反应（在状态更新后）
     const currentState = getState();
     triggerGoodPlayReactions(player, play, scoreCards, currentState);
-    
+
     // 触发对骂和其他反应
     if (play.type === 'bomb' || play.type === 'dun' || scoreCards.length > 0) {
       newPlayers.forEach((p, idx) => {
         if (idx !== playerIndex && p.hand.length > 0) {
           if (Math.random() < 0.5) {
-            triggerTaunt(p, player, currentState).catch(() => {});
+            triggerTaunt(p, player, currentState).catch(() => { });
           }
         }
       });
@@ -265,7 +266,7 @@ export async function processPlayAsync(
         if (idx !== playerIndex && p.hand.length > 0) {
           const shouldCurse = playScore >= 5 || totalRoundScore >= 10;
           if (shouldCurse && Math.random() < 0.5) {
-            triggerScoreEatenCurseReaction(p, playScore, currentState).catch(() => {});
+            triggerScoreEatenCurseReaction(p, playScore, currentState).catch(() => { });
           }
         }
       });

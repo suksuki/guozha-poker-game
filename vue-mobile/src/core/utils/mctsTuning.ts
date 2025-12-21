@@ -6,15 +6,14 @@
  */
 
 import { Card, Play } from '@/core/types/card';
-import { 
-  createDeck, 
-  shuffleDeck, 
-  dealCards, 
-  canPlayCards, 
-  canBeat, 
+import {
+  createDeck,
+  shuffleDeck,
+  dealCards,
+  canPlayCards,
+  canBeat,
   findPlayableCards,
-  isScoreCard,
-  calculateCardsScore
+import { isScoreCard, calculateCardsScore } from '@/core/services/scoringService';
 } from './cardUtils';
 import { mctsChoosePlay } from './mctsAI';
 import { updateProgressBar, clearLine } from './progressBar';
@@ -76,7 +75,7 @@ export function runSingleGame(
     shuffleDeck(deck);
     decks.push(deck);
   }
-  
+
   const players: Card[][] = decks.map(deck => [...deck]);
   let currentPlayer = 0;
   let lastPlay: Play | null = null;
@@ -84,12 +83,12 @@ export function runSingleGame(
   let roundScore = 0;
   let turnCount = 0;
   let aiScore = 0;
-  
+
   // 游戏主循环
   while (true) {
     turnCount++;
     const currentHand = players[currentPlayer];
-    
+
     // 检查是否有人出完牌
     if (currentHand.length === 0) {
       // 游戏结束，分配分数
@@ -100,7 +99,7 @@ export function runSingleGame(
       }
       return { winner: currentPlayer, turns: turnCount, aiScore };
     }
-    
+
     // AI玩家（索引0）使用MCTS
     if (currentPlayer === 0) {
       const mctsConfig: MCTSConfig = {
@@ -110,9 +109,9 @@ export function runSingleGame(
         currentRoundScore: roundScore,
         playerCount: playerCount
       };
-      
+
       const aiPlay = mctsChoosePlay(currentHand, lastPlay, mctsConfig);
-      
+
       if (!aiPlay || aiPlay.length === 0) {
         // 要不起
         if (lastPlay) {
@@ -125,30 +124,30 @@ export function runSingleGame(
             aiScore += roundScore;
           }
           roundScore = 0;
-          currentPlayer = (lastPlayPlayer !== null 
-            ? (lastPlayPlayer + 1) 
+          currentPlayer = (lastPlayPlayer !== null
+            ? (lastPlayPlayer + 1)
             : (currentPlayer + 1)) % playerCount;
         }
         continue;
       }
-      
+
       // 出牌
       const play = canPlayCards(aiPlay);
       if (!play) {
         currentPlayer = (currentPlayer + 1) % playerCount;
         continue;
       }
-      
+
       // 移除已出的牌
       players[0] = currentHand.filter(card => !aiPlay.some(c => c.id === card.id));
-      
+
       // 更新分数
       const scoreCards = aiPlay.filter(card => isScoreCard(card));
       roundScore += calculateCardsScore(scoreCards);
-      
+
       lastPlay = play;
       lastPlayPlayer = 0;
-      
+
       if (players[0].length === 0) {
         if (lastPlayPlayer === 0) {
           aiScore += roundScore;
@@ -158,7 +157,7 @@ export function runSingleGame(
     } else {
       // 其他玩家使用简单策略（随机或启发式）
       const playableOptions = findPlayableCards(currentHand, lastPlay);
-      
+
       if (playableOptions.length === 0) {
         // 要不起
         if (lastPlay) {
@@ -170,13 +169,13 @@ export function runSingleGame(
             aiScore += roundScore;
           }
           roundScore = 0;
-          currentPlayer = (lastPlayPlayer !== null 
-            ? (lastPlayPlayer + 1) 
+          currentPlayer = (lastPlayPlayer !== null
+            ? (lastPlayPlayer + 1)
             : (currentPlayer + 1)) % playerCount;
         }
         continue;
       }
-      
+
       // 简单策略：随机选择或选择最小的能压过的牌
       let selectedPlay = playableOptions[0];
       if (playableOptions.length > 1) {
@@ -187,7 +186,7 @@ export function runSingleGame(
             if (!lastPlay) return true;
             return canBeat(play, lastPlay);
           });
-        
+
         if (validPlays.length > 0) {
           validPlays.sort((a, b) => a.value - b.value);
           selectedPlay = validPlays[0].cards;
@@ -195,32 +194,32 @@ export function runSingleGame(
           selectedPlay = playableOptions[Math.floor(Math.random() * playableOptions.length)];
         }
       }
-      
+
       const play = canPlayCards(selectedPlay);
       if (!play) {
         currentPlayer = (currentPlayer + 1) % playerCount;
         continue;
       }
-      
+
       // 移除已出的牌
       players[currentPlayer] = currentHand.filter(
         card => !selectedPlay.some(c => c.id === card.id)
       );
-      
+
       // 更新分数
       const scoreCards = selectedPlay.filter(card => isScoreCard(card));
       roundScore += calculateCardsScore(scoreCards);
-      
+
       lastPlay = play;
       lastPlayPlayer = currentPlayer;
-      
+
       if (players[currentPlayer].length === 0) {
         return { winner: currentPlayer, turns: turnCount, aiScore };
       }
     }
-    
+
     currentPlayer = (currentPlayer + 1) % playerCount;
-    
+
     // 防止无限循环
     if (turnCount > 1000) {
       // 按剩余手牌数判断胜负
@@ -237,23 +236,23 @@ export async function tuneMCTSParameters(
   onProgress?: (current: number, total: number, configIndex: number, totalConfigs: number, gameIndex: number, gamesPerConfig: number) => Promise<void> | void
 ): Promise<GameResult[]> {
   const results: GameResult[] = [];
-  const totalConfigs = 
+  const totalConfigs =
     tuningConfig.explorationConstants.length *
     tuningConfig.iterations.length *
     tuningConfig.simulationDepths.length;
-  
+
   const totalGames = totalConfigs * tuningConfig.gamesPerConfig;
   let configIndex = 0;
   let totalGameIndex = 0;
   const overallStartTime = Date.now();
-  
-  
+
+
   // 估算时间（基于之前的测试：每局约8秒）
   const estimatedTimePerGame = 8; // 秒
   const estimatedTotalTime = totalGames * estimatedTimePerGame;
   const estimatedMinutes = Math.floor(estimatedTotalTime / 60);
   const estimatedSeconds = estimatedTotalTime % 60;
-  
+
   // 遍历所有参数组合
   for (const explorationConstant of tuningConfig.explorationConstants) {
     for (const iterations of tuningConfig.iterations) {
@@ -266,18 +265,18 @@ export async function tuneMCTSParameters(
           perfectInformation: tuningConfig.perfectInformation,
           playerCount: tuningConfig.playerCount
         };
-        
+
         const configStartTime = Date.now();
-        
+
         let aiWins = 0;
         let totalScore = 0;
         let totalTurns = 0;
         const gameStartTime = Date.now();
-        
+
         // 运行多局游戏
         for (let game = 0; game < tuningConfig.gamesPerConfig; game++) {
           totalGameIndex++;
-          
+
           // 调用进度回调（浏览器环境）
           if (onProgress) {
             const result = onProgress(totalGameIndex, totalGames, configIndex, totalConfigs, game + 1, tuningConfig.gamesPerConfig);
@@ -286,7 +285,7 @@ export async function tuneMCTSParameters(
               await result;
             }
           }
-          
+
           // 显示进度条（Node.js环境）
           if (typeof process !== 'undefined' && process.stdout) {
             updateProgressBar({
@@ -304,30 +303,30 @@ export async function tuneMCTSParameters(
               const progress = ((totalGameIndex / totalGames) * 100).toFixed(1);
             }
           }
-          
+
           const result = runSingleGame(
             config,
             tuningConfig.playerCount,
             tuningConfig.perfectInformation
           );
-          
+
           if (result.winner === 0) {
             aiWins++;
           }
           totalScore += result.aiScore;
           totalTurns += result.turns;
         }
-        
+
         // 清除进度条
         if (typeof process !== 'undefined' && process.stdout) {
           clearLine();
         }
-        
+
         const winRate = aiWins / tuningConfig.gamesPerConfig;
         const avgScore = totalScore / tuningConfig.gamesPerConfig;
         const avgTurns = totalTurns / tuningConfig.gamesPerConfig;
         const configTime = Date.now() - configStartTime;
-        
+
         const gameResult: GameResult = {
           config,
           aiWins,
@@ -336,17 +335,17 @@ export async function tuneMCTSParameters(
           avgScore,
           avgTurns
         };
-        
+
         results.push(gameResult);
       }
     }
   }
-  
+
   const totalTime = Date.now() - overallStartTime;
-  
+
   // 按胜率排序
   results.sort((a, b) => b.winRate - a.winRate);
-  
+
   return results;
 }
 
@@ -356,19 +355,19 @@ export async function quickTestConfig(
   playerCount: number = 4,
   games: number = 100
 ): Promise<GameResult> {
-  
+
   // 估算时间
   const estimatedTime = games * 8; // 每局约8秒
   const estimatedMinutes = Math.floor(estimatedTime / 60);
   const estimatedSeconds = estimatedTime % 60;
   if (estimatedMinutes > 0 || estimatedSeconds > 10) {
   }
-  
+
   const startTime = Date.now();
   let aiWins = 0;
   let totalScore = 0;
   let totalTurns = 0;
-  
+
   for (let game = 0; game < games; game++) {
     // 显示进度条（在游戏开始前）
     if (typeof process !== 'undefined' && process.stdout) {
@@ -387,42 +386,42 @@ export async function quickTestConfig(
         const progress = ((game + 1) / games * 100).toFixed(1);
       }
     }
-    
+
     // 显示当前正在运行的游戏
     const gameStartTime = Date.now();
     if (typeof process !== 'undefined' && process.stdout) {
       process.stdout.write(`\r正在运行第 ${game + 1}/${games} 局游戏...`);
     }
-    
+
     const result = runSingleGame(
       config,
       playerCount,
       config.perfectInformation || false
     );
-    
+
     // 显示游戏完成信息
     const gameTime = Date.now() - gameStartTime;
     if (typeof process !== 'undefined' && process.stdout) {
       process.stdout.write(`\r第 ${game + 1}/${games} 局完成 (耗时: ${(gameTime / 1000).toFixed(1)}秒) - ${result.winner === 0 ? 'AI胜' : '对手胜'}\n`);
     }
-    
+
     if (result.winner === 0) {
       aiWins++;
     }
     totalScore += result.aiScore;
     totalTurns += result.turns;
   }
-  
+
   // 清除进度条
   if (typeof process !== 'undefined' && process.stdout) {
     clearLine();
   }
-  
+
   const winRate = aiWins / games;
   const avgScore = totalScore / games;
   const avgTurns = totalTurns / games;
   const elapsed = Date.now() - startTime;
-  
+
   const gameResult: GameResult = {
     config,
     aiWins,
@@ -431,7 +430,7 @@ export async function quickTestConfig(
     avgScore,
     avgTurns
   };
-  
+
   return gameResult;
 }
 

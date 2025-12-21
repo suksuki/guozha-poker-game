@@ -5,7 +5,8 @@
  */
 
 import { Card, Play } from '@/core/types/card';
-import { canPlayCards, canBeat, findPlayableCards, hasPlayableCards, dealCards, isScoreCard, calculateCardsScore } from '@/core/utils/cardUtils';
+import { canPlayCards, canBeat, findPlayableCards, hasPlayableCards, dealCards } from '@/core/utils/cardUtils';
+import { isScoreCard, calculateCardsScore } from '@/core/services/scoringService';
 import { mctsChoosePlay } from '../../utils/mctsAI';
 import { DecisionTrainingSample } from '../../types/training';
 import { MCTSConfig } from '../../utils/mctsTuning';

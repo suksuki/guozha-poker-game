@@ -38,7 +38,7 @@ describe('RoundScheduler Async Robustness', () => {
         mockRound = new MockRound(1);
 
         mockPlayers = [
-            { id: 0, name: 'P1', type: PlayerType.HUMAN, hand: [{ suit: 'spades', rank: 3, id: '1' }] as any },
+            { id: 0, name: 'P1', type: PlayerType.HUMAN, hand: [{ suit: Suit.SPADES, rank: 3, id: '1' }] as any },
             { id: 1, name: 'P2', type: PlayerType.AI, hand: [{ suit: 'hearts', rank: 4, id: '2' }] as any },
         ];
 
