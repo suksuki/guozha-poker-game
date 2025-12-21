@@ -24,15 +24,20 @@ export class TeamModeStrategy implements IGameModeStrategy {
     finishOrder: number[],
     teamConfig?: TeamConfig | null
   ): GameEndCheckResult {
+    console.log(`[TEAM_DEBUG] shouldGameEnd: 检查游戏是否结束, finishOrder=[${finishOrder.join(',')}]`);
     if (!teamConfig) {
+      console.log(`[TEAM_DEBUG] shouldGameEnd: 无团队配置，返回false`);
       return { shouldEnd: false };
     }
 
+    console.log(`[TEAM_DEBUG] shouldGameEnd: 团队配置存在，团队数=${teamConfig.teams.length}`);
     // 检查每个团队是否全部出完
     for (const team of teamConfig.teams) {
+      const teamPlayerHands = team.players.map(playerId => ({ playerId, handSize: players[playerId].hand.length }));
       const teamAllFinished = team.players.every(
         playerId => players[playerId].hand.length === 0
       );
+      console.log(`[TEAM_DEBUG] shouldGameEnd: 团队${team.id}(${team.name}), 玩家手牌=${JSON.stringify(teamPlayerHands)}, 全部出完=${teamAllFinished}`);
 
       if (teamAllFinished) {
         const unfinishedPlayerCount = players.filter(p => p.hand.length > 0).length;
@@ -40,6 +45,7 @@ export class TeamModeStrategy implements IGameModeStrategy {
           unfinishedPlayerCount === 2 ? '关双' :
             `${team.name}全部出完`;
 
+        console.log(`[TEAM_DEBUG] shouldGameEnd: 团队${team.id}全部出完，游戏结束 reason=${reason}, unfinishedCount=${unfinishedPlayerCount}`);
         return {
           shouldEnd: true,
           reason: reason
@@ -47,6 +53,7 @@ export class TeamModeStrategy implements IGameModeStrategy {
       }
     }
 
+    console.log(`[TEAM_DEBUG] shouldGameEnd: 无团队全部出完，游戏继续`);
     return {
       shouldEnd: false
     };
@@ -95,8 +102,10 @@ export class TeamModeStrategy implements IGameModeStrategy {
     playerCount: number,
     teamConfig?: TeamConfig | null
   ): number | null {
+    console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: winnerIndex=${winnerIndex}, teamConfig=${teamConfig ? 'exists' : 'null'}`);
 
     if (!teamConfig) {
+      console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: 无团队配置，降级为个人模式`);
       // 降级为个人模式逻辑
       if (winnerIndex === null) {
         return findNextActivePlayer(0, players, playerCount);
@@ -109,53 +118,47 @@ export class TeamModeStrategy implements IGameModeStrategy {
     }
 
     if (winnerIndex === null) {
+      console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: winnerIndex为null，从P0开始查找`);
       return findNextActivePlayer(0, players, playerCount);
     }
 
     const winner = players[winnerIndex];
+    console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: 赢家=${winnerIndex}(${winner.name}), teamId=${winner.teamId}, handSize=${winner.hand.length}`);
 
     // 如果接风玩家还有牌，由接风玩家开始
     if (winner && winner.hand.length > 0) {
+      console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: 赢家还有牌，返回赢家索引`);
       return winnerIndex;
     }
 
-    // 接风玩家已出完牌，优先找队友
+    // 接手权寻找：仅在同阵营（队友）中寻找
     const winnerTeamId = winner?.teamId;
-
+    console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: 开始查找队友，winnerTeamId=${winnerTeamId}`);
     if (winnerTeamId !== null && winnerTeamId !== undefined) {
-      // 按照出牌顺序（逆时针/下家方向）找队友中还有牌的玩家
-      // 注意：findNextActivePlayer 本身是找“下一个有牌的玩家”，
-      // 我们需要扩展一下逻辑，只找队友
-
-      let nextIndex = (winnerIndex - 1 + playerCount) % playerCount;
+      // 按照出牌顺序（逆时针）找队友中还有牌的玩家
+      let nextIndex = (winnerIndex + 1) % playerCount;
       let checkedCount = 0;
 
-      while (checkedCount < playerCount - 1) { // 检查除了赢家外的所有人
+      console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: 开始循环查找，起始索引=${nextIndex}`);
+      while (checkedCount < playerCount - 1) {
         const player = players[nextIndex];
+        console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: 检查P${nextIndex}(${player.name}), teamId=${player.teamId}, handSize=${player.hand.length}, 是否匹配=${player.teamId === winnerTeamId && player.hand.length > 0}`);
         if (player.teamId === winnerTeamId && player.hand.length > 0) {
+          console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: 找到队友接风，返回P${nextIndex}`);
           return nextIndex;
         }
-        nextIndex = (nextIndex - 1 + playerCount) % playerCount;
+        nextIndex = (nextIndex + 1) % playerCount;
         checkedCount++;
       }
 
-      // 队友都出完了，检查整个团队是否都出完
-      const team = teamConfig.teams.find(t => t.id === winnerTeamId);
-      if (team) {
-        const teamAllFinished = team.players.every(
-          pid => players[pid].hand.length === 0
-        );
-
-        if (teamAllFinished) {
-          // 整个团队出完，返回null表示游戏应该结束
-          return null;
-        }
-      }
+      // 没找到任何有牌的队友，说明本阵营已悉数撤离
+      console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: 未找到有牌的队友，返回null`);
+      return null;
     }
 
-    // 队友都出完了（但团队未全部出完），顺时针找对手
-    const nextPlayer = findNextActivePlayer(winnerIndex, players, playerCount);
-    return nextPlayer;
+    // 非团队模式或找不到队友信息（不应该发生），找下一个活人
+    console.log(`[TEAM_DEBUG] findNextPlayerForNewRound: 找不到队友信息，降级查找下一个活人`);
+    return findNextActivePlayer(winnerIndex, players, playerCount);
   }
 
   getResultScreenType(): 'team' | 'individual' {

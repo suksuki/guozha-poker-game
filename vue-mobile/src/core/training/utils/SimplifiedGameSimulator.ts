@@ -274,7 +274,7 @@ export class SimplifiedGameSimulator {
       return;
     }
 
-    // 切换到下一个玩家（顺时针）
+    // 切换到下一个玩家（逆时针）
     this.state.currentPlayerIndex = (this.state.currentPlayerIndex + 1) % this.state.players.length;
   }
 
@@ -294,7 +294,7 @@ export class SimplifiedGameSimulator {
       this.state.roundScore = 0;
     }
 
-    // 切换到下一个玩家（顺时针）
+    // 切换到下一个玩家（逆时针）
     this.state.currentPlayerIndex = nextPlayer;
   }
 

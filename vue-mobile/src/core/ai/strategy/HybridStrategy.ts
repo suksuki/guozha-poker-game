@@ -43,13 +43,10 @@ export class HybridStrategy implements IAIStrategy {
         }
     ): Promise<Card[] | null> {
         if (!extraContext) {
-            //
             return null;
         }
 
         const { state, teamConfig, personality, activeIntents } = extraContext;
-        //
-        //
 
         // 加载训练后的AI配置（根据游戏模式）
         const isTeamMode = state.teamConfig !== undefined;
@@ -79,10 +76,15 @@ export class HybridStrategy implements IAIStrategy {
         }
 
         // 1. 【左脑】运行 MCTS 获取候选动作 (Top 3)
-        const mctsCandidates = teamMCTSChooseMultiplePlays(hand, state, {
-            ...mergedTeamConfig,
-            iterations: 100 // 减少迭代次数以提升响应速度
-        }, 3);
+        let mctsCandidates: Array<{ action: TeamAction; score: number; explanation: string }>;
+        try {
+            mctsCandidates = teamMCTSChooseMultiplePlays(hand, state, {
+                ...mergedTeamConfig,
+                iterations: 100 // 减少迭代次数以提升响应速度
+            }, 3);
+        } catch (error) {
+            return null;
+        }
 
         if (mctsCandidates.length === 0) {
             return null; // 无牌可出
@@ -90,12 +92,9 @@ export class HybridStrategy implements IAIStrategy {
 
         // 如果只有一个唯一解（比如必须管，或者只剩一张牌），直接执行，节省LLM Token
         if (mctsCandidates.length === 1) {
-            //
             if (mctsCandidates[0].action.type === 'play') {
-                //
                 return mctsCandidates[0].action.cards;
             }
-            //
             return null; // Pass
         }
 
@@ -105,12 +104,9 @@ export class HybridStrategy implements IAIStrategy {
             const secondScore = mctsCandidates[1].score;
             const scoreGap = bestScore > 0 ? (bestScore - secondScore) / bestScore : 0;
             if (scoreGap > 0.3) {
-                //
                 if (mctsCandidates[0].action.type === 'play') {
-                    //
                     return mctsCandidates[0].action.cards;
                 }
-                //
                 return null;
             }
         }
@@ -146,18 +142,22 @@ export class HybridStrategy implements IAIStrategy {
         // 2. 尝试询问 LLM
         // 介入决策
         try {
-            const decision = await this.askLLM(
-                hand,
-                lastPlay,
-                mctsCandidates,
-                personality,
-                state,
-                activeIntents
-            );
+            const decision = await Promise.race([
+                this.askLLM(
+                    hand,
+                    lastPlay,
+                    mctsCandidates,
+                    personality,
+                    state,
+                    activeIntents
+                ),
+                new Promise<null>((_, reject) => 
+                    setTimeout(() => reject(new Error('LLM timeout (10s)')), 10000)
+                )
+            ]);
 
             if (decision) {
                 return decision;
-            } else {
             }
         } catch (error) {
         }

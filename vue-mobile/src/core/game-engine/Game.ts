@@ -201,10 +201,18 @@ export class Game {
    * 出牌
    */
   playCards(playerIndex: number, cards: Card[]): { success: boolean; message: string } {
+    console.log(`[TEAM_DEBUG] Game.playCards: 开始, playerIndex=${playerIndex}, currentPlayerIndex=${this._state.currentPlayerIndex}, cards=${cards.length}`);
     const result = GameEngine.playCards(this._state, playerIndex, cards);
 
     if (result.success) {
+      const oldCurrentPlayer = this._state.currentPlayerIndex;
       this._state = result.newState;
+      const newCurrentPlayer = this._state.currentPlayerIndex;
+      console.log(`[TEAM_DEBUG] Game.playCards: 状态更新成功, oldCurrentPlayer=${oldCurrentPlayer}, newCurrentPlayer=${newCurrentPlayer}`);
+      // 触发更新回调
+      this.triggerUpdate();
+    } else {
+      console.error(`[TEAM_DEBUG] Game.playCards: 出牌失败, error=${result.error}`);
     }
 
     return {
@@ -221,6 +229,8 @@ export class Game {
 
     if (result.success) {
       this._state = result.newState;
+      // 触发更新回调
+      this.triggerUpdate();
     }
 
     return {
@@ -249,6 +259,25 @@ export class Game {
       `game-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       Date.now()
     );
+  }
+
+  // ========== Vue 更新回调 ==========
+  private onUpdateCallback?: (game: Game) => void;
+
+  /**
+   * 设置 Vue 更新回调
+   */
+  setOnUpdate(callback: (game: Game) => void): void {
+    this.onUpdateCallback = callback;
+  }
+
+  /**
+   * 触发更新（内部方法）
+   */
+  private triggerUpdate(): void {
+    if (this.onUpdateCallback) {
+      this.onUpdateCallback(this);
+    }
   }
 }
 

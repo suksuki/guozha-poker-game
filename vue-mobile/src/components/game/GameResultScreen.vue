@@ -5,61 +5,117 @@
       <div class="round-badge">{{ $t('game.round') }} {{ totalRounds }}</div>
     </div>
 
-    <!-- 冠军展示 -->
-    <div class="champion-section animate-scale-in">
-      <div class="glow-effect"></div>
-      <div class="champion-content">
-        <div class="champion-avatar-container">
-          <div class="crown-icon">👑</div>
-          <div class="champion-avatar">
-            {{ winner?.name?.charAt(0) || '?' }}
+    <!-- 团队模式：显示获胜团队 -->
+    <template v-if="isTeamMode && teamRankings && teamRankings.length > 0">
+      <div class="champion-section animate-scale-in">
+        <div class="glow-effect"></div>
+        <div class="champion-content">
+          <div class="champion-avatar-container">
+            <div class="crown-icon">👑</div>
+            <div class="champion-avatar">
+              {{ winningTeam?.team?.name?.charAt(0) || '?' }}
+            </div>
+            <div class="winner-label">WINNER</div>
           </div>
-          <div class="winner-label">WINNER</div>
-        </div>
-        <div class="champion-details">
-          <h3 class="champion-name">{{ winner?.name || '未知' }}</h3>
-          <div class="champion-stats">
-            <div class="stat-pill">
-              <span class="stat-label">{{ $t('game.score') }}</span>
-              <span class="stat-value text-gold">{{ winner?.score || 0 }}</span>
-            </div>
-            <div class="stat-pill" v-if="winner?.dunCount">
-              <span class="stat-label">{{ $t('game.dunCount') }}</span>
-              <span class="stat-value">{{ winner.dunCount }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 排名列表 -->
-    <div class="rank-section animate-slide-up">
-      <div class="section-title">🏆 {{ $t('game.winner') }}</div>
-      <div class="rank-list">
-        <div 
-          v-for="(player, index) in sortedPlayers" 
-          :key="player.id"
-          class="rank-card glass"
-          :class="`rank-${index + 1}`"
-        >
-          <div class="rank-number">{{ index + 1 }}</div>
-          <div class="player-info">
-            <div class="player-avatar-mini" :class="`avatar-rank-${index + 1}`">
-              {{ player.name?.charAt(0) || '?' }}
-            </div>
-            <div class="player-text">
-              <div class="player-name">{{ player.name }}</div>
-              <div class="player-sub">
-                 {{ playerInfo(player) }}
+          <div class="champion-details">
+            <h3 class="champion-name">{{ winningTeam?.team?.name || '未知' }}</h3>
+            <div class="champion-stats">
+              <div class="stat-pill">
+                <span class="stat-label">团队分数</span>
+                <span class="stat-value text-gold">{{ winningTeam?.finalScore || 0 }}</span>
               </div>
             </div>
           </div>
-          <div class="player-score" :class="getScoreClass(player.score || 0)">
-            {{ player.score }} 分
+        </div>
+      </div>
+
+      <!-- 团队排名列表 -->
+      <div class="rank-section animate-slide-up">
+        <div class="section-title">🏆 团队排名</div>
+        <div class="rank-list">
+          <div 
+            v-for="(teamRanking, index) in teamRankings" 
+            :key="teamRanking.team.id"
+            class="rank-card glass"
+            :class="`rank-${index + 1}`"
+          >
+            <div class="rank-number">{{ teamRanking.rank }}</div>
+            <div class="player-info">
+              <div class="player-avatar-mini" :class="`avatar-rank-${index + 1}`">
+                {{ teamRanking.team.name?.charAt(0) || '?' }}
+              </div>
+              <div class="player-text">
+                <div class="player-name">{{ teamRanking.team.name }}</div>
+                <div class="player-sub">
+                  成员: {{ teamRanking.team.players.map(id => players.find(p => p.id === id)?.name || `玩家${id}`).join(', ') }}
+                </div>
+              </div>
+            </div>
+            <div class="player-score" :class="getScoreClass(teamRanking.finalScore || 0)">
+              {{ teamRanking.finalScore }} 分
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
+
+    <!-- 个人模式：显示个人排名 -->
+    <template v-else>
+      <div class="champion-section animate-scale-in">
+        <div class="glow-effect"></div>
+        <div class="champion-content">
+          <div class="champion-avatar-container">
+            <div class="crown-icon">👑</div>
+            <div class="champion-avatar">
+              {{ winner?.name?.charAt(0) || '?' }}
+            </div>
+            <div class="winner-label">WINNER</div>
+          </div>
+          <div class="champion-details">
+            <h3 class="champion-name">{{ winner?.name || '未知' }}</h3>
+            <div class="champion-stats">
+              <div class="stat-pill">
+                <span class="stat-label">{{ $t('game.score') }}</span>
+                <span class="stat-value text-gold">{{ (winner as any)?.finalScore ?? winner?.score ?? 0 }}</span>
+              </div>
+              <div class="stat-pill" v-if="winner?.dunCount">
+                <span class="stat-label">{{ $t('game.dunCount') }}</span>
+                <span class="stat-value">{{ winner.dunCount }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 排名列表 -->
+      <div class="rank-section animate-slide-up">
+        <div class="section-title">🏆 {{ $t('game.winner') }}</div>
+        <div class="rank-list">
+          <div 
+            v-for="(player, index) in sortedPlayers" 
+            :key="player.id"
+            class="rank-card glass"
+            :class="`rank-${index + 1}`"
+          >
+            <div class="rank-number">{{ index + 1 }}</div>
+            <div class="player-info">
+              <div class="player-avatar-mini" :class="`avatar-rank-${index + 1}`">
+                {{ player.name?.charAt(0) || '?' }}
+              </div>
+              <div class="player-text">
+                <div class="player-name">{{ player.name }}</div>
+                <div class="player-sub">
+                   {{ playerInfo(player) }}
+                </div>
+              </div>
+            </div>
+            <div class="player-score" :class="getScoreClass((player as any)?.finalScore ?? player.score ?? 0)">
+              {{ (player as any)?.finalScore ?? player.score ?? 0 }} 分
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
 
     <!-- 详细数据 -->
     <div class="details-section animate-slide-up" style="animation-delay: 0.1s;">
@@ -83,8 +139,8 @@
               <div class="detail-stats">
                 <div class="d-item">
                   <span class="d-label">{{ $t('game.score') }}</span>
-                  <span class="d-value" :class="(player.score || 0) >= 0 ? 'text-success' : 'text-danger'">
-                    {{ (player.score || 0) > 0 ? '+' : '' }}{{ player.score || 0 }}
+                  <span class="d-value" :class="((player as any)?.finalScore ?? player.score ?? 0) >= 0 ? 'text-success' : 'text-danger'">
+                    {{ ((player as any)?.finalScore ?? player.score ?? 0) > 0 ? '+' : '' }}{{ (player as any)?.finalScore ?? player.score ?? 0 }}
                   </span>
                 </div>
                 <div class="d-item">
@@ -145,6 +201,7 @@ import { ref, computed } from 'vue';
 import { useI18n } from '../../i18n/composable';
 import type { Player } from '@/core/types/card';
 import type { RoundData } from '@/core/game-engine/round/RoundData';
+import type { TeamConfig, TeamRanking } from '@/core/types/team';
 
 const { t } = useI18n();
 
@@ -152,11 +209,17 @@ interface Props {
   players: Player[];
   rounds?: RoundData[];
   winner?: Player;
+  isTeamMode?: boolean;
+  teamConfig?: TeamConfig | null;
+  teamRankings?: TeamRanking[] | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   rounds: () => [],
-  winner: undefined
+  winner: undefined,
+  isTeamMode: false,
+  teamConfig: null,
+  teamRankings: null
 });
 
 defineEmits<{
@@ -173,6 +236,14 @@ const sortedPlayers = computed(() => {
     const rankB = b.finishedRank || 999;
     return rankA - rankB;
   });
+});
+
+// 获胜团队（团队模式下）
+const winningTeam = computed(() => {
+  if (!props.isTeamMode || !props.teamRankings || props.teamRankings.length === 0) {
+    return null;
+  }
+  return props.teamRankings[0]; // 排名第一的团队
 });
 
 const totalRounds = computed(() => {
@@ -201,9 +272,11 @@ const playerInfo = (player: Player): string => {
 .game-result-screen {
   padding: 24px 16px;
   background: var(--bg-primary);
-  min-height: 100vh;
+  min-height: fit-content;
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
   color: var(--text-primary);
-  overflow-y: auto;
   box-sizing: border-box;
   padding-bottom: 40px;
 }

@@ -31,10 +31,6 @@ export interface RoundDataSnapshot {
   winnerId?: number;
   winnerName?: string;
 
-  // 接风轮标记
-  isTakeoverRound: boolean;
-  takeoverStartPlayerIndex: number | null;
-  takeoverEndPlayerIndex: number | null;
 }
 
 /**
@@ -60,10 +56,6 @@ export class RoundData {
   readonly winnerId?: number;
   readonly winnerName?: string;
 
-  // ========== 接风轮标记 ==========
-  readonly isTakeoverRound: boolean;
-  readonly takeoverStartPlayerIndex: number | null;
-  readonly takeoverEndPlayerIndex: number | null;
 
   constructor(params: {
     roundNumber: number;
@@ -77,9 +69,6 @@ export class RoundData {
     endTime?: number;
     winnerId?: number;
     winnerName?: string;
-    isTakeoverRound?: boolean;
-    takeoverStartPlayerIndex?: number | null;
-    takeoverEndPlayerIndex?: number | null;
   }) {
     this.roundNumber = params.roundNumber;
     this.startTime = params.startTime ?? Date.now();
@@ -92,9 +81,6 @@ export class RoundData {
     this.endTime = params.endTime;
     this.winnerId = params.winnerId;
     this.winnerName = params.winnerName;
-    this.isTakeoverRound = params.isTakeoverRound ?? false;
-    this.takeoverStartPlayerIndex = params.takeoverStartPlayerIndex ?? null;
-    this.takeoverEndPlayerIndex = params.takeoverEndPlayerIndex ?? null;
 
     // 冻结对象，确保完全不可变
     Object.freeze(this);
@@ -115,21 +101,6 @@ export class RoundData {
     });
   }
 
-  /**
-   * 更新接风轮状态（返回新的RoundData）
-   */
-  updateTakeover(params: {
-    isTakeoverRound: boolean;
-    takeoverStartPlayerIndex?: number | null;
-    takeoverEndPlayerIndex?: number | null;
-  }): RoundData {
-    return new RoundData({
-      ...this,
-      isTakeoverRound: params.isTakeoverRound,
-      takeoverStartPlayerIndex: params.takeoverStartPlayerIndex ?? this.takeoverStartPlayerIndex,
-      takeoverEndPlayerIndex: params.takeoverEndPlayerIndex ?? this.takeoverEndPlayerIndex
-    });
-  }
 
   /**
    * 标记轮次结束（返回新的RoundData）
@@ -214,12 +185,8 @@ export class RoundData {
       lastPlay: this.lastPlay,
       lastPlayPlayerIndex: this.lastPlayPlayerIndex,
       isFinished: this.isFinished,
-      endTime: this.endTime,
       winnerId: this.winnerId,
-      winnerName: this.winnerName,
-      isTakeoverRound: this.isTakeoverRound,
-      takeoverStartPlayerIndex: this.takeoverStartPlayerIndex,
-      takeoverEndPlayerIndex: this.takeoverEndPlayerIndex
+      winnerName: this.winnerName
     };
   }
 
@@ -234,13 +201,8 @@ export class RoundData {
       totalScore: snapshot.totalScore,
       lastPlay: snapshot.lastPlay,
       lastPlayPlayerIndex: snapshot.lastPlayPlayerIndex,
-      isFinished: snapshot.isFinished,
-      endTime: snapshot.endTime,
       winnerId: snapshot.winnerId,
-      winnerName: snapshot.winnerName,
-      isTakeoverRound: snapshot.isTakeoverRound,
-      takeoverStartPlayerIndex: snapshot.takeoverStartPlayerIndex,
-      takeoverEndPlayerIndex: snapshot.takeoverEndPlayerIndex
+      winnerName: snapshot.winnerName
     });
   }
 

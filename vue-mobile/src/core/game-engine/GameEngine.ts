@@ -1,21 +1,8 @@
-/**
- * GameEngine - 游戏引擎（Facade层）
- * 
- * 职责：
- * - 协调各个模块（RoundModule, ScoreModule, Rules等）
- * - 提供统一的游戏操作API
- * - 处理复杂的业务流程
- * 
- * 设计原则：
- * - 纯函数，无副作用
- * - 接受state，返回newState
- * - 不持有状态
- */
-
 import { GameState } from './state/GameState';
 import { RoundModule, RoundData } from './round';
 import { GameFlowModule } from './modules/GameFlowModule';
 import type { Card, Play, Player } from '@/core/types/card';
+import { GameStatus } from '@/core/types/card';
 import { hasPlayableCards, getCardType, findPlayableCards, canBeat } from '@/core/utils/cardUtils';
 import { TeamModeStrategy } from '../utils/gameMode/TeamModeStrategy';
 import { IndividualModeStrategy } from '../utils/gameMode/IndividualModeStrategy';
@@ -38,40 +25,10 @@ export interface GameEngineResult {
 }
 
 /**
- * 游戏引擎
- */
-/**
- * 玩家位置映射（按顺时针：东→南→西→北）
- * 物理索引：0=南, 1=东, 2=北, 3=西
- * 游戏顺序：1(东) → 0(南) → 3(西) → 2(北) → 1(东)
- */
-const PLAYER_ORDER = [1, 0, 3, 2]; // [东, 南, 西, 北]
-const REVERSE_ORDER: number[] = []; // 反向映射
-PLAYER_ORDER.forEach((orderIdx, physicalIdx) => {
-  REVERSE_ORDER[orderIdx] = physicalIdx;
-});
-
-/**
- * 将物理索引转换为游戏顺序索引
- */
-function toGameOrder(physicalIndex: number): number {
-  return REVERSE_ORDER[physicalIndex] ?? physicalIndex;
-}
-
-/**
- * 将游戏顺序索引转换为物理索引
- */
-function toPhysicalIndex(gameOrderIndex: number): number {
-  return PLAYER_ORDER[gameOrderIndex] ?? gameOrderIndex;
-}
-
-/**
- * 获取顺时针下一个玩家（按游戏顺序：东→南→西→北）
+ * 获取逆时针下一个玩家索引（简单索引递增）
  */
 function getNextPlayerInOrder(currentPhysicalIndex: number, playerCount: number): number {
-  const currentGameOrder = toGameOrder(currentPhysicalIndex);
-  const nextGameOrder = (currentGameOrder + 1) % playerCount;
-  return toPhysicalIndex(nextGameOrder);
+  return (currentPhysicalIndex + 1) % playerCount;
 }
 
 export class GameEngine {
@@ -179,74 +136,49 @@ export class GameEngine {
         return { newState, success: true, message: '出牌成功，游戏结束' };
       }
 
-      // 切换到下一个玩家（顺时针：东→南→西→北）
-      let nextPlayerIndex = getNextPlayerInOrder(playerIndex, newState.players.length);
-      let attempts = 0;
-
-
-      // 跳过已完成的玩家
-      while (newState.players[nextPlayerIndex].hand.length === 0 && attempts < newState.players.length) {
-        nextPlayerIndex = getNextPlayerInOrder(nextPlayerIndex, newState.players.length);
-        attempts++;
-      }
-
-      // 检查是否所有玩家都已完成（理论上不应该发生，因为游戏应该已经结束）
-      if (attempts >= newState.players.length || newState.players[nextPlayerIndex].hand.length === 0) {
-        return { newState, success: false, error: '所有玩家都已完成，游戏应该已经结束' };
-      }
-
-      // 检查接风逻辑
+      // 判定下家（逆时针寻找下一个有牌的活跃玩家）
       const latestRound = this.getCurrentRound(newState);
-      const lastPlayPlayerIndex = latestRound?.lastPlayPlayerIndex;
-      const currentLastPlayCards = latestRound?.lastPlay;
+      if (!latestRound) return { newState, success: true, message: '出牌成功' };
 
-      if (latestRound && lastPlayPlayerIndex !== null && lastPlayPlayerIndex !== undefined && currentLastPlayCards && currentLastPlayCards.length > 0) {
-        // 如果最后出牌者已经出完牌，检查是否所有剩余玩家都要不起
-        if (newState.players[lastPlayPlayerIndex].hand.length === 0) {
-          // 最后出牌者已出完，检查是否所有剩余玩家都要不起
-          const lastPlayCardType = getCardType(currentLastPlayCards);
-          if (lastPlayCardType) {
-            const lastPlay: Play = {
-              cards: currentLastPlayCards,
-              type: lastPlayCardType.type,
-              value: lastPlayCardType.value
-            };
+      let nextActiveIndex = getNextPlayerInOrder(playerIndex, newState.players.length);
+      let cycleDetected = false;
+      const winnerIndex = latestRound.lastPlayPlayerIndex;
 
-            // 检查是否所有剩余活跃玩家都要不起
-            let allPassed = true;
-            for (let i = 0; i < newState.players.length; i++) {
-              const player = newState.players[i];
-              if (player.hand.length > 0) { // 只检查还有牌的玩家
-                const canBeat = hasPlayableCards(player.hand, lastPlay);
-                if (canBeat) {
-                  allPassed = false;
-                  break;
-                }
-              }
-            }
-
-            if (allPassed) {
-              // 所有剩余玩家都要不起，应该触发接风
-              // handleTakeover 会使用策略模式自动处理（团队模式优先找队友，单人模式找下一个活跃玩家）
-              newState = this.handleTakeover(newState);
-            } else {
-              // 还有玩家能压过，正常继续
-              newState = newState.updateCurrentPlayer(nextPlayerIndex);
-            }
-          } else {
-            // lastPlay无效，正常切换
-            newState = newState.updateCurrentPlayer(nextPlayerIndex);
-          }
-        } else if (nextPlayerIndex === lastPlayPlayerIndex) {
-          // 最后出牌者还在游戏中，且回合循环回到他，触发接风
-          newState = this.handleTakeover(newState);
-        } else {
-          // 最后出牌者还在游戏中，但下一个玩家不是他，正常切换
-          newState = newState.updateCurrentPlayer(nextPlayerIndex);
-        }
+      // 如果 raw 下家就是赢家，直接触发回环
+      if (nextActiveIndex === winnerIndex) {
+        cycleDetected = true;
       } else {
-        // 没有lastPlay或lastPlayPlayerIndex，正常切换
-        newState = newState.updateCurrentPlayer(nextPlayerIndex);
+        // 否则跳过已出完牌的玩家，但在跳过过程中如果撞到了赢家，也算回环
+        let attempts = 0;
+        while (newState.players[nextActiveIndex].hand.length === 0 && attempts < newState.players.length) {
+          if (nextActiveIndex === winnerIndex) {
+            cycleDetected = true;
+            break;
+          }
+          nextActiveIndex = getNextPlayerInOrder(nextActiveIndex, newState.players.length);
+          attempts++;
+
+          if (nextActiveIndex === winnerIndex) {
+            cycleDetected = true;
+            break;
+          }
+        }
+      }
+
+      // 回环判定处理
+      if (cycleDetected) {
+        console.log(`[TEAM_DEBUG] GameEngine.playCards: 检测到回环，调用handleTakeover, winnerIndex=${winnerIndex}`);
+        newState = this.handleTakeover(newState);
+        console.log(`[TEAM_DEBUG] GameEngine.playCards: handleTakeover完成, newCurrentPlayer=${newState.currentPlayerIndex}`);
+      } else {
+        // 兜底保护：确保下一位玩家确实有牌，否则继续查找
+        if (newState.players[nextActiveIndex].hand.length === 0) {
+          console.log(`[TEAM_DEBUG] GameEngine.playCards: 下家${nextActiveIndex}无牌，继续查找`);
+          nextActiveIndex = this.findNextActivePlayer(newState, nextActiveIndex);
+        }
+        console.log(`[TEAM_DEBUG] GameEngine.playCards: 更新当前玩家, playerIndex=${playerIndex} -> nextActiveIndex=${nextActiveIndex}`);
+        newState = newState.updateCurrentPlayer(nextActiveIndex);
+        console.log(`[TEAM_DEBUG] GameEngine.playCards: 更新完成, newCurrentPlayer=${newState.currentPlayerIndex}`);
       }
 
       return { newState, success: true, message: '出牌成功' };
@@ -293,10 +225,6 @@ export class GameEngine {
         };
       }
 
-      // 接风轮不能不要
-      if (currentRound.isTakeoverRound) {
-        return { newState: state, success: false, error: '接风轮必须出牌' };
-      }
 
       // 调用RoundModule处理不要
       const result = RoundModule.processPass(
@@ -308,27 +236,34 @@ export class GameEngine {
       let newState = state;
       newState = newState.updateRound(state.currentRoundIndex, result.updatedRound);
 
-      // 如果触发接风轮，处理接风逻辑（不一定结束回合！）
-      if (result.isTakeover) {
+      // 判定下家并检查回环
+      const winnerIndex = currentRound.lastPlayPlayerIndex;
+      let nextActiveIndex = getNextPlayerInOrder(playerIndex, newState.players.length);
+      let cycleDetected = false;
+
+      if (nextActiveIndex === winnerIndex) {
+        cycleDetected = true;
+      } else {
+        let attempts = 0;
+        while (newState.players[nextActiveIndex].hand.length === 0 && attempts < newState.players.length) {
+          if (nextActiveIndex === winnerIndex) {
+            cycleDetected = true;
+            break;
+          }
+          nextActiveIndex = getNextPlayerInOrder(nextActiveIndex, newState.players.length);
+          attempts++;
+          if (nextActiveIndex === winnerIndex) {
+            cycleDetected = true;
+            break;
+          }
+        }
+      }
+
+      if (cycleDetected) {
+        // 全场不要，回到了出牌人，触发本轮结束与权力继承
         newState = this.handleTakeover(newState);
       } else {
-        // 切换到下一个玩家（顺时针：东→南→西→北）
-        let nextPlayerIndex = getNextPlayerInOrder(playerIndex, newState.players.length);
-        let attempts = 0;
-
-
-        while (newState.players[nextPlayerIndex].hand.length === 0 && attempts < newState.players.length) {
-          nextPlayerIndex = getNextPlayerInOrder(nextPlayerIndex, newState.players.length);
-          attempts++;
-        }
-
-        // 检查是否一圈回到最后出牌者
-        const latestRound = this.getCurrentRound(newState);
-        if (latestRound && nextPlayerIndex === latestRound.lastPlayPlayerIndex) {
-          newState = this.handleTakeover(newState);
-        } else {
-          newState = newState.updateCurrentPlayer(nextPlayerIndex);
-        }
+        newState = newState.updateCurrentPlayer(nextActiveIndex);
       }
 
       return { newState, success: true, message: '不要' };
@@ -339,190 +274,124 @@ export class GameEngine {
   }
 
   /**
-   * 处理接风（不一定开启新轮！）
+   * 处理轮次结算与权力继承（接风逻辑）
    */
   private static handleTakeover(state: GameState): GameState {
+    console.log('[TEAM_DEBUG] handleTakeover: 开始处理轮次结算');
     const currentRound = this.getCurrentRound(state);
-    if (!currentRound) return state;
+    if (!currentRound) {
+      console.log('[TEAM_DEBUG] handleTakeover: 当前轮次不存在');
+      return state;
+    }
 
-    const winnerIndex = currentRound.lastPlayPlayerIndex || 0;
+    const winnerIndex = currentRound.lastPlayPlayerIndex;
+    if (winnerIndex === null) {
+      console.log('[TEAM_DEBUG] handleTakeover: 赢家索引为null');
+      return state;
+    }
+
     const winner = state.players[winnerIndex];
-
-
-    // 1. 赢家获得本轮所有手牌分（5/10/K）
-    const roundScore = currentRound.roundScore || 0;
+    console.log(`[TEAM_DEBUG] handleTakeover: Winner=${winnerIndex}(${winner.name}), TeamMode=${state.config.teamMode}, HandSize=${winner.hand.length}`);
     let newState = state;
-    let winnerNewScore = (winner.score || 0) + roundScore;
 
+    // 1. 结算分数（分牌分累加）
+    const roundScore = currentRound.roundScore || 0;
+    // 先给赢家加上分牌分数
+    newState = newState.updatePlayer(winnerIndex, { 
+      score: (winner.score || 0) + roundScore 
+    });
 
-    // 2. 结算本轮所有墩分
-    const roundPlays = currentRound.plays;
-
-    roundPlays.forEach(play => {
+    // 2. 结算墩分 (如果存在)
+    // 规则：每个墩从每个其他玩家扣除30分，出墩的玩家增加 (其他玩家数 × 30分 × 墩数)
+    currentRound.plays.forEach(play => {
       if (play.cards.length >= 7) {
         const dunCount = Math.pow(2, play.cards.length - 7);
-        const dunPlayerScore = dunCount * 30 * 3;
-        const otherPlayersScore = dunCount * 30;
+        const totalPlayers = newState.players.length;
+        const otherPlayersCount = totalPlayers - 1;
+        
+        // 出墩玩家获得的分数 = 其他玩家数 × 30分 × 墩数
+        const dunPlayerScore = otherPlayersCount * 30 * dunCount;
+        
+        // 每个其他玩家扣除的分数 = 30分 × 墩数
+        const otherPlayersScore = 30 * dunCount;
 
+        // 给出墩的玩家加分（包括赢家，如果赢家也出了墩）
+        const dunPlayer = newState.players[play.playerId];
+        newState = newState.updatePlayer(play.playerId, { 
+          score: (dunPlayer.score || 0) + dunPlayerScore 
+        });
 
-        if (play.playerId === winnerIndex) {
-          winnerNewScore += dunPlayerScore;
-        } else {
-          const dunPlayer = newState.players[play.playerId];
-          const dunPlayerNewScore = (dunPlayer.score || 0) + dunPlayerScore;
-          newState = newState.updatePlayer(play.playerId, { score: dunPlayerNewScore });
-        }
-
+        // 从每个其他玩家扣除分数（包括赢家，如果赢家没有出墩）
         newState.players.forEach((p, idx) => {
           if (idx !== play.playerId) {
-            const playerScore = (p.score || 0) - otherPlayersScore;
-            newState = newState.updatePlayer(idx, { score: playerScore });
+            newState = newState.updatePlayer(idx, { 
+              score: (p.score || 0) - otherPlayersScore 
+            });
           }
         });
       }
     });
 
-    // 更新赢家分数
-    newState = newState.updatePlayer(winnerIndex, { score: winnerNewScore });
+    // 3. 寻找下一轮起始人（继承权）
+    const strategy = getStrategy(newState);
+    const currentWinner = newState.players[winnerIndex];
+    let nextPlayerIndex: number | null = winnerIndex;
+    console.log(`[TEAM_DEBUG] handleTakeover: 当前赢家手牌数=${currentWinner.hand.length}, 策略模式=${strategy.getModeName()}`);
 
-    newState.players.forEach((p, idx) => {
+    // 只有当赢家手牌已空时，才需要触发"接风"逻辑寻找下家
+    if (currentWinner.hand.length === 0) {
+      console.log(`[TEAM_DEBUG] handleTakeover: 赢家手牌为空，开始寻找接风玩家`);
+      console.log(`[TEAM_DEBUG] handleTakeover: 玩家状态 - ${newState.players.map((p, idx) => `P${idx}:${p.name}(手牌${p.hand.length},团队${p.teamId})`).join(', ')}`);
+      nextPlayerIndex = strategy.findNextPlayerForNewRound(
+        winnerIndex,
+        newState.players as any,
+        newState.players.length,
+        newState.teamConfig
+      );
+      console.log(`[TEAM_DEBUG] handleTakeover: 接风查找结果 nextPlayerIndex=${nextPlayerIndex}`);
+    } else {
+      console.log(`[TEAM_DEBUG] handleTakeover: 赢家还有牌，连庄 nextPlayerIndex=${nextPlayerIndex}`);
+    }
+    // 否则，赢家连庄，nextPlayerIndex 就是 winnerIndex (已默认赋值)
+
+    // 4. 判定游戏是否结束
+    console.log(`[TEAM_DEBUG] handleTakeover: 检查游戏是否结束, finishOrder=[${newState.finishOrder.join(',')}]`);
+    const gameEndResult = strategy.shouldGameEnd(newState.players as any, [...newState.finishOrder], newState.teamConfig);
+    console.log(`[TEAM_DEBUG] handleTakeover: 游戏结束检查结果 shouldEnd=${gameEndResult.shouldEnd}, reason=${gameEndResult.reason || 'N/A'}`);
+
+    // 5. 结束当前轮次
+    const finishedRound = currentRound.finish({
+      winnerId: winnerIndex,
+      winnerName: winner.name
     });
+    newState = newState.updateRound(state.currentRoundIndex, finishedRound);
 
-    // 3. 找下一个出牌者
-    let nextPlayerIndex: number;
-    let shouldStartNewRound = false;
-
-    if (winner.hand.length > 0) {
-      // 情况1: 赢家还有牌 → 赢家继续
-      nextPlayerIndex = winnerIndex;
-      shouldStartNewRound = true; // 赢家接风，开启新轮
-    } else {
-      // 情况2: 赢家已出完 → 找剩余活跃玩家
-
-      const activePlayers = newState.players.filter(p => p.hand.length > 0);
-      const lastPlayCards = currentRound.lastPlay;
-
-
-      if (lastPlayCards && lastPlayCards.length > 0) {
-        // 检查是否有人能压过lastPlay
-        const cardType = getCardType(lastPlayCards);
-        if (cardType) {
-          const lastPlay = {
-            cards: lastPlayCards,
-            type: cardType.type,
-            value: cardType.value
-          };
-
-          // 2a: 寻找能压过的活跃玩家（按顺时针顺序：东→南→西→北）
-          let foundPlayer: number | null = null;
-          let checkIdx = getNextPlayerInOrder(winnerIndex, newState.players.length);
-          for (let i = 0; i < newState.players.length; i++) {
-            const player = newState.players[checkIdx];
-
-            if (player.hand.length > 0) {
-              const canBeat = hasPlayableCards(player.hand, lastPlay);
-
-              if (canBeat) {
-                foundPlayer = checkIdx;
-                break;
-              }
-            }
-
-            // 移动到下一个玩家（顺时针）
-            checkIdx = getNextPlayerInOrder(checkIdx, newState.players.length);
-            if (checkIdx === winnerIndex) break; // 避免无限循环
-          }
-
-          if (foundPlayer !== null) {
-            // 2a: 有人能压 → 这一轮继续！
-            // 注意：foundPlayer在循环中已经检查过hand.length > 0，所以肯定有手牌
-            nextPlayerIndex = foundPlayer;
-            shouldStartNewRound = false;
-          } else {
-            // 2b: 没人能压 → 新轮开始
-            const strategy = getStrategy(newState);
-            const nextIdx = strategy.findNextPlayerForNewRound(
-              winnerIndex,
-              newState.players as Player[],
-              newState.players.length,
-              newState.teamConfig
-            );
-            if (nextIdx === null) {
-              return state; // 返回原状态，不应该继续
-            }
-            nextPlayerIndex = nextIdx;
-            shouldStartNewRound = true;
-          }
-        } else {
-          // lastPlay无效，开启新轮
-          const strategy = getStrategy(newState);
-          const nextIdx = strategy.findNextPlayerForNewRound(
-            winnerIndex,
-            newState.players as Player[],
-            newState.players.length,
-            newState.teamConfig
-          );
-          if (nextIdx === null) {
-            return state; // 返回原状态，不应该继续
-          }
-          nextPlayerIndex = nextIdx;
-          shouldStartNewRound = true;
-        }
-      } else {
-        // 没有lastPlay，开启新轮
-        const strategy = getStrategy(newState);
-        const nextIdx = strategy.findNextPlayerForNewRound(
-          winnerIndex,
-          newState.players as Player[],
-          newState.players.length,
-          newState.teamConfig
-        );
-        if (nextIdx === null) {
-          return state; // 返回原状态，不应该继续
-        }
-        nextPlayerIndex = nextIdx;
-        shouldStartNewRound = true;
-      }
+    // 如果判定游戏结束或找不到继承人（本阵营全跑），宣告结束
+    if (gameEndResult.shouldEnd || nextPlayerIndex === null) {
+      console.log(`[TEAM_DEBUG] handleTakeover: 游戏结束 shouldEnd=${gameEndResult.shouldEnd}, nextPlayerIndex=${nextPlayerIndex}`);
+      return newState.updateStatus(GameStatus.FINISHED).updateCurrentPlayer(-1);
     }
 
-    // 4. 最终安全检查：确保nextPlayerIndex指向的玩家确实还有手牌
-    if (nextPlayerIndex < 0 || nextPlayerIndex >= newState.players.length) {
-      return state;
-    }
-    if (newState.players[nextPlayerIndex].hand.length === 0) {
-      return state; // 返回原状态，不应该继续
-    }
+    // 6. 开启新轮次
+    const newRoundNum = newState.rounds.length + 1;
+    console.log(`[TEAM_DEBUG] handleTakeover: 创建新轮次 Round${newRoundNum}, NextPlayer=${nextPlayerIndex}`);
+    const newRound = new RoundData({
+      roundNumber: newRoundNum,
+      lastPlay: null,
+      lastPlayPlayerIndex: null
+    });
+    newState = newState.addRound(newRound);
 
-    // 5. 根据情况更新状态
-    if (shouldStartNewRound) {
-      // 结束当前轮
-      const finishedRound = currentRound.finish({
-        winnerId: winnerIndex,
-        winnerName: winner.name
-      });
-      newState = newState.updateRound(state.currentRoundIndex, finishedRound);
-
-      // 创建新轮（明确清空lastPlay）
-      const newRound = new RoundData({
-        roundNumber: newState.rounds.length + 1,
-        lastPlay: null,  // 明确设置为null，确保首家判断正确
-        lastPlayPlayerIndex: null
-      });
-      newState = newState.addRound(newRound);
-    } else {
-      // 本轮继续
-    }
-
-    newState = newState.updateCurrentPlayer(nextPlayerIndex);
-
-    return newState;
+    const finalState = newState.updateCurrentPlayer(nextPlayerIndex);
+    console.log(`[TEAM_DEBUG] handleTakeover: 完成，新轮次开始，当前玩家=${finalState.currentPlayerIndex}`);
+    return finalState;
   }
 
   /**
-   * 找下一个活跃玩家（顺时针：东→南→西→北）
+   * 找下一个活跃玩家（逆时针：东→北→西→南）
    */
   private static findNextActivePlayer(state: GameState, fromIndex: number): number {
-    // 从下一个玩家开始顺时针查找
+    // 从下一个玩家开始逆时针查找
     let nextIdx = getNextPlayerInOrder(fromIndex, state.players.length);
     for (let i = 0; i < state.players.length; i++) {
       if (state.players[nextIdx].hand.length > 0) {

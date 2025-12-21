@@ -59,7 +59,7 @@ export interface PlayProcessResult {
 export class Round {
   readonly roundNumber: number;
   readonly startTime: number;
-  
+
   private plays: RoundPlayRecord[] = [];
   private totalScore: number = 0;
   private lastPlay: Play | null = null;
@@ -76,7 +76,7 @@ export class Round {
 
   // ========== 出牌时间控制 ==========
   private timingConfig: PlayTimingConfig = {
-    minIntervalBetweenPlays: 500,  // 默认500ms最短间隔
+    minIntervalBetweenPlays: 0,  // 默认0ms最短间隔（无延迟）
     playTimeout: 30000,  // 默认30秒超时
     enabled: true
   };
@@ -215,8 +215,8 @@ export class Round {
    * 检查是否有正在处理的出牌
    */
   hasProcessingPlay(): boolean {
-    return this.currentPlayProcess !== null && 
-           this.currentPlayProcess.status === PlayProcessStatus.PROCESSING;
+    return this.currentPlayProcess !== null &&
+      this.currentPlayProcess.status === PlayProcessStatus.PROCESSING;
   }
 
   /**
@@ -314,7 +314,7 @@ export class Round {
   ): Promise<PlayProcessResult> {
     // 获取调用栈信息（用于调试）
     const stackTrace = new Error().stack?.split('\n').slice(2, 8).join('\n') || 'unknown';
-    
+
     // 检查轮次是否已结束
     if (this.isFinished) {
       return {
@@ -374,12 +374,12 @@ export class Round {
         reject?.(result.error);
         return result;
       }
-      
+
       // 执行异步处理（生成TTS、播放等），添加超时保护
       // 超时时间：使用配置的 playTimeout，默认30秒
       const timeoutMs = this.timingConfig.playTimeout || 30000;
       let processTimeout: NodeJS.Timeout | null = null;
-      
+
       try {
         // 包装 processAsync，在执行过程中检查轮次状态
         const wrappedProcessAsync = async () => {
@@ -387,9 +387,9 @@ export class Round {
           if (this.isFinished) {
             throw new Error(`轮次 ${this.roundNumber} 已结束，无法处理出牌`);
           }
-          
+
           await processAsync();
-          
+
           // 在执行后检查
           if (this.isFinished) {
           }
@@ -403,7 +403,7 @@ export class Round {
             }, timeoutMs);
           })
         ]);
-        
+
         // 如果成功完成，清除超时定时器
         if (processTimeout) {
           clearTimeout(processTimeout);
@@ -413,7 +413,7 @@ export class Round {
         if (processTimeout) {
           clearTimeout(processTimeout);
         }
-        
+
         // 如果是因为轮次已结束导致的错误，记录警告但不抛出
         if (this.isFinished && error instanceof Error && error.message.includes('已结束')) {
           // 返回失败结果，但不抛出错误
@@ -428,11 +428,11 @@ export class Round {
           reject?.(error as Error);
           return result;
         }
-        
+
         // 重新抛出其他错误，让外层的 catch 处理
         throw error;
       }
-      
+
       const endTime = Date.now();
       const result: PlayProcessResult = {
         status: PlayProcessStatus.COMPLETED,
@@ -472,8 +472,8 @@ export class Round {
    * 返回是否取消了处理
    */
   cancelPlayProcess(): boolean {
-    if (this.currentPlayProcess && 
-        this.currentPlayProcess.status === PlayProcessStatus.PROCESSING) {
+    if (this.currentPlayProcess &&
+      this.currentPlayProcess.status === PlayProcessStatus.PROCESSING) {
       const process = this.currentPlayProcess;
       this.currentPlayProcess = null; // 先清除引用
       process.status = PlayProcessStatus.FAILED;
@@ -571,10 +571,10 @@ export class Round {
 
     // 记录出牌
     this.plays.push(playRecord);
-    
+
     // 累加分数（分牌分数累加到轮次分数池）
     this.totalScore += playRecord.score;
-    
+
     // 更新最后出牌信息
     this.lastPlay = play;
     this.lastPlayPlayerIndex = playRecord.playerId;
@@ -591,7 +591,7 @@ export class Round {
     if (this.isFinished) {
       throw new Error(`轮次 ${this.roundNumber} 已结束，无法记录要不起`);
     }
-    
+
     // 清除出牌计时器
     this.clearPlayTimer(playerIndex);
   }
@@ -667,28 +667,28 @@ export class Round {
     // 需要排除：1. 已出完牌的玩家 2. 当前玩家（下一个要出牌的） 3. 刚出牌的玩家
     for (let i = 0; i < players.length; i++) {
       const player = players[i];
-      
+
       // 跳过已出完牌的玩家
       if (player.hand.length === 0) {
         continue;
       }
-      
+
       // 跳过当前玩家（下一个要出牌或要不起的玩家）
       if (i === currentPlayerIndex) {
         continue;
       }
-      
+
       // 跳过刚出牌的玩家（刚出牌的玩家肯定能打过自己的牌，不需要检查）
       if (i === this.lastPlayPlayerIndex) {
         continue;
       }
-      
+
       // 如果还有玩家能打过，不需要接风
       if (hasPlayableCards(player.hand, this.lastPlay)) {
         return false;
       }
     }
-    
+
     // 所有人都要不起（除了刚出牌的玩家和下一个要出牌的玩家），需要接风
     return true;
   }
@@ -704,23 +704,23 @@ export class Round {
   shouldEnd(nextPlayerIndex: number): boolean {
     // 获取调用栈信息（用于调试）
     const stackTrace = new Error().stack?.split('\n').slice(2, 6).join('\n') || 'unknown';
-    
-      if (this.isFinished) {
-        return false;
+
+    if (this.isFinished) {
+      return false;
     }
-    
+
     // 如果没有最后出牌的人，轮次不应该结束
     if (this.lastPlayPlayerIndex === null) {
       return false;
     }
-    
+
     // 如果有正在处理的出牌，不应该立即结束轮次
     // 因为正在处理的出牌可能会改变轮次状态
     // 但是，如果正在处理的出牌状态是 'failed' 或已经超时，应该允许结束轮次
     if (this.hasProcessingPlay()) {
       const processingPlayerIndex = this.currentPlayProcess?.playerIndex;
       const processingStatus = this.currentPlayProcess?.status;
-      
+
       // 如果正在处理的出牌已经失败或超时，允许结束轮次
       if (processingStatus === PlayProcessStatus.FAILED) {
         // 清除失败的出牌处理状态
@@ -729,16 +729,16 @@ export class Round {
         return false;
       }
     }
-    
+
     // 如果下一个玩家是最后出牌的人，说明所有人都要不起，轮次应该结束
     // 但是需要确保至少有一轮完整的出牌循环，避免新轮次刚开始就结束
     // 检查：如果出牌记录数小于玩家数量，且下一个玩家就是出牌的人，可能是新轮次刚开始
     // 但是，如果已经有多次出牌（>= 2），说明已经完成了一轮循环，应该允许结束
     // 另外，如果出牌记录数 >= 玩家数量，说明已经完成了一轮完整的循环，应该允许结束
-    
+
     // 如果下一个玩家是最后出牌的人，说明所有人都要不起，轮次应该结束
     const shouldEnd = nextPlayerIndex === this.lastPlayPlayerIndex;
-    
+
     // 只有在出牌记录数很少（<= 1）且下一个玩家就是出牌的人时，才阻止结束
     // 这是为了防止新轮次刚开始时立即结束
     // 但是，如果出牌记录数 >= 2，说明已经完成了一轮循环，应该允许结束
@@ -747,7 +747,7 @@ export class Round {
       // 不应该立即结束，应该等待至少一轮完整的循环
       return false;
     }
-    
+
     return shouldEnd;
   }
 
@@ -789,12 +789,12 @@ export class Round {
     }
 
     const updatedPlayers = [...players];
-    
+
     // ========== 确定接风玩家（最后出牌的人）==========
     // 注意：分数分配已移到 GameController，这里只确定接风玩家索引
     // 优先使用传入的 takeoverWinnerIndex（接风场景），否则使用 lastPlayPlayerIndex
     const winnerIndex = takeoverWinnerIndex !== undefined ? takeoverWinnerIndex : this.lastPlayPlayerIndex;
-    
+
     if (winnerIndex !== null) {
       const winner = updatedPlayers[winnerIndex];
       if (winner) {
@@ -808,11 +808,11 @@ export class Round {
     // 但如果接风玩家已出完，由下一个还在游戏中的玩家开始
     // 优先使用传入的 takeoverWinnerIndex（接风场景），否则使用 lastPlayPlayerIndex
     let nextPlayerIndex: number | null = null;
-    
+
     const finalWinnerIndex = winnerIndex; // 接风玩家（最后出牌的人）
     if (finalWinnerIndex !== null) {
       const winner = updatedPlayers[finalWinnerIndex];
-      
+
       // 如果接风玩家还没出完牌，由接风玩家开始下一轮
       if (winner && winner.hand.length > 0) {
         nextPlayerIndex = finalWinnerIndex;
@@ -878,14 +878,14 @@ export class Round {
     round.winnerId = record.winnerId;
     round.winnerName = record.winnerName;
     round.isFinished = true;
-    
+
     // 尝试恢复最后出牌信息（从最后一个出牌记录）
     if (record.plays.length > 0) {
       const lastPlay = record.plays[record.plays.length - 1];
       round.lastPlayPlayerIndex = lastPlay.playerId;
       // 注意：lastPlay 无法完全恢复（需要 Play 对象），这里只恢复 playerIndex
     }
-    
+
     return round;
   }
 
@@ -918,7 +918,7 @@ export class Round {
     duration?: number;
   } {
     const scoreCardCount = this.plays.reduce((sum, play) => sum + play.scoreCards.length, 0);
-    
+
     return {
       playCount: this.plays.length,
       totalScore: this.totalScore,

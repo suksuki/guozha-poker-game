@@ -435,8 +435,8 @@ export class RoundScheduler {
       }
     }
 
-    // 接风轮询：下一个玩家是 (startIndex - 1 + playerCount) % playerCount (逆时针/Counter-Clockwise)
-    let nextPlayerIndex = (startIndex - 1 + playerCount) % playerCount;
+    // 接风轮询：下一个玩家是 (startIndex + 1) % playerCount (逆时针/Counter-Clockwise)
+    let nextPlayerIndex = (startIndex + 1) % playerCount;
     let attempts = 0;
 
     // 如果下一个玩家是出牌玩家，直接返回（即使出牌玩家已经出完牌）
@@ -448,7 +448,7 @@ export class RoundScheduler {
     while (players[nextPlayerIndex].hand.length === 0 &&
       nextPlayerIndex !== endPlayerIndex &&
       attempts < playerCount) {
-      nextPlayerIndex = (nextPlayerIndex - 1 + playerCount) % playerCount;
+      nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
       attempts++;
     }
 

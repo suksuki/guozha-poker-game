@@ -25,6 +25,9 @@
           :winner="gameStore.gameState?.winner !== null && gameStore.gameState?.winner !== undefined 
             ? (gameStore.players[gameStore.gameState.winner] as any) 
             : undefined"
+          :is-team-mode="gameStore.isTeamMode"
+          :team-config="gameStore.teamConfig"
+          :team-rankings="gameStore.teamRankings"
           @restart="startGameWithAnimation"
           @close="showResultModal = false"
         />
@@ -43,6 +46,13 @@
     <div v-else-if="gameStore.status === 'playing' || gameStore.status === 'finished'" class="game-container-landscape">
       <!-- 顶部工具栏 -->
       <div class="toolbar-landscape">
+        <!-- 游戏模式标识 -->
+        <van-tag 
+          :type="gameStore.isTeamMode ? 'primary' : 'default'"
+          size="medium"
+        >
+          {{ gameStore.isTeamMode ? '👥 团队赛' : '🚀 个人赛' }}
+        </van-tag>
         <van-tag 
           v-if="gameStore.players.length !== 4"
           type="warning"
@@ -223,92 +233,36 @@
             <!-- 中央出牌区 - 真实牌桌布局 -->
             <div class="play-area-center">
               <!-- 北家 (Top) -->
-                <div class="played-cards-slot slot-top">
-                  <transition name="pop-in">
-                    <div v-if="getPlayedCards(playerNorth?.id).length > 0">
-                      <div class="multiple-plays-container">
-                        <div v-for="(play, playIdx) in getPlayedCards(playerNorth?.id)" :key="playIdx" 
-                             class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerNorth?.id).length)">
-                          <div class="card-stack-display">
-                            <div v-for="(card, i) in play.cards" :key="card.id" 
-                                 class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
-                              <CardView :card="card" size="small" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div v-else-if="passStatus.get(playerNorth?.id || -1)" class="pass-indicator">
-                      <span class="pass-text">不要</span>
-                    </div>
-                  </transition>
-                </div>
+              <PlayedCards 
+                class="played-cards-slot slot-top"
+                :plays="getPlayedCards(playerNorth?.id)"
+                :is-passed="passStatus.get(playerNorth?.id || -1)"
+                position="top"
+              />
               
               <!-- 西家 (Left) -->
-                <div class="played-cards-slot slot-left">
-                  <transition name="pop-in">
-                    <div v-if="getPlayedCards(playerWest?.id).length > 0">
-                      <div class="multiple-plays-container">
-                        <div v-for="(play, playIdx) in getPlayedCards(playerWest?.id)" :key="playIdx" 
-                             class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerWest?.id).length)">
-                          <div class="card-stack-display">
-                            <div v-for="(card, i) in play.cards" :key="card.id" 
-                                 class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
-                              <CardView :card="card" size="small" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div v-else-if="passStatus.get(playerWest?.id || -1)" class="pass-indicator">
-                      <span class="pass-text">不要</span>
-                    </div>
-                  </transition>
-                </div>
+              <PlayedCards 
+                class="played-cards-slot slot-left"
+                :plays="getPlayedCards(playerWest?.id)"
+                :is-passed="passStatus.get(playerWest?.id || -1)"
+                position="left"
+              />
               
               <!-- 东家 (Right) -->
-                <div class="played-cards-slot slot-right">
-                  <transition name="pop-in">
-                    <div v-if="getPlayedCards(playerEast?.id).length > 0">
-                      <div class="multiple-plays-container">
-                        <div v-for="(play, playIdx) in getPlayedCards(playerEast?.id)" :key="playIdx" 
-                             class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerEast?.id).length)">
-                          <div class="card-stack-display">
-                            <div v-for="(card, i) in play.cards" :key="card.id" 
-                                 class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
-                              <CardView :card="card" size="small" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div v-else-if="passStatus.get(playerEast?.id || -1)" class="pass-indicator">
-                      <span class="pass-text">不要</span>
-                    </div>
-                  </transition>
-                </div>
+              <PlayedCards 
+                class="played-cards-slot slot-right"
+                :plays="getPlayedCards(playerEast?.id)"
+                :is-passed="passStatus.get(playerEast?.id || -1)"
+                position="right"
+              />
               
               <!-- 南家/自己 (Bottom) -->
-                <div class="played-cards-slot slot-bottom">
-                  <transition name="pop-in">
-                    <div v-if="getPlayedCards(playerSouth?.id).length > 0">
-                      <div class="multiple-plays-container">
-                        <div v-for="(play, playIdx) in getPlayedCards(playerSouth?.id)" :key="playIdx" 
-                             class="play-history-item" :style="getPlayStyle(playIdx, getPlayedCards(playerSouth?.id).length)">
-                          <div class="card-stack-display">
-                            <div v-for="(card, i) in play.cards" :key="card.id" 
-                                 class="played-card-item" :style="{ zIndex: i, transform: `translateX(${i * 15}px) rotate(${(i - play.cards.length/2) * 2}deg)` }">
-                              <CardView :card="card" size="small" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div v-else-if="passStatus.get(playerSouth?.id || -1)" class="pass-indicator">
-                      <span class="pass-text">不要</span>
-                    </div>
-                  </transition>
-                </div>
+              <PlayedCards 
+                class="played-cards-slot slot-bottom"
+                :plays="getPlayedCards(playerSouth?.id)"
+                :is-passed="passStatus.get(playerSouth?.id || -1)"
+                position="bottom"
+              />
               
               <!-- 等待提示（仅当还没人出牌时显示） -->
               <template v-if="!gameStore.currentRound?.plays.length && gameStore.status === 'playing'">
@@ -382,7 +336,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, reactive } from 'vue';
+import { ref, computed, onMounted, onUnmounted, reactive, watch } from 'vue';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { showToast } from 'vant';
 import { useI18n } from '../../i18n/composable';
@@ -397,6 +351,7 @@ import TrainingPanel from '../training/TrainingPanel.vue';
 import DealingAnimation from './DealingAnimation.vue';
 import StartScreen from './StartScreen.vue';
 import HandCards from './HandCards.vue';
+import PlayedCards from './PlayedCards.vue';
 
 const { t } = useI18n();
 
@@ -420,31 +375,22 @@ const openSettings = () => {
 };
 
 // 按东南西北方位排列玩家
+const playerSouth = computed(() => {
+  return gameStore.players[0];
+}); // 南 - 底部（你）
+
 const playerEast = computed(() => {
-  // Logic: Player 3 is East (Team B)
-  const player = gameStore.players[3];
-  //
-  return player;
+  // 标准定义：0=南, 1=西, 2=北, 3=东 (逆时针：南->西->北->东)
+  return gameStore.players[3];
 }); // 东 - 右侧
 
 const playerNorth = computed(() => {
-  const player = gameStore.players[2];
-  //
-  return player;
+  return gameStore.players[2];
 }); // 北 - 顶部  
 
 const playerWest = computed(() => {
-  // Logic: Player 1 is West (Team B)
-  const player = gameStore.players[1];
-  //
-  return player;
+  return gameStore.players[1];
 }); // 西 - 左侧
-
-const playerSouth = computed(() => {
-  const player = gameStore.humanPlayer;
-  //
-  return player;
-}); // 南 - 底部（你）
 
 
 
@@ -500,22 +446,7 @@ const getPlayedCards = (playerId: number | undefined) => {
   return gameStore.currentRound.plays.filter(p => p.playerId === playerId);
 };
 
-// 获取多手牌的样式（位移和缩放）
-const getPlayStyle = (index: number, total: number) => {
-  if (total <= 1) return {};
-  
-  // 如果有多手牌，越旧的牌（index越小）位移越多且缩放越小
-  const reverseIndex = total - 1 - index; // 最新的是0
-  const scale = Math.max(0.6, 1 - reverseIndex * 0.15);
-  const translateY = reverseIndex * -40; // 向上偏移
-  const opacity = Math.max(0.4, 1 - reverseIndex * 0.2);
-  
-  return {
-    transform: `translateY(${translateY}px) scale(${scale})`,
-    opacity,
-    zIndex: index
-  };
-};
+
 
 const startGame = () => {
   gameStore.startGame(pendingGameConfig.value);
@@ -604,6 +535,11 @@ import { chatSchedulerService } from '../../services/chat/ChatSchedulerService';
 onMounted(() => {
   chatStore.initializeAIBrainListener();
   
+  // 监听轮次号变化，自动清理"不要"状态
+  watch(() => gameStore.rounds.length, () => {
+    passStatus.clear();
+  });
+  
   // 初始化聊天调度器（传入获取游戏实例的回调）
   chatSchedulerService.initialize(() => gameStore.game as any);
 
@@ -621,6 +557,8 @@ onUnmounted(() => {
 
 // 事件处理
 const onPlayerPlayed = (event: CustomEvent) => {
+  // 当任何人出牌时，清空之前所有的"不要"状态，因为是新的牌局了
+  passStatus.clear();
   const { playerId } = event.detail;
   passStatus.set(playerId, false);
 };
@@ -894,6 +832,28 @@ const toggleAutoPlay = () => {
   align-items: center;
   justify-content: center;
   height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.result-modal-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.result-modal-wrapper::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.result-modal-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.result-modal-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* 不要提示 */

@@ -19,13 +19,25 @@ export function simulateTeamGame(
 ): { winningTeam: number; finalTeamScores: Map<number, number> } {
   let depth = 0;
   const localState = cloneTeamGameState(state);
+  const maxSimulationTime = 1000; // 最多1秒
+  const simStartTime = Date.now();
   
   while (!localState.isTerminal && depth < maxDepth) {
+    // 超时保护
+    if (Date.now() - simStartTime > maxSimulationTime) {
+      break;
+    }
+    
+    // 防止死循环
+    if (depth > maxDepth * 2) {
+      break;
+    }
     const currentHand = localState.allHands[localState.currentPlayerIndex];
     
     if (!currentHand || currentHand.length === 0) {
       // 该玩家已经出完牌
       localState.currentPlayerIndex = getNextPlayer(localState);
+      depth++;
       continue;
     }
     
@@ -45,6 +57,7 @@ export function simulateTeamGame(
       localState.lastPlay = null;
       localState.lastPlayPlayerIndex = null;
       localState.currentPlayerIndex = getNextPlayer(localState);
+      depth++;
       continue;
     }
     

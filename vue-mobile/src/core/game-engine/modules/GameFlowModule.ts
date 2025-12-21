@@ -21,6 +21,8 @@ export class GameFlowModule {
   static endGame(state: GameState, winnerId: number): GameState {
     let newState = state.updateStatus(GameStatus.FINISHED);
     newState = newState.setWinner(winnerId);
+    // 游戏结束时，将 currentPlayerIndex 设置为 -1，避免后续流程继续
+    newState = newState.updateCurrentPlayer(-1);
     return newState;
   }
   

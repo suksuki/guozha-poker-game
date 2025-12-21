@@ -303,7 +303,8 @@ export class GameState {
    * 更新当前玩家索引
    */
   updateCurrentPlayer(index: number): GameState {
-    if (index < 0 || index >= this._players.length) {
+    // 允许 -1 表示游戏结束，没有当前玩家
+    if (index < -1 || (index >= 0 && index >= this._players.length)) {
       throw new Error(`Invalid player index: ${index}`);
     }
 

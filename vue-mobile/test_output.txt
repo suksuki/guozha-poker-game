@@ -1,0 +1,14 @@
+
+ RUN  v1.6.1 /home/jin/guozha-poker-game/vue-mobile
+
+ ❯ tests/integration/robustness_takeover.test.ts  (5 tests | 2 failed) 19ms
+   ❯ tests/integration/robustness_takeover.test.ts > GameEngine 鲁棒性集成测试 - 接风与流转 > 团队模式：赢家跑路，权力严格继承给队友，无队友则平局/结束
+     → expected 2 to be 3 // Object.is equality
+   ❯ tests/integration/robustness_takeover.test.ts > GameEngine 鲁棒性集成测试 - 接风与流转 > 游戏结束判定：当队友全部撤离，接风判定应触发游戏结束
+     → expected 'playing' to be 'finished' // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  20:30:40
+   Duration  1.54s (transform 537ms, setup 30ms, collect 717ms, tests 19ms, environment 374ms, prepare 95ms)
+

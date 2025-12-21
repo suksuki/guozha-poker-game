@@ -57,7 +57,7 @@ export class IndividualModeStrategy implements IGameModeStrategy {
   }
 
   /**
-   * 个人模式：简单的顺时针找下一个有牌的玩家
+   * 个人模式：简单的逆时针找下一个有牌的玩家
    */
   findNextPlayerForNewRound(
     winnerIndex: number | null,

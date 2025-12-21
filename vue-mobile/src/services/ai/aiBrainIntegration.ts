@@ -86,7 +86,7 @@ export class AIBrainIntegration {
 
     // 监听AI决策完成事件
     const unsubscribeTurn = api.onTurnComplete((event) => {
-      this.decisionListeners.forEach(listener => {
+      this.decisionListeners.forEach((listener) => {
         try {
           listener(event);
         } catch (error) {
@@ -104,12 +104,23 @@ export class AIBrainIntegration {
   convertGameState(game: Game, playerId: number): AIGameState {
     const currentRound = game.currentRound;
     const player = game.players[playerId];
+    
+    if (!player) {
+      console.error(`[TEAM_DEBUG] convertGameState: 玩家不存在, playerId=${playerId}, players.length=${game.players.length}`);
+      throw new Error(`Player ${playerId} not found`);
+    }
+    
+    if (!player.hand || !Array.isArray(player.hand)) {
+      console.error(`[TEAM_DEBUG] convertGameState: 玩家手牌无效, playerId=${playerId}, hand=${player.hand}`);
+      throw new Error(`Player ${playerId} hand is invalid`);
+    }
+    
     const lastPlay = currentRound?.lastPlay || null;
 
     // 计算对手手牌数量
     const opponentHandSizes = game.players
       .filter((_, idx) => idx !== playerId)
-      .map(p => p.hand.length);
+      .map(p => p.hand?.length || 0);
 
     // 计算阶段
     const remainingCards = player.hand.length;
@@ -157,13 +168,17 @@ export class AIBrainIntegration {
   }
 
   async triggerAITurn(playerId: number, game: Game): Promise<void> {
+    console.log(`[TEAM_DEBUG] aiBrainIntegration.triggerAITurn: 开始, Player=${playerId}, TeamMode=${game.state.config.teamMode}`);
     if (!this.gameBridge || !this.isInitialized) {
+      console.log(`[TEAM_DEBUG] aiBrainIntegration.triggerAITurn: GameBridge或AI未初始化`);
       return;
     }
 
     // 转换状态并触发
     const gameState = this.convertGameState(game, playerId);
+    console.log(`[TEAM_DEBUG] aiBrainIntegration.triggerAITurn: 状态转换完成, handSize=${gameState.myHand?.length || 0}, lastPlay=${gameState.lastPlay ? 'exists' : 'null'}`);
     const api = this.gameBridge.getAPI();
+    console.log(`[TEAM_DEBUG] aiBrainIntegration.triggerAITurn: 调用api.triggerAITurn`);
     api.triggerAITurn(playerId, gameState);
   }
 

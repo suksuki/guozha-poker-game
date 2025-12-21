@@ -83,15 +83,15 @@ export function findNextActivePlayer(
   players: Player[],
   playerCount: number
 ): number | null {
-  // 逆时针（南->东->北->西）：Index - 1 (Assuming 0=S, 1=W, 2=N, 3=E or similar layout where -1 is Right)
-  let nextPlayerIndex = (startIndex - 1 + playerCount) % playerCount;
+  // 逆时针方向（0 -> 1 -> 2 -> 3）
+  let nextPlayerIndex = (startIndex + 1) % playerCount;
   let attempts = 0;
   // 跳过所有已出完的玩家
   while (players[nextPlayerIndex].hand.length === 0 && attempts < playerCount) {
-    nextPlayerIndex = (nextPlayerIndex - 1 + playerCount) % playerCount;
+    nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
     attempts++;
   }
-  // 如果所有玩家都出完了，返回 null（调用者应该检查并结束游戏）
+  // 如果所有玩家都出完了，返回 null
   if (attempts >= playerCount) {
     return null;
   }

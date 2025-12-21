@@ -40,7 +40,6 @@ export class AIPlayer {
    * 做决策 (Use Tool Calling)
    */
   async makeDecision(gameState: GameState, cognitive: any): Promise<Decision> {
-
     // 0. 检查决策模块配置
     // 如果配置了 hybrid 或 mcts，优先使用策略引擎
     if (this.config.decisionModules.includes('hybrid') || this.config.decisionModules.includes('mcts')) {
@@ -56,12 +55,20 @@ export class AIPlayer {
   private async makeStrategicDecision(gameState: GameState, cognitive: any): Promise<Decision> {
     // 实例化策略和工具
     if (!this.hybridStrategy && this.sharedResources.llmService) {
-      const { HybridStrategy } = await import('../../ai/strategy/HybridStrategy');
-      this.hybridStrategy = new HybridStrategy(this.sharedResources.llmService);
+      try {
+        const { HybridStrategy } = await import('../../ai/strategy/HybridStrategy');
+        this.hybridStrategy = new HybridStrategy(this.sharedResources.llmService);
+      } catch (error) {
+        return this.createPassDecision("Failed to load HybridStrategy");
+      }
     }
 
     if (!this.cardUtils) {
-      this.cardUtils = await import('../../utils/cardUtils');
+      try {
+        this.cardUtils = await import('../../utils/cardUtils');
+      } catch (error) {
+        return this.createPassDecision("Failed to load cardUtils");
+      }
     }
 
     if (!this.hybridStrategy) {
