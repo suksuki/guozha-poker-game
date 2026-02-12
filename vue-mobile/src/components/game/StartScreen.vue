@@ -27,7 +27,13 @@
 
         <button class="btn-primary btn-team" @click="$emit('start', { teamMode: true })">
           <span class="btn-icon">👥</span>
-          <span class="btn-text">开始团队赛</span>
+          <span class="btn-text">开始团队赛(2V2)</span>
+          <span class="btn-arrow">→</span>
+        </button>
+
+        <button class="btn-primary btn-team-6" @click="$emit('start', { teamMode: true, playerCount: 6 })">
+          <span class="btn-icon">🏟️</span>
+          <span class="btn-text">六人团战(3V3)</span>
           <span class="btn-arrow">→</span>
         </button>
         
@@ -224,6 +230,15 @@ defineEmits(['start', 'settings', 'training']);
 
 .btn-team:hover {
   box-shadow: 0 12px 40px rgba(56, 239, 125, 0.5);
+}
+
+.btn-team-6 {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  box-shadow: 0 8px 32px rgba(245, 87, 108, 0.4);
+}
+
+.btn-team-6:hover {
+  box-shadow: 0 12px 40px rgba(245, 87, 108, 0.5);
 }
 
 /* 次要按钮 */

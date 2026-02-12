@@ -16,7 +16,7 @@
     />
     
     <!-- 游戏结束 (模态框形式) -->
-    <van-overlay :show="gameStore.status === 'finished' && showResultModal" @click="showResultModal = false" z-index="100">
+    <van-overlay :show="!!(gameStore.status === 'finished' && showResultModal)" @click="showResultModal = false" :z-index="100">
       <div class="result-modal-wrapper" @click.stop>
         <GameResultScreen
           v-if="gameStore.status === 'finished'"
@@ -163,42 +163,91 @@
         <!-- 上层区域：包含东西玩家和中间区域 -->
         <div class="top-area-landscape">
           <!-- 西侧玩家（左） -->
-          <div class="player-left">
-            <div class="player-card-vertical" v-if="playerWest" style="position: relative;">
-              <!-- 聊天气泡 -->
-              <ChatBubble
-                v-if="chatStore.activeBubbles.has(playerWest.id)"
-                :content="chatStore.activeBubbles.get(playerWest.id)?.content || ''"
-                :player-id="playerWest.id"
-                :is-human="false"
-                position="right"
-                :offset-x="10"
-                :offset-y="0"
-              />
-              <div class="player-avatar">🤖</div>
-              <van-tag size="medium" :type="isCurrentPlayer(playerWest.id) ? 'primary' : 'default'">
-                {{ $t('game.directions.west') }}{{ playerWest.id }}
-              </van-tag>
-              <div class="player-stats-vertical">
-                <span>🎴{{ playerWest.hand.length }}</span>
-                <span v-if="playerWest.score && playerWest.score !== 0" :class="playerWest.score > 0 ? 'score-positive' : 'score-negative'">
-                  💰{{ playerWest.score }}
-                </span>
-                <span v-if="playerWest.dunCount && playerWest.dunCount > 0">
-                  🏆{{ playerWest.dunCount }}墩
-                </span>
+          <div class="player-left" :class="{ 'column-group': isSixPlayerMode }">
+            <template v-if="!isSixPlayerMode">
+              <div class="player-card-vertical" v-if="playerWest" style="position: relative;">
+                <!-- 聊天气泡 -->
+                <ChatBubble
+                  v-if="chatStore.activeBubbles.has(playerWest.id)"
+                  :content="chatStore.activeBubbles.get(playerWest.id)?.content || ''"
+                  :player-id="playerWest.id"
+                  :is-human="false"
+                  position="right"
+                  :offset-x="10"
+                  :offset-y="0"
+                />
+                <div class="player-avatar">🤖</div>
+                <van-tag size="medium" :type="isCurrentPlayer(playerWest.id) ? 'primary' : 'default'">
+                  {{ $t('game.directions.west') }}{{ playerWest.id }}
+                </van-tag>
+                <div class="player-stats-vertical">
+                  <span>🎴{{ playerWest.hand.length }}</span>
+                  <span v-if="playerWest.score && playerWest.score !== 0" :class="playerWest.score > 0 ? 'score-positive' : 'score-negative'">
+                    💰{{ playerWest.score }}
+                  </span>
+                  <span v-if="playerWest.dunCount && playerWest.dunCount > 0">
+                    🏆{{ playerWest.dunCount }}墩
+                  </span>
+                </div>
+                <van-tag v-if="playerWest.finishedRank" size="medium" type="danger">
+                  #{{ playerWest.finishedRank }}
+                </van-tag>
               </div>
-              <van-tag v-if="playerWest.finishedRank" size="medium" type="danger">
-                #{{ playerWest.finishedRank }}
-              </van-tag>
-            </div>
+            </template>
+            <!-- 6人模式 左侧列 -->
+            <template v-else>
+               <!-- Left Top (Pos 2) - 展示在上方 -->
+                <div class="player-card-vertical" v-if="playerPos2" style="position: relative;">
+                  <ChatBubble
+                    v-if="chatStore.activeBubbles.has(playerPos2.id)"
+                    :content="chatStore.activeBubbles.get(playerPos2.id)?.content || ''"
+                    :player-id="playerPos2.id"
+                    :is-human="false"
+                    position="right"
+                  />
+                  <div class="player-avatar">🤖</div>
+                  <van-tag size="medium" :type="isCurrentPlayer(playerPos2.id) ? 'primary' : 'default'">
+                    P{{ playerPos2.id }}
+                  </van-tag>
+                  <div class="player-stats-vertical">
+                    <span>🎴{{ playerPos2.hand.length }}</span>
+                  </div>
+                  <van-tag v-if="playerPos2.finishedRank" size="medium" type="danger">
+                    #{{ playerPos2.finishedRank }}
+                  </van-tag>
+                </div>
+                
+                <!-- Spacer -->
+                <div style="flex: 0 0 20px;"></div>
+
+               <!-- Left Bottom (Pos 1) - 展示在下方 -->
+                <div class="player-card-vertical" v-if="playerPos1" style="position: relative;">
+                  <ChatBubble
+                    v-if="chatStore.activeBubbles.has(playerPos1.id)"
+                    :content="chatStore.activeBubbles.get(playerPos1.id)?.content || ''"
+                    :player-id="playerPos1.id"
+                    :is-human="false"
+                    position="right"
+                  />
+                  <div class="player-avatar">🤖</div>
+                  <van-tag size="medium" :type="isCurrentPlayer(playerPos1.id) ? 'primary' : 'default'">
+                    P{{ playerPos1.id }}
+                  </van-tag>
+                  <div class="player-stats-vertical">
+                    <span>🎴{{ playerPos1.hand.length }}</span>
+                  </div>
+                  <van-tag v-if="playerPos1.finishedRank" size="medium" type="danger">
+                    #{{ playerPos1.finishedRank }}
+                  </van-tag>
+                </div>
+            </template>
           </div>
           
           <!-- 中间区域 -->
           <div class="center-area-landscape">
             <!-- 北侧玩家（上） -->
             <div class="player-top">
-              <template v-if="playerNorth">
+              <template v-if="!isSixPlayerMode && playerNorth">
                 <div class="player-info-horizontal" style="position: relative;">
                   <!-- 聊天气泡 -->
                   <ChatBubble
@@ -228,12 +277,36 @@
                   </van-tag>
                 </div>
               </template>
+              <template v-else-if="isSixPlayerMode && playerPos3">
+                 <!-- 6人模式 Top (Pos 3) -->
+                 <div class="player-info-horizontal" style="position: relative;">
+                  <ChatBubble
+                    v-if="chatStore.activeBubbles.has(playerPos3.id)"
+                    :content="chatStore.activeBubbles.get(playerPos3.id)?.content || ''"
+                    :player-id="playerPos3.id"
+                    :is-human="false"
+                    position="bottom"
+                  />
+                  <div class="player-avatar-north">🤖</div>
+                  <van-tag size="medium" :type="isCurrentPlayer(playerPos3.id) ? 'primary' : 'default'">
+                    TOP ({{ playerPos3.id }})
+                  </van-tag>
+                  <van-tag size="medium" type="primary">
+                    🎴{{ playerPos3.hand.length }}
+                  </van-tag>
+                   <van-tag v-if="playerPos3.finishedRank" size="medium" type="danger">
+                    #{{ playerPos3.finishedRank }}
+                  </van-tag>
+                </div>
+              </template>
             </div>
             
             <!-- 中央出牌区 - 真实牌桌布局 -->
             <div class="play-area-center">
-              <!-- 北家 (Top) -->
+              
+              <!-- 北家 (Top) / 4P Only, 6P is dynamic -->
               <PlayedCards 
+                v-if="!isSixPlayerMode"
                 class="played-cards-slot slot-top"
                 :plays="getPlayedCards(playerNorth?.id)"
                 :is-passed="passStatus.get(playerNorth?.id || -1)"
@@ -242,19 +315,61 @@
               
               <!-- 西家 (Left) -->
               <PlayedCards 
+                v-if="!isSixPlayerMode"
                 class="played-cards-slot slot-left"
                 :plays="getPlayedCards(playerWest?.id)"
                 :is-passed="passStatus.get(playerWest?.id || -1)"
                 position="left"
               />
               
-              <!-- 东家 (Right) -->
-              <PlayedCards 
-                class="played-cards-slot slot-right"
-                :plays="getPlayedCards(playerEast?.id)"
-                :is-passed="passStatus.get(playerEast?.id || -1)"
-                position="right"
-              />
+              <!-- 东家 (Right) / 6P Right Cards -->
+              <template v-if="!isSixPlayerMode">
+                <PlayedCards 
+                  class="played-cards-slot slot-right"
+                  :plays="getPlayedCards(playerEast?.id)"
+                  :is-passed="passStatus.get(playerEast?.id || -1)"
+                  position="right"
+                />
+              </template>
+              
+              <!-- 6P Extended Slots -->
+              <template v-if="isSixPlayerMode">
+                 <!-- Pos 1: Left Bottom -->
+                 <PlayedCards 
+                  class="played-cards-slot slot-left-bottom"
+                  :plays="getPlayedCards(playerPos1?.id)"
+                  :is-passed="passStatus.get(playerPos1?.id || -1)"
+                  position="left"
+                />
+                <!-- Pos 2: Left Top -->
+                 <PlayedCards 
+                  class="played-cards-slot slot-left-top"
+                  :plays="getPlayedCards(playerPos2?.id)"
+                  :is-passed="passStatus.get(playerPos2?.id || -1)"
+                  position="left"
+                />
+                <!-- Pos 3: Top -->
+                 <PlayedCards 
+                  class="played-cards-slot slot-top"
+                  :plays="getPlayedCards(playerPos3?.id)"
+                  :is-passed="passStatus.get(playerPos3?.id || -1)"
+                  position="top"
+                />
+                <!-- Pos 4: Right Top -->
+                 <PlayedCards 
+                  class="played-cards-slot slot-right-top"
+                  :plays="getPlayedCards(playerPos4?.id)"
+                  :is-passed="passStatus.get(playerPos4?.id || -1)"
+                  position="right"
+                />
+                <!-- Pos 5: Right Bottom -->
+                 <PlayedCards 
+                  class="played-cards-slot slot-right-bottom"
+                  :plays="getPlayedCards(playerPos5?.id)"
+                  :is-passed="passStatus.get(playerPos5?.id || -1)"
+                  position="right"
+                />
+              </template>
               
               <!-- 南家/自己 (Bottom) -->
               <PlayedCards 
@@ -275,34 +390,82 @@
           
           <!-- 东侧玩家（右） -->
           <div class="player-right">
-            <div class="player-card-vertical" v-if="playerEast" style="position: relative;">
-              <!-- 聊天气泡 -->
-              <ChatBubble
-                v-if="chatStore.activeBubbles.has(playerEast.id)"
-                :content="chatStore.activeBubbles.get(playerEast.id)?.content || ''"
-                :player-id="playerEast.id"
-                :is-human="false"
-                position="left"
-                :offset-x="10"
-                :offset-y="0"
-              />
-              <div class="player-avatar">🤖</div>
-              <van-tag size="medium" :type="isCurrentPlayer(playerEast.id) ? 'primary' : 'default'">
-                东{{ playerEast.id }}
-              </van-tag>
-              <div class="player-stats-vertical">
-                <span>🎴{{ playerEast.hand.length }}</span>
-                <span v-if="playerEast.score && playerEast.score !== 0" :class="playerEast.score > 0 ? 'score-positive' : 'score-negative'">
-                  💰{{ playerEast.score }}
-                </span>
-                <span v-if="playerEast.dunCount && playerEast.dunCount > 0">
-                  🏆{{ playerEast.dunCount }}墩
-                </span>
+            <template v-if="!isSixPlayerMode">
+              <div class="player-card-vertical" v-if="playerEast" style="position: relative;">
+                <!-- 聊天气泡 -->
+                <ChatBubble
+                  v-if="chatStore.activeBubbles.has(playerEast.id)"
+                  :content="chatStore.activeBubbles.get(playerEast.id)?.content || ''"
+                  :player-id="playerEast.id"
+                  :is-human="false"
+                  position="left"
+                  :offset-x="10"
+                  :offset-y="0"
+                />
+                <div class="player-avatar">🤖</div>
+                <van-tag size="medium" :type="isCurrentPlayer(playerEast.id) ? 'primary' : 'default'">
+                  东{{ playerEast.id }}
+                </van-tag>
+                <div class="player-stats-vertical">
+                  <span>🎴{{ playerEast.hand.length }}</span>
+                  <span v-if="playerEast.score && playerEast.score !== 0" :class="playerEast.score > 0 ? 'score-positive' : 'score-negative'">
+                    💰{{ playerEast.score }}
+                  </span>
+                  <span v-if="playerEast.dunCount && playerEast.dunCount > 0">
+                    🏆{{ playerEast.dunCount }}墩
+                  </span>
+                </div>
+                <van-tag v-if="playerEast.finishedRank" size="medium" type="danger">
+                  #{{ playerEast.finishedRank }}
+                </van-tag>
               </div>
-              <van-tag v-if="playerEast.finishedRank" size="medium" type="danger">
-                #{{ playerEast.finishedRank }}
-              </van-tag>
-            </div>
+            </template>
+            <!-- 6人模式 右侧列 -->
+            <template v-else>
+               <!-- Right Top (Pos 4) - 上方 -->
+               <div class="player-card-vertical" v-if="playerPos4" style="position: relative;">
+                  <ChatBubble
+                    v-if="chatStore.activeBubbles.has(playerPos4.id)"
+                    :content="chatStore.activeBubbles.get(playerPos4.id)?.content || ''"
+                    :player-id="playerPos4.id"
+                    :is-human="false"
+                    position="left"
+                  />
+                  <div class="player-avatar">🤖</div>
+                  <van-tag size="medium" :type="isCurrentPlayer(playerPos4.id) ? 'primary' : 'default'">
+                    P{{ playerPos4.id }}
+                  </van-tag>
+                  <div class="player-stats-vertical">
+                    <span>🎴{{ playerPos4.hand.length }}</span>
+                  </div>
+                  <van-tag v-if="playerPos4.finishedRank" size="medium" type="danger">
+                    #{{ playerPos4.finishedRank }}
+                  </van-tag>
+               </div>
+               
+               <div style="flex: 0 0 20px;"></div>
+
+               <!-- Right Bottom (Pos 5) - 下方 -->
+               <div class="player-card-vertical" v-if="playerPos5" style="position: relative;">
+                  <ChatBubble
+                    v-if="chatStore.activeBubbles.has(playerPos5.id)"
+                    :content="chatStore.activeBubbles.get(playerPos5.id)?.content || ''"
+                    :player-id="playerPos5.id"
+                    :is-human="false"
+                    position="left"
+                  />
+                  <div class="player-avatar">🤖</div>
+                  <van-tag size="medium" :type="isCurrentPlayer(playerPos5.id) ? 'primary' : 'default'">
+                    P{{ playerPos5.id }}
+                  </van-tag>
+                  <div class="player-stats-vertical">
+                    <span>🎴{{ playerPos5.hand.length }}</span>
+                  </div>
+                  <van-tag v-if="playerPos5.finishedRank" size="medium" type="danger">
+                    #{{ playerPos5.finishedRank }}
+                  </van-tag>
+               </div>
+            </template>
           </div>
         </div>
         
@@ -391,6 +554,32 @@ const playerNorth = computed(() => {
 const playerWest = computed(() => {
   return gameStore.players[1];
 }); // 西 - 左侧
+
+// 6人场模式支持
+const isSixPlayerMode = computed(() => gameStore.players.length >= 6);
+
+// 获取相对位置玩家 computed properties
+const getRelativePlayer = (offset: number) => {
+  if (!gameStore.humanPlayer) return gameStore.players[offset]; // Fallback
+  // 假设 humanPlayer 是 index 0 (如果已经排序) 或者我们需要手动算
+  // 当前代码 playerSouth = players[0]，说明 players 数组可能已经是相对序
+  // 或者 0 固定为南。假设 players[0] = Me/South.
+  return gameStore.players[offset % gameStore.players.length];
+};
+
+// 6人场定义:
+// 0: Me (Bottom) rules
+// 1: Left Bottom
+// 2: Left Top
+// 3: Top
+// 4: Right Top
+// 5: Right Bottom
+
+const playerPos1 = computed(() => getRelativePlayer(1)); // Left Bottom
+const playerPos2 = computed(() => getRelativePlayer(2)); // Left Top
+const playerPos3 = computed(() => getRelativePlayer(3)); // Top
+const playerPos4 = computed(() => getRelativePlayer(4)); // Right Top
+const playerPos5 = computed(() => getRelativePlayer(5)); // Right Bottom
 
 
 
@@ -925,6 +1114,20 @@ const toggleAutoPlay = () => {
   flex-shrink: 0;
   position: relative;
   z-index: 20;
+  transition: width 0.3s;
+}
+
+/* 6人模式下，左右侧需要更宽一点，或者允许列布局 */
+.player-left:has(.player-card-vertical),
+.player-right:has(.player-card-vertical) {
+  /* No change for single */
+}
+
+/* 如果是多人的 column group */
+.column-group {
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
 }
 
 .player-card-vertical {
@@ -1132,6 +1335,30 @@ const toggleAutoPlay = () => {
   bottom: 25px; /* 距离底部稍远一点，避免挡住手牌标签 */
   left: 50%;
   transform: translateX(-50%);
+}
+
+.slot-left-top {
+  top: 25%;
+  left: 45px;
+  transform: translateY(-50%);
+}
+
+.slot-left-bottom {
+  top: 75%;
+  left: 45px;
+  transform: translateY(-50%);
+}
+
+.slot-right-top {
+  top: 25%;
+  right: 45px;
+  transform: translateY(-50%);
+}
+
+.slot-right-bottom {
+  top: 75%;
+  right: 45px;
+  transform: translateY(-50%);
 }
 
 /* 卡牌堆叠容器 */

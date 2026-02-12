@@ -3,28 +3,28 @@
     <!-- 北家出牌 -->
     <PlayedCards 
       v-if="cardsNorth && cardsNorth.length > 0"
-      :cards="cardsNorth"
+      :plays="[{ cards: cardsNorth, playerId: -1, score: 0, playerName: '', scoreCards: [] }]"
       position="top"
     />
 
     <!-- 西家出牌 (在左侧) -->
     <PlayedCards 
       v-if="cardsWest && cardsWest.length > 0"
-      :cards="cardsWest"
+      :plays="[{ cards: cardsWest, playerId: -1, score: 0, playerName: '', scoreCards: [] }]"
       position="left"
     />
 
     <!-- 东家出牌 (在右侧) -->
     <PlayedCards 
       v-if="cardsEast && cardsEast.length > 0"
-      :cards="cardsEast"
+      :plays="[{ cards: cardsEast, playerId: -1, score: 0, playerName: '', scoreCards: [] }]"
       position="right"
     />
 
     <!-- 南家出牌 -->
     <PlayedCards 
       v-if="cardsSouth && cardsSouth.length > 0"
-      :cards="cardsSouth"
+      :plays="[{ cards: cardsSouth, playerId: -1, score: 0, playerName: '', scoreCards: [] }]"
       position="bottom"
     />
     

@@ -130,7 +130,10 @@ export class Game {
     let state = this._state.initializeGame(gameId, Date.now());
 
     // 初始化玩家
-    const newPlayers = [0, 1, 2, 3].map(id => ({
+    const playerCount = this._state.config.playerCount;
+    const playerIndices = Array.from({ length: playerCount }, (_, i) => i);
+
+    const newPlayers = playerIndices.map(id => ({
       id,
       name: id === 0 ? '你' : `AI玩家${id}`,
       type: (id === 0 ? 'human' : 'ai') as PlayerType,
@@ -145,39 +148,70 @@ export class Game {
 
     // 如果是团队模式，初始化队伍配置和玩家TeamID
     if (state.config.teamMode) {
-      const teamA: Team = {
-        id: 0,
-        name: '以绪塔尔', // 0, 2 (South, North)
-        players: [0, 2],
-        teamScore: 0,
-        roundScore: 0,
-        roundsWon: 0,
-        totalScoreEarned: 0
-      };
+      if (playerCount === 6) {
+        // 6人模式分组:
+        // Team A (0, 2, 4) -> 偶数
+        // Team B (1, 3, 5) -> 奇数
+        const teamA: Team = {
+          id: 0,
+          name: '以绪塔尔',
+          players: [0, 2, 4],
+          teamScore: 0,
+          roundScore: 0,
+          roundsWon: 0,
+          totalScoreEarned: 0
+        };
+        const teamB: Team = {
+          id: 1,
+          name: '皮尔特沃夫',
+          players: [1, 3, 5],
+          teamScore: 0,
+          roundScore: 0,
+          roundsWon: 0,
+          totalScoreEarned: 0
+        };
+        const teamConfig: TeamConfig = {
+          playerCount: 6,
+          teams: [teamA, teamB],
+          humanPlayerTeam: 0,
+          humanPlayerDirection: PlayerDirection.SOUTH
+        };
+        state = state.updateTeamConfig(teamConfig);
+      } else {
+        // 默认4人团队逻辑
+        const teamA: Team = {
+          id: 0,
+          name: '以绪塔尔', // 0, 2 (South, North)
+          players: [0, 2],
+          teamScore: 0,
+          roundScore: 0,
+          roundsWon: 0,
+          totalScoreEarned: 0
+        };
 
-      const teamB: Team = {
-        id: 1,
-        name: '皮尔特沃夫', // 1, 3 (East, West)
-        players: [1, 3],
-        teamScore: 0,
-        roundScore: 0,
-        roundsWon: 0,
-        totalScoreEarned: 0
-      };
+        const teamB: Team = {
+          id: 1,
+          name: '皮尔特沃夫', // 1, 3 (East, West)
+          players: [1, 3],
+          teamScore: 0,
+          roundScore: 0,
+          roundsWon: 0,
+          totalScoreEarned: 0
+        };
 
-      const teamConfig: TeamConfig = {
-        playerCount: 4,
-        teams: [teamA, teamB],
-        humanPlayerTeam: 0,
-        humanPlayerDirection: PlayerDirection.SOUTH
-      };
-
-      state = state.updateTeamConfig(teamConfig);
+        const teamConfig: TeamConfig = {
+          playerCount: 4,
+          teams: [teamA, teamB],
+          humanPlayerTeam: 0,
+          humanPlayerDirection: PlayerDirection.SOUTH
+        };
+        state = state.updateTeamConfig(teamConfig);
+      }
 
       // 更新玩家TeamID
       const playersWithTeam = state.players.map(p => ({
         ...p,
-        teamId: p.id % 2 // 0,2 -> 0; 1,3 -> 1
+        teamId: p.id % 2 // 0,2,4 -> 0; 1,3,5 -> 1
       }));
 
       state = state.initializePlayers(playersWithTeam);

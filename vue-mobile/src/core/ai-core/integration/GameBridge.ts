@@ -6,7 +6,7 @@
 
 import { MasterAIBrain, MasterBrainConfig } from '../master-brain/MasterAIBrain';
 import { EventBus } from './EventBus';
-import { GameState } from '../types';
+import { GameState, Decision } from '../types';
 
 /**
  * 游戏桥接API

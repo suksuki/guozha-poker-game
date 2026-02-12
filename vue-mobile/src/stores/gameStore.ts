@@ -37,11 +37,15 @@ export const useGameStore = defineStore('game', () => {
   // AI决策超时保护Map（存储每个玩家的超时定时器）
   const aiDecisionTimeouts = new Map<number, NodeJS.Timeout>();
 
+  const aiBrainInitialized = ref(false);
+
+
+
   // 初始化
   // 已迁移到移动端独立Game类
-  const initialize = (initConfig?: { teamMode?: boolean }) => {
+  const initialize = (initConfig?: { teamMode?: boolean; playerCount?: number }) => {
     const config = {
-      playerCount: 4,
+      playerCount: initConfig?.playerCount || 4,
       humanPlayerIndex: 0,
       teamMode: initConfig?.teamMode || false,
       gameMode: (initConfig?.teamMode ? 'team' : 'individual') as 'individual' | 'team'
@@ -92,19 +96,19 @@ export const useGameStore = defineStore('game', () => {
     stateVersion.value;
     return game.value?.roundScore || 0;
   });
-  
+
   // 游戏模式（个人赛/团队赛）
   const isTeamMode = computed(() => {
     stateVersion.value;
     return game.value?.state?.config?.teamMode || false;
   });
-  
+
   // 团队配置
   const teamConfig = computed(() => {
     stateVersion.value;
     return game.value?.state?.teamConfig || null;
   });
-  
+
   // 团队排名
   const teamRankings = computed(() => {
     stateVersion.value;
@@ -194,16 +198,16 @@ export const useGameStore = defineStore('game', () => {
 
       // 获取当前最新的活跃玩家
       const nextPlayerIndex = game.value.currentPlayerIndex;
-      
+
       // 如果 currentPlayerIndex 为 -1，说明游戏已结束
       if (nextPlayerIndex === -1) {
         // console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: currentPlayerIndex=-1，游戏已结束，停止流程`);
         return;
       }
-      
+
       const nextPlayer = game.value.players[nextPlayerIndex];
       // console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: ActingPlayer=${_actingPlayerId}, NextPlayer=${nextPlayerIndex}(${nextPlayer?.name || 'N/A'}), Status=${game.value.status}, TeamMode=${game.value.state.config.teamMode}`);
-      
+
       // 检查是否陷入循环（仅在游戏未结束时检查）
       if (nextPlayerIndex === _actingPlayerId && actionType === 'play' && game.value.status !== 'finished') {
         // console.error(`[TEAM_DEBUG] advanceGameFlow: ⚠️ 检测到循环！NextPlayer=${nextPlayerIndex} 等于 ActingPlayer=${_actingPlayerId}，游戏可能卡住`);
@@ -233,50 +237,25 @@ export const useGameStore = defineStore('game', () => {
           }, 35000);
           aiDecisionTimeouts.set(nextPlayerIndex, timeoutId);
 
+
+
           // 触发AI决策
+          // 即使是6人模式，也使用AI Brain，但后端策略(HybridStrategy)会根据配置自动优化速度 (降低迭代次数等)
           // console.log(`[TEAM_DEBUG] advanceGameFlow: 调用triggerAITurn for Player ${nextPlayerIndex}`);
           aiBrainIntegration.triggerAITurn(nextPlayerIndex, game.value as any).catch((err) => {
             // console.error(`[TEAM_DEBUG] advanceGameFlow: AI决策失败 for Player ${nextPlayerIndex}:`, err);
             clearTimeout(aiDecisionTimeouts.get(nextPlayerIndex));
             aiDecisionTimeouts.delete(nextPlayerIndex);
-            pass(nextPlayerIndex).catch(() => { });
+            // 决策失败尝试回退到简单策略
+            fallbackToSimpleStrategy(nextPlayerIndex);
           });
+
         } else {
-          // 降级策略：本地简单AI，增加微小延迟防止栈溢出，但尽量快
+          // AI Brain未初始化（可能因配置错误失败），回退到简单策略
+          /* console.warn('[GameStore] AI Brain not initialized, falling back to simple strategy'); */
           setTimeout(() => {
-            if (!game.value || game.value.currentPlayerIndex !== nextPlayerIndex) {
-              return;
-            }
-
-            // 尝试使用本地策略获取出牌建议
-            try {
-              const currentRound = game.value.currentRound;
-              const lastPlayCards = currentRound?.lastPlay;
-              let lastPlay: any = null;
-              if (lastPlayCards && Array.isArray(lastPlayCards) && lastPlayCards.length > 0) {
-                lastPlay = canPlayCards(lastPlayCards);
-              }
-
-              const suggestion = getAIRecommendationUtil(nextPlayer.hand, lastPlay);
-
-              if (suggestion && suggestion.cards.length > 0) {
-                playCards(suggestion.cards, nextPlayerIndex).then(res => {
-                  if (!res.success) {
-                    const failMsg = (res as any).message;
-                    if (failMsg?.includes('必须出牌') || failMsg?.includes('Cannot pass')) {
-                      playCards([nextPlayer.hand[0]], nextPlayerIndex).catch(() => { });
-                    } else {
-                      pass(nextPlayerIndex).catch(() => { });
-                    }
-                  }
-                });
-              } else {
-                pass(nextPlayerIndex).catch(() => { });
-              }
-            } catch (e) {
-              pass(nextPlayerIndex).catch(() => { });
-            }
-          }, 10);
+            fallbackToSimpleStrategy(nextPlayerIndex);
+          }, 1000); // 稍微延迟，模拟思考
         }
       } else if (nextPlayer && nextPlayer.isHuman && isAutoPlay.value) {
         // 托管下的人类玩家，微小延迟
@@ -286,10 +265,10 @@ export const useGameStore = defineStore('game', () => {
           }
         }, 10);
       }
-    };
 
-    // 移除所有 TTS 逻辑，直接立刻推进游戏流程
-    onActionComplete();
+      // 移除所有 TTS 逻辑，直接立刻推进游戏流程
+      onActionComplete();
+    };
   };
 
   /**
@@ -325,10 +304,10 @@ export const useGameStore = defineStore('game', () => {
     // 但为了确保 UI 更新，我们需要再次触发更新
     // 注意：addToFinishOrder 内部会调用 controller.recordPlayerFinished，它会设置 finishedRank 并触发 onUpdateCallback
     // 但为了确保 Vue 的响应式系统能检测到变化，我们在这里也触发一次更新
-    
+
     // 更新版本以触发响应式（此时 finishedRank 应该已经设置好了）
     triggerUpdate();
-    
+
     // 再次检查当前玩家索引（确保状态已更新）
     const currentPlayerAfterUpdate = game.value.currentPlayerIndex;
     // console.log(`[TEAM_DEBUG] playCards: 状态更新后, currentPlayerAfterUpdate=${currentPlayerAfterUpdate}`);
@@ -410,6 +389,88 @@ export const useGameStore = defineStore('game', () => {
   };
 
   // ========== AI功能==========
+
+  /**
+   * 初始化AI Brain
+   */
+  const initializeAIBrain = async () => {
+    if (aiBrainInitialized.value) return;
+
+    try {
+      const settingsStore = useSettingsStore();
+      const llmConfig = settingsStore.llmConfig;
+
+      // 根据LLM配置确定provider
+      let llmProvider: 'ollama' | 'openai' | 'claude' = 'ollama';
+      if (llmConfig.provider === 'openai') {
+        llmProvider = 'openai';
+      } else if (llmConfig.provider === 'claude') {
+        llmProvider = 'claude';
+      } else {
+        llmProvider = 'ollama';
+      }
+
+      // 处理API地址
+      let llmEndpoint = llmConfig.apiUrl || 'http://localhost:11434/api/chat';
+      if (llmProvider === 'ollama' && !llmEndpoint.includes('/api/chat')) {
+        llmEndpoint = llmEndpoint.replace(/\/api\/generate\/?$/, '');
+        if (llmEndpoint.endsWith('/')) {
+          llmEndpoint = llmEndpoint + 'api/chat';
+        } else {
+          llmEndpoint = llmEndpoint + '/api/chat';
+        }
+      }
+
+      await aiBrainIntegration.initialize({
+        llmProvider,
+        llmEndpoint,
+        llmModel: llmConfig.model || 'qwen2.5:3b',
+        enableLLM: settingsStore.aiSettings.enableAIThinking !== false,
+        timeout: llmConfig.timeout || 30000,
+        temperature: llmConfig.temperature,
+        maxTokens: llmConfig.maxTokens
+      });
+
+      // 订阅AI决策结果，完成闭环
+      aiBrainIntegration.onAIDecision((event) => {
+        const { playerId, decision } = event;
+        // 清除超时
+        const timeout = aiDecisionTimeouts.get(playerId);
+        if (timeout) {
+          clearTimeout(timeout);
+          aiDecisionTimeouts.delete(playerId);
+        }
+
+        if (!game.value || game.value.currentPlayerIndex !== playerId) return;
+
+        if (decision && decision.action) {
+          const action = decision.action;
+          if (action.type === 'play_card' || action.type === 'play') {
+            if (action.cards && Array.isArray(action.cards) && action.cards.length > 0) {
+              playCards(action.cards, playerId).catch(() => pass(playerId).catch(() => { }));
+            } else {
+              pass(playerId).catch(() => { });
+            }
+          } else {
+            pass(playerId).catch(() => { });
+          }
+        } else if (decision && (decision.type === 'play_card' || decision.type === 'play')) {
+          const cards = decision.cards || decision.playerAction?.cards;
+          if (cards && Array.isArray(cards) && cards.length > 0) {
+            playCards(cards, playerId).catch(() => pass(playerId).catch(() => { }));
+          } else {
+            pass(playerId).catch(() => { });
+          }
+        } else {
+          pass(playerId).catch(() => { });
+        }
+      });
+
+      aiBrainInitialized.value = true;
+    } catch (e) {
+      console.error("Failed to initialize AI Brain", e);
+    }
+  };
 
   /**
    * AI推荐（使用 gameLogic.ts 中的 getAIRecommendation，支持拆牌）
@@ -560,152 +621,37 @@ export const useGameStore = defineStore('game', () => {
     }
   };
 
-  // ========== AI Brain集成 ==========
-  const aiBrainInitialized = ref(false);
-
   /**
-   * 初始化AI Brain
+   * 回退到简单策略（当AI Brain不可用时）
    */
-  const initializeAIBrain = async () => {
-    if (aiBrainInitialized.value) return;
+  const fallbackToSimpleStrategy = async (playerId: number) => {
+    if (!game.value || game.value.currentPlayerIndex !== playerId) return;
 
     try {
-      const settingsStore = useSettingsStore();
-      const llmConfig = settingsStore.llmConfig;
+      const player = game.value.players[playerId];
+      const lastPlay = currentRound.value?.lastPlay;
 
-      // 根据LLM配置确定provider
-      let llmProvider: 'ollama' | 'openai' | 'claude' = 'ollama';
-      if (llmConfig.provider === 'openai') {
-        llmProvider = 'openai';
-      } else if (llmConfig.provider === 'claude') {
-        llmProvider = 'claude';
+      let lastPlayObj: Play | null = null;
+      if (lastPlay && Array.isArray(lastPlay) && lastPlay.length > 0) {
+        lastPlayObj = canPlayCards(lastPlay);
+      }
+
+      // 使用简单策略推荐
+      const recommendation = getAIRecommendationUtil(player.hand, lastPlayObj);
+
+      if (recommendation) {
+        await playCards(recommendation.cards, playerId);
       } else {
-        // custom 或 ollama 都使用 ollama
-        llmProvider = 'ollama';
+        await pass(playerId);
       }
-
-      // 处理API地址（如果是Ollama，需要转换为正确的格式）
-      // UnifiedLLMService 使用 messages 数组格式，对应 /api/chat 端点
-      let llmEndpoint = llmConfig.apiUrl || 'http://localhost:11434/api/chat';
-      if (llmProvider === 'ollama' && !llmEndpoint.includes('/api/chat')) {
-        // 先移除可能存在的 /api/generate 后缀
-        llmEndpoint = llmEndpoint.replace(/\/api\/generate\/?$/, '');
-        // 如果地址不包含/api/chat，自动添加
-        if (llmEndpoint.endsWith('/')) {
-          llmEndpoint = llmEndpoint + 'api/chat';
-        } else {
-          llmEndpoint = llmEndpoint + '/api/chat';
-        }
-      }
-
-      await aiBrainIntegration.initialize({
-        llmProvider,
-        llmEndpoint,
-        llmModel: llmConfig.model || 'qwen2.5:3b',
-        enableLLM: true, // 默认启用
-        timeout: llmConfig.timeout || 30000, // 使用配置的超时时间，默认30秒
-        temperature: llmConfig.temperature, // 从settingsStore读取温度参数
-        maxTokens: llmConfig.maxTokens // 从settingsStore读取最大token数
-      });
-
-      // 订阅AI决策结果，完成闭环
-      aiBrainIntegration.onAIDecision((event) => {
-        const { playerId, decision } = event;
-        // console.log(`[TEAM_DEBUG] onAIDecision: 收到AI决策, Player=${playerId}, CurrentPlayer=${game.value?.currentPlayerIndex}, DecisionType=${decision?.action?.type || decision?.type || 'unknown'}`);
-
-        // 清除该玩家的超时定时器
-        const timeout = aiDecisionTimeouts.get(playerId);
-        if (timeout) {
-          clearTimeout(timeout);
-          aiDecisionTimeouts.delete(playerId);
-          // console.log(`[TEAM_DEBUG] onAIDecision: 清除超时定时器 for Player ${playerId}`);
-        }
-
-        // 只有当前是该AI的回合才执行（避免过期的决策）
-        if (!game.value) {
-          // console.log(`[TEAM_DEBUG] onAIDecision: Game为null，忽略决策`);
-          return;
-        }
-
-        if (game.value.currentPlayerIndex !== playerId) {
-          // console.log(`[TEAM_DEBUG] onAIDecision: 玩家不匹配 (Expected ${playerId}, Got ${game.value.currentPlayerIndex})，忽略决策`);
-          return;
-        }
-
-        // console.log(`[TEAM_DEBUG] onAIDecision: 开始处理决策 for Player ${playerId}`);
-
-        // 处理 1: 新架构 Decision 对象 (带有 action 属性)
-        if (decision && decision.action) {
-          const action = decision.action;
-          // console.log(`[TEAM_DEBUG] onAIDecision: 处理新架构决策, action.type=${action.type}`);
-          if (action.type === 'play_card' || action.type === 'play') {
-            if (action.cards && Array.isArray(action.cards) && action.cards.length > 0) {
-              // console.log(`[TEAM_DEBUG] onAIDecision: 执行出牌, Player=${playerId}, Cards=${action.cards.length}`);
-              playCards(action.cards, playerId).catch((err) => {
-                // console.error(`[TEAM_DEBUG] onAIDecision: 出牌失败, Player=${playerId}, Error:`, err);
-                // 出牌失败时，自动pass以继续游戏
-                pass(playerId).catch(() => { });
-              });
-            } else {
-              // console.log(`[TEAM_DEBUG] onAIDecision: 无牌可出，执行pass, Player=${playerId}`);
-              pass(playerId).catch(() => { });
-            }
-          } else if (action.type === 'pass_turn' || action.type === 'pass') {
-            // console.log(`[TEAM_DEBUG] onAIDecision: AI决定pass, Player=${playerId}`);
-            pass(playerId).catch(() => { });
-          } else {
-            // console.log(`[TEAM_DEBUG] onAIDecision: 未知action类型 ${action.type}，执行pass, Player=${playerId}`);
-            pass(playerId).catch(() => { });
-          }
-        }
-        // 处理 2: 老架构或简化 Decision 对象
-        else if (decision && (decision.type === 'play_card' || decision.type === 'play')) {
-          // console.log(`[TEAM_DEBUG] onAIDecision: 处理旧架构决策, type=${decision.type}`);
-          const cards = decision.cards || decision.playerAction?.cards;
-          if (cards && Array.isArray(cards) && cards.length > 0) {
-            // console.log(`[TEAM_DEBUG] onAIDecision: 旧架构出牌, Player=${playerId}, Cards=${cards.length}`);
-            // 清除超时定时器
-            const timeout = aiDecisionTimeouts.get(playerId);
-            if (timeout) {
-              clearTimeout(timeout);
-              aiDecisionTimeouts.delete(playerId);
-            }
-            playCards(cards, playerId).catch(() => {
-              pass(playerId).catch(() => { });
-            });
-          } else {
-            // console.log(`[TEAM_DEBUG] onAIDecision: 旧架构无牌可出，执行pass, Player=${playerId}`);
-            const timeout = aiDecisionTimeouts.get(playerId);
-            if (timeout) {
-              clearTimeout(timeout);
-              aiDecisionTimeouts.delete(playerId);
-            }
-            pass(playerId).catch(() => { });
-          }
-        } else if (decision && (decision.type === 'pass_turn' || decision.type === 'pass')) {
-          // console.log(`[TEAM_DEBUG] onAIDecision: 旧架构pass决策, Player=${playerId}`);
-          const timeout = aiDecisionTimeouts.get(playerId);
-          if (timeout) {
-            clearTimeout(timeout);
-            aiDecisionTimeouts.delete(playerId);
-          }
-          pass(playerId).catch(() => { });
-        } else {
-          // console.log(`[TEAM_DEBUG] onAIDecision: 未知决策格式，执行pass, Player=${playerId}`, decision);
-          const timeout = aiDecisionTimeouts.get(playerId);
-          if (timeout) {
-            clearTimeout(timeout);
-            aiDecisionTimeouts.delete(playerId);
-          }
-          pass(playerId).catch(() => { });
-        }
-      });
-
-
-      aiBrainInitialized.value = true;
     } catch (error) {
+      // console.error('[GameStore] Fallback strategy failed:', error);
+      // 最后的兜底：直接Pass
+      await pass(playerId);
     }
   };
+
+  // ========== AI Brain集成 ==========
 
   /**
    * 触发AI Brain聊天（Deprecated: 已整合到 advanceGameFlow）

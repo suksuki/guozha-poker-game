@@ -18,15 +18,19 @@ const STORAGE_KEY_INDIVIDUAL = 'guozha_ai_config_individual_v1';
 
 export class AIConfigStore {
     /**
-     * 加载配置（根据游戏模式）
-     * @param teamMode 是否为团队模式，默认true（向后兼容）
+     * 加载配置（根据游戏模式和人数）
+     * @param teamMode 是否为团队模式
+     * @param playerCount 玩家数量 (4 or 6)
      */
-    static loadConfig(teamMode: boolean = true): Partial<MCTSTeamConfig> {
+    static loadConfig(teamMode: boolean = true, playerCount: number = 4): Partial<MCTSTeamConfig> {
         if (typeof window === 'undefined') {
             return { ...DEFAULT_AI_CONFIG };
         }
 
-        const storageKey = teamMode ? STORAGE_KEY_TEAM : STORAGE_KEY_INDIVIDUAL;
+        let storageKey = STORAGE_KEY_INDIVIDUAL;
+        if (teamMode) {
+            storageKey = playerCount === 6 ? 'guozha_ai_config_team_6p_v1' : STORAGE_KEY_TEAM;
+        }
 
         try {
             const stored = localStorage.getItem(storageKey);
@@ -40,17 +44,21 @@ export class AIConfigStore {
     }
 
     /**
-     * 保存配置（根据游戏模式）
+     * 保存配置（根据游戏模式和人数）
      * @param config 要保存的配置
-     * @param teamMode 是否为团队模式，默认true（向后兼容）
+     * @param teamMode 是否为团队模式
+     * @param playerCount 玩家数量
      */
-    static saveConfig(config: Partial<MCTSTeamConfig>, teamMode: boolean = true) {
+    static saveConfig(config: Partial<MCTSTeamConfig>, teamMode: boolean = true, playerCount: number = 4) {
         if (typeof window === 'undefined') return;
-        
-        const storageKey = teamMode ? STORAGE_KEY_TEAM : STORAGE_KEY_INDIVIDUAL;
-        
+
+        let storageKey = STORAGE_KEY_INDIVIDUAL;
+        if (teamMode) {
+            storageKey = playerCount === 6 ? 'guozha_ai_config_team_6p_v1' : STORAGE_KEY_TEAM;
+        }
+
         try {
-            const current = this.loadConfig(teamMode);
+            const current = this.loadConfig(teamMode, playerCount);
             const newConfig = { ...current, ...config };
             localStorage.setItem(storageKey, JSON.stringify(newConfig));
         } catch (e) {
@@ -59,10 +67,9 @@ export class AIConfigStore {
     }
 
     /**
-     * 重置配置（根据游戏模式）
-     * @param teamMode 是否为团队模式，默认true（向后兼容）
+     * 重置配置
      */
-    static resetConfig(teamMode: boolean = true) {
-        this.saveConfig({ ...DEFAULT_AI_CONFIG }, teamMode);
+    static resetConfig(teamMode: boolean = true, playerCount: number = 4) {
+        this.saveConfig({ ...DEFAULT_AI_CONFIG }, teamMode, playerCount);
     }
 }

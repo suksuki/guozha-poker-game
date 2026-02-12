@@ -171,7 +171,7 @@
                 <div class="round-desc">
                   <div class="round-winner" v-if="round.winnerName">{{ round.winnerName }} 胜</div>
                   <div class="round-tags">
-                    <span class="mini-tag" v-if="round.isTakeoverRound">接风</span>
+
                     <span class="mini-tag" v-if="round.plays?.length">{{ round.plays.length }}手</span>
                   </div>
                 </div>

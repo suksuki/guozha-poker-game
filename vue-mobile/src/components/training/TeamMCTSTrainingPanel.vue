@@ -271,11 +271,10 @@ const startTraining = async () => {
 
     // 创建团队配置
     const teamConfig: TeamConfig = {
-      enabled: true,
-      mode: 'fixed_2v2',
+
       teams: [
-        { id: 0, name: '团队A', players: [0, 2], score: 0 },
-        { id: 1, name: '团队B', players: [1, 3], score: 0 }
+        { id: 0, name: '团队A', players: [0, 2], teamScore: 0, roundScore: 0, roundsWon: 0, totalScoreEarned: 0 },
+        { id: 1, name: '团队B', players: [1, 3], teamScore: 0, roundScore: 0, roundsWon: 0, totalScoreEarned: 0 }
       ],
       playerCount: 4,
       humanPlayerTeam: 0,
@@ -396,11 +395,10 @@ const generateConfigVariants = (baseConfig: Partial<MCTSTeamConfig>): MCTSTeamCo
           roleWeight: rw,
           iterations: trainingConfig.value.iterations,
           teamConfig: {
-            enabled: true,
-            mode: 'fixed_2v2',
+
             teams: [
-              { id: 0, name: '团队A', players: [0, 2], score: 0 },
-              { id: 1, name: '团队B', players: [1, 3], score: 0 }
+              { id: 0, name: '团队A', players: [0, 2], teamScore: 0, roundScore: 0, roundsWon: 0, totalScoreEarned: 0 },
+              { id: 1, name: '团队B', players: [1, 3], teamScore: 0, roundScore: 0, roundsWon: 0, totalScoreEarned: 0 }
             ],
             playerCount: 4,
             humanPlayerTeam: 0,

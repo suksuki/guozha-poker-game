@@ -75,7 +75,7 @@ export class TeamMCTSTrainer {
   ): Promise<TrainingGameResult> {
     const startTime = Date.now();
     const gameId = `training-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     // 创建游戏实例
     const game = new Game({
       playerCount: 4,
@@ -106,13 +106,13 @@ export class TeamMCTSTrainer {
     const maxRounds = 20; // 最大轮次数（有人出完牌开始新轮，正常游戏10-15轮）
     const startGameTime = Date.now();
     const maxGameTime = 2 * 60 * 1000; // 最多2分钟一局游戏
-    
+
     while (game.status === 'playing' && turnCount < maxTurns && roundCount <= maxRounds) {
       // 每10个回合让出一次控制权，避免长时间阻塞主线程
       if (turnCount % 10 === 0 && turnCount > 0) {
         await new Promise(resolve => setTimeout(resolve, 0));
       }
-      
+
       // 检查是否应该停止
       if (this.shouldStop || this.errorCount >= this.maxErrors) {
         break;
@@ -124,7 +124,7 @@ export class TeamMCTSTrainer {
       }
 
       // 检查游戏状态（可能在上一轮已经结束）
-      if (game.status === 'finished') {
+      if ((game.status as string) === 'finished') {
         break;
       }
 
@@ -143,12 +143,12 @@ export class TeamMCTSTrainer {
       if (currentPlayer.hand.length === 0) {
         // 等待一小段时间，让游戏引擎更新状态
         await new Promise(resolve => setTimeout(resolve, 10));
-        
+
         // 再次检查游戏状态
-        if (game.status === 'finished') {
+        if ((game.status as string) === 'finished') {
           break;
         }
-        
+
         // 如果游戏还在进行，继续下一轮
         turnCount++;
         continue;
@@ -166,13 +166,13 @@ export class TeamMCTSTrainer {
         );
       } catch (error) {
         this.errorCount++;
-        
+
         // 如果错误太多，停止训练
         if (this.errorCount >= this.maxErrors) {
           this.shouldStop = true;
           break;
         }
-        
+
         // 出错时自动pass
         action = null;
       }
@@ -182,13 +182,13 @@ export class TeamMCTSTrainer {
         const passResult = game.pass(currentPlayerIndex);
         if (!passResult.success) {
           this.errorCount++;
-          
+
           // 如果错误太多，停止训练
           if (this.errorCount >= this.maxErrors) {
             this.shouldStop = true;
             break;
           }
-          
+
           // 如果pass也失败，尝试跳过这个玩家
           turnCount++;
           continue;
@@ -201,18 +201,18 @@ export class TeamMCTSTrainer {
         const result = game.playCards(currentPlayerIndex, action.cards);
         if (!result.success) {
           this.errorCount++;
-          
+
           // 出牌失败，自动pass
           const passResult = game.pass(currentPlayerIndex);
           if (!passResult.success) {
             this.errorCount++;
-            
+
             // 如果错误太多，停止训练
             if (this.errorCount >= this.maxErrors) {
               this.shouldStop = true;
               break;
             }
-            
+
             // 跳过这个玩家
             turnCount++;
             continue;
@@ -222,13 +222,13 @@ export class TeamMCTSTrainer {
         const passResult = game.pass(currentPlayerIndex);
         if (!passResult.success) {
           this.errorCount++;
-          
+
           // 如果错误太多，停止训练
           if (this.errorCount >= this.maxErrors) {
             this.shouldStop = true;
             break;
           }
-          
+
           // 跳过这个玩家
           turnCount++;
           continue;
@@ -245,14 +245,14 @@ export class TeamMCTSTrainer {
       }
 
       turnCount++;
-      
+
       // 检查是否进入新轮次
       if (game.state.currentRoundIndex !== roundCount - 1) {
         roundCount = game.state.currentRoundIndex + 1;
       }
 
       // 检查游戏是否结束（在每次操作后都检查）
-      if (game.status === 'finished') {
+      if ((game.status as string) === 'finished') {
         break;
       }
 
@@ -260,18 +260,18 @@ export class TeamMCTSTrainer {
       if (turnCount > 30 && turnCount % 50 === 0) {
         const activePlayers = game.players.filter(p => p && p.hand.length > 0).length;
         const totalCards = game.players.reduce((sum, p) => sum + (p?.hand.length || 0), 0);
-        
+
         // 检查手牌总数是否异常（应该是216张）
         if (totalCards > 216) {
           this.shouldStop = true;
           break;
         }
-        
+
         // 如果回合数超过70，肯定卡住了（正常游戏最多70回合）
         if (turnCount > 70 && activePlayers > 0) {
           break;
         }
-        
+
         // 如果轮次过多，也可能卡住了（正常游戏10-15轮）
         if (roundCount > 15) {
           break;
@@ -385,7 +385,8 @@ export class TeamMCTSTrainer {
   ): TeamSimulatedGameState {
     try {
       const currentRound = game.currentRound;
-      const lastPlayRecord = currentRound?.plays.length > 0
+      // 检查 currentRound 是否存在，以及 plays 是否有记录
+      const lastPlayRecord = (currentRound && currentRound.plays.length > 0)
         ? currentRound.plays[currentRound.plays.length - 1]
         : null;
 
@@ -466,7 +467,7 @@ export class TeamMCTSTrainer {
     let successCount = 0;
 
     for (const event of events) {
-      const playerTeamId = teamConfig.teams.find(t => 
+      const playerTeamId = teamConfig.teams.find(t =>
         t.players.includes(event.playerId)
       )?.id;
 
@@ -482,7 +483,7 @@ export class TeamMCTSTrainer {
         const playerRank = game.players[event.playerId].finishedRank;
 
         // 如果队友排名更好，说明strategic pass成功
-        if (teammateRank !== null && playerRank !== null && teammateRank < playerRank) {
+        if (teammateRank !== undefined && playerRank !== undefined && teammateRank !== null && playerRank !== null && teammateRank < playerRank) {
           successCount++;
           event.successful = true;
         }
@@ -589,13 +590,13 @@ export class TeamMCTSTrainer {
         result = await this.runTrainingGame(config, teamConfig);
       } catch (error) {
         this.errorCount++;
-        
+
         // 如果错误太多，停止训练
         if (this.errorCount >= this.maxErrors) {
           this.shouldStop = true;
           break;
         }
-        
+
         // 跳过这个游戏，继续下一个
         continue;
       }
