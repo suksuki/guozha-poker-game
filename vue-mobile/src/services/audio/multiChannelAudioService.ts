@@ -401,25 +401,19 @@ export class MultiChannelAudioService {
           });
           finalChannel = allocation.channel;
         } else {
-          // 玩家声道（聊天），使用PLAYER用途，智能调度
-          // 从channel反推playerId（用于玩家声道分配）
+          // 玩家声道（聊天）：固定每人一声道，传 requestedChannel 避免被调度器分到同一声道导致互相顶掉
           const playerId = channel - ChannelType.PLAYER_1;
           playerIdForRelease = playerId >= 0 && playerId < 7 ? playerId : undefined;
-          // 获取总玩家数（用于智能调度）
           const totalPlayers = this.getTotalPlayers();
           allocation = this.channelScheduler.allocateChannel({
             usage: ChannelUsage.PLAYER,
             playerId: playerIdForRelease,
             priority,
-            totalPlayers
+            totalPlayers,
+            requestedChannel: channel
           });
-          // 如果分配器返回了不同的声道（智能调度），使用分配的声道
-          if (allocation.channel !== channel && !allocation.isQueued) {
-            finalChannel = allocation.channel;
-            // 如果声道改变了，需要重新计算playerId
-            const newPlayerId = finalChannel - ChannelType.PLAYER_1;
-            playerIdForRelease = newPlayerId >= 0 && newPlayerId < 7 ? newPlayerId : undefined;
-          }
+          // 玩家声道一律使用调用方传入的 channel（报牌用 SYSTEM 已在上方处理）
+          finalChannel = channel;
         }
 
         // 创建播放项

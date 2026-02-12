@@ -1,12 +1,14 @@
 /**
  * 通信调度器
  * 统一管理所有AI的聊天，避免冲突
+ * 支持多语言：根据应用当前语言让 AI 使用对应语言回复
  */
 
 import { EventBus } from '../integration/EventBus';
 import { CommunicationMessage, CommunicationIntent, GameState, Decision } from '../types';
 import { UnifiedLLMService, ChatMessage } from '../infrastructure/llm/UnifiedLLMService';
 import { AIPlayer } from '../players/AIPlayer';
+import { i18n } from '@/core/i18n';
 
 export interface CommunicationContext {
   trigger: 'after_decision' | 'after_play' | 'after_pass' | 'game_event' | 'idle' | 'user_chat';
@@ -129,8 +131,8 @@ export class CommunicationScheduler {
       return null;
     }
 
-    // 3. 根据触发类型和性格决定是否说话
-    const shouldSpeak = this.shouldGenerateMessage(context, chattiness);
+    // 3. 根据触发类型、身份与局势决定是否说话
+    const shouldSpeak = this.shouldGenerateMessage(playerId, context, chattiness);
     if (!shouldSpeak) {
       return null;
     }
@@ -159,42 +161,41 @@ export class CommunicationScheduler {
   }
 
   /**
-   * 判断是否应该生成消息
+   * 判断是否应该生成消息（结合触发类型、是否刚出牌/要不起、局势）
    */
-  private shouldGenerateMessage(context: CommunicationContext, chattiness: number): boolean {
-    // 基础概率
+  private shouldGenerateMessage(playerId: number, context: CommunicationContext, chattiness: number): boolean {
     let baseProbability = chattiness;
+    const g = context.gameState;
+    const lastPlayerId = g.lastPlayerId ?? null;
+    const eventType = context.eventType;
 
-    // 根据触发类型调整概率
     switch (context.trigger) {
       case 'after_decision':
-        // 决策后：根据决策类型调整
         if (context.decision?.action.type === 'play') {
           const play = (context.decision.action as any).play;
-          if (play?.type === 'bomb' || play?.type === 'dun') {
-            baseProbability *= 2; // 出炸弹或墩时更可能说话
-          }
+          if (play?.type === 'bomb' || play?.type === 'dun') baseProbability *= 2;
+          else baseProbability *= 1.3;
+        } else {
+          baseProbability *= 1.2; // 要不起时也可能吐槽
         }
         break;
       case 'after_play':
-        baseProbability *= 1.5; // 出牌后更可能说话
+        baseProbability *= 1.5;
+        if (eventType === 'bomb' || eventType === 'dun') baseProbability *= 1.4; // 有人出炸弹/墩，大家更可能反应
+        if (lastPlayerId === playerId) baseProbability *= 1.2; // 刚出牌的人稍更容易说话
         break;
       case 'game_event':
-        baseProbability *= 1.2; // 游戏事件时更可能说话
+        baseProbability *= 1.2;
         break;
       case 'user_chat':
-        baseProbability = 0.9; // 几乎总是回应用户消息
+        baseProbability = Math.min(0.95, chattiness + 0.5); // 用户发话时高概率有人回应
         break;
       case 'idle':
-        baseProbability *= 0.5; // 空闲时降低概率
+        baseProbability *= 0.5;
         break;
     }
 
-    // 根据游戏阶段调整
-    if (context.gameState.phase === 'critical') {
-      baseProbability *= 1.3; // 关键时刻更可能说话
-    }
-
+    if (g.phase === 'critical') baseProbability *= 1.3;
     return Math.random() < baseProbability;
   }
 
@@ -224,7 +225,7 @@ export class CommunicationScheduler {
         priority, // 使用优先级
         options: {
           temperature: 0.9, // 聊天需要更多创造性
-          maxTokens: 50 // 短消息，最多50个token
+          maxTokens: 150 // 保证英文等一句完整短句不被截断（适配多语言）
         }
       });
 
@@ -293,7 +294,7 @@ export class CommunicationScheduler {
         priority: 5, // 最高优先级，用户在等待
         options: {
           temperature: 0.8,
-          maxTokens: 50
+          maxTokens: 80 // 建议可稍长，便于多语言表达
         }
       });
 
@@ -317,17 +318,28 @@ export class CommunicationScheduler {
     const presetDesc = this.getPersonaDescription(preset);
     const playerName = this.playerNames.get(playerId) || `玩家${playerId}`;
 
-    // 1. System Prompt (Static Persona Definition)
+    // 1. System Prompt：角色 + 情境化说话指引 + 多语言
+    const langReq = this.getLanguageRequirement();
     const systemPrompt = `你正在扮演一个扑克游戏玩家。
 你的名字：${playerName}
 你的性格：${presetDesc}
 游戏规则：过炸(争上游)，类似斗地主，先出完牌获胜。
-当前任务：根据游戏局势说一句话(不超过15字)。
-要求：
-- 沉浸角色，用符合性格的语气。
-- 简短有力，不要啰嗦。
+当前任务：根据游戏局势说一句话(${this.getLengthInstruction()}，可稍带情绪)。
+
+情境化说话建议（根据当前状态选一种风格）：
+- 有人出炸弹/墩：可惊讶、不服、挑衅或嘲讽，符合性格即可。
+- 自己刚要不起：可无奈、观望、自嘲或“等着瞧”。
+- 自己刚出好牌：可得意、挑衅或简短嚣张。
+- 领先/落后：可低调得意或不服、嘴硬，不要长篇分析。
+- 人类玩家发消息：自然回应、接话或调侃，不要重复对方原话。
+
+语言要求：${langReq}
+
+其他要求：
+- 沉浸角色，用符合性格的语气；简短有力，可有语气词、感叹。
 - 严禁输出任何标签、解释或格式字符，直接输出说话内容。
-- 如果不想说话，可以输出 "..." 或 "PASS"`;
+- 严禁使用语言要求以外语种回复。
+- 若不想说话可输出 "..." 或 "PASS"`;
 
     messages.push({ role: 'system', content: systemPrompt });
 
@@ -341,11 +353,32 @@ export class CommunicationScheduler {
       messages.push(...this.sessionHistories.get(playerId)!);
     }
 
-    // 4. Current Trigger Event (The immediate stimulus)
+    // 4. Current Trigger Event + 再次强调回复语言（确保泡泡与界面语言一致）
     const triggerDesc = this.buildTriggerDescription(context);
-    messages.push({ role: 'user', content: `[最新事件/Prompt] ${triggerDesc}\n请只针对此情况，说一句话（<15字）` });
+    const langReminder = this.getLanguageReminderForUserPrompt();
+    messages.push({ role: 'user', content: `[最新事件/Prompt] ${triggerDesc}\n请只针对此情况，说一句话（${this.getLengthInstruction()}）。${langReminder}` });
 
     return messages;
+  }
+
+  /** 在最后一条 user 消息里强调回复语言，避免模型仍用中文 */
+  private getLanguageReminderForUserPrompt(): string {
+    const currentLang = (typeof i18n !== 'undefined' && i18n.language) ? i18n.language : 'zh-CN';
+    if (currentLang.startsWith('zh')) return '必须用中文回复。';
+    if (currentLang.startsWith('ko')) return '반드시 한국어로만 답하세요.';
+    if (currentLang.startsWith('ja')) return '必ず日本語だけで返信してください。';
+    if (currentLang.startsWith('en')) return 'You must reply in English only.';
+    return 'Use the language specified in the system prompt only.';
+  }
+
+  /** 长度说明：中文按字，英/韩/日按「一句短句」避免过短或截断 */
+  private getLengthInstruction(): string {
+    const currentLang = (typeof i18n !== 'undefined' && i18n.language) ? i18n.language : 'zh-CN';
+    if (currentLang.startsWith('en')) return 'one short sentence (under 15 words)';
+    if (currentLang.startsWith('zh')) return '不超过20字';
+    if (currentLang.startsWith('ja')) return '短い一文で（長くしすぎない）';
+    if (currentLang.startsWith('ko')) return '짧은 한 문장으로（한두 문장 가능）';
+    return 'one short sentence';
   }
 
   private getPersonaDescription(preset: string): string {
@@ -358,36 +391,82 @@ export class CommunicationScheduler {
     return map[preset] || '正常玩家';
   }
 
-  private buildGameStateSnapshot(context: CommunicationContext): string {
-    // Delta Optimization: Only send critical dynamic state that history might miss
-    const s = context.gameState;
+  /**
+   * 获取当前界面语言对应的 LLM 回复语言要求（多语言支持，32B 等强模型严格遵循）
+   */
+  private getLanguageRequirement(): string {
+    const currentLang = (typeof i18n !== 'undefined' && i18n.language) ? i18n.language : 'zh-CN';
+    if (currentLang.startsWith('zh')) {
+      return '必须仅使用中文回复，口语化、自然。禁止使用英文、日文、韩文等其他语言。';
+    }
+    const langMap: Record<string, string> = {
+      'en': 'You must reply only in English. Use natural, colloquial expressions. Do not use Chinese, Japanese, Korean or any other language.',
+      'en-US': 'You must reply only in English. Use natural, colloquial expressions. Do not use Chinese, Japanese, Korean or any other language.',
+      'ja': '必ず日本語のみで返信すること。口語的で自然に。中国語・英語・韓国語は禁止。',
+      'ja-JP': '必ず日本語のみで返信すること。口語的で自然に。中国語・英語・韓国語は禁止。',
+      'ko': '반드시 한국어로만 답하세요. 구어체로 자연스럽게. 중국어·일본어·영어 사용 금지.',
+      'ko-KR': '반드시 한국어로만 답하세요. 구어체로 자연스럽게. 중국어·일본어·영어 사용 금지.',
+    };
+    const exact = langMap[currentLang];
+    if (exact) return exact;
+    const prefix = currentLang.split('-')[0];
+    return langMap[prefix] || `You must reply only in ${currentLang}. Do not use other languages.`;
+  }
 
-    // If round changed, clear history (this logic should ideally be in updateHistory, but purely for prompt building:)
+  private buildGameStateSnapshot(context: CommunicationContext): string {
+    const s = context.gameState;
     if (s.roundNumber !== this.currentRoundNumber) {
       this.currentRoundNumber = s.roundNumber;
-      // potentially clear history here if we want fresh start per round
     }
 
-    return `Round: ${s.roundNumber} | MyHand: ${s.myHand?.length || 0} cards | Opponents: ${s.opponentHandSizes.join(',')} cards`;
+    const myCards = s.myHand?.length ?? 0;
+    const opps = s.opponentHandSizes?.join(',') ?? '';
+    const phase = s.phase || 'middle';
+    const lines: string[] = [
+      `Round ${s.roundNumber}, phase: ${phase}. My hand: ${myCards} cards; opponents: ${opps}.`
+    ];
+    if (s.cumulativeScores && s.cumulativeScores.size > 0) {
+      const scores = Array.from(s.cumulativeScores.entries())
+        .map(([pid, score]) => `P${pid}:${score}`)
+        .join(', ');
+      lines.push(`Scores: ${scores}.`);
+    }
+    if (s.lastPlay && s.lastPlayerId != null) {
+      const who = this.playerNames.get(s.lastPlayerId) ?? `Player${s.lastPlayerId}`;
+      const playType = (s.lastPlay as any).type ?? 'card';
+      const playVal = (s.lastPlay as any).value ?? '';
+      lines.push(`Last play: ${who} played ${playType}${playVal ? ` (${playVal})` : ''}.`);
+    }
+    return lines.join(' ');
   }
 
   private buildTriggerDescription(context: CommunicationContext): string {
-    // Re-use logic from previous buildSituationSection but simplified
+    const g = context.gameState;
+    const lastWho = g.lastPlayerId != null ? (this.playerNames.get(g.lastPlayerId) ?? `玩家${g.lastPlayerId}`) : null;
+    const play = g.lastPlay as any;
+    const playType = play?.type;
+
     if (context.decision) {
       if (context.decision.action.type === 'play') {
-        const play = (context.decision.action as any).play;
-        return `你刚刚打出了 ${play?.type}。`;
-      } else {
-        return `你选择了不要(过牌)。`;
+        const p = (context.decision.action as any).play;
+        const t = p?.type;
+        if (t === 'bomb') return '你刚出了炸弹，可以得意或挑衅一句。';
+        if (t === 'dun') return '你刚出了墩，可以嚣张或嘲讽一句。';
+        return `你刚出了${t || '牌'}。`;
       }
-    }
-    if (context.trigger === 'game_event') {
-      return `发生了事件: ${context.eventType}`;
+      return '你刚选择了要不起(过牌)，可以无奈或观望一句。';
     }
     if (context.trigger === 'user_chat') {
-      return `用户(玩家)刚刚说了一句话。`;
+      return '人类玩家刚发了消息，请自然回应一句。';
     }
-    return `轮到你了，或者游戏正在进行中。`;
+    if (context.trigger === 'after_play' && context.eventType) {
+      if (context.eventType === 'bomb' && lastWho) return `${lastWho}刚出了炸弹，你可以惊讶、不服或挑衅。`;
+      if (context.eventType === 'dun' && lastWho) return `${lastWho}刚出了墩，你可以震惊或嘲讽。`;
+      if (lastWho && playType) return `${lastWho}刚出了${playType}，轮到你或其他人反应。`;
+    }
+    if (context.trigger === 'after_pass') return '有人刚要不起，可以接话或调侃。';
+    if (context.trigger === 'game_event') return `游戏事件：${context.eventType || 'event'}。`;
+    return '游戏进行中，根据当前局势说一句应景的话。';
   }
 
   /**
@@ -451,7 +530,7 @@ export class CommunicationScheduler {
 - 先出完牌的玩家获胜
 
 聊天规则：
-- 内容要符合游戏场景，简短有力（不超过10个字）
+- 内容要符合游戏场景，简短有力，一句为限（长度由当前任务说明约束）
 - 要有个性，不同玩家有不同的说话风格
 - 对骂要适度，不能过于激烈
 - 根据游戏状态（领先、落后、出好牌等）调整语气`;
@@ -552,12 +631,20 @@ export class CommunicationScheduler {
         const play = (context.decision.action as any).play;
         lines.push(`- 你刚出了一手${play.type}，${play.value ? `牌值是${play.value}` : ''}`);
         if (play.type === 'bomb' || play.type === 'dun') {
-          lines.push(`- 这是一个重要出牌，可以表达得意或挑衅`);
+          lines.push(`- 这是重要出牌，可得意或挑衅`);
         }
       } else {
-        lines.push(`- 你选择了要不起`);
-        lines.push(`- 可以表达无奈、谨慎或等待`);
+        lines.push(`- 你选择了要不起，可无奈或观望`);
       }
+    } else if (context.trigger === 'after_play' && context.eventType) {
+      const who = context.gameState.lastPlayerId != null
+        ? (this.playerNames.get(context.gameState.lastPlayerId) || `玩家${context.gameState.lastPlayerId}`)
+        : '有人';
+      if (context.eventType === 'bomb') lines.push(`- ${who}刚出了炸弹，可惊讶、不服或挑衅`);
+      else if (context.eventType === 'dun') lines.push(`- ${who}刚出了墩，可震惊或嘲讽`);
+      else lines.push(`- ${who}刚出牌，可简短反应`);
+    } else if (context.trigger === 'after_pass') {
+      lines.push(`- 有人刚要不起，可接话或调侃`);
     }
 
     if (context.trigger === 'game_event') {
@@ -580,7 +667,7 @@ export class CommunicationScheduler {
 
 你是一个${presetDesc}的扑克游戏AI玩家。
 
-请生成一句简短的聊天内容（不超过10个字），要符合你的性格特点。
+请生成一句简短的聊天内容（${this.getLengthInstruction()}），要符合你的性格特点。
 
 重要：只输出聊天内容本身，不要任何格式、标记、列表符号或解释文字。
 
@@ -689,14 +776,12 @@ export class CommunicationScheduler {
     // 8. 过滤不当内容
     content = this.filterInappropriateContent(content);
 
-    // 9. 长度控制（最多15个字符）
-    if (content.length > 15) {
-      content = content.substring(0, 15);
-      // 尝试在词边界截断
-      const lastSpace = content.lastIndexOf(' ');
-      if (lastSpace > 10) {
-        content = content.substring(0, lastSpace);
-      }
+    // 9. 长度：交给 LLM 提示词约束，此处仅做安全上限（防止异常超长输出）
+    const SAFETY_MAX_LEN = 150;
+    if (content.length > SAFETY_MAX_LEN) {
+      const s = content.substring(0, SAFETY_MAX_LEN);
+      const lastPunct = Math.max(s.lastIndexOf('.'), s.lastIndexOf('!'), s.lastIndexOf('?'), s.lastIndexOf('。'), s.lastIndexOf('！'), s.lastIndexOf('？'));
+      content = lastPunct > 50 ? s.substring(0, lastPunct + 1).trim() : s.trim();
     }
 
     // 10. 最终验证
@@ -916,7 +1001,7 @@ export class CommunicationScheduler {
     // 4. 批量输出要求
     parts.push(`【批量输出要求】
 
-现在有${players.length}个玩家可能想要说话。请为每个玩家生成一句简短的聊天内容（不超过10个字）。
+现在有${players.length}个玩家可能想要说话。请为每个玩家生成一句简短的聊天内容（${this.getLengthInstruction()}）。
 
 玩家列表：
 ${players.map((p, idx) => {
@@ -943,7 +1028,7 @@ ${players.map((p, idx) => {
 2. 不要使用代码块标记（如三个反引号加json或三个反引号）
 3. 不要添加任何解释文字
 4. 每个玩家的content字段必须有内容（不能为空字符串）
-5. 每个玩家的内容不超过10个字
+5. 每个玩家的内容均为一句短句，长度按当前任务说明
 6. 直接输出JSON，不要其他内容
 7. 每个JSON对象之间必须换行，不要连在一起
 8. 不要在一个JSON对象中重复使用playerId键（这是无效的JSON格式）
@@ -1151,7 +1236,7 @@ ${players.map((p, idx) => {
   }
 
   /**
-   * 规则生成消息（LLM不可用时的回退）
+   * 规则生成消息（LLM不可用时的回退），按当前界面语言返回
    */
   private generateRuleBasedMessage(
     playerId: number,
@@ -1159,64 +1244,121 @@ ${players.map((p, idx) => {
     personality: any
   ): CommunicationMessage | null {
     const preset = personality.preset || 'balanced';
+    const locale = (typeof i18n !== 'undefined' && i18n.language) ? i18n.language : 'zh-CN';
+    const lang = locale.startsWith('ko') ? 'ko' : locale.startsWith('ja') ? 'ja' : locale.startsWith('en') ? 'en' : 'zh';
 
-    // 根据触发类型和性格选择消息
+    const sets = this.getRuleBasedMessageSets(lang);
     let messages: string[] = [];
 
-    // 基础消息库（按性格分类）
-    const baseMessages: Record<string, string[]> = {
-      'aggressive': [
-        '就这？', '不服来战！', '还有没有？', '太弱了',
-        '看我的！', '你不行', '再来啊', '就这点本事？',
-        '我还没发力呢', '你输定了', '别挣扎了', '认输吧'
-      ],
-      'conservative': [
-        '先看看', '谨慎点', '再看看', '不急',
-        '让我想想', '需要观察', '保持冷静', '稳一点',
-        '不能冲动', '要小心', '慢慢来', '再看看情况'
-      ],
-      'balanced': [
-        '还行', '继续', '不错', '可以',
-        '有意思', '继续出', '看情况', '保持节奏',
-        '还可以', '继续吧', '不错不错', '继续游戏'
-      ],
-      'adaptive': [
-        '看情况', '随机应变', '灵活应对', '看局势',
-        '根据情况来', '看对手出牌', '灵活调整', '随机应变'
-      ]
-    };
-
-    // 根据触发类型调整消息
     if (context.trigger === 'after_play') {
-      // 出牌后的反应
-      const playMessages: Record<string, string[]> = {
-        'aggressive': ['出得好！', '看我的！', '这手不错', '继续出！'],
-        'conservative': ['出得谨慎', '观察一下', '继续看', '保持节奏'],
-        'balanced': ['出得不错', '继续', '还可以', '继续出'],
-        'adaptive': ['看情况', '灵活应对', '随机应变']
-      };
-      messages = playMessages[preset] || baseMessages[preset] || baseMessages['balanced'];
+      messages = sets.playMessages[preset] || sets.baseMessages[preset] || sets.baseMessages['balanced'];
     } else if (context.trigger === 'after_pass') {
-      // 不要后的反应
-      const passMessages: Record<string, string[]> = {
-        'aggressive': ['不敢出了？', '认怂了？', '就这？', '继续啊'],
-        'conservative': ['明智的选择', '谨慎点好', '观察一下', '不急'],
-        'balanced': ['不要了', '继续', '看情况', '等等'],
-        'adaptive': ['看情况', '灵活应对']
-      };
-      messages = passMessages[preset] || baseMessages[preset] || baseMessages['balanced'];
+      messages = sets.passMessages[preset] || sets.baseMessages[preset] || sets.baseMessages['balanced'];
     } else {
-      // 默认使用基础消息
-      messages = baseMessages[preset] || baseMessages['balanced'];
+      messages = sets.baseMessages[preset] || sets.baseMessages['balanced'];
     }
 
     const content = messages[Math.floor(Math.random() * messages.length)];
-
     return {
       content,
       intent: this.determineIntent(context, personality),
       emotion: this.determineEmotion(context, personality),
       timestamp: Date.now()
+    };
+  }
+
+  /** 按语言返回规则消息库（用于泡泡回退） */
+  private getRuleBasedMessageSets(lang: 'zh' | 'en' | 'ja' | 'ko'): {
+    baseMessages: Record<string, string[]>;
+    playMessages: Record<string, string[]>;
+    passMessages: Record<string, string[]>;
+  } {
+    if (lang === 'ko') {
+      return {
+        baseMessages: {
+          aggressive: ['이거?', '덤비라!', '더 있어?', '너무 약한데', '보여줄게!', '넌 안 돼', '다시 와', '이게 전부야?', '아직 안 풀었어', '넌 진다', '못 버텨', '포기해'],
+          conservative: ['일단 봐', '조심해', '좀 더 봐', '급할 거 없어', '생각해 볼게', '지켜볼게', '침착해', '천천히', '충동 금지', '조심해야 해', '천천히 가자', '상황 봐'],
+          balanced: ['괜찮아', '계속', '나쁘지 않아', '오케이', '재밌네', '계속 내', '상황 봐', '리듬 유지', '괜찮아', '계속해', '괜찮네', '계속 게임'],
+          adaptive: ['상황 봐', '유연하게', '적응할게', '상황 따라', '경우에 따라', '상대 패 봐', '유연하게', '상황 봐']
+        },
+        playMessages: {
+          aggressive: ['잘 냈어!', '보여줄게!', '이거 괜찮지', '계속 내!'],
+          conservative: ['신중하게 냈네', '지켜볼게', '계속 볼게', '리듬 유지'],
+          balanced: ['잘 냈어', '계속', '괜찮아', '계속 내'],
+          adaptive: ['상황 봐', '유연하게', '상황 봐']
+        },
+        passMessages: {
+          aggressive: ['못 내겠어?', '기권이야?', '이거?', '계속 해'],
+          conservative: ['현명한 선택', '조심하는 게 좋아', '지켜볼게', '급할 거 없어'],
+          balanced: ['패스', '계속', '상황 봐', '잠깐'],
+          adaptive: ['상황 봐', '유연하게']
+        }
+      };
+    }
+    if (lang === 'ja') {
+      return {
+        baseMessages: {
+          aggressive: ['これ？', 'かかってこい！', 'まだある？', '弱いね', '見てろ！', 'お前はダメだ', 'もう一度来い', 'この程度？', 'まだ本気出してない', 'お前の負けだ', '無理だ', '降参しろ'],
+          conservative: ['まず見る', '慎重に', 'もう少し見る', '急がない', '考えてみる', '様子見', '冷静に', '落ち着いて', '衝動は禁物', '気をつけて', 'ゆっくりいこう', '状況を見る'],
+          balanced: ['まあまあ', '続けて', '悪くない', 'いいね', 'おもしろい', '続けて出して', '様子見', 'リズムを保って', 'いける', '続けよう', '悪くない', 'ゲーム続行'],
+          adaptive: ['様子見', '臨機応変', '柔軟に', '状況次第', '場合による', '相手の手を見る', '柔軟に', '様子見']
+        },
+        playMessages: {
+          aggressive: ['よく出した！', '見てろ！', 'いい手だ', '続けて！'],
+          conservative: ['慎重に出したね', '様子見', '続けて見る', 'リズムを保つ'],
+          balanced: ['よく出した', '続けて', '悪くない', '続けて出して'],
+          adaptive: ['様子見', '柔軟に', '様子見']
+        },
+        passMessages: {
+          aggressive: ['出せないの？', '降参？', 'これ？', '続けて'],
+          conservative: ['賢い選択', '慎重でいい', '様子見', '急がない'],
+          balanced: ['パス', '続けて', '様子見', 'ちょっと待って'],
+          adaptive: ['様子見', '柔軟に']
+        }
+      };
+    }
+    if (lang === 'en') {
+      return {
+        baseMessages: {
+          aggressive: ['That it?', 'Bring it!', 'More?', 'Too weak', 'Watch me!', "You're done", 'Again!', 'Is that all?', "I haven't tried", "You'll lose", "Can't last", 'Give up'],
+          conservative: ['Let me see', 'Careful', 'Wait and see', 'No rush', 'Thinking', 'Observing', 'Stay calm', 'Steady', "Don't rush", 'Be careful', 'Take it slow', 'See how it goes'],
+          balanced: ['Okay', 'Continue', 'Not bad', 'Sure', 'Interesting', 'Keep going', 'See how', 'Keep the rhythm', 'Alright', 'Go on', 'Not bad', 'Keep playing'],
+          adaptive: ['Depends', 'Adapt', 'Flexible', 'Situation', 'Case by case', 'Watch opponents', 'Flexible', 'See how']
+        },
+        playMessages: {
+          aggressive: ['Nice play!', 'Watch me!', 'Good one', 'Keep going!'],
+          conservative: ['Played safe', 'Watching', 'Continue', 'Keep rhythm'],
+          balanced: ['Nice', 'Continue', 'Okay', 'Keep going'],
+          adaptive: ['Depends', 'Flexible', 'See how']
+        },
+        passMessages: {
+          aggressive: ["Can't follow?", 'Giving up?', 'That it?', 'Go on'],
+          conservative: ['Smart choice', 'Careful is good', 'Watching', 'No rush'],
+          balanced: ['Pass', 'Continue', 'See', 'Wait'],
+          adaptive: ['See how', 'Flexible']
+        }
+      };
+    }
+    // 中文
+    return {
+      baseMessages: {
+        aggressive: ['就这？', '不服来战！', '还有没有？', '太弱了', '看我的！', '你不行', '再来啊', '就这点本事？', '我还没发力呢', '你输定了', '别挣扎了', '认输吧'],
+        conservative: ['先看看', '谨慎点', '再看看', '不急', '让我想想', '需要观察', '保持冷静', '稳一点', '不能冲动', '要小心', '慢慢来', '再看看情况'],
+        balanced: ['还行', '继续', '不错', '可以', '有意思', '继续出', '看情况', '保持节奏', '还可以', '继续吧', '不错不错', '继续游戏'],
+        adaptive: ['看情况', '随机应变', '灵活应对', '看局势', '根据情况来', '看对手出牌', '灵活调整', '随机应变']
+      },
+      playMessages: {
+        aggressive: ['出得好！', '看我的！', '这手不错', '继续出！'],
+        conservative: ['出得谨慎', '观察一下', '继续看', '保持节奏'],
+        balanced: ['出得不错', '继续', '还可以', '继续出'],
+        adaptive: ['看情况', '灵活应对', '随机应变']
+      },
+      passMessages: {
+        aggressive: ['不敢出了？', '认怂了？', '就这？', '继续啊'],
+        conservative: ['明智的选择', '谨慎点好', '观察一下', '不急'],
+        balanced: ['不要了', '继续', '看情况', '等等'],
+        adaptive: ['看情况', '灵活应对']
+      }
     };
   }
 

@@ -73,10 +73,6 @@ class ChatSchedulerService {
      * 处理玩家出牌事件
      */
     private handlePlayerPlayed(detail: PlayerPlayedEventDetail): void {
-
-        // 临时关闭聊天（调试用）
-        return;
-
         // 检查是否应该触发聊天
         if (!this.shouldTriggerChat(detail.playType)) {
             return;
@@ -90,10 +86,6 @@ class ChatSchedulerService {
      * 处理玩家不要事件
      */
     private handlePlayerPassed(detail: PlayerPassedEventDetail): void {
-
-        // 临时关闭聊天（调试用）
-        return;
-
         // 不要事件的聊天概率降低
         if (!this.shouldTriggerChat('pass')) {
             return;

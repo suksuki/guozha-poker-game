@@ -221,7 +221,6 @@ export class GameState {
    */
   updatePlayer(index: number, updates: Partial<Player>): GameState {
     if (index < 0 || index >= this._players.length) {
-      console.warn(`[GameState] Invalid player index: ${index}. Max index is ${this._players.length - 1}. Ignoring update.`);
       return this;
     }
 

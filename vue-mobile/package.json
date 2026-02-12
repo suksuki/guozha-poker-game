@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "type-check": "vue-tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest",
+    "tts-proxy": "node scripts/tts-cors-proxy.js",
+    "tts:test": "node scripts/test-qwen-tts.mjs"
   },
   "dependencies": {
     "pinia": "^2.1.0",

@@ -85,6 +85,9 @@
     "aiThinking": "AI思考中...",
     "noMessages": "メッセージなし",
     "systemMessage": "システムメッセージ",
+    "suggestionDone": "✨ AIが返信を提案しました",
+    "suggestionNone": "今は提案がありません",
+    "suggestionFailed": "提案の取得に失敗しました",
     "intent": {
       "tactical": "戦術",
       "strategic": "戦略",
@@ -102,7 +105,10 @@
       "awesome": "すごい",
       "haha": "はは",
       "cheer": "頑張れ",
-      "steady": "落ち着いて"
+      "steady": "落ち着いて",
+      "comeOn": "早く出して",
+      "nicePlay": "ナイスプレー",
+      "unlucky": "ついてない"
     }
   },
   "settings": {

@@ -8,6 +8,7 @@ import { ITTSClient, TTSOptions, TTSResult, TTSProvider, TTSServerConfig } from 
 import { BrowserTTSClient } from './browserTTSClient';
 import { PiperTTSClient } from './piperTTSClient';
 import { MeloTTSClient } from './meloTTSClient';
+import { QwenTTSClient } from './qwenTTSClient';
 import { ChannelType } from '../../types/channel';
 
 // 重新导出类型供外部使用
@@ -54,6 +55,8 @@ export class TTSService {
       client = new PiperTTSClient(server);
     } else if (server.type === 'melo') {
       client = new MeloTTSClient(server);
+    } else if (server.type === 'qwen') {
+      client = new QwenTTSClient(server);
     } else {
       return;
     }

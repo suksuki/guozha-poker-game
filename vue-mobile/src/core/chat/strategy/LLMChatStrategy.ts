@@ -16,45 +16,33 @@ export class LLMChatStrategy implements IChatStrategy {
   constructor(private config: LLMChatConfig, private fallbackStrategy?: IChatStrategy) { }
 
   /**
-   * 获取当前语言要求（用于Prompt）
+   * 获取当前语言要求（用于 Prompt，32B 等强模型严格按所选语言回复）
    */
   private getLanguageRequirement(): string {
-    // 如果未启用多语言，LLM只生成中文
     if (this.config.enableMultilingual === false) {
-      return '使用中文回复';
+      return '必须仅使用中文回复。禁止使用其他语言。';
     }
 
     const currentLang = i18n.language || 'zh-CN';
 
-    // 如果当前语言是中文，使用中文
     if (currentLang.startsWith('zh')) {
-      return '使用中文回复';
+      return '必须仅使用中文回复，口语化、自然。禁止使用英文、日文、韩文等其他语言。';
     }
 
-    // 根据语言代码返回对应的语言要求
     const langMap: Record<string, string> = {
-      'en': 'Use English to reply',
-      'en-US': 'Use English to reply',
-      'en-GB': 'Use English to reply',
-      'ja': '日本語で返信してください',
-      'ja-JP': '日本語で返信してください',
-      'ko': '한국어로 답변하세요',
-      'ko-KR': '한국어로 답변하세요',
+      'en': 'You must reply only in English. Do not use Chinese, Japanese, Korean or any other language.',
+      'en-US': 'You must reply only in English. Do not use Chinese, Japanese, Korean or any other language.',
+      'en-GB': 'You must reply only in English. Do not use Chinese, Japanese, Korean or any other language.',
+      'ja': '必ず日本語のみで返信すること。中国語・英語・韓国語は禁止。',
+      'ja-JP': '必ず日本語のみで返信すること。中国語・英語・韓国語は禁止。',
+      'ko': '반드시 한국어로만 답하세요. 중국어·일본어·영어 사용 금지.',
+      'ko-KR': '반드시 한국어로만 답하세요. 중국어·일본어·영어 사용 금지.',
     };
 
-    // 尝试精确匹配
-    if (langMap[currentLang]) {
-      return langMap[currentLang];
-    }
-
-    // 尝试语言代码前缀匹配
+    if (langMap[currentLang]) return langMap[currentLang];
     const langPrefix = currentLang.split('-')[0];
-    if (langMap[langPrefix]) {
-      return langMap[langPrefix];
-    }
-
-    // 默认使用英文
-    return `Use ${currentLang} language to reply`;
+    if (langMap[langPrefix]) return langMap[langPrefix];
+    return `You must reply only in ${currentLang}. Do not use other languages.`;
   }
 
   async generateRandomChat(

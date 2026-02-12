@@ -601,9 +601,9 @@ const initOllamaServerConfig = () => {
     ollamaServerMode.value = 'local';
   } else if (apiUrl.includes('192.168.')) {
     ollamaServerMode.value = 'lan';
-    const match = apiUrl.match(/192\.168\.(\d+\.\d+)/);
+    const match = apiUrl.match(/192\.168\.\d+\.\d+/);
     if (match) {
-      ollamaLanIP.value = match[1];
+      ollamaLanIP.value = match[0];
     }
     const portMatch = apiUrl.match(/:(\d+)/);
     if (portMatch) {
@@ -817,25 +817,27 @@ const testTTSServer = async (server: TTSServerConfig) => {
     }
 
     if (response.ok) {
-      // 对于MeLo TTS，检查返回的JSON中status是否为'ok'
       let isHealthy = true;
       let healthData: any = null;
-      
+
       if (server.type === 'melo') {
         try {
           const data = await response.json();
           healthData = data;
           isHealthy = data.status === 'ok';
-          
-          if (!isHealthy) {
-          }
         } catch (e: any) {
-          // 如果JSON解析失败，仍然认为响应ok就是健康的
           isHealthy = true;
         }
       } else if (server.type === 'piper') {
-        // Piper TTS可能没有JSON响应，只要HTTP 200就认为可用
         isHealthy = true;
+      } else if (server.type === 'qwen') {
+        try {
+          const data = await response.json();
+          healthData = data;
+          isHealthy = data?.ok === true || data?.status === 'ok' || data?.status === 'healthy' || data?.healthy === true;
+        } catch (e: any) {
+          isHealthy = true;
+        }
       }
       
       if (isHealthy) {
@@ -898,15 +900,15 @@ const testTTSServer = async (server: TTSServerConfig) => {
       errorMessage = error.toString();
     }
     
-    // 检查是否是CORS错误
-    if (errorMessage.includes('CORS') || errorMessage.includes('cors') || 
-        errorMessage.includes('fetch') || errorMessage.includes('network')) {
-      errorMessage = '网络错误或CORS问题\n请检查服务器CORS配置';
+    // 检查是否是 CORS 错误（curl 能通但浏览器被拦截）
+    const isCors = /cors|Failed to fetch|NetworkError|Load failed|fetch|network/i.test(errorMessage);
+    if (isCors) {
+      errorMessage = '浏览器被 CORS 拦截（curl 能通说明服务正常）\n请在 TTS 服务端添加响应头：Access-Control-Allow-Origin: *';
     }
-    
+
     showFailToast({
       message: `❌ 连接失败\n${errorMessage}`,
-      duration: 4000
+      duration: isCors ? 6000 : 4000
     });
     
     settingsStore.updateTTSServer(server.id, {
@@ -1185,6 +1187,7 @@ const getServerTypeLabel = (type: string) => {
   const labels: Record<string, string> = {
     melo: 'MeLo',
     piper: 'Piper',
+    qwen: 'QWEN-TTS',
     azure: 'Azure',
     browser: '浏览器'
   };
@@ -1230,7 +1233,7 @@ const handleAddTTSServer = (server: Partial<TTSServerConfig>) => {
       priority: server.priority ?? 3,
       connection: {
         host: server.connection.host || 'localhost',
-        port: server.connection.port || (server.type === 'melo' ? 7860 : 5000),
+        port: server.connection.port || (server.type === 'melo' ? 7860 : server.type === 'qwen' ? 8000 : 5000),
         protocol: server.connection.protocol || 'http'
       },
       providerConfig: server.providerConfig

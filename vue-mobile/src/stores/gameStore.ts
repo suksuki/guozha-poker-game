@@ -20,10 +20,20 @@ import { useSettingsStore } from './settingsStore';
 import { getTTSPlaybackService } from '../services/tts/ttsPlaybackService';
 import { playToSpeechText } from '../utils/playToSpeechText';
 import { getAIRecommendation as getAIRecommendationUtil } from '../utils/gameLogic';
+import { getCurrentLanguage } from '@/i18n';
+import i18n from '@/i18n';
+import type { TTSLanguage } from '../services/tts/types';
 import type { Play } from '@/core/types/card';
 // 移动端独立工具函数
 import { canPlayCards } from '@/core/utils/cardUtils';
 import { ChannelType } from '../types/channel';
+
+function localeToTTSLang(locale: string): TTSLanguage {
+  if (locale.startsWith('ko')) return 'ko';
+  if (locale.startsWith('ja')) return 'ja';
+  if (locale.startsWith('en')) return 'en';
+  return 'zh';
+}
 
 export const useGameStore = defineStore('game', () => {
   // ========== 游戏对象（新架构！）==========
@@ -183,67 +193,41 @@ export const useGameStore = defineStore('game', () => {
    */
   const advanceGameFlow = (_actingPlayerId: number, actionType: 'play' | 'pass', cards?: Card[]) => {
     if (!game.value) return;
-    const currentPlayerBefore = game.value.currentPlayerIndex;
-    // console.log(`[TEAM_DEBUG] advanceGameFlow: 开始, ActingPlayer=${_actingPlayerId}, Action=${actionType}, CurrentPlayerBefore=${currentPlayerBefore}, TeamMode=${game.value.state.config.teamMode}`);
 
-    // 定义"步骤完成"后的回调
     const onActionComplete = () => {
       if (!game.value) return;
 
-      // 首先检查游戏是否结束（优先级最高）
       if (game.value.status === 'finished') {
-        // console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: 游戏已结束，停止流程`);
         return;
       }
 
-      // 获取当前最新的活跃玩家
       const nextPlayerIndex = game.value.currentPlayerIndex;
 
-      // 如果 currentPlayerIndex 为 -1，说明游戏已结束
       if (nextPlayerIndex === -1) {
-        // console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: currentPlayerIndex=-1，游戏已结束，停止流程`);
         return;
       }
 
       const nextPlayer = game.value.players[nextPlayerIndex];
-      // console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: ActingPlayer=${_actingPlayerId}, NextPlayer=${nextPlayerIndex}(${nextPlayer?.name || 'N/A'}), Status=${game.value.status}, TeamMode=${game.value.state.config.teamMode}`);
 
-      // 检查是否陷入循环（仅在游戏未结束时检查）
       if (nextPlayerIndex === _actingPlayerId && actionType === 'play' && game.value.status !== 'finished') {
-        // console.error(`[TEAM_DEBUG] advanceGameFlow: ⚠️ 检测到循环！NextPlayer=${nextPlayerIndex} 等于 ActingPlayer=${_actingPlayerId}，游戏可能卡住`);
-        // 如果检测到循环且游戏未结束，尝试强制pass以避免卡死
-        // console.log(`[TEAM_DEBUG] advanceGameFlow: 尝试强制pass以避免卡死, player=${nextPlayerIndex}`);
-        pass(nextPlayerIndex).catch((err) => {
-          // console.error(`[TEAM_DEBUG] advanceGameFlow: 强制pass失败, error=`, err);
-        });
+        pass(nextPlayerIndex).catch(() => { });
         return;
       }
 
-      // 触发下一个玩家的操作
       if (nextPlayer && !nextPlayer.isHuman) {
-        // console.log(`[TEAM_DEBUG] advanceGameFlow.onActionComplete: 触发AI玩家${nextPlayerIndex}的决策`);
         if (aiBrainInitialized.value) {
-          // 清除之前的超时（如果有）
           const existingTimeout = aiDecisionTimeouts.get(nextPlayerIndex);
           if (existingTimeout) clearTimeout(existingTimeout);
 
-          // 设置超时保护
           const timeoutId = setTimeout(() => {
             if (game.value && game.value.currentPlayerIndex === nextPlayerIndex) {
-              // console.log(`[TEAM_DEBUG] advanceGameFlow: AI玩家${nextPlayerIndex}决策超时，自动pass`);
               aiDecisionTimeouts.delete(nextPlayerIndex);
               pass(nextPlayerIndex).catch(() => { });
             }
           }, 35000);
           aiDecisionTimeouts.set(nextPlayerIndex, timeoutId);
 
-
-
-          // 触发AI决策
-          // 即使是6人模式，也使用AI Brain，但后端策略(HybridStrategy)会根据配置自动优化速度 (降低迭代次数等)
-          // console.log(`[TEAM_DEBUG] advanceGameFlow: 调用triggerAITurn for Player ${nextPlayerIndex}`);
-          aiBrainIntegration.triggerAITurn(nextPlayerIndex, game.value as any).catch((err) => {
-            // console.error(`[TEAM_DEBUG] advanceGameFlow: AI决策失败 for Player ${nextPlayerIndex}:`, err);
+          aiBrainIntegration.triggerAITurn(nextPlayerIndex, game.value as any).catch(() => {
             clearTimeout(aiDecisionTimeouts.get(nextPlayerIndex));
             aiDecisionTimeouts.delete(nextPlayerIndex);
             // 决策失败尝试回退到简单策略
@@ -251,8 +235,6 @@ export const useGameStore = defineStore('game', () => {
           });
 
         } else {
-          // AI Brain未初始化（可能因配置错误失败），回退到简单策略
-          /* console.warn('[GameStore] AI Brain not initialized, falling back to simple strategy'); */
           setTimeout(() => {
             fallbackToSimpleStrategy(nextPlayerIndex);
           }, 1000); // 稍微延迟，模拟思考
@@ -265,10 +247,10 @@ export const useGameStore = defineStore('game', () => {
           }
         }, 10);
       }
-
-      // 移除所有 TTS 逻辑，直接立刻推进游戏流程
-      onActionComplete();
     };
+
+    // 立即执行一次：推进到下一家并触发 AI / 托管出牌
+    onActionComplete();
   };
 
   /**
@@ -285,17 +267,9 @@ export const useGameStore = defineStore('game', () => {
     // 1. 先执行出牌逻辑（等待异步完成，确保 finishedRank 等状态已更新）
     const currentPlayerBeforePlay = game.value.currentPlayerIndex;
     const playResult = await game.value.playCards(actingPlayerIndex, cards);
-    const currentPlayerAfterPlay = game.value.currentPlayerIndex;
-    // console.log(`[TEAM_DEBUG] playCards: 出牌完成, actingPlayer=${actingPlayerIndex}, currentPlayerBefore=${currentPlayerBeforePlay}, currentPlayerAfter=${currentPlayerAfterPlay}, success=${playResult?.success}`);
 
     if (!playResult || !playResult.success) {
-      // console.error(`[TEAM_DEBUG] playCards: 出牌失败, result=`, playResult);
-      // 出牌失败时，自动pass以继续游戏流程
-      // console.log(`[TEAM_DEBUG] playCards: 出牌失败，自动pass以继续游戏, actingPlayer=${actingPlayerIndex}`);
-      // 不调用 advanceGameFlow，因为 pass 会自己调用
-      pass(actingPlayerIndex).catch((err) => {
-        // console.error(`[TEAM_DEBUG] playCards: 自动pass也失败, error=`, err);
-      });
+      pass(actingPlayerIndex).catch(() => { });
       return { success: false, message: playResult?.message || '出牌失败' };
     }
 
@@ -308,10 +282,6 @@ export const useGameStore = defineStore('game', () => {
     // 更新版本以触发响应式（此时 finishedRank 应该已经设置好了）
     triggerUpdate();
 
-    // 再次检查当前玩家索引（确保状态已更新）
-    const currentPlayerAfterUpdate = game.value.currentPlayerIndex;
-    // console.log(`[TEAM_DEBUG] playCards: 状态更新后, currentPlayerAfterUpdate=${currentPlayerAfterUpdate}`);
-
     // 2. 发射游戏事件（供聊天调度器监听）
     const play = canPlayCards(cards);
     window.dispatchEvent(new CustomEvent('guozha:player-played', {
@@ -322,27 +292,26 @@ export const useGameStore = defineStore('game', () => {
     // 使用 try-catch 包裹整个逻辑，防止 playToSpeechText 报错导致游戏卡死
     // 注意：只有出牌成功时才调用 advanceGameFlow
     try {
+      const locale = getCurrentLanguage();
+      const ttsLang = localeToTTSLang(locale);
       if (play) {
-        const text = playToSpeechText(play);
-        // speak 方法返回的 Promise 会在音频播放结束(onEnd)时 resolve
+        const text = playToSpeechText(play, locale);
         getTTSPlaybackService().speak(text, {
           priority: 2,
-          timeout: 3000
+          timeout: 3000,
+          lang: ttsLang,
+          channel: ChannelType.SYSTEM
         }).then(() => {
           // 播放结束，推进流程（只有出牌成功时才推进）
           advanceGameFlow(actingPlayerIndex, 'play', cards);
-        }).catch((e) => {
-          console.warn('[TTS] Play announcement failed', e);
-          // 出错也要推进，避免卡死（只有出牌成功时才推进）
+        }).catch(() => {
           advanceGameFlow(actingPlayerIndex, 'play', cards);
         });
       } else {
         // 没得报牌，直接推进（只有出牌成功时才推进）
         advanceGameFlow(actingPlayerIndex, 'play', cards);
       }
-    } catch (error) {
-      console.error('[GameStore] Error in TTS dispatch:', error);
-      // 发生任何未知错误，必须保证游戏继续（只有出牌成功时才推进）
+    } catch {
       advanceGameFlow(actingPlayerIndex, 'play', cards);
     }
     return { success: true };
@@ -365,20 +334,21 @@ export const useGameStore = defineStore('game', () => {
     // 更新版本以触发响应式
     triggerUpdate();
 
-    // 恢复语音报牌（使用Promise链式调用，确保报牌结束后才推进）
-    getTTSPlaybackService().speak("不要", {
+    const locale = getCurrentLanguage();
+    const ttsLang = localeToTTSLang(locale);
+    const passText = i18n.global.t('game.quickPhrases.pass') as string;
+    getTTSPlaybackService().speak(passText || '不要', {
       priority: 2,
-      timeout: 3000
+      timeout: 3000,
+      lang: ttsLang,
+      channel: ChannelType.SYSTEM
     }).then(() => {
-      // 播放结束，推进流程
       advanceGameFlow(actingPlayerIndex, 'pass');
       // 发射游戏事件
       window.dispatchEvent(new CustomEvent('guozha:player-passed', {
         detail: { playerId: actingPlayerIndex }
       }));
-    }).catch((e) => {
-      console.warn('[TTS] Pass announcement failed', e);
-      // 出错也要推进
+    }).catch(() => {
       advanceGameFlow(actingPlayerIndex, 'pass');
       window.dispatchEvent(new CustomEvent('guozha:player-passed', {
         detail: { playerId: actingPlayerIndex }
@@ -574,8 +544,6 @@ export const useGameStore = defineStore('game', () => {
                 if (singleResult.success) {
                   showToast({ type: 'success', message: '🤖 托管出单张', duration: 1500 });
                 } else {
-                  // 出单张也失败，自动pass
-                  // console.log(`[TEAM_DEBUG] autoPlayTurn: 出单张失败，自动pass`);
                   pass().catch(() => { });
                 }
               }).catch(() => {
@@ -598,8 +566,6 @@ export const useGameStore = defineStore('game', () => {
             if (result.success) {
               showToast({ type: 'success', message: '🤖 托管出单张', duration: 1500 });
             } else {
-              // 出单张失败，自动pass
-              console.log(`[TEAM_DEBUG] autoPlayTurn: 出单张失败，自动pass`);
               pass().catch(() => { });
             }
           }).catch(() => {
@@ -644,9 +610,7 @@ export const useGameStore = defineStore('game', () => {
       } else {
         await pass(playerId);
       }
-    } catch (error) {
-      // console.error('[GameStore] Fallback strategy failed:', error);
-      // 最后的兜底：直接Pass
+    } catch {
       await pass(playerId);
     }
   };

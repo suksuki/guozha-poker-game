@@ -23,19 +23,15 @@ export function teamMCTS(
   config: MCTSTeamConfig
 ): TeamAction | null {
   try {
-    // 输入验证
     if (!hand || hand.length === 0) {
-      console.warn('[teamMCTS] 手牌为空');
       return null;
     }
 
     if (!state || !state.allHands) {
-      console.warn('[teamMCTS] 游戏状态无效');
       return null;
     }
 
     if (state.currentPlayerIndex < 0 || state.currentPlayerIndex >= state.allHands.length) {
-      console.warn(`[teamMCTS] 无效的玩家索引: ${state.currentPlayerIndex}, 玩家数量: ${state.allHands.length}`);
       return null;
     }
 
@@ -49,8 +45,7 @@ export function teamMCTS(
     let actions: TeamAction[];
     try {
       actions = generateTeamActions(hand, state, config.strategicPassEnabled, isTeamMode);
-    } catch (error) {
-      console.error('[teamMCTS] generateTeamActions失败:', error);
+    } catch {
       return null;
     }
 
@@ -106,8 +101,7 @@ export function teamMCTS(
 
     // 选择最佳动作
     return selectBestTeamAction(root, config);
-  } catch (error) {
-    console.error('[teamMCTS] 执行失败:', error);
+  } catch {
     return null;
   }
 }

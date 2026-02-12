@@ -85,6 +85,9 @@
     "aiThinking": "AI 생각 중...",
     "noMessages": "메시지 없음",
     "systemMessage": "시스템 메시지",
+    "suggestionDone": "✨ AI가 답장을 제안했습니다",
+    "suggestionNone": "지금은 제안이 없습니다",
+    "suggestionFailed": "제안을 가져오지 못했습니다",
     "intent": {
       "tactical": "전술",
       "strategic": "전략",
@@ -102,7 +105,10 @@
       "awesome": "대단함",
       "haha": "하하",
       "cheer": "화이팅",
-      "steady": "차분히"
+      "steady": "차분히",
+      "comeOn": "빨리 내세요",
+      "nicePlay": "잘했어요",
+      "unlucky": "운이 없네"
     }
   },
   "settings": {

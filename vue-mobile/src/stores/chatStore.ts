@@ -8,7 +8,15 @@ import { ref, computed } from 'vue';
 import { aiBrainIntegration } from '../services/ai/aiBrainIntegration';
 import { useGameStore } from './gameStore';
 import { useSettingsStore } from './settingsStore';
-import { getMultiChannelAudioService } from '../services/audio/multiChannelAudioService';
+import { getCurrentLanguage } from '@/i18n';
+import type { TTSLanguage } from '../services/tts/types';
+
+function localeToTTSLang(locale: string): TTSLanguage {
+  if (locale.startsWith('ko')) return 'ko';
+  if (locale.startsWith('ja')) return 'ja';
+  if (locale.startsWith('en')) return 'en';
+  return 'zh';
+}
 
 export interface ChatMessage {
   id: string;
@@ -76,8 +84,6 @@ export const useChatStore = defineStore('chat', () => {
    * 初始化AI Brain通信监听
    */
   const initializeAIBrainListener = () => {
-    const audioService = getMultiChannelAudioService();
-
     aiBrainIntegration.onCommunicationMessage((event) => {
       // 获取玩家名称（从gameStore获取）
       const gameStore = useGameStore();
@@ -94,17 +100,23 @@ export const useChatStore = defineStore('chat', () => {
         timestamp: event.timestamp
       };
 
-      // 异步播放TTS语音（根据设置决定是否播放）
+      // 先立即显示气泡和消息（不依赖 TTS），确保未配置 TTS 时也能看到文字
+      if (event.content && event.content.trim()) {
+        addMessage(newMessage);
+        activeBubbles.value.set(event.playerId, newMessage);
+        setTimeout(() => {
+          activeBubbles.value.delete(event.playerId);
+        }, 3000);
+      }
+
+      // 再根据设置尝试播放 TTS（有则播，没有也不影响气泡）
       const settingsStore = useSettingsStore();
       const voiceSettings = settingsStore.voicePlaybackSettings;
-
-      // 检查是否应该播放（系统播报或玩家聊天）
       const isSystemMessage = event.intent === 'system' || event.intent === 'announcement';
       const shouldPlay = (isSystemMessage && voiceSettings.enableSystemAnnouncements) ||
         (!isSystemMessage && voiceSettings.enablePlayerChat);
 
       if (event.content && event.content.trim() && voiceSettings.enabled && shouldPlay) {
-        // 根据intent确定优先级：taunt=3, tactical_signal=2, social_chat=1, system=4
         const priorityMap: Record<string, number> = {
           'system': 4,
           'announcement': 4,
@@ -115,75 +127,25 @@ export const useChatStore = defineStore('chat', () => {
         };
         const priority = priorityMap[event.intent] || 1;
 
-        // 使用TTS播报服务（等待音频返回后再显示文字）
         Promise.all([
           import('../types/channel'),
           import('../services/tts/ttsPlaybackService')
         ]).then(([{ ChannelType }, { getTTSPlaybackService }]) => {
-          // 确定声道：所有聊天消息都使用玩家声道（PLAYER_1-PLAYER_7，共7条）
-          // 系统声音使用SYSTEM专用声道，聊天使用玩家声道（智能调度）
-          // 使用玩家ID模7来分配，确保在7个玩家声道中均匀分布
           const channel = (ChannelType.PLAYER_1 + (event.playerId % 7)) as typeof ChannelType[keyof typeof ChannelType];
+          const ttsLang = localeToTTSLang(getCurrentLanguage());
           const ttsService = getTTSPlaybackService();
-
-          // 聊天TTS（在音频开始播放时显示气泡，不需要等待播放完成）
-          let bubbleDisplayed = false;
-          const displayBubble = () => {
-            if (!bubbleDisplayed) {
-              bubbleDisplayed = true;
-              addMessage(newMessage);
-              activeBubbles.value.set(event.playerId, newMessage);
-
-              setTimeout(() => {
-                activeBubbles.value.delete(event.playerId);
-              }, 3000);
-            }
-          };
-
-          // 设置超时，确保即使TTS失败也能显示气泡
-          const timeoutId = setTimeout(() => {
-            displayBubble();
-          }, 5000);
-
           ttsService.speak(event.content, {
             timeout: 5000,
             fallbackTimeout: 5000,
             priority,
             channel,
+            lang: ttsLang,
             enableCache: true,
-            onStart: () => {
-              // 音频开始播放时，显示气泡
-              clearTimeout(timeoutId);
-              displayBubble();
-            },
-            onEnd: () => {
-              // 音频播放完成
-            },
-            onError: (error) => {
-              clearTimeout(timeoutId);
-              displayBubble();
-            }
-          }).catch((error) => {
-            clearTimeout(timeoutId);
-            displayBubble();
-          });
-        }).catch((error) => {
-          // 如果TTS服务不可用，直接显示消息和气泡
-          addMessage(newMessage);
-          activeBubbles.value.set(event.playerId, newMessage);
-
-          setTimeout(() => {
-            activeBubbles.value.delete(event.playerId);
-          }, 3000);
-        });
-      } else {
-        // 不播放TTS，直接显示消息和气泡
-        addMessage(newMessage);
-        activeBubbles.value.set(event.playerId, newMessage);
-
-        setTimeout(() => {
-          activeBubbles.value.delete(event.playerId);
-        }, 3000);
+            onStart: () => {},
+            onEnd: () => {},
+            onError: () => {}
+          }).catch(() => {});
+        }).catch(() => {});
       }
     });
   };

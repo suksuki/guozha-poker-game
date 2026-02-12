@@ -336,32 +336,34 @@ export class MasterAIBrain {
     let eventValid = false;
     let eventDesc = '';
 
+    let eventTypeForChat: string | undefined;
     if (changeType === 'play' && gameState.lastPlay) {
       const type = gameState.lastPlay.type;
       const val = gameState.lastPlay.value;
       const pid = gameState.lastPlayerId;
       eventDesc = `Player ${pid} played ${type} (${val})`;
       eventValid = true;
+      // 细粒度 eventType 供聊天上下文使用：bomb / dun / single 等
+      eventTypeForChat = type === 'bomb' || type === 'dun' ? type : (type || 'play');
     } else if (changeType === 'pass') {
-      eventDesc = `A player passed`; // Simplified as we don't have exact ID easily here without extra args
+      eventDesc = `A player passed`;
       eventValid = true;
+      eventTypeForChat = 'pass';
     } else if (changeType === 'event') {
       eventDesc = `Game Event occurred`;
       eventValid = true;
+      eventTypeForChat = 'game_event';
     }
 
     if (eventValid) {
       this.commScheduler.handleGameEvent(eventDesc);
     }
 
-    // 根据变化类型触发批量聊天
     const trigger: 'after_play' | 'after_pass' | 'game_event' =
       changeType === 'play' ? 'after_play' :
         changeType === 'pass' ? 'after_pass' : 'game_event';
 
-    // 异步触发，不阻塞游戏流程
-    this.triggerBatchChat(gameState, trigger, changeType).catch(error => {
-    });
+    this.triggerBatchChat(gameState, trigger, eventTypeForChat).catch(() => {});
   }
 
   /**

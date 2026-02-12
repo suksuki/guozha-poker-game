@@ -303,7 +303,6 @@ export class RoundScheduler {
     // 0. 验证 actionId（防止异步回调乱序）
     // 如果传入了 actionId，且与当前最新的 lastActionId 不一致，说明是过期的回调，直接忽略
     if (actionId !== undefined && actionId !== this.lastActionId && actionId !== 0) {
-      console.warn(`[RoundScheduler] 忽略过期回调: current=${this.lastActionId}, received=${actionId}`);
       return;
     }
 

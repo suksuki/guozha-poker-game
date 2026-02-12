@@ -28,6 +28,8 @@ export interface ChannelRequest {
   playerId?: number;  // 玩家ID（仅用于PLAYER类型）
   priority: number;    // 优先级：4=系统，3=对骂，2=事件，1=随机
   totalPlayers?: number;  // 总玩家数（用于智能调度）
+  /** 指定玩家声道时优先使用该声道，避免多玩家被分到同一声道导致被顶掉 */
+  requestedChannel?: ChannelType;
 }
 
 /**
@@ -192,14 +194,41 @@ export class SmartChannelScheduler {
    */
   private allocatePlayerChannel(request: ChannelRequest): ChannelAllocation {
     const playerId = request.playerId ?? 0;
-    
+    const requestedChannel = request.requestedChannel;
+
+    // 若调用方指定了玩家声道（如 chatStore 按 playerId 固定 PLAYER_1~4），优先使用该声道，避免多人被分到同一声道导致被顶掉
+    if (requestedChannel !== undefined && this.availablePlayerChannels.includes(requestedChannel)) {
+      const state = this.channelStates.get(requestedChannel)!;
+      if (!state.isActive) {
+        state.isActive = true;
+        state.currentPlayerId = playerId;
+        state.priority = request.priority;
+        state.lastUsedTime = Date.now();
+        state.usageCount++;
+        this.playerChannelMap.set(playerId, requestedChannel);
+        this.activePlayerCount++;
+        return {
+          channel: requestedChannel,
+          isQueued: false,
+          reason: `指定声道${requestedChannel}分配给玩家${playerId}`
+        };
+      }
+      // 该声道正忙，在本声道上排队（保证同一玩家固定同一声道，不会顶掉别人）
+      state.queueLength++;
+      return {
+        channel: requestedChannel,
+        isQueued: true,
+        queuePosition: state.queueLength,
+        reason: `玩家${playerId}的指定声道${requestedChannel}正在使用，加入队列`
+      };
+    }
+
     // 检查该玩家是否已经有分配的声道
     let assignedChannel = this.playerChannelMap.get(playerId);
     
     if (assignedChannel) {
       const state = this.channelStates.get(assignedChannel)!;
       if (state.isActive && state.currentPlayerId === playerId) {
-        // 该玩家正在使用该声道，加入队列
         state.queueLength++;
         return {
           channel: assignedChannel,
@@ -208,18 +237,15 @@ export class SmartChannelScheduler {
           reason: `玩家${playerId}的声道正在使用，加入队列`
         };
       }
-      // 如果通道已分配但不活跃，清除映射（可能已被释放）
       if (!state.isActive) {
         this.playerChannelMap.delete(playerId);
         assignedChannel = undefined;
       }
     }
     
-    // 智能查找最佳可用声道
     const availableChannel = this.findBestAvailablePlayerChannel(playerId);
     
     if (availableChannel !== null) {
-      // 找到空闲声道，分配给该玩家
       const state = this.channelStates.get(availableChannel)!;
       state.isActive = true;
       state.currentPlayerId = playerId;
@@ -235,7 +261,6 @@ export class SmartChannelScheduler {
       };
     }
     
-    // 所有玩家声道都在使用，智能选择最佳队列
     const bestQueueChannel = this.findBestQueueChannel();
     const state = this.channelStates.get(bestQueueChannel)!;
     state.queueLength++;

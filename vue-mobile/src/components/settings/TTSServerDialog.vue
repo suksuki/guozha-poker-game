@@ -111,6 +111,7 @@
           >
             {{ testMessage || '测试连接' }}
           </van-button>
+          <p class="test-hint">若 curl 能通但测试失败，多为浏览器 CORS 限制，需在 TTS 服务端添加 <code>Access-Control-Allow-Origin: *</code></p>
         </div>
       </div>
 
@@ -142,6 +143,7 @@ const emit = defineEmits<{
 const typeOptions = [
   { value: 'melo' as TTSProvider, label: 'MeLo TTS', icon: '🎤' },
   { value: 'piper' as TTSProvider, label: 'Piper TTS', icon: '🎯' },
+  { value: 'qwen' as TTSProvider, label: 'QWEN-TTS', icon: '🔊' },
   { value: 'browser' as TTSProvider, label: '浏览器 TTS', icon: '🌐' },
 ];
 
@@ -165,7 +167,9 @@ const testMessage = ref('');
 
 // 默认端口
 const defaultPort = computed(() => {
-  return form.value.type === 'melo' ? '7860' : '5000';
+  if (form.value.type === 'melo') return '7860';
+  if (form.value.type === 'qwen') return '8000';
+  return '5000';
 });
 
 // 选择类型
@@ -214,7 +218,14 @@ const handleTestConnection = async () => {
           const data = await response.json();
           healthy = data.status === 'ok';
         } catch (e) {
-          healthy = true; 
+          healthy = true;
+        }
+      } else if (form.value.type === 'qwen') {
+        try {
+          const data = await response.json();
+          healthy = data?.ok === true || data?.status === 'ok' || data?.status === 'healthy' || data?.healthy === true;
+        } catch (e) {
+          healthy = true;
         }
       }
       
@@ -230,8 +241,17 @@ const handleTestConnection = async () => {
       showFailToast(`连接失败: ${response.status}`);
     }
   } catch (err: any) {
-    testMessage.value = '❌ 连接超时/拒绝';
-    showFailToast('无法连接到服务器，请检查地址或网络');
+    const msg = err?.message || String(err);
+    const isCors = /cors|Failed to fetch|NetworkError|Load failed/i.test(msg);
+    testMessage.value = isCors ? '❌ 被 CORS 拦截' : '❌ 连接超时/拒绝';
+    if (isCors) {
+      showFailToast({
+        message: 'curl 能通但浏览器被 CORS 拦截。请在 TTS 服务端添加响应头：Access-Control-Allow-Origin: *',
+        duration: 5000
+      });
+    } else {
+      showFailToast('无法连接到服务器，请检查地址或网络');
+    }
   } finally {
     isTesting.value = false;
   }
@@ -307,7 +327,8 @@ const handleConfirm = () => {
     }
   }
 
-  const finalPort = parseInt(port.value) || (form.value.type === 'melo' ? 7860 : 5000);
+  const defaultPorts: Record<string, number> = { melo: 7860, piper: 5000, qwen: 8000 };
+  const finalPort = parseInt(port.value) || defaultPorts[form.value.type] || 5000;
 
   const server: Partial<TTSServerConfig> = {
     id: props.server?.id || `tts-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -320,10 +341,12 @@ const handleConfirm = () => {
       port: finalPort,
       protocol: 'http' as const,
     } : undefined,
-    providerConfig: form.value.type === 'melo' 
+    providerConfig: form.value.type === 'melo'
       ? { melo: { speaker: 'ZH', speed: 1.0 } }
       : form.value.type === 'piper'
       ? { piper: { model: 'zh_CN-huayan-medium' } }
+      : form.value.type === 'qwen'
+      ? { qwen: { speaker: 'vivian', speed: 1.0 } }
       : undefined,
   };
 
@@ -487,6 +510,20 @@ const handleCancel = () => {
 .test-section {
   margin-top: 20px;
   padding: 0 4px;
+}
+
+.test-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+.test-hint code {
+  background: rgba(129, 140, 248, 0.2);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 10px;
 }
 
 .test-btn {

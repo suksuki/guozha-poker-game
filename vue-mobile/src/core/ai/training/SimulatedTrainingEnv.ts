@@ -78,10 +78,6 @@ export class SimulatedTrainingEnv {
         for (let i = 0; i < count; i++) {
             const result = await this.runGame(gameConfig);
             results.push(result);
-            // Optional: Log progress
-            if ((i + 1) % 10 === 0) {
-                console.log(`[SimulatedTrainingEnv] Completed ${i + 1}/${count} games.`);
-            }
         }
         return results;
     }
@@ -170,8 +166,7 @@ export class SimulatedTrainingEnv {
             try {
                 const aiState = this.convertGameState(this.game, currentPlayerIndex);
                 this.bridge.getAPI().triggerAITurn(currentPlayerIndex, aiState);
-            } catch (e) {
-                console.error("Error converting state or triggering turn:", e);
+            } catch {
                 break;
             }
 

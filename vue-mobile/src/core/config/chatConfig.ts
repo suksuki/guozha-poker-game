@@ -89,21 +89,20 @@ export interface LLMChatConfig {
 export const DEFAULT_LLM_CHAT_CONFIG: LLMChatConfig = {
   provider: 'custom',
   apiUrl: 'http://115.93.10.51:11434/api/generate',
-  model: 'qwen2:0.5b', // 🔥 使用小模型保证快速响应（3-5秒），游戏体验更流畅
-  temperature: 0.9, // 🔥 提高温度，让对话更有创意和变化
-  maxTokens: 150, // 🔥 增加token数，允许更长更丰富的对话（从50 -> 150）
+  model: 'qwen2:0.5b',
+  temperature: 0.9,
+  maxTokens: 200, // 适配 QWEN32B 等大模型，允许更长、更丰富的多语言对话
   enableContext: true,
   enableHistory: true,
   maxHistoryLength: 10,
-  timeout: 30000, // 🔥 增加超时时间适配大模型（30秒，qwen2.5:3b 首次加载需要 15-20 秒）
-  enableMultilingual: true, // 启用LLM多语言生成（LLM直接生成目标语言，而不是生成中文再翻译）
+  timeout: 30000,
+  enableMultilingual: true, // 多语言：根据应用语言/用户消息语言回复
   systemPrompt: `你是一个过炸牌游戏的AI玩家，需要根据游戏情况生成自然、生动、有趣的聊天内容。
 
 语言要求：
-- 根据"语言要求"部分的指示，使用对应的语言回复
-- 如果要求使用中文，使用中文回复
-- 如果要求使用其他语言（如英语、日语、韩语等），使用对应语言回复
+- 必须严格按下方「语言要求」部分指定的语言回复，不得使用其他语言
 - 保持语言地道自然，符合该语言的表达习惯
+- 违反语言要求的回复视为无效
 
 重要要求：
 1. 生动有趣：不要只是简单的"好"、"不错"，要有个性和情感

@@ -9,22 +9,50 @@
 
 import { getMultiChannelAudioService } from '../audio/multiChannelAudioService';
 import { ChannelType } from '../../types/channel';
-import type { TTSOptions, TTSResult } from './types';
+import type { TTSOptions, TTSResult, TTSLanguage } from './types';
 import type { TTSServerConfig } from './types';
 import { PiperTTSClient } from './piperTTSClient';
 import { MeloTTSClient } from './meloTTSClient';
+import { QwenTTSClient } from './qwenTTSClient';
 import { useSettingsStore } from '../../stores/settingsStore';
 
+/** 从 VITE_TTS_BASE_URL 解析出默认 Qwen 服务器配置（仅当设置里没有任何可用 TTS 时使用） */
+function getDefaultQwenServerFromEnv(): TTSServerConfig | null {
+  const url = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_TTS_BASE_URL;
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) return null;
+  try {
+    const u = new URL(url);
+    const port = u.port ? parseInt(u.port, 10) : (u.protocol === 'https:' ? 443 : 80);
+    return {
+      id: 'default-qwen-env',
+      name: 'Qwen TTS (环境变量)',
+      type: 'qwen',
+      enabled: true,
+      priority: 0,
+      connection: {
+        host: u.hostname,
+        port: Number.isNaN(port) ? 8000 : port,
+        protocol: u.protocol === 'https:' ? 'https' : 'http'
+      },
+      providerConfig: { qwen: { speaker: 'Vivian', instruct: '牌桌氛围，语气轻松一点', language: 'Chinese' } }
+    };
+  } catch {
+    return null;
+  }
+}
+
 interface PlaybackOptions {
-  timeout?: number;  // 超时时间（毫秒）
-  fallbackTimeout?: number;  // 降级超时时间（毫秒）
-  enableCache?: boolean;  // 是否启用缓存
-  priority?: number;  // 优先级
-  channel?: ChannelType;  // 声道
-  onAudioGenerated?: () => void;  // 音频文件生成完成回调（在TTS返回音频后立即触发）
-  onStart?: () => void;  // 开始播放回调
-  onEnd?: () => void;  // 播放完成回调
-  onError?: (error: Error) => void;  // 错误回调
+  timeout?: number;
+  fallbackTimeout?: number;
+  enableCache?: boolean;
+  priority?: number;
+  channel?: ChannelType;
+  /** TTS 发音语言（与界面语言一致时即可说韩文/日文等） */
+  lang?: TTSLanguage;
+  onAudioGenerated?: () => void;
+  onStart?: () => void;
+  onEnd?: () => void;
+  onError?: (error: Error) => void;
 }
 
 interface CachedAudio {
@@ -34,29 +62,48 @@ interface CachedAudio {
   timestamp: number;
 }
 
+/** 健康检查通过后在此时间内不再重复请求 GET /health */
+const HEALTH_CACHE_TTL_MS = 30 * 1000;
+
+function serverHealthKey(server: TTSServerConfig): string {
+  const c = server.connection;
+  return `${c.protocol}://${c.host}:${c.port}`;
+}
+
 /**
  * TTS播报服务
  */
 export class TTSPlaybackService {
   private audioCache: Map<string, CachedAudio> = new Map();
   private readonly CACHE_EXPIRY = 60 * 60 * 1000; // 1小时过期
+  /** 健康检查通过时间戳，避免每次报牌都打 GET /health */
+  private healthCheckedAt: Map<string, number> = new Map();
+  /** 串行队列：报牌与玩家说话依次播放，互不重叠、互不影响 */
+  private speakQueue: Promise<void> = Promise.resolve();
 
   /**
-   * 播报文本（带超时和降级）
-   * @param text 要播报的文本
-   * @param options 播报选项
-   * @returns Promise，在音频播放完成后resolve
+   * 播报文本（带超时和降级）。报牌与玩家泡泡共用队列，保证不会同时播放。
    */
   async speak(
     text: string,
     options: PlaybackOptions = {}
   ): Promise<void> {
+    const run = () => this.doSpeak(text, options);
+    this.speakQueue = this.speakQueue.then(run, run);
+    return this.speakQueue;
+  }
+
+  private async doSpeak(
+    text: string,
+    options: PlaybackOptions = {}
+  ): Promise<void> {
     const {
-      timeout = 5000,  // 默认5秒
-      fallbackTimeout = 5000,  // 降级超时5秒
+      timeout = 5000,
+      fallbackTimeout = 5000,
       enableCache = true,
       priority = 1,
       channel = ChannelType.SYSTEM,
+      lang,
       onAudioGenerated,
       onStart,
       onEnd,
@@ -90,53 +137,35 @@ export class TTSPlaybackService {
       }
     }
 
-    // 生成音频（带超时和降级）
-    const audioResult = await this.generateAudioWithFallback(text, timeout, fallbackTimeout, channel);
+    const audioResult = await this.generateAudioWithFallback(text, timeout, fallbackTimeout, channel, lang);
 
     if (!audioResult) {
+      onAudioGenerated?.();
+      onError?.(new Error('所有TTS服务都不可用'));
+      return;
     }
 
-    // TTS文件返回后，等待音频解码、播放并完全播放完成
-    // 这样可以确保用户听到完整的报牌内容，游戏流程在报牌完全结束后才继续
-    if (audioResult) {
-      // 缓存音频
-      if (enableCache) {
-        const cacheKey = this.getCacheKey(text, channel);
-        this.audioCache.set(cacheKey, {
-          audioBuffer: audioResult.audioBuffer,
-          duration: audioResult.duration,
-          format: audioResult.format,
-          timestamp: Date.now()
-        });
-      }
+    if (enableCache) {
+      const cacheKey = this.getCacheKey(text, channel);
+      this.audioCache.set(cacheKey, {
+        audioBuffer: audioResult.audioBuffer,
+        duration: audioResult.duration,
+        format: audioResult.format,
+        timestamp: Date.now()
+      });
+    }
 
-      // 播放音频，等待播放完成
-      try {
-        await this.playAudio(audioResult.audioBuffer, audioResult.duration, channel, priority, () => {
-          onStart?.();
-        }, () => {
-          // 音频完全播放完成时，触发回调
-          onAudioGenerated?.();
-          onEnd?.();
-        }, (err) => {
-          // 播放失败时，也触发回调，确保游戏流程继续
-          onAudioGenerated?.();
-          onError?.(err);
-        });
-      } catch (err) {
-        // 播放异常时，也触发回调，确保游戏流程继续
+    try {
+      await this.playAudio(audioResult.audioBuffer, audioResult.duration, channel, priority, () => onStart?.(), () => {
         onAudioGenerated?.();
-        onError?.(err instanceof Error ? err : new Error(String(err)));
-      }
-      return;
-    } else {
-      // 所有TTS都失败，但仍然触发回调让游戏继续
-      const error = new Error('所有TTS服务都不可用');
-      onError?.(error);
-      // 即使失败，也触发onAudioGenerated，确保游戏流程继续
+        onEnd?.();
+      }, (err) => {
+        onAudioGenerated?.();
+        onError?.(err);
+      });
+    } catch (err) {
       onAudioGenerated?.();
-      // 不抛出错误，而是返回resolved promise，让游戏继续
-      return;
+      onError?.(err instanceof Error ? err : new Error(String(err)));
     }
   }
 
@@ -149,17 +178,26 @@ export class TTSPlaybackService {
     text: string,
     primaryTimeout: number,
     fallbackTimeout: number,
-    channel: ChannelType
+    channel: ChannelType,
+    lang?: TTSLanguage
   ): Promise<TTSResult | null> {
     const settingsStore = useSettingsStore();
-    const servers = settingsStore.ttsServers;
+    let servers = settingsStore.ttsServers;
 
-    // 只使用非浏览器TTS服务器（piper/melo），排除浏览器TTS
-    const candidateServers = servers.filter(s =>
+    // 只使用非浏览器TTS服务器（piper/melo/qwen），排除浏览器TTS
+    let candidateServers = servers.filter(s =>
       s.enabled &&
       s.type !== 'browser' &&
-      (s.type === 'piper' || s.type === 'melo')
+      (s.type === 'piper' || s.type === 'melo' || s.type === 'qwen')
     );
+
+    // 兜底：设置里没有任何可用 TTS 时，尝试环境变量 VITE_TTS_BASE_URL（如 http://192.168.0.10:8000）
+    if (candidateServers.length === 0) {
+      const defaultQwen = getDefaultQwenServerFromEnv();
+      if (defaultQwen) {
+        candidateServers = [defaultQwen];
+      }
+    }
 
     // 如果指定了声道，优先选择分配给该声道的服务器
     let filteredServers = candidateServers;
@@ -180,39 +218,51 @@ export class TTSPlaybackService {
     }
 
     const options: TTSOptions = {
-      lang: 'zh',
+      lang: lang ?? 'zh',
       useCache: true
     };
 
     // 总超时时间 = primaryTimeout + fallbackTimeout（10秒）
     const totalTimeout = primaryTimeout + fallbackTimeout;
 
-    // 按优先级尝试所有服务器
+    let lastError: Error | string | null = null;
+
     for (const server of filteredServers) {
+      const serverKey = serverHealthKey(server);
       try {
-        // 创建TTS客户端
         let client;
         if (server.type === 'piper') {
           client = new PiperTTSClient(server);
         } else if (server.type === 'melo') {
           client = new MeloTTSClient(server);
+        } else if (server.type === 'qwen') {
+          client = new QwenTTSClient(server);
         } else {
-          continue; // 跳过不支持的服务器类型
-        }
-
-        // 检查服务器是否可用
-        const isAvailable = await Promise.race([
-          client.isAvailable(),
-          new Promise<boolean>((resolve) => {
-            setTimeout(() => resolve(false), 2000); // 健康检查超时2秒
-          })
-        ]);
-
-        if (!isAvailable) {
           continue;
         }
 
-        // 调用TTS客户端生成音频（带超时）
+        const cachedAt = this.healthCheckedAt.get(serverKey);
+        const skipHealth = cachedAt != null && (Date.now() - cachedAt) < HEALTH_CACHE_TTL_MS;
+        let isAvailable: boolean;
+        if (skipHealth) {
+          isAvailable = true;
+        } else {
+          isAvailable = await Promise.race([
+            client.isAvailable(),
+            new Promise<boolean>((resolve) => {
+              setTimeout(() => resolve(false), 2000);
+            })
+          ]);
+          if (isAvailable) {
+            this.healthCheckedAt.set(serverKey, Date.now());
+          }
+        }
+
+        if (!isAvailable) {
+          lastError = `服务器 ${server.connection?.host}:${server.connection?.port} 健康检查未通过`;
+          continue;
+        }
+
         const synthesizePromise = client.synthesize(text, options);
         const timeoutPromise = new Promise<TTSResult | null>((resolve) => {
           setTimeout(() => resolve(null), totalTimeout);
@@ -221,15 +271,15 @@ export class TTSPlaybackService {
         const result = await Promise.race([synthesizePromise, timeoutPromise]);
         if (result) {
           return result;
-        } else {
-          continue;
         }
+        this.healthCheckedAt.delete(serverKey);
+        lastError = '合成超时或返回空';
       } catch (error) {
-        continue;
+        this.healthCheckedAt.delete(serverKey);
+        lastError = error instanceof Error ? error.message : String(error);
       }
     }
 
-    // 所有服务器都失败
     return null;
   }
 

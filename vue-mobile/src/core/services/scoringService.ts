@@ -371,14 +371,11 @@ export function applyTeamFinalRules(
   }
 
   // 4. 计算每个玩家总分 = (转移后的手牌分 + 墩分) - 100，保存到finalScore字段
-  // console.log(`[TEAM_SCORE_DEBUG] applyTeamFinalRules: 开始计算玩家最终分数`);
   finalPlayers.forEach(player => {
-    const adjustedHandScore = handScoreAdjustments.get(player.id) || 0; // 转移后的手牌分
-    const dunScore = calculatePlayerDunScore(player, finalPlayers); // 墩分
-    const totalScore = adjustedHandScore + dunScore; // 总分
-    const finalScore = totalScore - 100; // 最终分数（扣除基础分100）
-
-    // console.log(`[TEAM_SCORE_DEBUG] 玩家${player.id}(${player.name}): 原始手牌分=${player.score || 0}, 转移后手牌分=${adjustedHandScore}, 墩分=${dunScore}, 总分=${totalScore}, 最终分数=${finalScore}`);
+    const adjustedHandScore = handScoreAdjustments.get(player.id) || 0;
+    const dunScore = calculatePlayerDunScore(player, finalPlayers);
+    const totalScore = adjustedHandScore + dunScore;
+    const finalScore = totalScore - 100;
 
     // 保存到finalScore字段（用于显示和排名）
     (player as any).finalScore = finalScore;
@@ -387,16 +384,12 @@ export function applyTeamFinalRules(
   });
 
   // 5. 计算团队总分（所有队员的finalScore相加）
-  // console.log(`[TEAM_SCORE_DEBUG] applyTeamFinalRules: 开始计算团队总分`);
   const updatedTeams = teams.map(team => {
     const teamTotalScore = team.players.reduce((sum, playerId) => {
       const player = finalPlayers[playerId];
       const playerFinalScore = (player as any).finalScore || 0;
-      // console.log(`[TEAM_SCORE_DEBUG] 团队${team.id}(${team.name}): 玩家${playerId}的最终分数=${playerFinalScore}`);
       return sum + playerFinalScore;
     }, 0);
-
-    // console.log(`[TEAM_SCORE_DEBUG] 团队${team.id}(${team.name}): 团队总分=${teamTotalScore} (应用+30/-30规则前)`);
 
     return {
       ...team,
@@ -410,62 +403,37 @@ export function applyTeamFinalRules(
   const firstTeamId = getPlayerTeamId(firstFinishedPlayerId, teamConfig);
   const lastTeamId = getPlayerTeamId(lastFinishedPlayerId, teamConfig);
 
-  // console.log(`[TEAM_SCORE_DEBUG] applyTeamFinalRules: 头游玩家=${firstFinishedPlayerId}, 末游玩家=${lastFinishedPlayerId}, 头游团队=${firstTeamId}, 末游团队=${lastTeamId}`);
-
   if (firstTeamId !== null) {
     const firstTeam = updatedTeams.find(t => t.id === firstTeamId);
     if (firstTeam) {
-      const oldScore = firstTeam.teamScore;
       firstTeam.teamScore += 30;
-      // console.log(`[TEAM_SCORE_DEBUG] 头游团队${firstTeamId}: ${oldScore} + 30 = ${firstTeam.teamScore}`);
     }
   }
-  
-  // 如果头游和末游是同一个团队，那么另一个团队应该-30
-  // 如果头游和末游不是同一个团队，那么末游团队-30
+
   if (lastTeamId !== null) {
     if (lastTeamId === firstTeamId) {
-      // 头游和末游是同一个团队，找到另一个团队并-30
       const otherTeam = updatedTeams.find(t => t.id !== firstTeamId);
       if (otherTeam) {
-        const oldScore = otherTeam.teamScore;
         otherTeam.teamScore -= 30;
-        // console.log(`[TEAM_SCORE_DEBUG] 头游和末游是同一团队，另一个团队${otherTeam.id}: ${oldScore} - 30 = ${otherTeam.teamScore}`);
       }
     } else {
-      // 头游和末游不是同一个团队，末游团队-30
       const lastTeam = updatedTeams.find(t => t.id === lastTeamId);
       if (lastTeam) {
-        const oldScore = lastTeam.teamScore;
         lastTeam.teamScore -= 30;
-        // console.log(`[TEAM_SCORE_DEBUG] 末游团队${lastTeamId}: ${oldScore} - 30 = ${lastTeam.teamScore}`);
       }
     }
   }
 
-  // 7. 计算团队排名（按团队总分排序）
-  // console.log(`[TEAM_SCORE_DEBUG] applyTeamFinalRules: 开始计算团队排名`);
-  const rankings: TeamRanking[] = updatedTeams.map(team => {
-    // console.log(`[TEAM_SCORE_DEBUG] 团队${team.id}(${team.name}): 最终teamScore=${team.teamScore}`);
-    return {
-      team: { ...team },
-      rank: 0,
-      finalScore: team.teamScore
-    };
-  });
+  const rankings: TeamRanking[] = updatedTeams.map(team => ({
+    team: { ...team },
+    rank: 0,
+    finalScore: team.teamScore
+  }));
 
   rankings.sort((a, b) => b.finalScore - a.finalScore);
   rankings.forEach((ranking, index) => {
     ranking.rank = index + 1;
-    // console.log(`[TEAM_SCORE_DEBUG] 最终排名: 第${ranking.rank}名 - 团队${ranking.team.id}(${ranking.team.name}): ${ranking.finalScore}分`);
   });
-
-  // 验证：团队总分应该为0（4个玩家每人-100，总共-400，然后各种加减后应该是0）
-  const totalTeamScore = rankings.reduce((sum, r) => sum + r.finalScore, 0);
-  // console.log(`[TEAM_SCORE_DEBUG] 团队总分验证: ${totalTeamScore} (应该为0)`);
-  if (Math.abs(totalTeamScore) > 0.01) {
-    // console.warn(`[TEAM_SCORE_DEBUG] ⚠️ 团队总分不为0，差了${totalTeamScore}分！`);
-  }
 
   return { teams: updatedTeams, rankings, finalPlayers };
 }

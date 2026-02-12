@@ -39,7 +39,7 @@ export interface ITTSClient {
 /**
  * TTS服务提供商类型
  */
-export type TTSProvider = 'browser' | 'piper' | 'melo';
+export type TTSProvider = 'browser' | 'piper' | 'melo' | 'qwen';
 
 /**
  * TTS服务器配置
@@ -73,6 +73,12 @@ export interface TTSServerConfig {
     };
     melo?: {
       speaker?: string;
+      speed?: number;
+    };
+    qwen?: {
+      speaker?: string;
+      instruct?: string;
+      language?: string;
       speed?: number;
     };
   };

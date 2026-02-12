@@ -60,7 +60,10 @@ const quickPhrases = computed(() => [
   t('chat.quickPhrases.awesome'),
   t('chat.quickPhrases.haha'),
   t('chat.quickPhrases.cheer'),
-  t('chat.quickPhrases.steady')
+  t('chat.quickPhrases.steady'),
+  t('chat.quickPhrases.comeOn'),
+  t('chat.quickPhrases.nicePlay'),
+  t('chat.quickPhrases.unlucky')
 ]);
 
 const sendMessage = () => {
@@ -93,18 +96,18 @@ const isLoadingSuggestion = ref(false);
 
 const autoSuggest = async () => {
   if (isLoadingSuggestion.value) return;
-  
+
   isLoadingSuggestion.value = true;
   try {
     const suggestion = await chatStore.getAISuggestion();
     if (suggestion) {
       inputText.value = suggestion;
-      showToast('✨ AI已为你生成回复');
+      showToast(t('chat.suggestionDone'));
     } else {
-      showToast('AI暂时没有想法');
+      showToast(t('chat.suggestionNone'));
     }
   } catch (err) {
-    showToast('获取建议失败');
+    showToast(t('chat.suggestionFailed'));
   } finally {
     isLoadingSuggestion.value = false;
   }

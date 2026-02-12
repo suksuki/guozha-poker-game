@@ -28,6 +28,7 @@
 
 <script setup lang="ts">
 import ChatInput from '../chat/ChatInput.vue';
+import { useI18n } from '@/i18n/composable';
 
 // Props
 const props = defineProps<{
@@ -46,23 +47,27 @@ const emit = defineEmits<{
   'get-intent-label': [intent: string];
 }>();
 
+const { t } = useI18n();
+
 // 获取玩家名称（通过父组件的回调）
 const getPlayerName = (playerId: number) => {
-  // 直接返回默认值，父组件通过 slot 或其他方式处理
   return `玩家${playerId}`;
 };
 
+// 意图 key 到 i18n chat.intent 的映射（多语言）
+const intentI18nKeys: Record<string, string> = {
+  tactical_signal: 'tactical',
+  strategic_discuss: 'strategic',
+  emotional_express: 'emotional',
+  social_chat: 'social',
+  taunt: 'taunt',
+  encourage: 'encourage',
+  celebrate: 'celebrate'
+};
+
 const getIntentLabel = (intent: string) => {
-  const labels: Record<string, string> = {
-    'tactical_signal': '战术',
-    'strategic_discuss': '策略',
-    'emotional_express': '情感',
-    'social_chat': '聊天',
-    'taunt': '挑衅',
-    'encourage': '鼓励',
-    'celebrate': '庆祝'
-  };
-  return labels[intent] || intent;
+  const i18nKey = intentI18nKeys[intent] ?? intent;
+  return t(`chat.intent.${i18nKey}`) || intent;
 };
 </script>
 

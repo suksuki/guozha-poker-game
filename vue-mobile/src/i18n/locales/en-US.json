@@ -79,6 +79,9 @@
     "aiThinking": "AI is thinking...",
     "noMessages": "No messages",
     "systemMessage": "System Message",
+    "suggestionDone": "✨ AI suggested a reply",
+    "suggestionNone": "No suggestion right now",
+    "suggestionFailed": "Failed to get suggestion",
     "intent": {
       "tactical": "Tactical",
       "strategic": "Strategic",
@@ -96,7 +99,10 @@
       "awesome": "Awesome",
       "haha": "Haha",
       "cheer": "Cheer up",
-      "steady": "Steady"
+      "steady": "Steady",
+      "comeOn": "Play faster",
+      "nicePlay": "Nice play",
+      "unlucky": "Bad luck"
     }
   },
   "settings": {
